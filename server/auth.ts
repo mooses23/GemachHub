@@ -107,13 +107,13 @@ export function setupAuth(app: Express) {
       // Validate login data
       loginSchema.parse(req.body);
       
-      passport.authenticate("local", (err, user, info) => {
+      passport.authenticate("local", (err: any, user: SelectUser | false, info: { message: string } | undefined) => {
         if (err) return next(err);
         if (!user) {
           return res.status(401).json({ message: info?.message || "Invalid credentials" });
         }
         
-        req.login(user, (err) => {
+        req.login(user, (err: any) => {
           if (err) return next(err);
           // Don't send password to client
           const { password, ...userWithoutPassword } = user;
