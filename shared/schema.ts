@@ -10,8 +10,9 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  role: text("role").notNull().default("user"),
+  role: text("role").notNull().default("user"), // "operator", "admin"
   isAdmin: boolean("is_admin").default(false),
+  locationId: integer("location_id"), // Associated gemach location (for operators)
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -22,6 +23,13 @@ export const insertUserSchema = createInsertSchema(users).pick({
   lastName: true,
   role: true,
   isAdmin: true,
+  locationId: true,
+});
+
+// Login schema for validation
+export const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 // Region schema (for grouping locations)

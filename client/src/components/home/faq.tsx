@@ -22,7 +22,11 @@ const faqItems: FAQItem[] = [
   },
   {
     question: "Are the earmuffs sanitized between uses?",
-    answer: "Yes, all gemach locations follow strict sanitization protocols. Each pair of earmuffs is thoroughly cleaned and disinfected between users following manufacturer guidelines. While we take every precaution to ensure cleanliness, you're also welcome to clean them again before use if you prefer."
+    answer: "Yes, all gemach locations follow strict sanitization protocols. After each return, earmuffs are thoroughly cleaned with medical-grade disinfectant wipes, focusing on all surfaces including the ear cups, headband, and adjustment mechanisms. The cushions are carefully sanitized with a gentle antibacterial solution safe for infant skin. Each gemach location maintains a cleaning log to ensure every pair undergoes this full sanitization process before being made available again."
+  },
+  {
+    question: "What if I have concerns about cleanliness?",
+    answer: "In addition to our standard cleaning protocols, you can request to see the cleaning log for your specific pair of earmuffs. You're also welcome to clean them again before use if you prefer. We provide guidance on proper cleaning methods that won't damage the earmuffs while ensuring they're safe for your baby."
   },
   {
     question: "What ages are the earmuffs suitable for?",
@@ -30,7 +34,7 @@ const faqItems: FAQItem[] = [
   },
   {
     question: "How do I start a gemach in my community?",
-    answer: "To start a Baby Banz Earmuffs Gemach in your community, fill out our application form on this website. We'll contact you to discuss the process, which includes purchasing an initial inventory of earmuffs, setting up a system for deposits and returns, and establishing your location in our directory."
+    answer: "To start a Baby Banz Earmuffs Gemach in your community, fill out our application form on this website. We'll contact you to discuss the process, which includes purchasing an initial inventory of earmuffs, setting up a system for deposits and returns, establishing cleaning protocols, and adding your location to our directory."
   }
 ];
 

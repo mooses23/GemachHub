@@ -11,7 +11,7 @@ export function HowItWorks() {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Step 1 */}
           <div className="bg-neutral-100 rounded-xl p-6 text-center hover:shadow-md transition-shadow">
             <div className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
@@ -30,7 +30,7 @@ export function HowItWorks() {
             </div>
             <h3 className="text-xl font-semibold mb-3">Borrow With Deposit</h3>
             <p className="text-neutral-600">
-              Pay a $20 refundable deposit and borrow the Baby Banz Earmuffs for your event.
+              Pay a $20 refundable deposit and borrow the sanitized Baby Banz Earmuffs for your event.
             </p>
           </div>
           
@@ -38,6 +38,17 @@ export function HowItWorks() {
           <div className="bg-neutral-100 rounded-xl p-6 text-center hover:shadow-md transition-shadow">
             <div className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl font-bold">3</span>
+            </div>
+            <h3 className="text-xl font-semibold mb-3">Enjoy With Peace of Mind</h3>
+            <p className="text-neutral-600">
+              Every pair is thoroughly sanitized between uses with our medical-grade cleaning protocol.
+            </p>
+          </div>
+          
+          {/* Step 4 */}
+          <div className="bg-neutral-100 rounded-xl p-6 text-center hover:shadow-md transition-shadow">
+            <div className="w-16 h-16 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl font-bold">4</span>
             </div>
             <h3 className="text-xl font-semibold mb-3">Return & Refund</h3>
             <p className="text-neutral-600">
