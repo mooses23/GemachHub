@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "wouter";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, LogOut, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -10,6 +11,12 @@ interface MobileMenuProps {
 
 export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
   const [regionsOpen, setRegionsOpen] = useState(false);
+  const { user, isOperator, isAdmin, logoutMutation } = useAuth();
+
+  const handleLogout = () => {
+    logoutMutation.mutate();
+    setIsOpen(false);
+  };
 
   if (!isOpen) return null;
 
@@ -100,14 +107,62 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           Contact
         </Link>
         
-        <Button
-          asChild
-          className="text-center"
-        >
-          <Link href="/locations" onClick={() => setIsOpen(false)}>
-            Find a Gemach
-          </Link>
-        </Button>
+        {/* Auth Buttons */}
+        {user ? (
+          <>
+            {isOperator && (
+              <Button
+                variant="outline"
+                asChild
+                className="text-center flex items-center justify-center"
+              >
+                <Link 
+                  href="/operator/dashboard" 
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  Operator Dashboard
+                </Link>
+              </Button>
+            )}
+            
+            {isAdmin && (
+              <Button
+                variant="outline"
+                asChild
+                className="text-center flex items-center justify-center"
+              >
+                <Link 
+                  href="/admin/dashboard" 
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  Admin Dashboard
+                </Link>
+              </Button>
+            )}
+            
+            <Button
+              variant="destructive"
+              onClick={handleLogout}
+              className="text-center flex items-center justify-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Log Out
+            </Button>
+          </>
+        ) : (
+          <Button
+            asChild
+            className="text-center"
+          >
+            <Link href="/auth" onClick={() => setIsOpen(false)}>
+              Log In / Register
+            </Link>
+          </Button>
+        )}
       </nav>
     </div>
   );

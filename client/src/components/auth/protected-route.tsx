@@ -56,5 +56,9 @@ export function ProtectedRoute({
   }
 
   // Render the protected component
-  return <Route path={path} component={Component} />;
+  return (
+    <Route path={path}>
+      {(params) => <Component params={params} />}
+    </Route>
+  );
 }
