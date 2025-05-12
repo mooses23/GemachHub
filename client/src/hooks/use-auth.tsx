@@ -44,13 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   // Query user data
   const {
-    data: user,
+    data: userData,
     error,
     isLoading,
   } = useQuery<Omit<User, "password"> | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
+  
+  // Ensure user is not undefined
+  const user = userData || null;
 
   // Check if user is an operator
   const isOperator = Boolean(user && (user.role === "operator" || user.isAdmin));

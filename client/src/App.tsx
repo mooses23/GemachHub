@@ -8,11 +8,16 @@ import Home from "@/pages/home";
 import Locations from "@/pages/locations";
 import Apply from "@/pages/apply";
 import Contact from "@/pages/contact";
+import AuthPage from "@/pages/auth-page";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminLocations from "@/pages/admin/locations";
 import AdminTransactions from "@/pages/admin/transactions";
 import AdminApplications from "@/pages/admin/applications";
+import OperatorIndex from "@/pages/operator/index";
+import OperatorDashboard from "@/pages/operator/dashboard";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Layout } from "@/components/layout/layout";
+import { AuthProvider } from "@/hooks/use-auth";
 
 function Router() {
   return (
@@ -22,11 +27,19 @@ function Router() {
         <Route path="/locations" component={Locations} />
         <Route path="/apply" component={Apply} />
         <Route path="/contact" component={Contact} />
-        <Route path="/admin" component={AdminDashboard} />
-        <Route path="/admin/dashboard" component={AdminDashboard} />
-        <Route path="/admin/locations" component={AdminLocations} />
-        <Route path="/admin/transactions" component={AdminTransactions} />
-        <Route path="/admin/applications" component={AdminApplications} />
+        <Route path="/auth" component={AuthPage} />
+        
+        {/* Protected Admin Routes */}
+        <ProtectedRoute path="/admin" component={AdminDashboard} requiredRole="admin" />
+        <ProtectedRoute path="/admin/dashboard" component={AdminDashboard} requiredRole="admin" />
+        <ProtectedRoute path="/admin/locations" component={AdminLocations} requiredRole="admin" />
+        <ProtectedRoute path="/admin/transactions" component={AdminTransactions} requiredRole="admin" />
+        <ProtectedRoute path="/admin/applications" component={AdminApplications} requiredRole="admin" />
+        
+        {/* Protected Operator Routes */}
+        <ProtectedRoute path="/operator" component={OperatorIndex} requiredRole="operator" />
+        <ProtectedRoute path="/operator/dashboard" component={OperatorDashboard} requiredRole="operator" />
+        
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -36,10 +49,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
