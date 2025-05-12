@@ -1,0 +1,107 @@
+import { apiRequest } from "./queryClient";
+import { 
+  InsertGemachApplication, 
+  InsertContact, 
+  InsertTransaction,
+  InsertLocation
+} from "@shared/schema";
+
+// Locations API
+export const getLocations = async () => {
+  const response = await fetch("/api/locations");
+  if (!response.ok) {
+    throw new Error("Failed to fetch locations");
+  }
+  return response.json();
+};
+
+export const getLocationsByRegion = async (regionSlug: string) => {
+  const response = await fetch(`/api/regions/${regionSlug}/locations`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch locations for region: ${regionSlug}`);
+  }
+  return response.json();
+};
+
+export const getLocation = async (id: number) => {
+  const response = await fetch(`/api/locations/${id}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch location with id: ${id}`);
+  }
+  return response.json();
+};
+
+export const createLocation = async (data: InsertLocation) => {
+  return apiRequest("POST", "/api/locations", data);
+};
+
+export const updateLocation = async (id: number, data: Partial<InsertLocation>) => {
+  return apiRequest("PATCH", `/api/locations/${id}`, data);
+};
+
+// Regions API
+export const getRegions = async () => {
+  const response = await fetch("/api/regions");
+  if (!response.ok) {
+    throw new Error("Failed to fetch regions");
+  }
+  return response.json();
+};
+
+// Gemach Applications API
+export const submitGemachApplication = async (data: InsertGemachApplication) => {
+  return apiRequest("POST", "/api/applications", data);
+};
+
+export const getGemachApplications = async () => {
+  const response = await fetch("/api/applications");
+  if (!response.ok) {
+    throw new Error("Failed to fetch gemach applications");
+  }
+  return response.json();
+};
+
+export const updateGemachApplicationStatus = async (id: number, status: string) => {
+  return apiRequest("PATCH", `/api/applications/${id}`, { status });
+};
+
+// Transactions API
+export const getTransactions = async () => {
+  const response = await fetch("/api/transactions");
+  if (!response.ok) {
+    throw new Error("Failed to fetch transactions");
+  }
+  return response.json();
+};
+
+export const createTransaction = async (data: InsertTransaction) => {
+  return apiRequest("POST", "/api/transactions", data);
+};
+
+export const updateTransaction = async (id: number, data: Partial<InsertTransaction>) => {
+  return apiRequest("PATCH", `/api/transactions/${id}`, data);
+};
+
+export const markTransactionReturned = async (id: number) => {
+  return apiRequest("PATCH", `/api/transactions/${id}/return`, {
+    isReturned: true,
+    actualReturnDate: new Date(),
+  });
+};
+
+// Contact API
+export const submitContactForm = async (data: InsertContact) => {
+  return apiRequest("POST", "/api/contact", data);
+};
+
+export const getContacts = async () => {
+  const response = await fetch("/api/contact");
+  if (!response.ok) {
+    throw new Error("Failed to fetch contacts");
+  }
+  return response.json();
+};
+
+export const markContactRead = async (id: number) => {
+  return apiRequest("PATCH", `/api/contact/${id}/read`, { isRead: true });
+};
