@@ -8,11 +8,14 @@ import {
   insertContactSchema,
   insertTransactionSchema
 } from "@shared/schema";
-import { setupAuth, requireRole, requireOperatorForLocation } from "./auth";
+import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
+  
+  // Create test users for demonstration
+  await createTestUsers();
   // REGIONS ROUTES
   app.get("/api/regions", async (req, res) => {
     try {

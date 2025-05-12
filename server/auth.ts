@@ -29,6 +29,48 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
+// Create a function to manually create test users
+export async function createTestUsers() {
+  try {
+    const { storage } = await import('./storage');
+    
+    // Check if admin user already exists
+    const adminUser = await storage.getUserByUsername('admin');
+    if (!adminUser) {
+      // Create admin user
+      await storage.createUser({
+        username: "admin",
+        password: await hashPassword("admin123"),
+        email: "admin@earmuffsgemach.com",
+        firstName: "Admin",
+        lastName: "User",
+        role: "admin",
+        isAdmin: true,
+        locationId: null
+      });
+      console.log('Created admin user: username=admin, password=admin123');
+    }
+    
+    // Create operator user for Brooklyn gemach
+    const brooklynUser = await storage.getUserByUsername('brooklyn');
+    if (!brooklynUser) {
+      await storage.createUser({
+        username: "brooklyn",
+        password: await hashPassword("gemach123"),
+        email: "brooklyn@earmuffsgemach.com",
+        firstName: "Sarah",
+        lastName: "Goldstein",
+        role: "operator",
+        isAdmin: false,
+        locationId: 1
+      });
+      console.log('Created operator user: username=brooklyn, password=gemach123');
+    }
+  } catch (error) {
+    console.error('Error creating test users:', error);
+  }
+}
+
 export function setupAuth(app: Express) {
   const MemStore = MemoryStore(session);
   

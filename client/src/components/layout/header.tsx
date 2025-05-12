@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Headphones } from "lucide-react";
+import { Headphones, ChevronDown, User, LogOut, LayoutDashboard } from "lucide-react";
 import { MobileMenu } from "./mobile-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,17 +8,23 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [location] = useLocation();
+  const { user, isLoading, logoutMutation, isOperator, isAdmin } = useAuth();
 
   const isActiveLink = (path: string) => {
     if (path === "/" && location === "/") return true;
     if (path !== "/" && location.startsWith(path)) return true;
     return false;
+  };
+  
+  const handleLogout = () => {
+    logoutMutation.mutate();
   };
 
   return (
@@ -113,10 +119,46 @@ export function Header() {
             </Link>
           </nav>
 
-          {/* CTA Button */}
-          <Button asChild className="hidden md:inline-block">
-            <Link href="/locations">Find a Gemach</Link>
-          </Button>
+          {/* Auth Buttons */}
+          {isLoading ? (
+            <div className="w-8 h-8 hidden md:flex" />
+          ) : user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="hidden md:flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  {user.firstName}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isOperator && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/operator/dashboard" className="flex items-center gap-2 w-full">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Operator Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/dashboard" className="flex items-center gap-2 w-full">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Admin Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
+                  <LogOut className="h-4 w-4" />
+                  Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button asChild className="hidden md:inline-block">
+              <Link href="/auth">Log In / Register</Link>
+            </Button>
+          )}
 
           {/* Mobile Menu Button */}
           <button

@@ -265,13 +265,21 @@ export class MemStorage implements IStorage {
 
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
     const id = this.transactionCounter++;
+    
+    // Convert expectedReturnDate to string if it's a Date
+    const expectedReturnDate = insertTransaction.expectedReturnDate instanceof Date 
+      ? insertTransaction.expectedReturnDate.toISOString() 
+      : insertTransaction.expectedReturnDate;
+      
     const transaction: Transaction = { 
       ...insertTransaction, 
       id, 
       isReturned: false,
       borrowDate: new Date().toISOString(),
-      actualReturnDate: null
+      actualReturnDate: null,
+      expectedReturnDate
     };
+    
     this.transactions.set(id, transaction);
     return transaction;
   }
