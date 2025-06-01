@@ -16,12 +16,19 @@ export function WorldMap({ locations, regionsMap }: WorldMapProps) {
     "Detroit": { x: 178, y: 155 },
     "University Heights": { x: 185, y: 162 },
     "Philadelphia": { x: 210, y: 172 },
+    "Brooklyn": { x: 215, y: 168 },
+    "Monsey": { x: 212, y: 165 },
+    "Lakewood": { x: 213, y: 175 },
+    "Teaneck": { x: 214, y: 170 },
     "Toronto": { x: 185, y: 145 },
     "Montreal": { x: 195, y: 140 },
     "London": { x: 480, y: 140 },
     "Manchester": { x: 475, y: 135 },
     "Antwerp": { x: 490, y: 145 },
     "Melbourne": { x: 680, y: 320 },
+    "Jerusalem": { x: 520, y: 200 },
+    "Bnei Brak": { x: 522, y: 202 },
+    "Beit Shemesh": { x: 518, y: 203 },
   };
 
   const getLocationCoordinates = (location: Location) => {
