@@ -92,6 +92,14 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         </Link>
         
         <Link
+          href="/borrow"
+          onClick={() => setIsOpen(false)}
+          className="font-medium text-neutral-700 hover:text-primary transition-colors"
+        >
+          Borrow Earmuffs
+        </Link>
+        
+        <Link
           href="/apply"
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors"
