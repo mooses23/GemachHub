@@ -96,12 +96,12 @@ export class MemStorage implements IStorage {
 
     defaultRegions.forEach(region => this.createRegion(region));
 
-    // Add all locations from earmuffsgemach.com
+    // Add all locations from earmuffsgemach.com with simple numbering
     const allLocations: InsertLocation[] = [
-      // United States
+      // United States - California
       {
         name: "Los Angeles - Pico",
-        locationCode: "LAX-PICO",
+        locationCode: "#1",
         contactPerson: "Location Coordinator",
         address: "Pico Area, Los Angeles, CA",
         zipCode: "90035",
@@ -113,11 +113,125 @@ export class MemStorage implements IStorage {
       },
       {
         name: "Los Angeles - La Brea", 
-        locationCode: "LAX-BREA",
+        locationCode: "#2",
         contactPerson: "Location Coordinator",
         address: "La Brea Area, Los Angeles, CA",
         zipCode: "90036",
         phone: "323-428-5925",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 8
+      },
+      {
+        name: "Los Angeles - Valley Village", 
+        locationCode: "#3",
+        contactPerson: "Location Coordinator",
+        address: "Valley Village, Los Angeles, CA",
+        zipCode: "91607",
+        phone: "818-442-4369",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 6
+      },
+      // United States - Florida
+      {
+        name: "Miami Beach", 
+        locationCode: "#4",
+        contactPerson: "Location Coordinator",
+        address: "Miami Beach, FL",
+        zipCode: "33139",
+        phone: "786-436-0060",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 12
+      },
+      // United States - Illinois
+      {
+        name: "Chicago", 
+        locationCode: "#5",
+        contactPerson: "Location Coordinator",
+        address: "Chicago, IL",
+        zipCode: "60647",
+        phone: "773-961-5627",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 9
+      },
+      // United States - Maryland
+      {
+        name: "Baltimore - Shellydale Drive", 
+        locationCode: "#6",
+        contactPerson: "Location Coordinator",
+        address: "Shellydale Drive, Baltimore, MD",
+        zipCode: "21215",
+        phone: "847-804-6654",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 11
+      },
+      {
+        name: "Baltimore - Western Run Drive", 
+        locationCode: "#7",
+        contactPerson: "Location Coordinator",
+        address: "Western Run Drive, Baltimore, MD",
+        zipCode: "21208",
+        phone: "516-439-8099",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 8
+      },
+      // United States - Michigan
+      {
+        name: "Detroit", 
+        locationCode: "#8",
+        contactPerson: "Location Coordinator",
+        address: "Detroit, MI",
+        zipCode: "48202",
+        phone: "248-910-4322",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 7
+      },
+      // United States - Ohio
+      {
+        name: "University Heights", 
+        locationCode: "#9",
+        contactPerson: "Location Coordinator",
+        address: "University Heights, OH",
+        zipCode: "44118",
+        phone: "216-206-7653",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 10
+      },
+      // United States - Pennsylvania
+      {
+        name: "Philadelphia", 
+        locationCode: "#10",
+        contactPerson: "Location Coordinator",
+        address: "Philadelphia, PA",
+        zipCode: "19131",
+        phone: "215-913-3467",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 9
+      },
+      {
+        name: "Bala Cynwyd Philadelphia", 
+        locationCode: "#11",
+        contactPerson: "Location Coordinator",
+        address: "Bala Cynwyd Area, Philadelphia, PA",
+        zipCode: "19004",
+        phone: "973-518-1416",
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
