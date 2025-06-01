@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import Locations from "@/pages/locations";
 import Apply from "@/pages/apply";
 import Contact from "@/pages/contact";
+import Borrow from "@/pages/borrow";
 import AuthPage from "@/pages/auth-page";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminLocations from "@/pages/admin/locations";
