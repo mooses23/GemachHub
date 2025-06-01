@@ -66,11 +66,11 @@ export function OperatorTransactionForm() {
       const transactionData = {
         locationId: user.locationId,
         borrowerName: data.borrowerName,
-        borrowerEmail: data.borrowerEmail || null,
+        borrowerEmail: data.borrowerEmail || undefined,
         borrowerPhone: data.borrowerPhone,
         depositAmount: data.depositAmount,
-        expectedReturnDate: new Date(data.expectedReturnDate),
-        notes: data.notes || null,
+        expectedReturnDate: data.expectedReturnDate ? new Date(data.expectedReturnDate).toISOString() : undefined,
+        notes: data.notes || undefined,
       };
       
       const res = await apiRequest("POST", "/api/transactions", transactionData);
