@@ -50,6 +50,7 @@ export const insertRegionSchema = createInsertSchema(regions).pick({
 export const locations = pgTable("locations", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  locationCode: text("location_code").notNull().unique(),
   contactPerson: text("contact_person").notNull(),
   address: text("address").notNull(),
   phone: text("phone").notNull(),
@@ -61,6 +62,7 @@ export const locations = pgTable("locations", {
 
 export const insertLocationSchema = createInsertSchema(locations).pick({
   name: true,
+  locationCode: true,
   contactPerson: true,
   address: true,
   phone: true,

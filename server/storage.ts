@@ -84,52 +84,247 @@ export class MemStorage implements IStorage {
   }
 
   private initializeDefaultData() {
-    // Add default regions
+    // Add all regions from website
     const defaultRegions: InsertRegion[] = [
       { name: "United States", slug: "united-states", displayOrder: 1 },
       { name: "Canada", slug: "canada", displayOrder: 2 },
-      { name: "Australia", slug: "australia", displayOrder: 3 },
-      { name: "Europe", slug: "europe", displayOrder: 4 },
-      { name: "Israel", slug: "israel", displayOrder: 5 }
+      { name: "England", slug: "england", displayOrder: 3 },
+      { name: "Belgium", slug: "belgium", displayOrder: 4 },
+      { name: "Australia", slug: "australia", displayOrder: 5 }
     ];
 
     defaultRegions.forEach(region => this.createRegion(region));
 
-    // Add some sample locations
-    const sampleLocations: InsertLocation[] = [
+    // Add all locations from earmuffsgemach.com
+    const allLocations: InsertLocation[] = [
+      // United States
       {
-        name: "Brooklyn Earmuffs Gemach",
-        contactPerson: "Sarah Goldstein",
-        address: "1234 Ocean Avenue, Brooklyn, NY",
-        phone: "(718) 555-0123",
-        email: "brooklyn@earmuffsgemach.com",
-        regionId: 1, // United States
+        name: "Los Angeles - Pico",
+        locationCode: "LAX-PICO",
+        contactPerson: "Location Coordinator",
+        address: "Pico Area, Los Angeles, CA",
+        phone: "310-465-9885",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
         isActive: true,
         inventoryCount: 10
       },
       {
-        name: "Los Angeles Earmuffs Gemach",
-        contactPerson: "Rachel Cohen",
-        address: "5678 Wilshire Blvd, Los Angeles, CA",
-        phone: "(323) 555-0187",
-        email: "la@earmuffsgemach.com",
-        regionId: 1, // United States
+        name: "Los Angeles - La Brea", 
+        locationCode: "LAX-BREA",
+        contactPerson: "Location Coordinator",
+        address: "La Brea Area, Los Angeles, CA",
+        phone: "323-428-5925",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
         isActive: true,
         inventoryCount: 8
       },
       {
-        name: "Toronto Earmuffs Gemach",
-        contactPerson: "Esther Greenbaum",
-        address: "456 Bathurst Street, Toronto, ON",
-        phone: "(416) 555-0123",
-        email: "toronto@earmuffsgemach.com",
-        regionId: 2, // Canada
+        name: "Los Angeles - Valley Village",
+        locationCode: "LAX-VALLEY",
+        contactPerson: "Location Coordinator",
+        address: "Valley Village Area, Los Angeles, CA",
+        phone: "818-442-4369", 
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 12
+      },
+      {
+        name: "Miami Beach",
+        locationCode: "MIA-BEACH",
+        contactPerson: "Location Coordinator",
+        address: "Miami Beach, FL",
+        phone: "786-436-0060",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 15
+      },
+      {
+        name: "Chicago",
+        locationCode: "CHI-MAIN",
+        contactPerson: "Location Coordinator", 
+        address: "Chicago, IL",
+        phone: "773-961-5627",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 8
+      },
+      {
+        name: "Baltimore - Shellydale Drive",
+        locationCode: "BAL-SHELLY",
+        contactPerson: "Location Coordinator",
+        address: "Shellydale Drive Area, Baltimore, MD",
+        phone: "847-804-6654",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 10
+      },
+      {
+        name: "Baltimore - Western Run Drive", 
+        locationCode: "BAL-WESTERN",
+        contactPerson: "Location Coordinator",
+        address: "Western Run Drive Area, Baltimore, MD",
+        phone: "516-439-8099",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
         isActive: true,
         inventoryCount: 6
+      },
+      {
+        name: "Detroit",
+        locationCode: "DET-MAIN",
+        contactPerson: "Location Coordinator",
+        address: "Detroit, MI", 
+        phone: "248-910-4322",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 7
+      },
+      {
+        name: "University Heights",
+        locationCode: "OH-UNIV",
+        contactPerson: "Location Coordinator",
+        address: "University Heights, OH",
+        phone: "216-206-7653",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 9
+      },
+      {
+        name: "Philadelphia",
+        locationCode: "PHI-MAIN",
+        contactPerson: "Location Coordinator",
+        address: "Philadelphia, PA",
+        phone: "215-913-3467", 
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 11
+      },
+      {
+        name: "Bala Cynwyd Philadelphia",
+        locationCode: "PHI-BALA",
+        contactPerson: "Location Coordinator",
+        address: "Bala Cynwyd Area, Philadelphia, PA",
+        phone: "973-518-1416",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 8
+      },
+      // Canada
+      {
+        name: "Toronto - South",
+        locationCode: "TOR-SOUTH",
+        contactPerson: "Location Coordinator",
+        address: "South Toronto Area, ON",
+        phone: "647-871-8472",
+        email: "earmuffsgemach@gmail.com", 
+        regionId: 2,
+        isActive: true,
+        inventoryCount: 12
+      },
+      {
+        name: "Toronto - Bathurst & Lawrence",
+        locationCode: "TOR-BATHLAW",
+        contactPerson: "Location Coordinator",
+        address: "Bathurst & Lawrence Area, Toronto, ON",
+        phone: "647-204-4601",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 2,
+        isActive: true,
+        inventoryCount: 9
+      },
+      {
+        name: "Toronto - Bathurst & Clark",
+        locationCode: "TOR-BATHCLK",
+        contactPerson: "Location Coordinator",
+        address: "Bathurst & Clark Area, Toronto, ON",
+        phone: "647-786-7584",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 2,
+        isActive: true,
+        inventoryCount: 7
+      },
+      {
+        name: "Montreal",
+        locationCode: "MTL-MAIN",
+        contactPerson: "Location Coordinator",
+        address: "Montreal, QC",
+        phone: "514-651-5774",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 2,
+        isActive: true,
+        inventoryCount: 10
+      },
+      // England
+      {
+        name: "London - Edgeware",
+        locationCode: "LON-EDGE",
+        contactPerson: "Location Coordinator",
+        address: "Edgeware Area, London",
+        phone: "077-08-25-74-20",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 3,
+        isActive: true,
+        inventoryCount: 8
+      },
+      {
+        name: "London - NW11",
+        locationCode: "LON-NW11",
+        contactPerson: "Location Coordinator",
+        address: "NW11 Area, London",
+        phone: "079-30-52-09-99",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 3,
+        isActive: true,
+        inventoryCount: 6
+      },
+      {
+        name: "Manchester",
+        locationCode: "MAN-MAIN",
+        contactPerson: "Location Coordinator",
+        address: "Manchester",
+        phone: "078-46-36-06-51",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 3,
+        isActive: true,
+        inventoryCount: 9
+      },
+      // Belgium
+      {
+        name: "Antwerp",
+        locationCode: "ANT-MAIN",
+        contactPerson: "Location Coordinator",
+        address: "Antwerp, Belgium",
+        phone: "03 218 51 72",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 4,
+        isActive: true,
+        inventoryCount: 7
+      },
+      // Australia
+      {
+        name: "Melbourne",
+        locationCode: "MEL-MAIN",
+        contactPerson: "Location Coordinator",
+        address: "Melbourne, Australia",
+        phone: "438 501 1195",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 5,
+        isActive: true,
+        inventoryCount: 11
       }
     ];
 
-    sampleLocations.forEach(location => this.createLocation(location));
+    allLocations.forEach(location => this.createLocation(location));
   }
 
   // User methods
