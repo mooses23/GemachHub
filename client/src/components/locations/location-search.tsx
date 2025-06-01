@@ -23,7 +23,7 @@ export function LocationSearch() {
   });
 
   const regionsMap = useMemo(() => {
-    return regions.reduce((acc, region) => {
+    return regions.reduce((acc: Record<number, Region>, region: Region) => {
       acc[region.id] = region;
       return acc;
     }, {} as Record<number, Region>);
@@ -33,20 +33,21 @@ export function LocationSearch() {
     if (!searchQuery.trim()) return locations;
     
     const query = searchQuery.toLowerCase();
-    return locations.filter((location) => {
+    return locations.filter((location: Location) => {
       const region = regionsMap[location.regionId];
       return (
         location.name.toLowerCase().includes(query) ||
         location.address.toLowerCase().includes(query) ||
         location.locationCode.toLowerCase().includes(query) ||
         location.phone.includes(query) ||
+        (location.zipCode && location.zipCode.toLowerCase().includes(query)) ||
         region?.name.toLowerCase().includes(query)
       );
     });
   }, [locations, searchQuery, regionsMap]);
 
   const groupedLocations = useMemo(() => {
-    return filteredLocations.reduce((acc, location) => {
+    return filteredLocations.reduce((acc: Record<string, Location[]>, location: Location) => {
       const region = regionsMap[location.regionId];
       if (!region) return acc;
       
@@ -120,11 +121,11 @@ export function LocationSearch() {
         {Object.entries(groupedLocations).map(([regionName, regionLocations]) => (
           <div key={regionName}>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              {regionName} ({regionLocations.length})
+              {regionName} ({(regionLocations as Location[]).length})
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {regionLocations.map((location, index) => (
+              {(regionLocations as Location[]).map((location: Location, index: number) => (
                 <LocationCard 
                   key={location.id} 
                   location={location} 
