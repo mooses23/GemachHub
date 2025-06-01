@@ -1,35 +1,26 @@
-import { Languages } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useLanguage } from "@/hooks/use-language";
 
 export function LanguageToggle() {
-  const { language, setLanguage } = useLanguage();
+  const [language, setLanguage] = useState("en");
+
+  const toggleLanguage = () => {
+    const newLang = language === "en" ? "he" : "en";
+    setLanguage(newLang);
+    
+    // Apply RTL/LTR to document
+    document.documentElement.dir = newLang === "he" ? "rtl" : "ltr";
+    document.documentElement.lang = newLang;
+  };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="px-3">
-          {language === "en" ? "🇺🇸 EN" : "🇮🇱 עב"}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setLanguage("en")}>
-          <span className="flex items-center gap-2">
-            🇺🇸 English
-          </span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setLanguage("he")}>
-          <span className="flex items-center gap-2">
-            🇮🇱 עברית
-          </span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button 
+      variant="outline" 
+      size="sm" 
+      onClick={toggleLanguage}
+      className="px-3"
+    >
+      {language === "en" ? "🇺🇸 EN" : "🇮🇱 עב"}
+    </Button>
   );
 }
