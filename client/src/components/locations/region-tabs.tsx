@@ -23,18 +23,40 @@ export function RegionTabs({ regions, activeRegion, setActiveRegion }: RegionTab
   // Sort by displayOrder
   const sortedRegions = [...tabsToShow].sort((a, b) => a.displayOrder - b.displayOrder);
 
+  const handleRegionClick = (regionSlug: string) => {
+    setActiveRegion(regionSlug);
+    
+    // Smooth scroll to top of results
+    setTimeout(() => {
+      const resultsSection = document.getElementById('locations-results');
+      if (resultsSection) {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
   return (
-    <div className="mb-8 flex flex-wrap justify-center gap-2">
-      {sortedRegions.map((region) => (
-        <Button
-          key={region.slug}
-          variant={activeRegion === region.slug ? "default" : "secondary"}
-          onClick={() => setActiveRegion(region.slug)}
-          className={activeRegion === region.slug ? "" : "bg-neutral-200 text-neutral-700 hover:bg-neutral-300"}
-        >
-          {region.name}
-        </Button>
-      ))}
+    <div className="mb-8">
+      <div className="flex flex-wrap justify-center gap-2 mb-4">
+        {sortedRegions.map((region) => (
+          <Button
+            key={region.slug}
+            variant={activeRegion === region.slug ? "default" : "secondary"}
+            onClick={() => handleRegionClick(region.slug)}
+            className={`transition-all ${activeRegion === region.slug 
+              ? "bg-blue-600 text-white shadow-lg" 
+              : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-200"
+            }`}
+          >
+            {region.name}
+          </Button>
+        ))}
+      </div>
+      
+      {/* Quick stats */}
+      <div className="text-center text-sm text-gray-500">
+        Click region names above to filter locations
+      </div>
     </div>
   );
 }
