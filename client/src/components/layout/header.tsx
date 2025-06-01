@@ -97,6 +97,17 @@ export function Header() {
             </Link>
             
             <Link
+              href="/borrow"
+              className={`font-medium ${
+                isActiveLink("/borrow")
+                  ? "text-primary"
+                  : "text-neutral-700 hover:text-primary"
+              } transition-colors`}
+            >
+              Borrow Earmuffs
+            </Link>
+            
+            <Link
               href="/apply"
               className={`font-medium ${
                 isActiveLink("/apply")

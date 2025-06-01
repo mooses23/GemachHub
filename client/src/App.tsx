@@ -28,6 +28,7 @@ function Router() {
         <Route path="/locations" component={Locations} />
         <Route path="/apply" component={Apply} />
         <Route path="/contact" component={Contact} />
+        <Route path="/borrow" component={Borrow} />
         <Route path="/auth" component={AuthPage} />
         
         {/* Protected Admin Routes */}
