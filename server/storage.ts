@@ -90,7 +90,8 @@ export class MemStorage implements IStorage {
       { name: "Canada", slug: "canada", displayOrder: 2 },
       { name: "England", slug: "england", displayOrder: 3 },
       { name: "Belgium", slug: "belgium", displayOrder: 4 },
-      { name: "Australia", slug: "australia", displayOrder: 5 }
+      { name: "Australia", slug: "australia", displayOrder: 5 },
+      { name: "Israel", slug: "israel", displayOrder: 6 }
     ];
 
     defaultRegions.forEach(region => this.createRegion(region));
@@ -230,6 +231,54 @@ export class MemStorage implements IStorage {
         isActive: true,
         inventoryCount: 8
       },
+      {
+        name: "Brooklyn",
+        locationCode: "NYC-BKN",
+        contactPerson: "Location Coordinator",
+        address: "Brooklyn, NY",
+        zipCode: "11230",
+        phone: "718-555-0123",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 15
+      },
+      {
+        name: "Monsey",
+        locationCode: "NY-MONSEY",
+        contactPerson: "Location Coordinator",
+        address: "Monsey, NY",
+        zipCode: "10952",
+        phone: "845-555-0234",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 12
+      },
+      {
+        name: "Lakewood",
+        locationCode: "NJ-LKW",
+        contactPerson: "Location Coordinator",
+        address: "Lakewood, NJ",
+        zipCode: "08701",
+        phone: "732-555-0345",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 18
+      },
+      {
+        name: "Teaneck",
+        locationCode: "NJ-TNK",
+        contactPerson: "Location Coordinator",
+        address: "Teaneck, NJ",
+        zipCode: "07666",
+        phone: "201-555-0456",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 1,
+        isActive: true,
+        inventoryCount: 10
+      },
       // Canada
       {
         name: "Toronto - South",
@@ -341,6 +390,43 @@ export class MemStorage implements IStorage {
         regionId: 5,
         isActive: true,
         inventoryCount: 11
+      },
+      // Israel
+      {
+        name: "Jerusalem",
+        locationCode: "ISR-JER",
+        contactPerson: "Location Coordinator",
+        address: "Jerusalem, Israel",
+        zipCode: "91000",
+        phone: "02-555-0123",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 6,
+        isActive: true,
+        inventoryCount: 14
+      },
+      {
+        name: "Bnei Brak",
+        locationCode: "ISR-BB",
+        contactPerson: "Location Coordinator",
+        address: "Bnei Brak, Israel",
+        zipCode: "51100",
+        phone: "03-555-0234",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 6,
+        isActive: true,
+        inventoryCount: 12
+      },
+      {
+        name: "Beit Shemesh",
+        locationCode: "ISR-BS",
+        contactPerson: "Location Coordinator",
+        address: "Beit Shemesh, Israel",
+        zipCode: "99000",
+        phone: "02-555-0345",
+        email: "earmuffsgemach@gmail.com",
+        regionId: 6,
+        isActive: true,
+        inventoryCount: 9
       }
     ];
 
