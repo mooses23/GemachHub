@@ -26,6 +26,17 @@ const translations = {
     "home.hero.description": "Access noise-reducing earmuffs for babies and children across our global network of locations. $20 refundable deposit ensures safe returns.",
     "home.hero.findLocation": "Find a Location",
     "home.hero.learnMore": "Learn More",
+    "home.howItWorks.title": "How It Works",
+    "home.howItWorks.step1.title": "Find Location",
+    "home.howItWorks.step1.description": "Search our worldwide network to find a convenient location near you",
+    "home.howItWorks.step2.title": "Contact & Reserve",
+    "home.howItWorks.step2.description": "Call or text the location coordinator to check availability and reserve your earmuffs",
+    "home.howItWorks.step3.title": "Pay Deposit",
+    "home.howItWorks.step3.description": "Pay $20 refundable deposit when you pick up the earmuffs",
+    "home.howItWorks.step4.title": "Return & Refund",
+    "home.howItWorks.step4.description": "Return the earmuffs to get your full $20 deposit back",
+    "home.faq.title": "Frequently Asked Questions",
+    "home.testimonials.title": "What Parents Say",
     
     // Locations
     "locations.title": "Find a Location Near You",
@@ -38,20 +49,40 @@ const translations = {
     "locations.inventory": "Available: {count} pairs",
     "locations.getDirections": "Get Directions",
     
-    // Borrow page
-    "borrow.title": "Borrow Earmuffs",
-    "borrow.description": "Select a location and reserve your earmuffs",
-    "borrow.selectLocation": "Select Location",
-    "borrow.deposit": "$20 Refundable Deposit",
-    "borrow.reserve": "Reserve Now",
-    
     // Apply page
     "apply.title": "Become a Location Host",
     "apply.description": "Join our network and help families in your community",
+    "apply.form.title": "Application Form",
+    "apply.form.firstName": "First Name",
+    "apply.form.lastName": "Last Name",
+    "apply.form.email": "Email Address",
+    "apply.form.phone": "Phone Number",
+    "apply.form.address": "Address",
+    "apply.form.city": "City",
+    "apply.form.state": "State/Province",
+    "apply.form.zipCode": "Zip/Postal Code",
+    "apply.form.experience": "Tell us about your experience with community service",
+    "apply.form.motivation": "Why do you want to host a gemach location?",
+    "apply.form.availability": "What are your available hours?",
     
     // Contact page
     "contact.title": "Contact Us",
     "contact.description": "Get in touch with any questions or concerns",
+    "contact.form.name": "Your Name",
+    "contact.form.email": "Email Address",
+    "contact.form.subject": "Subject",
+    "contact.form.message": "Message",
+    "contact.form.send": "Send Message",
+    
+    // Borrow page
+    "borrow.steps.title": "How to Borrow",
+    "borrow.steps.step1": "Choose a location near you",
+    "borrow.steps.step2": "Contact the location coordinator",
+    "borrow.steps.step3": "Pay $20 refundable deposit",
+    "borrow.steps.step4": "Enjoy quiet time with your little one",
+    "borrow.selectLocation": "Select Location",
+    "borrow.deposit": "$20 Refundable Deposit",
+    "borrow.reserve": "Reserve Now",
     
     // Footer
     "footer.description": "Protecting children's hearing worldwide through our community-driven earmuff lending network.",
@@ -93,6 +124,17 @@ const translations = {
     "home.hero.description": "גישה לאוזניות מפחיתות רעש לתינוקות וילדים ברשת הגלובלית שלנו. פיקדון של $20 הניתן להחזר מבטיח החזרה בטוחה.",
     "home.hero.findLocation": "מצא מיקום",
     "home.hero.learnMore": "קרא עוד",
+    "home.howItWorks.title": "איך זה עובד",
+    "home.howItWorks.step1.title": "מצא מיקום",
+    "home.howItWorks.step1.description": "חפש ברשת העולמית שלנו כדי למצוא מיקום נוח קרוב אליך",
+    "home.howItWorks.step2.title": "צור קשר והזמן",
+    "home.howItWorks.step2.description": "התקשר או שלח הודעה לרכז המיקום כדי לבדוק זמינות ולהזמין את האוזניות שלך",
+    "home.howItWorks.step3.title": "שלם פיקדון",
+    "home.howItWorks.step3.description": "שלם פיקדון של $20 הניתן להחזר כשאתה אוסף את האוזניות",
+    "home.howItWorks.step4.title": "החזר וקבל החזר",
+    "home.howItWorks.step4.description": "החזר את האוזניות כדי לקבל את מלוא הפיקדון של $20 בחזרה",
+    "home.faq.title": "שאלות נפוצות",
+    "home.testimonials.title": "מה הורים אומרים",
     
     // Locations
     "locations.title": "מצא מיקום קרוב אליך",
@@ -104,6 +146,41 @@ const translations = {
     "locations.contact": "צור קשר",
     "locations.inventory": "זמין: {count} זוגות",
     "locations.getDirections": "קבל הוראות הגעה",
+    
+    // Apply page
+    "apply.title": "הפוך למארח מיקום",
+    "apply.description": "הצטרף לרשת שלנו ועזור למשפחות בקהילה שלך",
+    "apply.form.title": "טופס בקשה",
+    "apply.form.firstName": "שם פרטי",
+    "apply.form.lastName": "שם משפחה",
+    "apply.form.email": "כתובת אימייל",
+    "apply.form.phone": "מספר טלפון",
+    "apply.form.address": "כתובת",
+    "apply.form.city": "עיר",
+    "apply.form.state": "מדינה/מחוז",
+    "apply.form.zipCode": "מיקוד",
+    "apply.form.experience": "ספר לנו על הניסיון שלך בשירות קהילתי",
+    "apply.form.motivation": "למה אתה רוצה לארח מיקום גמ\"ח?",
+    "apply.form.availability": "מה השעות הזמינות שלך?",
+    
+    // Contact page
+    "contact.title": "צור קשר",
+    "contact.description": "פנה אלינו עם כל שאלה או דאגה",
+    "contact.form.name": "השם שלך",
+    "contact.form.email": "כתובת אימייל",
+    "contact.form.subject": "נושא",
+    "contact.form.message": "הודעה",
+    "contact.form.send": "שלח הודעה",
+    
+    // Borrow page
+    "borrow.steps.title": "איך לשאול",
+    "borrow.steps.step1": "בחר מיקום קרוב אליך",
+    "borrow.steps.step2": "צור קשר עם רכז המיקום",
+    "borrow.steps.step3": "שלם פיקדון של $20 הניתן להחזר",
+    "borrow.steps.step4": "תהנה מזמן שקט עם הקטן שלך",
+    "borrow.selectLocation": "בחר מיקום",
+    "borrow.deposit": "פיקדון $20 הניתן להחזר",
+    "borrow.reserve": "הזמן עכשיו",
     
     // Borrow page
     "borrow.title": "השאלת אוזניות",
