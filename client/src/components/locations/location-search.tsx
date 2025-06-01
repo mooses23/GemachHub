@@ -1,17 +1,15 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, MapPin, List, Phone, Mail } from "lucide-react";
+import { Search, Phone, Mail, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { WorldMap } from "./world-map";
 import { getLocations, getRegions } from "@/lib/api";
 import type { Location, Region } from "@shared/schema";
 
 export function LocationSearch() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   const { data: locations = [] } = useQuery({
     queryKey: ["/api/locations"],
@@ -76,41 +74,12 @@ export function LocationSearch() {
         </div>
       </div>
 
-      {/* View Toggle */}
-      <div className="flex justify-center mb-8">
-        <div className="bg-gray-100 rounded-full p-1">
-          <Button
-            variant={viewMode === "map" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("map")}
-            className="rounded-full px-6"
-          >
-            <MapPin className="h-4 w-4 mr-2" />
-            Map View
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("list")}
-            className="rounded-full px-6"
-          >
-            <List className="h-4 w-4 mr-2" />
-            List View
-          </Button>
-        </div>
+      {/* Results count */}
+      <div className="text-center mb-8">
+        <p className="text-gray-600">
+          Showing <span className="font-semibold">{filteredLocations.length}</span> locations
+        </p>
       </div>
-
-      {/* Map View */}
-      {viewMode === "map" && (
-        <div className="mb-12">
-          <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden">
-            <WorldMap 
-              locations={filteredLocations} 
-              regionsMap={regionsMap}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Results */}
       <div className="space-y-8">
