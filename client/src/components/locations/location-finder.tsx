@@ -6,6 +6,7 @@ import { LocationCard } from "./location-card";
 import { RegionTabs } from "./region-tabs";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
 
 interface LocationFinderProps {
   initialRegion?: string;
@@ -14,6 +15,7 @@ interface LocationFinderProps {
 export function LocationFinder({ initialRegion = "united-states" }: LocationFinderProps) {
   const [activeRegion, setActiveRegion] = useState(initialRegion);
   const [searchTerm, setSearchTerm] = useState("");
+  const { t } = useLanguage();
   
   const { data: regions = [] } = useQuery<Region[]>({
     queryKey: ["/api/regions"],
@@ -50,9 +52,9 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
     <section id="find-gemach" className="py-16 bg-gray-50">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-neutral-800 mb-4">Find a Gemach Near You</h2>
+          <h2 className="text-3xl font-bold text-neutral-800 mb-4">{t("locations.title")}</h2>
           <p className="text-lg text-neutral-600 max-w-3xl mx-auto">
-            We have locations across multiple countries to serve you better. Select your region below to find the closest gemach.
+            {t("locations.description")}
           </p>
         </div>
         
@@ -68,7 +70,7 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
           <div className="relative">
             <Input
               type="text"
-              placeholder="Search by city or zip code..."
+              placeholder={t("locations.search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
