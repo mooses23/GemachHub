@@ -133,50 +133,53 @@ export function Header() {
             </Link>
           </nav>
 
-          {/* Auth Buttons */}
-          {isLoading ? (
-            <div className="w-8 h-8 hidden md:flex" />
-          ) : user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="hidden md:flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  {user.firstName}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isOperator && (
-                  <DropdownMenuItem asChild>
-                    <Link href="/operator/dashboard" className="flex items-center gap-2 w-full">
-                      <LayoutDashboard className="h-4 w-4" />
-                      Operator Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {isAdmin && (
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin/dashboard" className="flex items-center gap-2 w-full">
-                      <LayoutDashboard className="h-4 w-4" />
-                      Admin Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
-                  <LogOut className="h-4 w-4" />
-                  Log Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button asChild className="hidden md:inline-block">
-              <Link href="/auth">Log In / Register</Link>
-            </Button>
-          )}
+          {/* Right side - Language Toggle + Auth */}
+          <div className="flex items-center space-x-4">
+            {/* Language Toggle */}
+            <div className="hidden md:flex">
+              <LanguageToggle />
+            </div>
 
-          {/* Language Toggle */}
-          <div className="hidden md:flex">
-            <LanguageToggle />
+            {/* Auth Buttons */}
+            {isLoading ? (
+              <div className="w-8 h-8 hidden md:flex" />
+            ) : user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="hidden md:flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    {user.firstName}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {isOperator && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/operator/dashboard" className="flex items-center gap-2 w-full">
+                        <LayoutDashboard className="h-4 w-4" />
+                        Operator Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {isAdmin && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/dashboard" className="flex items-center gap-2 w-full">
+                        <LayoutDashboard className="h-4 w-4" />
+                        Admin Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
+                    <LogOut className="h-4 w-4" />
+                    Log Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button asChild className="hidden md:inline-block">
+                <Link href="/auth">Log In / Register</Link>
+              </Button>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
