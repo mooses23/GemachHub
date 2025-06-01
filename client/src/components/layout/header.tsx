@@ -11,11 +11,14 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { LanguageToggle } from "@/components/ui/language-toggle";
+import { useLanguage } from "@/hooks/use-language";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [location] = useLocation();
   const { user, isLoading, logoutMutation, isOperator, isAdmin } = useAuth();
+  const { t } = useLanguage();
 
   const isActiveLink = (path: string) => {
     if (path === "/" && location === "/") return true;
@@ -51,7 +54,7 @@ export function Header() {
                   : "text-neutral-700 hover:text-primary"
               } transition-colors`}
             >
-              Home
+              {t("nav.home")}
             </Link>
             
             <DropdownMenu>
@@ -170,6 +173,11 @@ export function Header() {
               <Link href="/auth">Log In / Register</Link>
             </Button>
           )}
+
+          {/* Language Toggle */}
+          <div className="hidden md:flex">
+            <LanguageToggle />
+          </div>
 
           {/* Mobile Menu Button */}
           <button
