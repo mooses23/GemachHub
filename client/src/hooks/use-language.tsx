@@ -173,6 +173,8 @@ const translations = {
     "contact.form.send": "שלח הודעה",
     
     // Borrow page
+    "borrow.title": "השאלת אוזניות",
+    "borrow.description": "בחר מיקום והזמן את האוזניות שלך",
     "borrow.steps.title": "איך לשאול",
     "borrow.steps.step1": "בחר מיקום קרוב אליך",
     "borrow.steps.step2": "צור קשר עם רכז המיקום",
@@ -181,21 +183,7 @@ const translations = {
     "borrow.selectLocation": "בחר מיקום",
     "borrow.deposit": "פיקדון $20 הניתן להחזר",
     "borrow.reserve": "הזמן עכשיו",
-    
-    // Borrow page
-    "borrow.title": "השאלת אוזניות",
-    "borrow.description": "בחר מיקום והזמן את האוזניות שלך",
-    "borrow.selectLocation": "בחר מיקום",
-    "borrow.deposit": "פיקדון $20 הניתן להחזר",
-    "borrow.reserve": "הזמן עכשיו",
-    
-    // Apply page
-    "apply.title": "הפוך למארח מיקום",
-    "apply.description": "הצטרף לרשת שלנו ועזור למשפחות בקהילה שלך",
-    
-    // Contact page
-    "contact.title": "צור קשר",
-    "contact.description": "פנה אלינו עם כל שאלה או דאגה",
+
     
     // Footer
     "footer.description": "מגנים על שמיעת ילדים ברחבי העולם דרך רשת השאלת האוזניות המונעת על ידי הקהילה שלנו.",
