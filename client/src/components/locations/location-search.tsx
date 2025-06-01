@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { WorldMap } from "./world-map";
 import { getLocations, getRegions } from "@/lib/api";
 import type { Location, Region } from "@shared/schema";
 
@@ -102,16 +103,11 @@ export function LocationSearch() {
       {/* Map View */}
       {viewMode === "map" && (
         <div className="mb-12">
-          <div className="bg-gray-100 rounded-2xl h-96 flex items-center justify-center">
-            <div className="text-center">
-              <MapPin className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                Interactive Map
-              </h3>
-              <p className="text-gray-500">
-                Map integration coming soon - showing {filteredLocations.length} locations
-              </p>
-            </div>
+          <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden">
+            <WorldMap 
+              locations={filteredLocations} 
+              regionsMap={regionsMap}
+            />
           </div>
         </div>
       )}
