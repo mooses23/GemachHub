@@ -11,14 +11,11 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
-import { LanguageToggle } from "@/components/ui/language-toggle";
-import { useLanguage } from "@/hooks/use-language";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [location] = useLocation();
   const { user, isLoading, logoutMutation, isOperator, isAdmin } = useAuth();
-  const { t } = useLanguage();
 
   const isActiveLink = (path: string) => {
     if (path === "/" && location === "/") return true;
@@ -54,7 +51,7 @@ export function Header() {
                   : "text-neutral-700 hover:text-primary"
               } transition-colors`}
             >
-              {t("nav.home")}
+              Home
             </Link>
             
             <DropdownMenu>
@@ -133,17 +130,10 @@ export function Header() {
             </Link>
           </nav>
 
-          {/* Right side - Language Toggle + Auth */}
-          <div className="flex items-center space-x-4">
-            {/* Language Toggle */}
-            <div className="hidden md:flex">
-              <LanguageToggle />
-            </div>
-
-            {/* Auth Buttons */}
-            {isLoading ? (
-              <div className="w-8 h-8 hidden md:flex" />
-            ) : user ? (
+          {/* Auth Buttons */}
+          {isLoading ? (
+            <div className="w-8 h-8 hidden md:flex" />
+          ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="hidden md:flex items-center gap-2">
@@ -180,7 +170,6 @@ export function Header() {
                 <Link href="/auth">Log In / Register</Link>
               </Button>
             )}
-          </div>
 
           {/* Mobile Menu Button */}
           <button
