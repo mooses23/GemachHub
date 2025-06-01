@@ -9,14 +9,13 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 
 export function LanguageToggle() {
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage } = useLanguage();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="w-9 px-0">
-          <Languages className="h-[1.2rem] w-[1.2rem]" />
-          <span className="sr-only">Toggle language</span>
+        <Button variant="outline" size="sm" className="px-3">
+          {language === "en" ? "🇺🇸 EN" : "🇮🇱 עב"}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

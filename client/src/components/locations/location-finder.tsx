@@ -80,7 +80,7 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
         </div>
         
         {/* Locations Grid */}
-        <div>
+        <div id="locations-results">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredLocations.length > 0 ? (
               filteredLocations.map((location) => (
