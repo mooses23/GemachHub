@@ -17,15 +17,6 @@ export default function Home() {
       </head>
       
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-        {/* Header Banner */}
-        <div className="bg-blue-900 text-white py-3">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-wide">
-              BabyBanz Gemach
-            </h1>
-          </div>
-        </div>
-
         {/* Hero Section with Image */}
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 z-0">
@@ -39,7 +30,10 @@ export default function Home() {
           
           <div className="relative z-10 container mx-auto px-4 py-16">
             <div className="text-center max-w-4xl mx-auto mb-12">
-              <h2 className="text-5xl font-bold text-gray-900 mb-6">
+              <h1 className="text-6xl font-bold text-gray-900 mb-4">
+                BabyBanz Gemach
+              </h1>
+              <h2 className="text-3xl font-semibold text-gray-700 mb-6">
                 Find Baby Earmuffs Near You
               </h2>
               <p className="text-xl text-gray-600 mb-8">
@@ -50,12 +44,9 @@ export default function Home() {
             
             <LocationSearch />
             
-            {/* Quick Region Navigation */}
-            <div className="mt-12 max-w-4xl mx-auto">
-              <h3 className="text-2xl font-semibold text-center text-gray-900 mb-8">
-                Browse by Region
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {/* Quick Region Navigation - Directly under search */}
+            <div className="mt-8 max-w-4xl mx-auto">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <Link href="/locations?region=united-states">
                   <div className="bg-white/90 backdrop-blur rounded-lg p-4 text-center hover:bg-white hover:shadow-md transition-all cursor-pointer border border-gray-200">
                     <h4 className="font-semibold text-gray-900 mb-1">USA</h4>
