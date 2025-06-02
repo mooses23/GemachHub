@@ -81,6 +81,7 @@ export class MemStorage implements IStorage {
     this.applications = new Map();
     this.transactions = new Map();
     this.contacts = new Map();
+    this.payments = new Map();
 
     this.userCounter = 1;
     this.regionCounter = 1;
@@ -88,6 +89,7 @@ export class MemStorage implements IStorage {
     this.applicationCounter = 1;
     this.transactionCounter = 1;
     this.contactCounter = 1;
+    this.paymentCounter = 1;
 
     // Initialize with default regions
     this.initializeDefaultData();
@@ -2284,6 +2286,49 @@ export class MemStorage implements IStorage {
     const updatedContact: Contact = { ...contact, isRead: true };
     this.contacts.set(id, updatedContact);
     return updatedContact;
+  }
+
+  // Payment methods
+  async getAllPayments(): Promise<Payment[]> {
+    return Array.from(this.payments.values());
+  }
+
+  async getPayment(id: number): Promise<Payment | undefined> {
+    return this.payments.get(id);
+  }
+
+  async getPaymentsByTransaction(transactionId: number): Promise<Payment[]> {
+    return Array.from(this.payments.values()).filter(
+      payment => payment.transactionId === transactionId
+    );
+  }
+
+  async createPayment(insertPayment: InsertPayment): Promise<Payment> {
+    const id = this.paymentCounter++;
+    const payment: Payment = { 
+      ...insertPayment, 
+      id,
+      createdAt: new Date(),
+      completedAt: insertPayment.status === "completed" ? new Date() : null
+    };
+    this.payments.set(id, payment);
+    return payment;
+  }
+
+  async updatePaymentStatus(id: number, status: string, paymentData?: any): Promise<Payment> {
+    const payment = this.payments.get(id);
+    if (!payment) {
+      throw new Error(`Payment with id ${id} not found`);
+    }
+    
+    const updatedPayment: Payment = { 
+      ...payment, 
+      status,
+      paymentData: paymentData ? JSON.stringify(paymentData) : payment.paymentData,
+      completedAt: status === "completed" ? new Date() : payment.completedAt
+    };
+    this.payments.set(id, updatedPayment);
+    return updatedPayment;
   }
 }
 

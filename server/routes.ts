@@ -6,7 +6,8 @@ import {
   insertLocationSchema,
   insertGemachApplicationSchema,
   insertContactSchema,
-  insertTransactionSchema
+  insertTransactionSchema,
+  insertPaymentSchema
 } from "@shared/schema";
 import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth";
 
