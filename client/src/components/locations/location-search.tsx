@@ -170,13 +170,10 @@ function LocationCard({ location, locationNumber }: LocationCardProps) {
         </div>
 
         <div className="mt-4 pt-4 border-t border-gray-100">
-          <div className="flex justify-between items-center">
+          <div className="text-center">
             <span className="text-xs text-gray-500">
               {location.inventoryCount} units available
             </span>
-            <Button size="sm" className="rounded-full">
-              Record Deposit
-            </Button>
           </div>
         </div>
       </CardContent>
