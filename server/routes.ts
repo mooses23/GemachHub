@@ -3,6 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { PaymentSyncService } from "./payment-sync";
 import { DepositSyncService } from "./deposit-sync";
+import { DepositRefundService } from "./deposit-refund";
+import { EmailNotificationService } from "./email-notifications";
+import { AuditTrailService } from "./audit-trail";
+import { PaymentAnalyticsEngine } from "./analytics-engine";
 import { z } from "zod";
 import { 
   insertLocationSchema,
@@ -457,6 +461,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedPaymentData
       );
 
+      // Log audit trail
+      await AuditTrailService.logDepositConfirmation(
+        req.user.id,
+        req.user.username,
+        paymentId,
+        "confirming",
+        confirmed ? "completed" : "failed",
+        updatedPaymentData,
+        { ipAddress: req.ip, userAgent: req.get('User-Agent') }
+      );
+
+      // Send email notifications
+      if (confirmed) {
+        const transaction = await storage.getTransaction(payment.transactionId);
+        await EmailNotificationService.notifyDepositConfirmed(updatedPayment, transaction);
+      } else {
+        const transaction = await storage.getTransaction(payment.transactionId);
+        await EmailNotificationService.notifyFailedDeposit(updatedPayment, transaction);
+      }
+
       res.json(updatedPayment);
     } catch (error) {
       console.error("Payment confirmation error:", error);
@@ -542,6 +566,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Analytics generation error:", error);
       res.status(500).json({ message: "Error generating analytics" });
+    }
+  });
+
+  // Item return and refund processing
+  app.post("/api/transactions/:id/return", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const transactionId = parseInt(req.params.id);
+      const { condition, returnNotes, refundAmount } = req.body;
+
+      const result = await DepositRefundService.processItemReturn(transactionId, {
+        actualReturnDate: new Date(),
+        returnNotes,
+        condition,
+        refundAmount
+      });
+
+      // Log refund in audit trail
+      await AuditTrailService.logRefundProcessing(
+        req.user.id,
+        req.user.username,
+        transactionId,
+        result.refundAmount,
+        condition || 'good',
+        { ipAddress: req.ip, userAgent: req.get('User-Agent') }
+      );
+
+      // Send refund notification
+      if (result.refundAmount > 0) {
+        await EmailNotificationService.notifyRefundProcessed(
+          result.refundAmount,
+          result.transaction
+        );
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Return processing error:", error);
+      res.status(500).json({ message: "Error processing return" });
+    }
+  });
+
+  // Payment method analytics
+  app.get("/api/analytics/payment-methods", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const locationId = req.query.locationId ? parseInt(req.query.locationId as string) : undefined;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const dateRange = startDate && endDate ? { start: startDate, end: endDate } : undefined;
+
+      const analytics = await PaymentAnalyticsEngine.generatePaymentMethodAnalytics(
+        locationId,
+        dateRange
+      );
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Payment analytics error:", error);
+      res.status(500).json({ message: "Error generating payment analytics" });
+    }
+  });
+
+  // Deposit reconciliation report
+  app.get("/api/reports/reconciliation", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const locationId = req.query.locationId ? parseInt(req.query.locationId as string) : undefined;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const dateRange = startDate && endDate ? { start: startDate, end: endDate } : undefined;
+
+      const report = await PaymentAnalyticsEngine.generateDepositReconciliation(
+        locationId,
+        dateRange
+      );
+
+      res.json(report);
+    } catch (error) {
+      console.error("Reconciliation report error:", error);
+      res.status(500).json({ message: "Error generating reconciliation report" });
+    }
+  });
+
+  // Audit trail access
+  app.get("/api/audit-trail", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const entries = await AuditTrailService.getRecentAuditEntries(limit);
+
+      res.json(entries);
+    } catch (error) {
+      console.error("Audit trail error:", error);
+      res.status(500).json({ message: "Error retrieving audit trail" });
     }
   });
 
