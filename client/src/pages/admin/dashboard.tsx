@@ -10,19 +10,19 @@ import {
 import { Link } from "wouter";
 
 export default function Dashboard() {
-  const { data: locations = [] } = useQuery({
+  const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
   });
 
-  const { data: transactions = [] } = useQuery({
+  const { data: transactions = [] } = useQuery<Transaction[]>({
     queryKey: ["/api/transactions"],
   });
 
-  const { data: applications = [] } = useQuery({
+  const { data: applications = [] } = useQuery<GemachApplication[]>({
     queryKey: ["/api/applications"],
   });
 
-  const { data: contacts = [] } = useQuery({
+  const { data: contacts = [] } = useQuery<Contact[]>({
     queryKey: ["/api/contact"],
   });
 
