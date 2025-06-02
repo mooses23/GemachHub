@@ -57,6 +57,7 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
       regionId: regions[0]?.id || 1,
       isActive: true,
       inventoryCount: 5,
+      cashOnly: false,
     },
   });
 
@@ -222,8 +223,8 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
                 <Input 
                   type="number" 
                   min="0" 
-                  {...field} 
-                  onChange={(e) => field.onChange(parseInt(e.target.value, 10))} 
+                  value={field.value || 0}
+                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)} 
                 />
               </FormControl>
               <FormMessage />
@@ -244,7 +245,7 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
               </div>
               <FormControl>
                 <Switch
-                  checked={field.value}
+                  checked={Boolean(field.value)}
                   onCheckedChange={field.onChange}
                 />
               </FormControl>
@@ -265,7 +266,7 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
               </div>
               <FormControl>
                 <Switch
-                  checked={field.value}
+                  checked={Boolean(field.value)}
                   onCheckedChange={field.onChange}
                 />
               </FormControl>
