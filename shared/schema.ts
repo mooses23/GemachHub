@@ -183,3 +183,34 @@ export const insertGlobalSettingSchema = createInsertSchema(globalSettings).pick
 
 export type GlobalSetting = typeof globalSettings.$inferSelect;
 export type InsertGlobalSetting = z.infer<typeof insertGlobalSettingSchema>;
+
+// Payment schema for tracking payments
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  transactionId: integer("transaction_id").notNull(),
+  paymentMethod: text("payment_method").notNull(), // "cash", "stripe", "paypal", "square"
+  paymentProvider: text("payment_provider"), // "stripe", "paypal", "square" 
+  externalPaymentId: text("external_payment_id"), // Provider's payment ID
+  depositAmount: integer("deposit_amount").notNull(),
+  processingFee: integer("processing_fee").default(0),
+  totalAmount: integer("total_amount").notNull(),
+  status: text("status").notNull().default("pending"), // "pending", "completed", "failed", "refunded"
+  paymentData: text("payment_data"), // JSON string of provider response
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).pick({
+  transactionId: true,
+  paymentMethod: true,
+  paymentProvider: true,
+  externalPaymentId: true,
+  depositAmount: true,
+  processingFee: true,
+  totalAmount: true,
+  status: true,
+  paymentData: true,
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;

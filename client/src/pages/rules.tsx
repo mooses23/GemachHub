@@ -33,7 +33,7 @@ export default function Rules() {
                 </h2>
                 <ul className="text-amber-800 space-y-2">
                   <li>• Keep earmuffs clean and dry</li>
-                  <li>• Store in provided case when not in use</li>
+                  <li>• Store safely when not in use</li>
                   <li>• Handle with care to avoid damage</li>
                   <li>• Do not disassemble or modify the earmuffs</li>
                 </ul>

@@ -4,7 +4,8 @@ import {
   locations, type Location, type InsertLocation,
   gemachApplications, type GemachApplication, type InsertGemachApplication,
   transactions, type Transaction, type InsertTransaction,
-  contacts, type Contact, type InsertContact
+  contacts, type Contact, type InsertContact,
+  payments, type Payment, type InsertPayment
 } from "@shared/schema";
 
 // Interface for storage operations
@@ -47,6 +48,13 @@ export interface IStorage {
   getContact(id: number): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
   markContactRead(id: number): Promise<Contact>;
+
+  // Payment operations
+  getAllPayments(): Promise<Payment[]>;
+  getPayment(id: number): Promise<Payment | undefined>;
+  getPaymentsByTransaction(transactionId: number): Promise<Payment[]>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  updatePaymentStatus(id: number, status: string, paymentData?: any): Promise<Payment>;
 }
 
 export class MemStorage implements IStorage {
@@ -56,6 +64,7 @@ export class MemStorage implements IStorage {
   private applications: Map<number, GemachApplication>;
   private transactions: Map<number, Transaction>;
   private contacts: Map<number, Contact>;
+  private payments: Map<number, Payment>;
 
   private userCounter: number;
   private regionCounter: number;
@@ -63,6 +72,7 @@ export class MemStorage implements IStorage {
   private applicationCounter: number;
   private transactionCounter: number;
   private contactCounter: number;
+  private paymentCounter: number;
 
   constructor() {
     this.users = new Map();
