@@ -34,6 +34,10 @@ interface PaymentMethod {
   processingFeePercent: number;
   fixedFee: number;
   requiresApi: boolean;
+  apiKey: string | null;
+  apiSecret: string | null;
+  webhookSecret: string | null;
+  isConfigured: boolean;
   createdAt: string;
 }
 
@@ -116,6 +120,27 @@ export default function PaymentMethodsAdmin() {
     },
   });
 
+  const configureMutation = useMutation({
+    mutationFn: async ({ id, credentials }: { id: number; credentials: { apiKey: string; apiSecret: string; webhookSecret?: string; } }) => {
+      const response = await apiRequest("POST", `/api/payment-methods/${id}/configure`, credentials);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
+      toast({ 
+        title: "Payment method configured successfully",
+        description: `${data.method?.displayName} is now active and available across all locations`
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to configure payment method",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreate = (data: FormData) => {
     createMutation.mutate(data);
   };
@@ -131,6 +156,9 @@ export default function PaymentMethodsAdmin() {
       processingFeePercent: method.processingFeePercent,
       fixedFee: method.fixedFee,
       requiresApi: method.requiresApi,
+      apiKey: method.apiKey || "",
+      apiSecret: method.apiSecret || "",
+      webhookSecret: method.webhookSecret || "",
     });
   };
 
@@ -252,6 +280,43 @@ export default function PaymentMethodsAdmin() {
                   />
                   <Label htmlFor="requiresApi">Requires API</Label>
                 </div>
+              </div>
+
+              {/* API Credentials Section */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-3">API Configuration (Optional)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="apiKey">API Key</Label>
+                    <Input
+                      id="apiKey"
+                      type="password"
+                      {...form.register("apiKey")}
+                      placeholder="Enter API key for this payment provider"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="apiSecret">API Secret</Label>
+                    <Input
+                      id="apiSecret"
+                      type="password"
+                      {...form.register("apiSecret")}
+                      placeholder="Enter API secret"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="webhookSecret">Webhook Secret (Optional)</Label>
+                    <Input
+                      id="webhookSecret"
+                      type="password"
+                      {...form.register("webhookSecret")}
+                      placeholder="Enter webhook secret if required"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Adding API credentials will automatically configure and activate this payment method across all locations.
+                </p>
               </div>
 
               <div className="flex gap-2">
