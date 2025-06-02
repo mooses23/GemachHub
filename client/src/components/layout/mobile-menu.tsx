@@ -10,7 +10,6 @@ interface MobileMenuProps {
 }
 
 export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
-  const [regionsOpen, setRegionsOpen] = useState(false);
   const { user, isOperator, isAdmin, logoutMutation } = useAuth();
 
   const handleLogout = () => {
@@ -31,72 +30,20 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           Home
         </Link>
         
-        <button
-          className="flex items-center justify-between font-medium text-neutral-700 hover:text-primary transition-colors"
-          onClick={() => setRegionsOpen(!regionsOpen)}
-        >
-          Find a Gemach
-          {regionsOpen ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </button>
-        
-        {regionsOpen && (
-          <div className="pl-4 flex flex-col space-y-2 mt-1">
-            <Link
-              href="/locations?region=united-states"
-              onClick={() => setIsOpen(false)}
-              className="text-sm text-neutral-700 hover:text-primary"
-            >
-              United States
-            </Link>
-            <Link
-              href="/locations?region=canada"
-              onClick={() => setIsOpen(false)}
-              className="text-sm text-neutral-700 hover:text-primary"
-            >
-              Canada
-            </Link>
-            <Link
-              href="/locations?region=australia"
-              onClick={() => setIsOpen(false)}
-              className="text-sm text-neutral-700 hover:text-primary"
-            >
-              Australia
-            </Link>
-            <Link
-              href="/locations?region=europe"
-              onClick={() => setIsOpen(false)}
-              className="text-sm text-neutral-700 hover:text-primary"
-            >
-              Europe
-            </Link>
-            <Link
-              href="/locations?region=israel"
-              onClick={() => setIsOpen(false)}
-              className="text-sm text-neutral-700 hover:text-primary"
-            >
-              Israel
-            </Link>
-          </div>
-        )}
-        
         <Link
-          href="/#how-it-works"
+          href="/self-deposit"
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors"
         >
-          How It Works
+          Self Deposit
         </Link>
         
         <Link
-          href="/borrow"
+          href="/rules"
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors"
         >
-          Borrow Earmuffs
+          Our Rules
         </Link>
         
         <Link
@@ -104,7 +51,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors"
         >
-          Open a Gemach
+          Open Location
         </Link>
         
         <Link
@@ -113,6 +60,14 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           className="font-medium text-neutral-700 hover:text-primary transition-colors"
         >
           Contact
+        </Link>
+        
+        <Link
+          href="/auth"
+          onClick={() => setIsOpen(false)}
+          className="font-medium text-neutral-700 hover:text-primary transition-colors"
+        >
+          Login
         </Link>
         
         {/* Auth Buttons */}
