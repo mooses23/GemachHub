@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getLocations, getTransactions, getGemachApplications, getContacts } from "@/lib/api";
 import { 
   Users, MapPin, FileText, Package,
-  DollarSign, RefreshCw, AlarmClock
+  DollarSign, RefreshCw, AlarmClock, CreditCard
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -231,6 +231,10 @@ export default function Dashboard() {
                     <Link href="/admin/applications" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
                       <FileText className="h-5 w-5 mr-3 text-primary" />
                       <span>Review Applications</span>
+                    </Link>
+                    <Link href="/admin/payment-methods" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
+                      <CreditCard className="h-5 w-5 mr-3 text-primary" />
+                      <span>Payment Methods</span>
                     </Link>
                     <Link href="/" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
                       <Package className="h-5 w-5 mr-3 text-primary" />
