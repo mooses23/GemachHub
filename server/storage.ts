@@ -2055,12 +2055,13 @@ export class MemStorage implements IStorage {
     ];
 
     allLocations.forEach(location => {
-      // Ensure all locations have a default deposit amount if not specified
-      const locationWithDeposit = {
+      // Ensure all locations have default values if not specified
+      const locationWithDefaults = {
         ...location,
-        depositAmount: location.depositAmount || 20
+        depositAmount: location.depositAmount || 20,
+        paymentMethods: location.paymentMethods || ["cash"]
       };
-      this.createLocation(locationWithDeposit);
+      this.createLocation(locationWithDefaults);
     });
   }
 
