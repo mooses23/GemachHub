@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { PaymentSyncService } from "./payment-sync";
 import { z } from "zod";
 import { 
   insertLocationSchema,
@@ -467,6 +468,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const methodData = insertPaymentMethodSchema.parse(req.body);
       const method = await storage.createPaymentMethod(methodData);
+      
+      // Sync changes across all locations
+      await PaymentSyncService.syncPaymentMethodChanges(method);
+      
       res.status(201).json(method);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -482,6 +487,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id, 10);
       const updateData = req.body;
       const method = await storage.updatePaymentMethod(id, updateData);
+      
+      // Sync changes across all locations when admin updates payment methods
+      await PaymentSyncService.syncPaymentMethodChanges(method);
+      
       res.json(method);
     } catch (error) {
       console.error("Error updating payment method:", error);
@@ -497,6 +506,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting payment method:", error);
       res.status(500).json({ message: "Failed to delete payment method" });
+    }
+  });
+
+  // Configure API credentials for payment methods
+  app.post("/api/payment-methods/:id/configure", requireRole(["admin"]), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const { apiKey, apiSecret, webhookSecret } = req.body;
+      
+      // Validate and activate payment method with API credentials
+      const success = await PaymentSyncService.validateAndActivatePaymentMethod(id, {
+        apiKey,
+        apiSecret,
+        webhookSecret
+      });
+      
+      if (success) {
+        const updatedMethod = await storage.getPaymentMethod(id);
+        res.json({ 
+          message: "Payment method configured and activated successfully",
+          method: updatedMethod,
+          synchronized: true
+        });
+      } else {
+        res.status(400).json({ message: "Failed to configure payment method" });
+      }
+    } catch (error) {
+      console.error("Error configuring payment method:", error);
+      res.status(500).json({ message: "Failed to configure payment method" });
     }
   });
 
