@@ -184,6 +184,54 @@ export const insertGlobalSettingSchema = createInsertSchema(globalSettings).pick
 export type GlobalSetting = typeof globalSettings.$inferSelect;
 export type InsertGlobalSetting = z.infer<typeof insertGlobalSettingSchema>;
 
+// Payment Methods Configuration
+export const paymentMethods = pgTable("payment_methods", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // "stripe", "paypal", "square", "cash", "venmo", "zelle"
+  displayName: text("display_name").notNull(), // "Credit/Debit Card", "PayPal", etc.
+  provider: text("provider"), // "stripe", "paypal", "square" - null for cash/manual methods
+  isActive: boolean("is_active").default(true),
+  isAvailableToLocations: boolean("is_available_to_locations").default(false),
+  processingFeePercent: integer("processing_fee_percent").default(0), // stored as basis points (290 = 2.9%)
+  fixedFee: integer("fixed_fee").default(0), // in cents
+  requiresApi: boolean("requires_api").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).pick({
+  name: true,
+  displayName: true,
+  provider: true,
+  isActive: true,
+  isAvailableToLocations: true,
+  processingFeePercent: true,
+  fixedFee: true,
+  requiresApi: true,
+});
+
+export type PaymentMethod = typeof paymentMethods.$inferSelect;
+export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
+
+// Location Payment Methods (which methods each location accepts)
+export const locationPaymentMethods = pgTable("location_payment_methods", {
+  id: serial("id").primaryKey(),
+  locationId: integer("location_id").notNull(),
+  paymentMethodId: integer("payment_method_id").notNull(),
+  isEnabled: boolean("is_enabled").default(true),
+  customProcessingFee: integer("custom_processing_fee"), // override global fee if set
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLocationPaymentMethodSchema = createInsertSchema(locationPaymentMethods).pick({
+  locationId: true,
+  paymentMethodId: true,
+  isEnabled: true,
+  customProcessingFee: true,
+});
+
+export type LocationPaymentMethod = typeof locationPaymentMethods.$inferSelect;
+export type InsertLocationPaymentMethod = z.infer<typeof insertLocationPaymentMethodSchema>;
+
 // Payment schema for tracking payments
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),

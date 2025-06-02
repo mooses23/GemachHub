@@ -5,7 +5,9 @@ import {
   gemachApplications, type GemachApplication, type InsertGemachApplication,
   transactions, type Transaction, type InsertTransaction,
   contacts, type Contact, type InsertContact,
-  payments, type Payment, type InsertPayment
+  payments, type Payment, type InsertPayment,
+  paymentMethods, type PaymentMethod, type InsertPaymentMethod,
+  locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod
 } from "@shared/schema";
 
 // Interface for storage operations
@@ -55,6 +57,19 @@ export interface IStorage {
   getPaymentsByTransaction(transactionId: number): Promise<Payment[]>;
   createPayment(payment: InsertPayment): Promise<Payment>;
   updatePaymentStatus(id: number, status: string, paymentData?: any): Promise<Payment>;
+
+  // Payment Method operations
+  getAllPaymentMethods(): Promise<PaymentMethod[]>;
+  getPaymentMethod(id: number): Promise<PaymentMethod | undefined>;
+  createPaymentMethod(method: InsertPaymentMethod): Promise<PaymentMethod>;
+  updatePaymentMethod(id: number, data: Partial<InsertPaymentMethod>): Promise<PaymentMethod>;
+  deletePaymentMethod(id: number): Promise<void>;
+
+  // Location Payment Method operations
+  getLocationPaymentMethods(locationId: number): Promise<LocationPaymentMethod[]>;
+  getAvailablePaymentMethodsForLocation(locationId: number): Promise<PaymentMethod[]>;
+  enablePaymentMethodForLocation(locationId: number, paymentMethodId: number, customFee?: number): Promise<LocationPaymentMethod>;
+  disablePaymentMethodForLocation(locationId: number, paymentMethodId: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -65,6 +80,8 @@ export class MemStorage implements IStorage {
   private transactions: Map<number, Transaction>;
   private contacts: Map<number, Contact>;
   private payments: Map<number, Payment>;
+  private paymentMethods: Map<number, PaymentMethod>;
+  private locationPaymentMethods: Map<number, LocationPaymentMethod>;
 
   private userCounter: number;
   private regionCounter: number;
@@ -73,6 +90,8 @@ export class MemStorage implements IStorage {
   private transactionCounter: number;
   private contactCounter: number;
   private paymentCounter: number;
+  private paymentMethodCounter: number;
+  private locationPaymentMethodCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -82,6 +101,8 @@ export class MemStorage implements IStorage {
     this.transactions = new Map();
     this.contacts = new Map();
     this.payments = new Map();
+    this.paymentMethods = new Map();
+    this.locationPaymentMethods = new Map();
 
     this.userCounter = 1;
     this.regionCounter = 1;

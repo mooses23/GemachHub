@@ -28,7 +28,7 @@ export default function Locations() {
         <meta property="og:type" content="website" />
       </head>
       
-      <div className="pt-10">
+      <div className="pt-10 transition-all duration-300 ease-in-out">
         <LocationFinder initialRegion={region} />
       </div>
     </>
