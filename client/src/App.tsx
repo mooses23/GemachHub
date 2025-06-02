@@ -20,6 +20,7 @@ import AdminPaymentMethods from "@/pages/admin/payment-methods";
 import PaymentConfirmations from "@/pages/admin/payment-confirmations";
 import OperatorIndex from "@/pages/operator/index";
 import OperatorDashboard from "@/pages/operator/dashboard";
+import OperatorDepositDashboard from "@/pages/operator/deposit-dashboard";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Layout } from "@/components/layout/layout";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -50,6 +51,7 @@ function Router() {
         {/* Protected Operator Routes */}
         <ProtectedRoute path="/operator" component={OperatorIndex} requiredRole="operator" />
         <ProtectedRoute path="/operator/dashboard" component={OperatorDashboard} requiredRole="operator" />
+        <ProtectedRoute path="/operator/deposits" component={OperatorDepositDashboard} requiredRole="operator" />
         
         <Route component={NotFound} />
       </Switch>

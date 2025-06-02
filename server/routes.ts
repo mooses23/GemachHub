@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { PaymentSyncService } from "./payment-sync";
+import { DepositSyncService } from "./deposit-sync";
 import { z } from "zod";
 import { 
   insertLocationSchema,
@@ -446,6 +447,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedPayment = await storage.updatePaymentStatus(
         paymentId,
         confirmed ? "completed" : "failed",
+        updatedPaymentData
+      );
+
+      // Sync deposit confirmation across the system
+      await DepositSyncService.syncDepositConfirmation(
+        paymentId, 
+        confirmed ? "completed" : "failed", 
         updatedPaymentData
       );
 
