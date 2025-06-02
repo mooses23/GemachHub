@@ -111,6 +111,8 @@ export class MemStorage implements IStorage {
     this.transactionCounter = 1;
     this.contactCounter = 1;
     this.paymentCounter = 1;
+    this.paymentMethodCounter = 1;
+    this.locationPaymentMethodCounter = 1;
 
     // Initialize with default regions
     this.initializeDefaultData();
@@ -2097,6 +2099,62 @@ export class MemStorage implements IStorage {
       };
       this.createLocation(locationWithDefaults);
     });
+
+    // Initialize default payment methods
+    const defaultPaymentMethods: InsertPaymentMethod[] = [
+      {
+        name: "cash",
+        displayName: "Cash",
+        provider: null,
+        isActive: true,
+        isAvailableToLocations: true,
+        processingFeePercent: 0,
+        fixedFee: 0,
+        requiresApi: false
+      },
+      {
+        name: "stripe",
+        displayName: "Credit/Debit Card",
+        provider: "stripe",
+        isActive: true,
+        isAvailableToLocations: true,
+        processingFeePercent: 290, // 2.9%
+        fixedFee: 30, // $0.30
+        requiresApi: true
+      },
+      {
+        name: "paypal",
+        displayName: "PayPal",
+        provider: "paypal",
+        isActive: true,
+        isAvailableToLocations: true,
+        processingFeePercent: 290, // 2.9%
+        fixedFee: 30, // $0.30
+        requiresApi: true
+      },
+      {
+        name: "venmo",
+        displayName: "Venmo",
+        provider: null,
+        isActive: true,
+        isAvailableToLocations: true,
+        processingFeePercent: 0,
+        fixedFee: 0,
+        requiresApi: false
+      },
+      {
+        name: "zelle",
+        displayName: "Zelle",
+        provider: null,
+        isActive: true,
+        isAvailableToLocations: true,
+        processingFeePercent: 0,
+        fixedFee: 0,
+        requiresApi: false
+      }
+    ];
+
+    defaultPaymentMethods.forEach(method => this.createPaymentMethod(method));
   }
 
   // User methods
@@ -2350,6 +2408,77 @@ export class MemStorage implements IStorage {
     };
     this.payments.set(id, updatedPayment);
     return updatedPayment;
+  }
+
+  // Payment Method operations
+  async getAllPaymentMethods(): Promise<PaymentMethod[]> {
+    return Array.from(this.paymentMethods.values());
+  }
+
+  async getPaymentMethod(id: number): Promise<PaymentMethod | undefined> {
+    return this.paymentMethods.get(id);
+  }
+
+  async createPaymentMethod(insertMethod: InsertPaymentMethod): Promise<PaymentMethod> {
+    const id = this.paymentMethodCounter++;
+    const method: PaymentMethod = { 
+      ...insertMethod, 
+      id,
+      createdAt: new Date()
+    };
+    this.paymentMethods.set(id, method);
+    return method;
+  }
+
+  async updatePaymentMethod(id: number, data: Partial<InsertPaymentMethod>): Promise<PaymentMethod> {
+    const method = this.paymentMethods.get(id);
+    if (!method) {
+      throw new Error(`Payment method with id ${id} not found`);
+    }
+    
+    const updatedMethod: PaymentMethod = { ...method, ...data };
+    this.paymentMethods.set(id, updatedMethod);
+    return updatedMethod;
+  }
+
+  async deletePaymentMethod(id: number): Promise<void> {
+    this.paymentMethods.delete(id);
+  }
+
+  // Location Payment Method operations
+  async getLocationPaymentMethods(locationId: number): Promise<LocationPaymentMethod[]> {
+    return Array.from(this.locationPaymentMethods.values()).filter(
+      lpm => lpm.locationId === locationId
+    );
+  }
+
+  async getAvailablePaymentMethodsForLocation(locationId: number): Promise<PaymentMethod[]> {
+    return Array.from(this.paymentMethods.values()).filter(
+      method => method.isActive && method.isAvailableToLocations
+    );
+  }
+
+  async enablePaymentMethodForLocation(locationId: number, paymentMethodId: number, customFee?: number): Promise<LocationPaymentMethod> {
+    const id = this.locationPaymentMethodCounter++;
+    const locationPaymentMethod: LocationPaymentMethod = {
+      id,
+      locationId,
+      paymentMethodId,
+      isEnabled: true,
+      customProcessingFee: customFee || null,
+      createdAt: new Date()
+    };
+    this.locationPaymentMethods.set(id, locationPaymentMethod);
+    return locationPaymentMethod;
+  }
+
+  async disablePaymentMethodForLocation(locationId: number, paymentMethodId: number): Promise<void> {
+    const lpm = Array.from(this.locationPaymentMethods.values()).find(
+      item => item.locationId === locationId && item.paymentMethodId === paymentMethodId
+    );
+    if (lpm) {
+      this.locationPaymentMethods.delete(lpm.id);
+    }
   }
 }
 
