@@ -62,6 +62,7 @@ export const locations = pgTable("locations", {
   cashOnly: boolean("cash_only").default(false),
   depositAmount: integer("deposit_amount").default(20),
   paymentMethods: text("payment_methods").array().default(["cash"]),
+  processingFeePercent: integer("processing_fee_percent").default(300), // 3.00% stored as 300 basis points
 });
 
 export const insertLocationSchema = createInsertSchema(locations).pick({
@@ -78,6 +79,7 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   cashOnly: true,
   depositAmount: true,
   paymentMethods: true,
+  processingFeePercent: true,
 });
 
 // GemachApplication schema
