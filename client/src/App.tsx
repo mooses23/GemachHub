@@ -11,7 +11,7 @@ import Contact from "@/pages/contact";
 import Borrow from "@/pages/borrow";
 import AuthPage from "@/pages/auth-page";
 import SelfDepositPage from "@/pages/self-deposit";
-import Rules from "@/pages/rules";
+import Literature from "@/pages/rules";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminLocations from "@/pages/admin/locations";
 import AdminTransactions from "@/pages/admin/transactions";
@@ -34,7 +34,7 @@ function Router() {
         <Route path="/borrow" component={Borrow} />
         <Route path="/auth" component={AuthPage} />
         <Route path="/self-deposit" component={SelfDepositPage} />
-        <Route path="/rules" component={Rules} />
+        <Route path="/literature" component={Literature} />
         
         {/* Protected Admin Routes */}
         <ProtectedRoute path="/admin" component={AdminDashboard} requiredRole="admin" />
