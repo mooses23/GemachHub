@@ -415,6 +415,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment confirmation routes
+  app.post("/api/payments/:id/confirm", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const paymentId = parseInt(req.params.id);
+      const { confirmationCode, notes, confirmed } = req.body;
+      
+      const payment = await storage.getPayment(paymentId);
+      if (!payment) {
+        return res.status(404).json({ message: "Payment not found" });
+      }
+
+      if (payment.status !== "confirming" && payment.status !== "pending") {
+        return res.status(400).json({ message: "Payment cannot be confirmed in current status" });
+      }
+
+      const paymentData = payment.paymentData ? JSON.parse(payment.paymentData) : {};
+      const updatedPaymentData = {
+        ...paymentData,
+        confirmationCode,
+        confirmationNotes: notes,
+        confirmedAt: new Date().toISOString(),
+        confirmedBy: req.user?.username || "system"
+      };
+
+      const updatedPayment = await storage.updatePaymentStatus(
+        paymentId,
+        confirmed ? "completed" : "failed",
+        updatedPaymentData
+      );
+
+      res.json(updatedPayment);
+    } catch (error) {
+      console.error("Payment confirmation error:", error);
+      res.status(500).json({ message: "Error confirming payment" });
+    }
+  });
+
+  app.post("/api/payments/:id/reject", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const paymentId = parseInt(req.params.id);
+      const { notes } = req.body;
+      
+      const payment = await storage.getPayment(paymentId);
+      if (!payment) {
+        return res.status(404).json({ message: "Payment not found" });
+      }
+
+      const paymentData = payment.paymentData ? JSON.parse(payment.paymentData) : {};
+      const updatedPaymentData = {
+        ...paymentData,
+        rejectionNotes: notes,
+        rejectedAt: new Date().toISOString(),
+        rejectedBy: req.user?.username || "system"
+      };
+
+      const updatedPayment = await storage.updatePaymentStatus(
+        paymentId,
+        "failed",
+        updatedPaymentData
+      );
+
+      res.json(updatedPayment);
+    } catch (error) {
+      console.error("Payment rejection error:", error);
+      res.status(500).json({ message: "Error rejecting payment" });
+    }
+  });
+
   // CASH PAYMENT PROCESSING
   app.post("/api/cash-payment", async (req, res) => {
     try {
@@ -432,20 +508,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const depositAmount = location.depositAmount || 20;
       
-      // Create cash payment record
+      // Create cash payment record - requires confirmation
       const payment = await storage.createPayment({
         transactionId,
         paymentMethod: "cash",
         depositAmount: depositAmount * 100,
         processingFee: 0, // No processing fee for cash
         totalAmount: depositAmount * 100,
-        status: "completed"
+        status: "confirming" // Requires manual confirmation even for cash
       });
       
       res.json({
         paymentId: payment.id,
-        status: "completed",
-        amount: depositAmount * 100
+        status: "confirming",
+        amount: depositAmount * 100,
+        message: "Payment created - requires confirmation"
       });
     } catch (error) {
       console.error("Error processing cash payment:", error);
