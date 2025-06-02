@@ -236,6 +236,10 @@ export default function Dashboard() {
                       <CreditCard className="h-5 w-5 mr-3 text-primary" />
                       <span>Payment Methods</span>
                     </Link>
+                    <Link href="/admin/payment-confirmations" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
+                      <CheckCircle className="h-5 w-5 mr-3 text-yellow-600" />
+                      <span>Confirm Deposits</span>
+                    </Link>
                     <Link href="/" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
                       <Package className="h-5 w-5 mr-3 text-primary" />
                       <span>View Public Site</span>

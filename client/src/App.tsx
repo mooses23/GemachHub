@@ -17,6 +17,7 @@ import AdminLocations from "@/pages/admin/locations";
 import AdminTransactions from "@/pages/admin/transactions";
 import AdminApplications from "@/pages/admin/applications";
 import AdminPaymentMethods from "@/pages/admin/payment-methods";
+import PaymentConfirmations from "@/pages/admin/payment-confirmations";
 import OperatorIndex from "@/pages/operator/index";
 import OperatorDashboard from "@/pages/operator/dashboard";
 import { ProtectedRoute } from "@/components/auth/protected-route";
@@ -44,6 +45,7 @@ function Router() {
         <ProtectedRoute path="/admin/transactions" component={AdminTransactions} requiredRole="admin" />
         <ProtectedRoute path="/admin/applications" component={AdminApplications} requiredRole="admin" />
         <ProtectedRoute path="/admin/payment-methods" component={AdminPaymentMethods} requiredRole="admin" />
+        <ProtectedRoute path="/admin/payment-confirmations" component={PaymentConfirmations} requiredRole="admin" />
         
         {/* Protected Operator Routes */}
         <ProtectedRoute path="/operator" component={OperatorIndex} requiredRole="operator" />
