@@ -193,7 +193,7 @@ export default function PaymentMethodsAdmin() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Payment Methods Management</h1>
         <Button
           onClick={() => setIsCreating(true)}
@@ -203,6 +203,38 @@ export default function PaymentMethodsAdmin() {
           Add Payment Method
         </Button>
       </div>
+
+      {/* System Synchronization Info */}
+      <Card className="mb-8">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-blue-100 rounded-full">
+              <CreditCard className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Global Payment System</h3>
+              <p className="text-gray-600 mb-3">
+                Changes made here automatically synchronize across all locations. When you configure API credentials 
+                or modify payment methods, the system instantly updates all location payment options.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Real-time synchronization</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span>Automatic API configuration</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <span>Global availability control</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Create Form */}
       {isCreating && (
@@ -442,8 +474,13 @@ export default function PaymentMethodsAdmin() {
                       {method.requiresApi && (
                         <Badge variant="outline">Requires API</Badge>
                       )}
+                      {method.requiresApi && (
+                        <Badge variant={method.isConfigured ? "default" : "destructive"}>
+                          {method.isConfigured ? "API Configured" : "API Not Configured"}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
                       <div>
                         <strong>Method:</strong> {method.name}
                       </div>
@@ -454,6 +491,21 @@ export default function PaymentMethodsAdmin() {
                         <strong>Fees:</strong> {formatFee(method.processingFeePercent, method.fixedFee)}
                       </div>
                     </div>
+                    {method.requiresApi && !method.isConfigured && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
+                        <p className="text-sm text-yellow-800">
+                          <strong>API Configuration Required:</strong> This payment method requires API credentials to function properly. 
+                          Add your API keys to automatically activate this method across all locations.
+                        </p>
+                      </div>
+                    )}
+                    {method.isConfigured && method.isAvailableToLocations && (
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-3">
+                        <p className="text-sm text-green-800">
+                          <strong>Synchronized:</strong> This payment method is configured and active across all locations.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2 ml-4">
                     <Button
