@@ -359,6 +359,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PAYMENT ROUTES
+  app.get("/api/payments", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const payments = await storage.getAllPayments();
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.get("/api/payments/transaction/:transactionId", async (req, res) => {
+    try {
+      const transactionId = parseInt(req.params.transactionId, 10);
+      const payments = await storage.getPaymentsByTransaction(transactionId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching payments for transaction:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.post("/api/payments", async (req, res) => {
+    try {
+      const paymentData = insertPaymentSchema.parse(req.body);
+      const payment = await storage.createPayment(paymentData);
+      res.status(201).json(payment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid payment data", errors: error.errors });
+      }
+      console.error("Error creating payment:", error);
+      res.status(500).json({ message: "Failed to create payment" });
+    }
+  });
+
+  app.patch("/api/payments/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const { status, paymentData } = req.body;
+      
+      const payment = await storage.updatePaymentStatus(id, status, paymentData);
+      res.json(payment);
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      res.status(500).json({ message: "Failed to update payment status" });
+    }
+  });
+
+  // CASH PAYMENT PROCESSING
+  app.post("/api/cash-payment", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const { transactionId, locationId } = req.body;
+      
+      // Get location to determine deposit amount
+      const location = await storage.getLocation(locationId);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+      
+      const depositAmount = location.depositAmount || 20;
+      
+      // Create cash payment record
+      const payment = await storage.createPayment({
+        transactionId,
+        paymentMethod: "cash",
+        depositAmount: depositAmount * 100,
+        processingFee: 0, // No processing fee for cash
+        totalAmount: depositAmount * 100,
+        status: "completed"
+      });
+      
+      res.json({
+        paymentId: payment.id,
+        status: "completed",
+        amount: depositAmount * 100
+      });
+    } catch (error) {
+      console.error("Error processing cash payment:", error);
+      res.status(500).json({ message: "Failed to process cash payment" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
