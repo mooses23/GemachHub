@@ -2374,7 +2374,7 @@ export class MemStorage implements IStorage {
     const updatedTransaction: Transaction = { 
       ...transaction, 
       isReturned: true,
-      actualReturnDate: new Date().toISOString()
+      actualReturnDate: new Date()
     };
     this.transactions.set(id, updatedTransaction);
     return updatedTransaction;
@@ -2394,7 +2394,7 @@ export class MemStorage implements IStorage {
     const contact: Contact = { 
       ...insertContact, 
       id, 
-      submittedAt: new Date().toISOString(),
+      submittedAt: new Date(),
       isRead: false
     };
     this.contacts.set(id, contact);

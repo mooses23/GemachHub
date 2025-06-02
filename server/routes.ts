@@ -499,6 +499,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk deposit operations for operators
+  app.post("/api/deposits/bulk-confirm", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { paymentIds } = req.body;
+      if (!Array.isArray(paymentIds)) {
+        return res.status(400).json({ message: "paymentIds must be an array" });
+      }
+
+      const result = await DepositSyncService.bulkConfirmDeposits(
+        paymentIds, 
+        req.user.id
+      );
+
+      res.json({
+        success: result.success,
+        failed: result.failed,
+        total: paymentIds.length,
+        message: `Successfully confirmed ${result.success} deposits${result.failed > 0 ? `, ${result.failed} failed` : ''}`
+      });
+    } catch (error) {
+      console.error("Bulk confirmation error:", error);
+      res.status(500).json({ message: "Error processing bulk confirmation" });
+    }
+  });
+
+  // Deposit analytics endpoint
+  app.get("/api/deposits/analytics", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const locationId = req.query.locationId ? parseInt(req.query.locationId as string) : undefined;
+      const analytics = await DepositSyncService.generateDepositAnalytics(locationId);
+
+      res.json(analytics);
+    } catch (error) {
+      console.error("Analytics generation error:", error);
+      res.status(500).json({ message: "Error generating analytics" });
+    }
+  });
+
   // CASH PAYMENT PROCESSING
   app.post("/api/cash-payment", async (req, res) => {
     try {
