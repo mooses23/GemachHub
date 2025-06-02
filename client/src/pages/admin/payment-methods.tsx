@@ -212,7 +212,7 @@ export default function PaymentMethodsAdmin() {
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
             <div className="p-2 bg-blue-100 rounded-full">
-              <CreditCard className="h-6 w-6 text-blue-600" />
+              <Plus className="h-6 w-6 text-blue-600" />
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-2">Global Payment System</h3>
