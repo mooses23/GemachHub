@@ -1,6 +1,7 @@
 import { LocationSearch } from "@/components/locations/location-search";
 import { Link } from "wouter";
 import { MapPin, Users, Clock, Shield } from "lucide-react";
+import heroImage from "@assets/IMG_9646.jpeg";
 
 export default function Home() {
   return (
@@ -16,20 +17,34 @@ export default function Home() {
       </head>
       
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-        <div className="container mx-auto px-4 py-16">
-          <div className="text-center max-w-4xl mx-auto mb-12">
-            <h1 className="text-5xl font-bold text-gray-900 mb-6">
-              Find Baby Earmuffs Near You
-            </h1>
-            <p className="text-xl text-gray-600 mb-8">
-              Protect your baby's hearing with our global gemach network. 
-              Search by zip code, city, or location code to find the nearest location.
-            </p>
+        {/* Hero Section with Image */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 z-0">
+            <img 
+              src={heroImage} 
+              alt="Baby wearing protective earmuffs"
+              className="w-full h-96 object-cover opacity-20"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-blue-50/80 to-white"></div>
           </div>
           
-          <LocationSearch />
-          
-          {/* Location Categories */}
+          <div className="relative z-10 container mx-auto px-4 py-16">
+            <div className="text-center max-w-4xl mx-auto mb-12">
+              <h1 className="text-5xl font-bold text-gray-900 mb-6">
+                Find Baby Earmuffs Near You
+              </h1>
+              <p className="text-xl text-gray-600 mb-8">
+                Protect your baby's hearing with our global gemach network. 
+                Search by zip code, city, or location code to find the nearest location.
+              </p>
+            </div>
+            
+            <LocationSearch />
+          </div>
+        </div>
+        
+        {/* Location Categories */}
+        <div className="container mx-auto px-4">
           <div className="mt-16 max-w-6xl mx-auto">
             <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
               All Locations Coded
@@ -114,7 +129,7 @@ export default function Home() {
               <div className="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <Users className="h-8 w-8 text-purple-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">130 Locations</h3>
+              <h3 className="text-xl font-semibent text-gray-900 mb-2">130 Locations</h3>
               <p className="text-gray-600">Worldwide coverage</p>
             </div>
           </div>
