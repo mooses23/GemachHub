@@ -30,12 +30,9 @@ export default function Home() {
           
           <div className="relative z-10 container mx-auto px-4 py-16">
             <div className="text-center max-w-4xl mx-auto mb-12">
-              <h1 className="text-6xl font-bold text-gray-900 mb-4">
-                BabyBanz Gemach
-              </h1>
-              <h2 className="text-3xl font-semibold text-gray-700 mb-6">
+              <h1 className="text-5xl font-bold text-gray-900 mb-6">
                 Find Baby Earmuffs Near You
-              </h2>
+              </h1>
               <p className="text-xl text-gray-600 mb-8">
                 Protect your baby's hearing with our global gemach network. 
                 Search by zip code, city, or location code to find the nearest location.
