@@ -2218,7 +2218,11 @@ export class MemStorage implements IStorage {
 
   async createRegion(insertRegion: InsertRegion): Promise<Region> {
     const id = this.regionCounter++;
-    const region: Region = { ...insertRegion, id };
+    const region: Region = { 
+      ...insertRegion, 
+      id,
+      displayOrder: insertRegion.displayOrder ?? 0
+    };
     this.regions.set(id, region);
     return region;
   }
@@ -2251,7 +2255,17 @@ export class MemStorage implements IStorage {
 
   async createLocation(insertLocation: InsertLocation): Promise<Location> {
     const id = this.locationCounter++;
-    const location: Location = { ...insertLocation, id };
+    const location: Location = { 
+      ...insertLocation, 
+      id,
+      zipCode: insertLocation.zipCode ?? null,
+      isActive: insertLocation.isActive ?? true,
+      inventoryCount: insertLocation.inventoryCount ?? null,
+      cashOnly: insertLocation.cashOnly ?? null,
+      depositAmount: insertLocation.depositAmount ?? null,
+      paymentMethods: insertLocation.paymentMethods ?? null,
+      processingFeePercent: insertLocation.processingFeePercent ?? null
+    };
     this.locations.set(id, location);
     return location;
   }
@@ -2282,7 +2296,8 @@ export class MemStorage implements IStorage {
       ...insertApplication, 
       id, 
       status: "pending",
-      submittedAt: new Date().toISOString() 
+      submittedAt: new Date(),
+      message: insertApplication.message ?? null
     };
     this.applications.set(id, application);
     return application;
@@ -2326,9 +2341,13 @@ export class MemStorage implements IStorage {
       ...insertTransaction, 
       id, 
       isReturned: false,
-      borrowDate: new Date().toISOString(),
+      borrowDate: new Date(),
       actualReturnDate: null,
-      expectedReturnDate
+      expectedReturnDate: insertTransaction.expectedReturnDate ? new Date(insertTransaction.expectedReturnDate) : null,
+      depositAmount: insertTransaction.depositAmount ?? 20,
+      borrowerEmail: insertTransaction.borrowerEmail ?? null,
+      borrowerPhone: insertTransaction.borrowerPhone ?? null,
+      notes: insertTransaction.notes ?? null
     };
     
     this.transactions.set(id, transaction);
