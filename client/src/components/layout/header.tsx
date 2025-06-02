@@ -31,13 +31,42 @@ export function Header() {
     <header className="bg-white shadow-sm">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
+          {/* Mobile Menu Button - moved to left */}
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden text-neutral-700 focus:outline-none"
+            aria-label="Toggle mobile menu"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+
+          {/* BabyBanz Gemach Title - centered on mobile, left on desktop */}
+          <div className="flex-1 md:flex-none text-center md:text-left">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+              BabyBanz Gemach
+            </h1>
+          </div>
+
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
             <div className="text-primary">
               <Headphones className="h-8 w-8" />
             </div>
-            <div className="hidden md:block">
-              <span className="font-semibold text-lg">Baby Banz Earmuffs Gemach</span>
+            <div className="hidden lg:block">
+              <span className="font-semibold text-lg">Baby Banz Earmuffs</span>
             </div>
           </Link>
 
@@ -151,27 +180,7 @@ export function Header() {
               </Button>
             )}
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden text-neutral-700 focus:outline-none"
-            aria-label="Toggle mobile menu"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
+
         </div>
 
         {/* Mobile Menu */}

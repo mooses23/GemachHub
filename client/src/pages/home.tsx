@@ -72,49 +72,49 @@ export default function Home() {
               
               {/* Large Communities */}
               <div className="space-y-4">
-                <h4 className="text-lg font-medium text-center text-gray-800">
+                <h4 className="text-lg font-medium text-center text-gray-800 transform -rotate-1">
                   Large Communities
                 </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Link href="/locations?search=Brooklyn">
-                    <div className="bg-blue-100/80 backdrop-blur rounded-full py-2 px-4 text-center hover:bg-blue-200 transition-colors cursor-pointer">
+                    <div className="bg-blue-100/90 border-2 border-blue-300 rounded-lg py-3 px-4 text-center hover:bg-blue-200 transition-all duration-200 cursor-pointer transform hover:scale-105 rotate-1 shadow-md hover:shadow-lg">
                       <span className="text-sm font-medium text-blue-900">Brooklyn</span>
                     </div>
                   </Link>
                   <Link href="/locations?search=Lakewood">
-                    <div className="bg-blue-100/80 backdrop-blur rounded-full py-2 px-4 text-center hover:bg-blue-200 transition-colors cursor-pointer">
+                    <div className="bg-blue-100/90 border-2 border-blue-300 rounded-lg py-3 px-4 text-center hover:bg-blue-200 transition-all duration-200 cursor-pointer transform hover:scale-105 -rotate-1 shadow-md hover:shadow-lg">
                       <span className="text-sm font-medium text-blue-900">Lakewood</span>
                     </div>
                   </Link>
                   <Link href="/locations?search=Monsey">
-                    <div className="bg-blue-100/80 backdrop-blur rounded-full py-2 px-4 text-center hover:bg-blue-200 transition-colors cursor-pointer">
+                    <div className="bg-blue-100/90 border-2 border-blue-300 rounded-lg py-3 px-4 text-center hover:bg-blue-200 transition-all duration-200 cursor-pointer transform hover:scale-105 rotate-2 shadow-md hover:shadow-lg">
                       <span className="text-sm font-medium text-blue-900">Monsey</span>
                     </div>
                   </Link>
                   <Link href="/locations?search=Los Angeles">
-                    <div className="bg-blue-100/80 backdrop-blur rounded-full py-2 px-4 text-center hover:bg-blue-200 transition-colors cursor-pointer">
+                    <div className="bg-blue-100/90 border-2 border-blue-300 rounded-lg py-3 px-4 text-center hover:bg-blue-200 transition-all duration-200 cursor-pointer transform hover:scale-105 -rotate-2 shadow-md hover:shadow-lg">
                       <span className="text-sm font-medium text-blue-900">Los Angeles</span>
                     </div>
                   </Link>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <Link href="/locations?search=Jerusalem">
-                    <div className="bg-green-100/80 backdrop-blur rounded-full py-2 px-4 text-center hover:bg-green-200 transition-colors cursor-pointer">
+                    <div className="bg-green-100/90 border-2 border-green-300 rounded-lg py-3 px-4 text-center hover:bg-green-200 transition-all duration-200 cursor-pointer transform hover:scale-105 -rotate-1 shadow-md hover:shadow-lg">
                       <span className="text-sm font-medium text-green-900">Jerusalem</span>
                     </div>
                   </Link>
                   <Link href="/locations?search=Bnei Brak">
-                    <div className="bg-green-100/80 backdrop-blur rounded-full py-2 px-4 text-center hover:bg-green-200 transition-colors cursor-pointer">
+                    <div className="bg-green-100/90 border-2 border-green-300 rounded-lg py-3 px-4 text-center hover:bg-green-200 transition-all duration-200 cursor-pointer transform hover:scale-105 rotate-1 shadow-md hover:shadow-lg">
                       <span className="text-sm font-medium text-green-900">Bnei Brak</span>
                     </div>
                   </Link>
                   <Link href="/locations?search=London">
-                    <div className="bg-purple-100/80 backdrop-blur rounded-full py-2 px-4 text-center hover:bg-purple-200 transition-colors cursor-pointer">
+                    <div className="bg-purple-100/90 border-2 border-purple-300 rounded-lg py-3 px-4 text-center hover:bg-purple-200 transition-all duration-200 cursor-pointer transform hover:scale-105 rotate-2 shadow-md hover:shadow-lg">
                       <span className="text-sm font-medium text-purple-900">London</span>
                     </div>
                   </Link>
                   <Link href="/locations?search=Melbourne">
-                    <div className="bg-orange-100/80 backdrop-blur rounded-full py-2 px-4 text-center hover:bg-orange-200 transition-colors cursor-pointer">
+                    <div className="bg-orange-100/90 border-2 border-orange-300 rounded-lg py-3 px-4 text-center hover:bg-orange-200 transition-all duration-200 cursor-pointer transform hover:scale-105 -rotate-1 shadow-md hover:shadow-lg">
                       <span className="text-sm font-medium text-orange-900">Melbourne</span>
                     </div>
                   </Link>
