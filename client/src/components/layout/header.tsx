@@ -54,57 +54,26 @@ export function Header() {
               Home
             </Link>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center font-medium text-neutral-700 hover:text-primary transition-colors">
-                  Find a Gemach <ChevronDown className="ml-1 h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                <DropdownMenuItem asChild>
-                  <Link href="/locations?region=united-states" className="w-full">
-                    United States
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/locations?region=canada" className="w-full">
-                    Canada
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/locations?region=australia" className="w-full">
-                    Australia
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/locations?region=europe" className="w-full">
-                    Europe
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/locations?region=israel" className="w-full">
-                    Israel
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
             <Link
-              href="/#how-it-works"
-              className={`font-medium text-neutral-700 hover:text-primary transition-colors`}
-            >
-              How It Works
-            </Link>
-            
-            <Link
-              href="/borrow"
+              href="/self-deposit"
               className={`font-medium ${
-                isActiveLink("/borrow")
+                isActiveLink("/self-deposit")
                   ? "text-primary"
                   : "text-neutral-700 hover:text-primary"
               } transition-colors`}
             >
-              Borrow Earmuffs
+              Self Deposit
+            </Link>
+            
+            <Link
+              href="/rules"
+              className={`font-medium ${
+                isActiveLink("/rules")
+                  ? "text-primary"
+                  : "text-neutral-700 hover:text-primary"
+              } transition-colors`}
+            >
+              Rules of Borrowers
             </Link>
             
             <Link
@@ -115,7 +84,7 @@ export function Header() {
                   : "text-neutral-700 hover:text-primary"
               } transition-colors`}
             >
-              Open a Gemach
+              Open Location
             </Link>
             
             <Link
@@ -127,6 +96,17 @@ export function Header() {
               } transition-colors`}
             >
               Contact
+            </Link>
+            
+            <Link
+              href="/auth"
+              className={`font-medium ${
+                isActiveLink("/auth")
+                  ? "text-primary"
+                  : "text-neutral-700 hover:text-primary"
+              } transition-colors`}
+            >
+              Login
             </Link>
           </nav>
 
