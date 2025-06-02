@@ -38,9 +38,11 @@ export function LocationCard({ location }: LocationCardProps) {
         </div>
       </CardContent>
       <CardFooter className="border-t border-gray-200 pt-4">
-        <Button className="w-full">
-          Contact This Gemach
-        </Button>
+        <div className="text-center">
+          <span className="text-sm text-gray-500">
+            Available for borrowing
+          </span>
+        </div>
       </CardFooter>
     </Card>
   );
