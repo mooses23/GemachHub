@@ -255,6 +255,29 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
 
         <FormField
           control={form.control}
+          name="depositAmount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Deposit Amount ($)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  min="1" 
+                  step="1"
+                  value={field.value || 20}
+                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 20)} 
+                />
+              </FormControl>
+              <FormDescription>
+                Set the deposit amount required for borrowing earmuffs at this location.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="cashOnly"
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
