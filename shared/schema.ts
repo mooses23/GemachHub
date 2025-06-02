@@ -250,7 +250,7 @@ export const payments = pgTable("payments", {
   depositAmount: integer("deposit_amount").notNull(),
   processingFee: integer("processing_fee").default(0),
   totalAmount: integer("total_amount").notNull(),
-  status: text("status").notNull().default("pending"), // "pending", "completed", "failed", "refunded"
+  status: text("status").notNull().default("pending"), // "pending", "confirming", "completed", "failed", "refunded"
   paymentData: text("payment_data"), // JSON string of provider response
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
