@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LoaderCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -279,13 +280,54 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
 
         <FormField
           control={form.control}
+          name="paymentMethods"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-base">Payment Methods</FormLabel>
+              <FormDescription>
+                Select which payment methods are available at this location.
+              </FormDescription>
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                {[
+                  { id: "cash", label: "Cash" },
+                  { id: "stripe", label: "Stripe (Credit/Debit Cards)" },
+                  { id: "paypal", label: "PayPal" },
+                  { id: "square", label: "Square" }
+                ].map((method) => (
+                  <FormItem key={method.id} className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value?.includes(method.id) || false}
+                        onCheckedChange={(checked) => {
+                          const currentMethods = field.value || ["cash"];
+                          if (checked) {
+                            field.onChange([...currentMethods, method.id]);
+                          } else {
+                            field.onChange(currentMethods.filter((m) => m !== method.id));
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormLabel className="text-sm font-normal">
+                      {method.label}
+                    </FormLabel>
+                  </FormItem>
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="cashOnly"
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <FormLabel className="text-base">Cash Only</FormLabel>
+                <FormLabel className="text-base">Cash Only (Legacy)</FormLabel>
                 <p className="text-sm text-muted-foreground">
-                  Enable this if your location only accepts cash deposits (no digital payments).
+                  This setting is maintained for compatibility. Use Payment Methods above instead.
                 </p>
               </div>
               <FormControl>

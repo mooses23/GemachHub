@@ -61,6 +61,7 @@ export const locations = pgTable("locations", {
   inventoryCount: integer("inventory_count").default(0),
   cashOnly: boolean("cash_only").default(false),
   depositAmount: integer("deposit_amount").default(20),
+  paymentMethods: text("payment_methods").array().default(["cash"]),
 });
 
 export const insertLocationSchema = createInsertSchema(locations).pick({
@@ -76,6 +77,7 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   inventoryCount: true,
   cashOnly: true,
   depositAmount: true,
+  paymentMethods: true,
 });
 
 // GemachApplication schema
@@ -161,3 +163,21 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
+
+// Global Settings schema
+export const globalSettings = pgTable("global_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value"),
+  isEnabled: boolean("is_enabled").default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertGlobalSettingSchema = createInsertSchema(globalSettings).pick({
+  key: true,
+  value: true,
+  isEnabled: true,
+});
+
+export type GlobalSetting = typeof globalSettings.$inferSelect;
+export type InsertGlobalSetting = z.infer<typeof insertGlobalSettingSchema>;
