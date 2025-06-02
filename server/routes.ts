@@ -452,6 +452,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PAYMENT METHOD MANAGEMENT ROUTES (Admin only)
+  app.get("/api/payment-methods", async (req, res) => {
+    try {
+      const paymentMethods = await storage.getAllPaymentMethods();
+      res.json(paymentMethods);
+    } catch (error) {
+      console.error("Error fetching payment methods:", error);
+      res.status(500).json({ message: "Failed to fetch payment methods" });
+    }
+  });
+
+  app.post("/api/payment-methods", requireRole(["admin"]), async (req, res) => {
+    try {
+      const methodData = insertPaymentMethodSchema.parse(req.body);
+      const method = await storage.createPaymentMethod(methodData);
+      res.status(201).json(method);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid payment method data", errors: error.errors });
+      }
+      console.error("Error creating payment method:", error);
+      res.status(500).json({ message: "Failed to create payment method" });
+    }
+  });
+
+  app.patch("/api/payment-methods/:id", requireRole(["admin"]), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const updateData = req.body;
+      const method = await storage.updatePaymentMethod(id, updateData);
+      res.json(method);
+    } catch (error) {
+      console.error("Error updating payment method:", error);
+      res.status(500).json({ message: "Failed to update payment method" });
+    }
+  });
+
+  app.delete("/api/payment-methods/:id", requireRole(["admin"]), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      await storage.deletePaymentMethod(id);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error deleting payment method:", error);
+      res.status(500).json({ message: "Failed to delete payment method" });
+    }
+  });
+
+  // LOCATION PAYMENT METHOD ROUTES
+  app.get("/api/locations/:locationId/payment-methods", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      const availableMethods = await storage.getAvailablePaymentMethodsForLocation(locationId);
+      const enabledMethods = await storage.getLocationPaymentMethods(locationId);
+      
+      res.json({
+        available: availableMethods,
+        enabled: enabledMethods
+      });
+    } catch (error) {
+      console.error("Error fetching location payment methods:", error);
+      res.status(500).json({ message: "Failed to fetch location payment methods" });
+    }
+  });
+
+  app.post("/api/locations/:locationId/payment-methods/:methodId", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      const methodId = parseInt(req.params.methodId, 10);
+      const { customFee } = req.body;
+      
+      const locationMethod = await storage.enablePaymentMethodForLocation(locationId, methodId, customFee);
+      res.status(201).json(locationMethod);
+    } catch (error) {
+      console.error("Error enabling payment method for location:", error);
+      res.status(500).json({ message: "Failed to enable payment method" });
+    }
+  });
+
+  app.delete("/api/locations/:locationId/payment-methods/:methodId", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      const methodId = parseInt(req.params.methodId, 10);
+      
+      await storage.disablePaymentMethodForLocation(locationId, methodId);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error disabling payment method for location:", error);
+      res.status(500).json({ message: "Failed to disable payment method" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
