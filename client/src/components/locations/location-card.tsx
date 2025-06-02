@@ -6,14 +6,22 @@ import { User, MapPin, Phone, Mail } from "lucide-react";
 
 interface LocationCardProps {
   location: Location;
+  locationNumber?: number;
 }
 
-export function LocationCard({ location }: LocationCardProps) {
+export function LocationCard({ location, locationNumber }: LocationCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="pt-6">
         <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-semibold">{location.name}</h3>
+          <div>
+            {locationNumber && (
+              <div className="bg-yellow-400 text-black text-sm font-bold px-3 py-1 rounded-full inline-block mb-2">
+                #{locationNumber}
+              </div>
+            )}
+            <h3 className="text-xl font-semibold">{location.name}</h3>
+          </div>
           <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
             {location.isActive ? "Active" : "Inactive"}
           </span>
