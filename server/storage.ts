@@ -2432,6 +2432,11 @@ export class MemStorage implements IStorage {
     const payment: Payment = { 
       ...insertPayment, 
       id,
+      status: insertPayment.status || "pending",
+      paymentProvider: insertPayment.paymentProvider ?? null,
+      externalPaymentId: insertPayment.externalPaymentId ?? null,
+      processingFee: insertPayment.processingFee ?? null,
+      paymentData: insertPayment.paymentData ?? null,
       createdAt: new Date(),
       completedAt: insertPayment.status === "completed" ? new Date() : null
     };
