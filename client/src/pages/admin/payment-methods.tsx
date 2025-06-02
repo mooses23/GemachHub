@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Edit, Trash2, Save, X } from "lucide-react";
+import { Plus, Edit, Trash2, Save, X, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -55,12 +55,15 @@ export default function PaymentMethodsAdmin() {
     defaultValues: {
       name: "",
       displayName: "",
-      provider: null,
+      provider: "",
       isActive: true,
       isAvailableToLocations: false,
       processingFeePercent: 0,
       fixedFee: 0,
       requiresApi: false,
+      apiKey: "",
+      apiSecret: "",
+      webhookSecret: "",
     },
   });
 
