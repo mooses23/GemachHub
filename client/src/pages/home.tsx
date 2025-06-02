@@ -1,4 +1,5 @@
 import { LocationSearch } from "@/components/locations/location-search";
+import { SelfDeposit } from "@/components/home/self-deposit";
 
 export default function Home() {
   return (
@@ -27,6 +28,8 @@ export default function Home() {
           
           <LocationSearch />
         </div>
+        
+        <SelfDeposit />
       </div>
     </>
   );
