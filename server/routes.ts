@@ -276,6 +276,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access forbidden" });
       }
       
+      // For admins, return a summary location for mass management
+      if (user.isAdmin) {
+        const allLocations = await storage.getAllLocations();
+        const totalInventory = allLocations.reduce((sum, loc) => sum + (loc.inventoryCount || 0), 0);
+        
+        const adminLocation = {
+          id: 0,
+          name: "Admin - All Locations",
+          locationCode: "ADMIN",
+          contactPerson: "System Administrator",
+          address: "All Locations",
+          zipCode: "00000",
+          phone: "System",
+          email: user.email,
+          regionId: 0,
+          isActive: true,
+          inventoryCount: totalInventory,
+          cashOnly: false
+        };
+        
+        return res.json(adminLocation);
+      }
+      
       if (!user.locationId) {
         return res.status(400).json({ message: "User not associated with a location" });
       }
