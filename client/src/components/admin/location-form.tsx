@@ -47,6 +47,7 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
       regionId: location.regionId,
       isActive: location.isActive,
       inventoryCount: location.inventoryCount,
+      cashOnly: location.cashOnly || false,
     } : {
       name: "",
       contactPerson: "",
@@ -239,6 +240,27 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
                 <FormLabel className="text-base">Active Status</FormLabel>
                 <p className="text-sm text-muted-foreground">
                   Set whether this gemach location is currently active and visible to users.
+                </p>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="cashOnly"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <FormLabel className="text-base">Cash Only</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Enable this if your location only accepts cash deposits (no digital payments).
                 </p>
               </div>
               <FormControl>

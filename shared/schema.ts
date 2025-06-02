@@ -59,6 +59,7 @@ export const locations = pgTable("locations", {
   regionId: integer("region_id").notNull(),
   isActive: boolean("is_active").default(true),
   inventoryCount: integer("inventory_count").default(0),
+  cashOnly: boolean("cash_only").default(false),
 });
 
 export const insertLocationSchema = createInsertSchema(locations).pick({
@@ -72,6 +73,7 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   regionId: true,
   isActive: true,
   inventoryCount: true,
+  cashOnly: true,
 });
 
 // GemachApplication schema
