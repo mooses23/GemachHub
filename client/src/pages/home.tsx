@@ -22,10 +22,8 @@ export default function Home() {
               </p>
             </div>
             
-            <LocationSearch />
-            
             {/* Continental Navigation */}
-            <div className="flex flex-wrap justify-center gap-3 mt-6 mb-8">
+            <div className="flex flex-wrap justify-center gap-3 mb-6">
               <Link href="/locations?region=united-states">
                 <button className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
                   USA
@@ -48,8 +46,10 @@ export default function Home() {
               </Link>
             </div>
 
+            <LocationSearch />
+
             {/* Popular Cities */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 max-w-4xl mx-auto">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 max-w-4xl mx-auto mt-8">
               <h3 className="text-lg font-semibold text-center mb-4 text-gray-800">
                 Popular Cities
               </h3>
