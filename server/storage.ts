@@ -2110,27 +2110,39 @@ export class MemStorage implements IStorage {
         isAvailableToLocations: true,
         processingFeePercent: 0,
         fixedFee: 0,
-        requiresApi: false
+        requiresApi: false,
+        apiKey: null,
+        apiSecret: null,
+        webhookSecret: null,
+        isConfigured: true
       },
       {
         name: "stripe",
         displayName: "Credit/Debit Card",
         provider: "stripe",
-        isActive: true,
-        isAvailableToLocations: true,
+        isActive: false,
+        isAvailableToLocations: false,
         processingFeePercent: 290, // 2.9%
         fixedFee: 30, // $0.30
-        requiresApi: true
+        requiresApi: true,
+        apiKey: null,
+        apiSecret: null,
+        webhookSecret: null,
+        isConfigured: false
       },
       {
         name: "paypal",
         displayName: "PayPal",
         provider: "paypal",
-        isActive: true,
-        isAvailableToLocations: true,
+        isActive: false,
+        isAvailableToLocations: false,
         processingFeePercent: 290, // 2.9%
         fixedFee: 30, // $0.30
-        requiresApi: true
+        requiresApi: true,
+        apiKey: null,
+        apiSecret: null,
+        webhookSecret: null,
+        isConfigured: false
       },
       {
         name: "venmo",
@@ -2140,7 +2152,11 @@ export class MemStorage implements IStorage {
         isAvailableToLocations: true,
         processingFeePercent: 0,
         fixedFee: 0,
-        requiresApi: false
+        requiresApi: false,
+        apiKey: null,
+        apiSecret: null,
+        webhookSecret: null,
+        isConfigured: true
       },
       {
         name: "zelle",
@@ -2150,7 +2166,11 @@ export class MemStorage implements IStorage {
         isAvailableToLocations: true,
         processingFeePercent: 0,
         fixedFee: 0,
-        requiresApi: false
+        requiresApi: false,
+        apiKey: null,
+        apiSecret: null,
+        webhookSecret: null,
+        isConfigured: true
       }
     ];
 
@@ -2436,6 +2456,10 @@ export class MemStorage implements IStorage {
       fixedFee: insertMethod.fixedFee ?? 0,
       requiresApi: insertMethod.requiresApi ?? false,
       provider: insertMethod.provider ?? null,
+      apiKey: insertMethod.apiKey ?? null,
+      apiSecret: insertMethod.apiSecret ?? null,
+      webhookSecret: insertMethod.webhookSecret ?? null,
+      isConfigured: insertMethod.isConfigured ?? false,
       createdAt: new Date()
     };
     this.paymentMethods.set(id, method);

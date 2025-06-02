@@ -195,6 +195,10 @@ export const paymentMethods = pgTable("payment_methods", {
   processingFeePercent: integer("processing_fee_percent").default(0), // stored as basis points (290 = 2.9%)
   fixedFee: integer("fixed_fee").default(0), // in cents
   requiresApi: boolean("requires_api").default(false),
+  apiKey: text("api_key"), // encrypted API key
+  apiSecret: text("api_secret"), // encrypted API secret  
+  webhookSecret: text("webhook_secret"), // encrypted webhook secret
+  isConfigured: boolean("is_configured").default(false), // true when API credentials are provided
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -207,6 +211,10 @@ export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).pick
   processingFeePercent: true,
   fixedFee: true,
   requiresApi: true,
+  apiKey: true,
+  apiSecret: true,
+  webhookSecret: true,
+  isConfigured: true,
 });
 
 export type PaymentMethod = typeof paymentMethods.$inferSelect;

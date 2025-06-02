@@ -16,7 +16,10 @@ import { insertPaymentMethodSchema } from "@shared/schema";
 
 const formSchema = insertPaymentMethodSchema.extend({
   processingFeePercent: z.number().min(0).max(1000),
-  fixedFee: z.number().min(0)
+  fixedFee: z.number().min(0),
+  apiKey: z.string().optional(),
+  apiSecret: z.string().optional(),
+  webhookSecret: z.string().optional()
 });
 
 type FormData = z.infer<typeof formSchema>;
