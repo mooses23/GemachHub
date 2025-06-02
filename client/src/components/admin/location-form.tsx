@@ -280,6 +280,30 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
 
         <FormField
           control={form.control}
+          name="processingFeePercent"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Processing Fee (%)</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number" 
+                  min="0" 
+                  max="1000"
+                  step="10"
+                  value={field.value ? field.value / 100 : 3.0}
+                  onChange={(e) => field.onChange(Math.round(parseFloat(e.target.value || "3.0") * 100))} 
+                />
+              </FormControl>
+              <FormDescription>
+                Processing fee percentage charged to customers for digital payments (to cover payment provider costs). Cash payments have no fee.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="paymentMethods"
           render={({ field }) => (
             <FormItem>

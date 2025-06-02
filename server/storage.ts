@@ -2059,7 +2059,8 @@ export class MemStorage implements IStorage {
       const locationWithDefaults = {
         ...location,
         depositAmount: location.depositAmount || 20,
-        paymentMethods: location.paymentMethods || ["cash"]
+        paymentMethods: location.paymentMethods || ["cash"],
+        processingFeePercent: location.processingFeePercent || 300 // 3.00%
       };
       this.createLocation(locationWithDefaults);
     });
