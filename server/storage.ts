@@ -2170,7 +2170,13 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userCounter++;
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      ...insertUser, 
+      id,
+      role: insertUser.role || "customer",
+      isAdmin: insertUser.isAdmin ?? null,
+      locationId: insertUser.locationId ?? null
+    };
     this.users.set(id, user);
     return user;
   }
@@ -2422,8 +2428,14 @@ export class MemStorage implements IStorage {
   async createPaymentMethod(insertMethod: InsertPaymentMethod): Promise<PaymentMethod> {
     const id = this.paymentMethodCounter++;
     const method: PaymentMethod = { 
-      ...insertMethod, 
+      ...insertMethod,
       id,
+      isActive: insertMethod.isActive ?? true,
+      isAvailableToLocations: insertMethod.isAvailableToLocations ?? false,
+      processingFeePercent: insertMethod.processingFeePercent ?? 0,
+      fixedFee: insertMethod.fixedFee ?? 0,
+      requiresApi: insertMethod.requiresApi ?? false,
+      provider: insertMethod.provider ?? null,
       createdAt: new Date()
     };
     this.paymentMethods.set(id, method);
