@@ -2,10 +2,10 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { getLocations, getTransactions, getGemachApplications, getContacts } from "@/lib/api";
+import { Location, Transaction, GemachApplication, Contact } from "@shared/schema";
 import { 
   Users, MapPin, FileText, Package,
-  DollarSign, RefreshCw, AlarmClock, CreditCard
+  DollarSign, RefreshCw, AlarmClock, CreditCard, CheckCircle
 } from "lucide-react";
 import { Link } from "wouter";
 
