@@ -1,11 +1,11 @@
-export default function Rules() {
+export default function Literature() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-sm p-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
-              Rules of Borrowers
+              Literature
             </h1>
             
             <div className="space-y-6">

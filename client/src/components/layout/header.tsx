@@ -66,14 +66,14 @@ export function Header() {
             </Link>
             
             <Link
-              href="/rules"
+              href="/literature"
               className={`font-medium ${
-                isActiveLink("/rules")
+                isActiveLink("/literature")
                   ? "text-primary"
                   : "text-neutral-700 hover:text-primary"
               } transition-colors`}
             >
-              Rules of Borrowers
+              Literature
             </Link>
             
             <Link
