@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getLocations } from "@/lib/api";
 import type { Location } from "@shared/schema";
-import PaymentProcessor from "@/components/payment/payment-processor";
+import UniversalPaymentProcessor from "@/components/payment/universal-payment-processor";
 import { FeeCalculator } from "@/components/payment/fee-calculator";
 import { CreditCard, DollarSign, MapPin } from "lucide-react";
 
@@ -95,7 +95,7 @@ export function SelfDeposit() {
                         selectedPaymentMethod={selectedPaymentMethod}
                       />
                       
-                      <PaymentProcessor
+                      <UniversalPaymentProcessor
                         locationId={selectedLocationData.id}
                         depositAmount={selectedLocationData.depositAmount}
                         borrowerName={borrowerName}
