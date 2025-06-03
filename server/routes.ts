@@ -7,6 +7,7 @@ import { DepositRefundService } from "./deposit-refund";
 import { EmailNotificationService } from "./email-notifications";
 import { AuditTrailService } from "./audit-trail";
 import { PaymentAnalyticsEngine } from "./analytics-engine";
+import { DepositDetectionService } from "./deposit-detection";
 import { z } from "zod";
 
 // Utility function to detect card brand
@@ -689,6 +690,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Audit trail error:", error);
       res.status(500).json({ message: "Error retrieving audit trail" });
+    }
+  });
+
+  // WEBHOOK ENDPOINTS FOR REAL-TIME PAYMENT STATUS DETECTION
+  app.post("/api/webhooks/stripe", async (req, res) => {
+    try {
+      const { id, object, type, data } = req.body;
+      
+      if (type === 'payment_intent.succeeded') {
+        await DepositDetectionService.processPaymentStatusUpdate(
+          data.object.id,
+          'accepted',
+          {
+            stripe_payment_intent_id: data.object.id,
+            amount_received: data.object.amount_received,
+            currency: data.object.currency,
+            payment_method: data.object.payment_method
+          },
+          'stripe_webhook'
+        );
+      } else if (type === 'payment_intent.payment_failed') {
+        await DepositDetectionService.processPaymentStatusUpdate(
+          data.object.id,
+          'declined',
+          {
+            stripe_payment_intent_id: data.object.id,
+            failure_code: data.object.last_payment_error?.code,
+            failure_message: data.object.last_payment_error?.message
+          },
+          'stripe_webhook'
+        );
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Stripe webhook error:", error);
+      res.status(400).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  app.post("/api/webhooks/paypal", async (req, res) => {
+    try {
+      const { event_type, resource } = req.body;
+      
+      if (event_type === 'PAYMENT.CAPTURE.COMPLETED') {
+        await DepositDetectionService.processPaymentStatusUpdate(
+          resource.id,
+          'accepted',
+          {
+            paypal_capture_id: resource.id,
+            amount: resource.amount,
+            status: resource.status
+          },
+          'paypal_webhook'
+        );
+      } else if (event_type === 'PAYMENT.CAPTURE.DENIED') {
+        await DepositDetectionService.processPaymentStatusUpdate(
+          resource.id,
+          'declined',
+          {
+            paypal_capture_id: resource.id,
+            reason_code: resource.reason_code
+          },
+          'paypal_webhook'
+        );
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error("PayPal webhook error:", error);
+      res.status(400).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // MANUAL PAYMENT STATUS CHECKING
+  app.get("/api/payments/status-check", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      await DepositDetectionService.monitorPendingPayments();
+      res.json({ message: "Payment status monitoring completed" });
+    } catch (error) {
+      console.error("Payment status check error:", error);
+      res.status(500).json({ message: "Error checking payment status" });
+    }
+  });
+
+  // DEPOSIT DETECTION ANALYTICS
+  app.get("/api/analytics/deposit-detection", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      const dateRange = startDate && endDate ? { start: startDate, end: endDate } : undefined;
+
+      const analytics = await DepositDetectionService.generateDetectionAnalytics(dateRange);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Detection analytics error:", error);
+      res.status(500).json({ message: "Error generating detection analytics" });
+    }
+  });
+
+  // REAL-TIME STATUS ENDPOINT FOR DASHBOARD
+  app.get("/api/realtime-status", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const payments = await storage.getAllPayments();
+      const transactions = await storage.getAllTransactions();
+
+      // Get recent payments (last 2 hours)
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const recentPayments = payments
+        .filter(p => p.createdAt && new Date(p.createdAt) > twoHoursAgo)
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 10)
+        .map(payment => {
+          const transaction = transactions.find(t => t.id === payment.transactionId);
+          return {
+            id: payment.id,
+            amount: payment.totalAmount,
+            status: payment.status,
+            method: payment.paymentMethod,
+            timestamp: payment.createdAt || new Date().toISOString(),
+            borrowerName: transaction?.borrowerName || 'Unknown'
+          };
+        });
+
+      const pendingCount = payments.filter(p => ['pending', 'confirming'].includes(p.status)).length;
+      const completedCount = payments.filter(p => p.status === 'completed').length;
+      const successRate = payments.length > 0 ? (completedCount / payments.length) * 100 : 0;
+
+      res.json({
+        recentPayments,
+        pendingCount,
+        successRate,
+        lastUpdateTime: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Real-time status error:", error);
+      res.status(500).json({ message: "Error fetching real-time status" });
     }
   });
 
