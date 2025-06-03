@@ -30,21 +30,17 @@ export function Header() {
   return (
     <header className="bg-white shadow-sm">
       <div className="container mx-auto px-4 py-3">
-        <div className="grid grid-cols-3 items-center">
-          {/* Logo - Left */}
-          <div className="flex items-center space-x-2">
-            <Link href="/" className="flex items-center space-x-2">
+        <div className="flex items-center justify-between">
+          {/* Logo and Title - Left */}
+          <div className="flex items-center space-x-3">
+            <Link href="/" className="flex items-center space-x-3">
               <div className="text-blue-600 bg-blue-50 rounded-full p-2">
                 <Headphones className="h-6 w-6" />
               </div>
+              <h1 className="text-xl md:text-2xl font-bold text-blue-600 whitespace-nowrap">
+                Baby Banz Gemach
+              </h1>
             </Link>
-          </div>
-
-          {/* BabyBanz Title - Center */}
-          <div className="hidden md:flex justify-center">
-            <h1 className="text-xl font-bold text-blue-600 whitespace-nowrap">
-              BabyBanz Gemach
-            </h1>
           </div>
 
           {/* Navigation - Right */}
