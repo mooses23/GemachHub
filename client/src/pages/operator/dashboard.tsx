@@ -137,6 +137,19 @@ export default function OperatorDashboard() {
 
   return (
     <div className="container py-6 space-y-6">
+      {/* Navigation Breadcrumbs */}
+      <div className="flex items-center gap-2 mb-6">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => window.location.href = '/'}
+          className="flex items-center gap-2"
+        >
+          <Home className="h-4 w-4" />
+          Home
+        </Button>
+      </div>
+
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">{location.name} Dashboard</h1>
