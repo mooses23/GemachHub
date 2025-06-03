@@ -64,6 +64,15 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           Contact
         </Link>
         
+        {/* Language Toggle */}
+        <button
+          onClick={toggleLanguage}
+          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50 flex items-center gap-2 text-left w-full"
+        >
+          <Languages className="h-4 w-4" />
+          {isHebrew ? "Switch to English" : "Switch to Hebrew"}
+        </button>
+        
         <Link
           href="/auth"
           onClick={() => setIsOpen(false)}
