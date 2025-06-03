@@ -54,8 +54,10 @@ export default function PaymentProcessor({
   }, [location]);
 
   const calculateBreakdown = (paymentMethod: string) => {
-    const depositAmount = location.depositAmount || 20;
-    const processingFeePercent = location.processingFeePercent || 300; // 3.00%
+    if (!location) return;
+    
+    const depositAmount = location?.depositAmount || 20;
+    const processingFeePercent = location?.processingFeePercent || 300; // 3.00%
     
     let processingFee = 0;
     if (paymentMethod !== "cash") {

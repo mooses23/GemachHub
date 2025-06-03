@@ -127,6 +127,11 @@ export const insertTransactionSchema = createInsertSchema(transactions).pick({
   depositAmount: true,
   expectedReturnDate: true,
   notes: true,
+}).extend({
+  expectedReturnDate: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str)),
+  ]).optional(),
 });
 
 // Contact schema
