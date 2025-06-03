@@ -24,6 +24,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
   isAdmin: true,
   locationId: true,
+}).extend({
+  inviteCode: z.string().min(1, "Invite code is required"),
 });
 
 // Login schema for validation
