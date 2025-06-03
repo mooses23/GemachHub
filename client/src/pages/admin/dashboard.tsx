@@ -1,15 +1,31 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { Location, Transaction, GemachApplication, Contact } from "@/lib/types";
 import { 
-  Users, MapPin, FileText, Package,
-  DollarSign, RefreshCw, AlarmClock, CreditCard, CheckCircle
+  Users, MapPin, FileText, Package, Settings, Grid, List, 
+  DollarSign, RefreshCw, AlarmClock, CreditCard, CheckCircle, BarChart3
 } from "lucide-react";
 import { Link } from "wouter";
 
+type ViewMode = 'grid' | 'list' | 'compact';
+type DashboardSection = 'overview' | 'locations' | 'transactions' | 'applications' | 'analytics';
+
 export default function Dashboard() {
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [activeSection, setActiveSection] = useState<DashboardSection>('overview');
+  
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
   });
@@ -32,250 +48,324 @@ export default function Dashboard() {
   const unreadContacts = contacts.filter(c => !c.isRead).length;
   const depositTotal = transactions.reduce((acc, tx) => acc + tx.depositAmount, 0);
 
+  const StatsCard = ({ title, value, subtitle, icon: Icon, className = "" }: {
+    title: string;
+    value: string | number;
+    subtitle: string;
+    icon: any;
+    className?: string;
+  }) => (
+    <Card className={className}>
+      <CardContent className={viewMode === 'compact' ? 'p-4' : 'pt-6'}>
+        <div className={`flex items-center ${viewMode === 'list' ? 'justify-start gap-4' : 'justify-between'}`}>
+          <div>
+            <p className={`text-sm text-muted-foreground ${viewMode === 'compact' ? 'text-xs' : ''}`}>
+              {title}
+            </p>
+            <p className={`font-bold ${viewMode === 'compact' ? 'text-lg' : 'text-2xl'}`}>
+              {value}
+            </p>
+          </div>
+          <div className={`p-2 bg-primary/10 rounded-full ${viewMode === 'compact' ? 'p-1' : ''}`}>
+            <Icon className={`text-primary ${viewMode === 'compact' ? 'h-4 w-4' : 'h-6 w-6'}`} />
+          </div>
+        </div>
+        <p className={`text-xs text-muted-foreground mt-2 ${viewMode === 'compact' ? 'text-[10px]' : ''}`}>
+          {subtitle}
+        </p>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="py-10">
       <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Locations</p>
-                  <p className="text-2xl font-bold">{locations.length}</p>
-                </div>
-                <div className="p-2 bg-primary/10 rounded-full">
-                  <MapPin className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {activeLocations} active locations
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Deposits Held</p>
-                  <p className="text-2xl font-bold">${depositTotal}</p>
-                </div>
-                <div className="p-2 bg-primary/10 rounded-full">
-                  <DollarSign className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {pendingReturns} pending returns
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">New Applications</p>
-                  <p className="text-2xl font-bold">{pendingApplications}</p>
-                </div>
-                <div className="p-2 bg-primary/10 rounded-full">
-                  <FileText className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Waiting for review
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Unread Messages</p>
-                  <p className="text-2xl font-bold">{unreadContacts}</p>
-                </div>
-                <div className="p-2 bg-primary/10 rounded-full">
-                  <AlarmClock className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                From contact form
-              </p>
-            </CardContent>
-          </Card>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          
+          {/* View Controls */}
+          <div className="flex items-center gap-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  View Options
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Dashboard Layout</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setViewMode('grid')}>
+                  <Grid className="h-4 w-4 mr-2" />
+                  Grid View
+                  {viewMode === 'grid' && <Badge variant="secondary" className="ml-auto">Active</Badge>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setViewMode('list')}>
+                  <List className="h-4 w-4 mr-2" />
+                  List View
+                  {viewMode === 'list' && <Badge variant="secondary" className="ml-auto">Active</Badge>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setViewMode('compact')}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Compact View
+                  {viewMode === 'compact' && <Badge variant="secondary" className="ml-auto">Active</Badge>}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
-        <Tabs defaultValue="recent">
-          <TabsList className="mb-6">
-            <TabsTrigger value="recent">Recent Activity</TabsTrigger>
+        {/* Section Navigation */}
+        <Tabs value={activeSection} onValueChange={(value) => setActiveSection(value as DashboardSection)} className="mb-8">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="locations">Locations</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="applications">Applications</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="recent" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Transactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {transactions.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2">Borrower</th>
-                          <th className="text-left py-2">Location</th>
-                          <th className="text-left py-2">Deposit</th>
-                          <th className="text-left py-2">Date</th>
-                          <th className="text-left py-2">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {transactions.slice(0, 5).map((tx) => {
-                          const location = locations.find(l => l.id === tx.locationId);
-                          return (
-                            <tr key={tx.id} className="border-b">
-                              <td className="py-2">{tx.borrowerName}</td>
-                              <td className="py-2">{location?.name || "Unknown"}</td>
-                              <td className="py-2">${tx.depositAmount}</td>
-                              <td className="py-2">{new Date(tx.borrowDate).toLocaleDateString()}</td>
-                              <td className="py-2">
-                                <span className={`px-2 py-1 rounded-full text-xs ${tx.isReturned ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                  {tx.isReturned ? 'Returned' : 'Borrowed'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">No transactions yet</p>
-                )}
-                
-                <div className="mt-4">
-                  <Link href="/admin/transactions" className="text-primary hover:underline text-sm">
-                    View all transactions
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>New Applications</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {applications.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2">Name</th>
-                          <th className="text-left py-2">Location</th>
-                          <th className="text-left py-2">Date</th>
-                          <th className="text-left py-2">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {applications.slice(0, 5).map((app) => (
-                          <tr key={app.id} className="border-b">
-                            <td className="py-2">{app.firstName} {app.lastName}</td>
-                            <td className="py-2">{app.location}</td>
-                            <td className="py-2">{new Date(app.submittedAt).toLocaleDateString()}</td>
-                            <td className="py-2">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                app.status === 'approved' ? 'bg-green-100 text-green-800' : 
-                                app.status === 'rejected' ? 'bg-red-100 text-red-800' : 
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">No applications yet</p>
-                )}
-                
-                <div className="mt-4">
-                  <Link href="/admin/applications" className="text-primary hover:underline text-sm">
-                    View all applications
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
           <TabsContent value="overview">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Stats Cards - Responsive based on view mode */}
+            <div className={`gap-6 mb-8 ${
+              viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4' :
+              viewMode === 'list' ? 'space-y-4' :
+              'grid grid-cols-2 lg:grid-cols-6'
+            }`}>
+              <StatsCard
+                title="Total Locations"
+                value={locations.length}
+                subtitle={`${activeLocations} active locations`}
+                icon={MapPin}
+              />
+              
+              <StatsCard
+                title="Deposits Held"
+                value={`$${depositTotal}`}
+                subtitle={`${pendingReturns} pending returns`}
+                icon={DollarSign}
+              />
+              
+              <StatsCard
+                title="New Applications"
+                value={pendingApplications}
+                subtitle="Waiting for review"
+                icon={FileText}
+              />
+              
+              <StatsCard
+                title="Unread Messages"
+                value={unreadContacts}
+                subtitle="Requires attention"
+                icon={AlarmClock}
+              />
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               <Card>
                 <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Quick Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Link href="/admin/locations">
+                    <Button className="w-full" variant="outline">
+                      Manage Locations
+                    </Button>
+                  </Link>
+                  <Link href="/admin/transactions">
+                    <Button className="w-full" variant="outline">
+                      View Transactions
+                    </Button>
+                  </Link>
+                  <Link href="/admin/applications">
+                    <Button className="w-full" variant="outline">
+                      Review Applications
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlarmClock className="h-5 w-5" />
+                    Recent Activity
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Link href="/admin/locations" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
-                      <MapPin className="h-5 w-5 mr-3 text-primary" />
-                      <span>Manage Locations</span>
-                    </Link>
-                    <Link href="/admin/transactions" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
-                      <RefreshCw className="h-5 w-5 mr-3 text-primary" />
-                      <span>Track Transactions</span>
-                    </Link>
-                    <Link href="/admin/applications" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
-                      <FileText className="h-5 w-5 mr-3 text-primary" />
-                      <span>Review Applications</span>
-                    </Link>
-                    <Link href="/admin/payment-methods" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
-                      <CreditCard className="h-5 w-5 mr-3 text-primary" />
-                      <span>Payment Methods</span>
-                    </Link>
-                    <Link href="/admin/payment-confirmations" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
-                      <CheckCircle className="h-5 w-5 mr-3 text-yellow-600" />
-                      <span>Confirm Deposits</span>
-                    </Link>
-                    <Link href="/" className="flex items-center p-4 border rounded-md hover:bg-gray-50 transition-colors">
-                      <Package className="h-5 w-5 mr-3 text-primary" />
-                      <span>View Public Site</span>
-                    </Link>
+                  <div className="space-y-3">
+                    <div className="text-sm">
+                      <p className="font-medium">Latest Transaction</p>
+                      <p className="text-muted-foreground">
+                        {transactions.length > 0 ? 'Recent deposit processed' : 'No recent activity'}
+                      </p>
+                    </div>
+                    <div className="text-sm">
+                      <p className="font-medium">New Applications</p>
+                      <p className="text-muted-foreground">
+                        {pendingApplications} pending review
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader>
-                  <CardTitle>By The Numbers</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    System Status
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Total Earmuffs:</span>
-                      <span className="font-medium">{locations.reduce((acc, loc) => acc + (loc.inventoryCount || 0), 0)}</span>
+                      <span className="text-sm">Payment Processing</span>
+                      <Badge variant="default">Active</Badge>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Active Loans:</span>
-                      <span className="font-medium">{pendingReturns}</span>
+                      <span className="text-sm">Location Network</span>
+                      <Badge variant="default">Online</Badge>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Total Deposits Held:</span>
-                      <span className="font-medium">${depositTotal}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Total Regions:</span>
-                      <span className="font-medium">
-                        {new Set(locations.map(loc => loc.regionId)).size}
-                      </span>
+                      <span className="text-sm">Database</span>
+                      <Badge variant="default">Connected</Badge>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="locations">
+            <Card>
+              <CardHeader>
+                <CardTitle>Location Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <p>Manage all Gemach locations across regions</p>
+                    <Link href="/admin/locations">
+                      <Button>View All Locations</Button>
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold">{locations.length}</p>
+                      <p className="text-sm text-muted-foreground">Total Locations</p>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold">{activeLocations}</p>
+                      <p className="text-sm text-muted-foreground">Active</p>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold">{locations.length - activeLocations}</p>
+                      <p className="text-sm text-muted-foreground">Inactive</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="transactions">
+            <Card>
+              <CardHeader>
+                <CardTitle>Transaction Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <p>Monitor deposits and returns across all locations</p>
+                    <Link href="/admin/transactions">
+                      <Button>View All Transactions</Button>
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold">${depositTotal}</p>
+                      <p className="text-sm text-muted-foreground">Total Deposits</p>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold">{pendingReturns}</p>
+                      <p className="text-sm text-muted-foreground">Pending Returns</p>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold">{transactions.filter(tx => tx.isReturned).length}</p>
+                      <p className="text-sm text-muted-foreground">Completed</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="applications">
+            <Card>
+              <CardHeader>
+                <CardTitle>Application Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <p>Review and approve new Gemach applications</p>
+                    <Link href="/admin/applications">
+                      <Button>Review Applications</Button>
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold">{applications.length}</p>
+                      <p className="text-sm text-muted-foreground">Total Applications</p>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold text-orange-600">{pendingApplications}</p>
+                      <p className="text-sm text-muted-foreground">Pending Review</p>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <p className="text-2xl font-bold text-green-600">{applications.filter(app => app.status === "approved").length}</p>
+                      <p className="text-sm text-muted-foreground">Approved</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <Card>
+              <CardHeader>
+                <CardTitle>Analytics & Reports</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p>Comprehensive analytics and reporting for your Gemach operations</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 border rounded-lg">
+                      <h3 className="font-semibold mb-2">Usage Statistics</h3>
+                      <p className="text-sm text-muted-foreground">Track location performance and user engagement</p>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <h3 className="font-semibold mb-2">Financial Reports</h3>
+                      <p className="text-sm text-muted-foreground">Monitor deposits, returns, and payment methods</p>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <h3 className="font-semibold mb-2">Regional Analysis</h3>
+                      <p className="text-sm text-muted-foreground">Compare performance across different regions</p>
+                    </div>
+                    <div className="p-4 border rounded-lg">
+                      <h3 className="font-semibold mb-2">Growth Metrics</h3>
+                      <p className="text-sm text-muted-foreground">Track expansion and user adoption rates</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
