@@ -52,9 +52,9 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
     <section id="find-gemach" className="py-16 bg-gray-50">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-neutral-800 mb-4">{t("locations.title")}</h2>
+          <h2 className="text-3xl font-bold text-neutral-800 mb-4">Find a Location Near You</h2>
           <p className="text-lg text-neutral-600 max-w-3xl mx-auto">
-            {t("locations.description")}
+            Browse our worldwide network of Baby Banz Earmuffs locations
           </p>
         </div>
         
@@ -70,7 +70,7 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
           <div className="relative">
             <Input
               type="text"
-              placeholder={t("locations.search")}
+              placeholder="Search by city, zip code, or location name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
