@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Phone, Mail, MapPin, ChevronRight } from "lucide-react";
+import { Search, Phone, Mail, MapPin, ChevronRight, ArrowLeft, Home } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -251,13 +251,25 @@ export function HierarchicalLocationSearch() {
     <div className="max-w-6xl mx-auto">
       {/* Breadcrumb */}
       <div className="mb-6 px-4 md:px-0">
-        <Button 
-          variant="ghost" 
-          onClick={() => setSelectedRegion(null)}
-          className="mb-4"
-        >
-          ← Back to Continents
-        </Button>
+        <div className="flex items-center gap-2 mb-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => setSelectedRegion(null)}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Continents
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.location.href = '/'}
+            className="flex items-center gap-2"
+          >
+            <Home className="h-4 w-4" />
+            Home
+          </Button>
+        </div>
         
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           {selectedRegion.name}

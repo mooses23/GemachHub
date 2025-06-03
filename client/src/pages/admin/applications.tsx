@@ -47,7 +47,9 @@ import {
   Phone,
   MapPin,
   Calendar,
-  Clock
+  Clock,
+  ArrowLeft,
+  Home
 } from "lucide-react";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
