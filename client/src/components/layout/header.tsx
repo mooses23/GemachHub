@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, createContext, useContext } from "react";
 import { Link, useLocation } from "wouter";
-import { Headphones, ChevronDown, User, LogOut, LayoutDashboard } from "lucide-react";
+import { Headphones, ChevronDown, User, LogOut, LayoutDashboard, Languages } from "lucide-react";
 import { MobileMenu } from "./mobile-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,11 +11,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [location] = useLocation();
   const { user, isLoading, logoutMutation, isOperator, isAdmin } = useAuth();
+  const { language, toggleLanguage, isHebrew } = useLanguage();
 
   const isActiveLink = (path: string) => {
     if (path === "/" && location === "/") return true;
@@ -126,6 +128,20 @@ export function Header() {
               >
                 Contact
               </Link>
+
+              {/* Language Toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleLanguage}
+                className="flex items-center gap-2 px-3 py-1.5"
+                title={isHebrew ? "Switch to English" : "Switch to Hebrew"}
+              >
+                <Languages className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {isHebrew ? "EN" : "עב"}
+                </span>
+              </Button>
 
               {/* Auth Buttons */}
               {isLoading ? (

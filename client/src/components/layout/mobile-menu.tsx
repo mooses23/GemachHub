@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Link } from "wouter";
-import { ChevronDown, ChevronUp, LogOut, LayoutDashboard } from "lucide-react";
+import { ChevronDown, ChevronUp, LogOut, LayoutDashboard, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface MobileMenuProps {
 
 export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
   const { user, isOperator, isAdmin, logoutMutation } = useAuth();
+  const { language, toggleLanguage, isHebrew } = useLanguage();
 
   const handleLogout = () => {
     logoutMutation.mutate();
