@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, CheckCircle2, Search, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, Search, RefreshCw, ArrowLeft, Home } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
