@@ -30,16 +30,15 @@ export function Header() {
   return (
     <header className="bg-white shadow-sm">
       <div className="container mx-auto px-4 py-3">
-        <div className="flex justify-between items-center">
-          {/* Logo - moved back to left */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="text-primary">
-              <Headphones className="h-8 w-8" />
-            </div>
-            <div className="hidden lg:block">
-              <span className="font-semibold text-lg">Baby Banz Earmuffs</span>
-            </div>
-          </Link>
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center space-x-2">
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="text-primary">
+                <Headphones className="h-8 w-8" />
+              </div>
+            </Link>
+          </div>
 
           {/* Mobile Menu Button */}
           <button
@@ -63,15 +62,15 @@ export function Header() {
             </svg>
           </button>
 
-          {/* BabyBanz Gemach Title - between logo and navigation */}
-          <div className="hidden md:block flex-1 text-center">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">
-              BabyBanz Gemach
+          {/* Centered Baby Banz Title */}
+          <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
+            <h1 className="text-xl font-bold text-blue-600">
+              Baby Banz Earmuffs Gemach
             </h1>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8 items-center">
+          <nav className="hidden md:flex space-x-6 items-center">
             <Link
               href="/"
               className={`font-medium ${
