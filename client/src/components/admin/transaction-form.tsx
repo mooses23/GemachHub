@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { insertTransactionSchema } from "@/lib/types";
-import type { InsertTransaction, Transaction, Location } from "@shared/schema";
+import type { InsertTransaction, Transaction, Location } from "@/lib/types";
 import { createTransaction, updateTransaction } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -106,10 +106,13 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
   });
 
   const onSubmit = (data: InsertTransaction & { expectedReturnDate: Date | undefined }) => {
-    // Convert the date to ISO string format if it exists
-    const formattedData = {
+    // Convert the date to ISO string format if it exists and clean null values
+    const formattedData: InsertTransaction = {
       ...data,
-      expectedReturnDate: data.expectedReturnDate ? data.expectedReturnDate.toISOString() : undefined,
+      expectedReturnDate: data.expectedReturnDate ? data.expectedReturnDate : undefined,
+      borrowerEmail: data.borrowerEmail || undefined,
+      borrowerPhone: data.borrowerPhone || undefined,
+      notes: data.notes || undefined,
     };
 
     if (transaction) {
@@ -174,7 +177,7 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
               <FormItem>
                 <FormLabel>Borrower Email (Optional)</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} />
+                  <Input type="email" {...field} value={field.value || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -188,7 +191,7 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
               <FormItem>
                 <FormLabel>Borrower Phone (Optional)</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} value={field.value || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -265,7 +268,7 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
             <FormItem>
               <FormLabel>Notes (Optional)</FormLabel>
               <FormControl>
-                <Textarea rows={3} {...field} />
+                <Textarea rows={3} {...field} value={field.value || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>

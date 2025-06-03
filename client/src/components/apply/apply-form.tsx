@@ -182,7 +182,7 @@ export function ApplyForm() {
                   <FormItem>
                     <FormLabel>Why would you like to open a gemach?</FormLabel>
                     <FormControl>
-                      <Textarea rows={4} {...field} />
+                      <Textarea rows={4} {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
