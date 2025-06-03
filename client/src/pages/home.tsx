@@ -13,9 +13,19 @@ export default function Home() {
           
           <div className="relative z-10 container mx-auto px-4 py-16">
             <div className="text-center max-w-4xl mx-auto mb-12">
-              <h1 className="text-5xl font-bold text-gray-900 mb-6">
-                Find Baby Earmuffs Near You
-              </h1>
+              <div className="mb-8">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">BB</span>
+                  </div>
+                  <h1 className="text-5xl font-bold text-gray-900">
+                    Baby Banz Earmuffs
+                  </h1>
+                </div>
+                <h2 className="text-3xl font-semibold text-blue-700 mb-4">
+                  Gemach Network
+                </h2>
+              </div>
               <p className="text-xl text-gray-600 mb-8">
                 Protect your baby's hearing with our global gemach network. 
                 Search by zip code, city, or location code to find the nearest location.
@@ -24,26 +34,30 @@ export default function Home() {
             
             {/* Continental Navigation */}
             <div className="flex flex-wrap justify-center gap-3 mb-6">
-              <Link href="/locations?region=united-states">
-                <button className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
-                  USA
-                </button>
-              </Link>
-              <Link href="/locations?region=europe">
-                <button className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
-                  Europe
-                </button>
-              </Link>
-              <Link href="/locations?region=israel">
-                <button className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
-                  Israel
-                </button>
-              </Link>
-              <Link href="/locations?region=australia">
-                <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
-                  Australia
-                </button>
-              </Link>
+              <button 
+                onClick={() => window.open('/locations?region=united-states', '_blank')}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                USA
+              </button>
+              <button 
+                onClick={() => window.open('/locations?region=europe', '_blank')}
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                Europe
+              </button>
+              <button 
+                onClick={() => window.open('/locations?region=israel', '_blank')}
+                className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                Israel
+              </button>
+              <button 
+                onClick={() => window.open('/locations?region=australia', '_blank')}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                Australia
+              </button>
             </div>
 
             <LocationSearch />
@@ -54,41 +68,48 @@ export default function Home() {
                 Popular Cities
               </h3>
               <div className="flex flex-wrap justify-center gap-2">
-                <Link href="/locations?search=Brooklyn">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Brooklyn
-                  </button>
-                </Link>
-                <Link href="/locations?search=Lakewood">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Lakewood
-                  </button>
-                </Link>
-                <Link href="/locations?search=Monsey">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Monsey
-                  </button>
-                </Link>
-                <Link href="/locations?search=Los Angeles">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Los Angeles
-                  </button>
-                </Link>
-                <Link href="/locations?search=Jerusalem">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Jerusalem
-                  </button>
-                </Link>
-                <Link href="/locations?search=London">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    London
-                  </button>
-                </Link>
-                <Link href="/locations?search=Melbourne">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Melbourne
-                  </button>
-                </Link>
+                <button 
+                  onClick={() => window.open('/locations?search=Brooklyn', '_blank')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+                >
+                  Brooklyn
+                </button>
+                <button 
+                  onClick={() => window.open('/locations?search=Lakewood', '_blank')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+                >
+                  Lakewood
+                </button>
+                <button 
+                  onClick={() => window.open('/locations?search=Monsey', '_blank')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+                >
+                  Monsey
+                </button>
+                <button 
+                  onClick={() => window.open('/locations?search=Los Angeles', '_blank')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+                >
+                  Los Angeles
+                </button>
+                <button 
+                  onClick={() => window.open('/locations?search=Jerusalem', '_blank')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+                >
+                  Jerusalem
+                </button>
+                <button 
+                  onClick={() => window.open('/locations?search=London', '_blank')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+                >
+                  London
+                </button>
+                <button 
+                  onClick={() => window.open('/locations?search=Melbourne', '_blank')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200"
+                >
+                  Melbourne
+                </button>
               </div>
             </div>
           </div>
