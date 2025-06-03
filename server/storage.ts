@@ -8,7 +8,7 @@ import {
   payments, type Payment, type InsertPayment,
   paymentMethods, type PaymentMethod, type InsertPaymentMethod,
   locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod
-} from "@shared/schema";
+} from "../shared/schema";
 
 // Interface for storage operations
 export interface IStorage {
