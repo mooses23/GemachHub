@@ -39,27 +39,34 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
   const queryClient = useQueryClient();
 
   const form = useForm<InsertLocation>({
-    resolver: zodResolver(insertLocationSchema),
+    resolver: zodResolver(insertLocationSchema.omit({ locationCode: true })),
+    mode: "onChange",
     defaultValues: location ? {
-      name: location.name,
-      contactPerson: location.contactPerson,
-      address: location.address,
-      phone: location.phone,
-      email: location.email,
-      regionId: location.regionId,
-      isActive: location.isActive,
-      inventoryCount: location.inventoryCount,
+      name: location.name || "",
+      contactPerson: location.contactPerson || "",
+      address: location.address || "",
+      zipCode: location.zipCode || "",
+      phone: location.phone || "",
+      email: location.email || "",
+      regionId: location.regionId || 1,
+      isActive: location.isActive ?? true,
+      inventoryCount: location.inventoryCount || 5,
       cashOnly: location.cashOnly || false,
+      depositAmount: location.depositAmount || 20,
+      processingFeePercent: location.processingFeePercent || 300,
     } : {
       name: "",
       contactPerson: "",
       address: "",
+      zipCode: "",
       phone: "",
       email: "",
       regionId: regions[0]?.id || 1,
       isActive: true,
       inventoryCount: 5,
       cashOnly: false,
+      depositAmount: 20,
+      processingFeePercent: 300,
     },
   });
 
@@ -172,6 +179,25 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="zipCode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Zip Code (Optional)</FormLabel>
+              <FormControl>
+                <Input 
+                  {...field} 
+                  className="w-full"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -180,7 +206,12 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
               <FormItem>
                 <FormLabel>Phone</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input 
+                    {...field} 
+                    className="w-full"
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -194,7 +225,13 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} />
+                  <Input 
+                    type="email" 
+                    {...field} 
+                    className="w-full"
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -210,10 +247,10 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
               <FormLabel>Region</FormLabel>
               <Select
                 onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                defaultValue={field.value.toString()}
+                value={field.value?.toString() || ""}
               >
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a region" />
                   </SelectTrigger>
                 </FormControl>
