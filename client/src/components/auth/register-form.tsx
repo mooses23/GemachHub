@@ -21,13 +21,16 @@ const registerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
+  inviteCode: z.string().min(1, "Invite code is required"),
 });
+
+type FormData = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
   const { registerMutation } = useAuth();
 
   // Create form
-  const form = useForm<RegisterData>({
+  const form = useForm<FormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       username: "",
@@ -35,11 +38,12 @@ export function RegisterForm() {
       email: "",
       firstName: "",
       lastName: "",
+      inviteCode: "",
     },
   });
 
   // Form submission handler
-  function onSubmit(values: RegisterData) {
+  function onSubmit(values: FormData) {
     // Default role is "user"
     registerMutation.mutate({
       ...values,
@@ -130,6 +134,23 @@ export function RegisterForm() {
                   <Input 
                     type="password" 
                     placeholder="Create a password" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="inviteCode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Invite Code</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="Enter your invite code" 
                     {...field} 
                   />
                 </FormControl>
