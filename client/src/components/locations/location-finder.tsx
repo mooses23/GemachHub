@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getLocations, getRegions } from "@/lib/api";
-import { Region, Location } from "@shared/schema";
+import { Region, Location } from "@/lib/types";
 import { LocationCard } from "./location-card";
 import { RegionTabs } from "./region-tabs";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { useLanguage } from "@/hooks/use-language";
-
 interface LocationFinderProps {
   initialRegion?: string;
 }
@@ -15,7 +13,6 @@ interface LocationFinderProps {
 export function LocationFinder({ initialRegion = "united-states" }: LocationFinderProps) {
   const [activeRegion, setActiveRegion] = useState(initialRegion);
   const [searchTerm, setSearchTerm] = useState("");
-  const { t } = useLanguage();
   
   const { data: regions = [] } = useQuery<Region[]>({
     queryKey: ["/api/regions"],
