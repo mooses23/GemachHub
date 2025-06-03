@@ -5,7 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser, loginSchema } from "@shared/schema";
+import { User as SelectUser, loginSchema, insertUserSchema } from "@shared/schema";
 import MemoryStore from "memorystore";
 
 declare global {
@@ -122,16 +122,21 @@ export function setupAuth(app: Express) {
   // Auth routes
   app.post("/api/register", async (req, res, next) => {
     try {
+      // Validate request body using schema
+      const validationResult = insertUserSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: validationResult.error.errors 
+        });
+      }
+
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
       // Validate invite code
-      if (!req.body.inviteCode) {
-        return res.status(400).json({ message: "Invite code is required" });
-      }
-
       const isValidInviteCode = await storage.validateInviteCode(req.body.inviteCode);
       if (!isValidInviteCode) {
         return res.status(400).json({ message: "Invalid invite code" });
@@ -140,7 +145,7 @@ export function setupAuth(app: Express) {
       // Remove invite code from user data before creating user
       const { inviteCode, ...userDataWithoutInviteCode } = req.body;
 
-      const user = await storage.createUser({
+      const user = await storage.createSystemUser({
         ...userDataWithoutInviteCode,
         password: await hashPassword(req.body.password),
       });
