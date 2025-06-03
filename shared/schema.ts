@@ -34,7 +34,7 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-// Region schema (for grouping locations)
+// Region schema (for grouping locations by continent)
 export const regions = pgTable("regions", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -48,6 +48,26 @@ export const insertRegionSchema = createInsertSchema(regions).pick({
   displayOrder: true,
 });
 
+// City Category schema (for grouping locations within regions)
+export const cityCategories = pgTable("city_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // e.g., "New York", "Los Angeles", "London"
+  slug: text("slug").notNull(), // e.g., "new-york", "los-angeles", "london"
+  regionId: integer("region_id").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  isPopular: boolean("is_popular").default(false), // Admin can mark as popular city
+  description: text("description"), // Optional description for the city category
+});
+
+export const insertCityCategorySchema = createInsertSchema(cityCategories).pick({
+  name: true,
+  slug: true,
+  regionId: true,
+  displayOrder: true,
+  isPopular: true,
+  description: true,
+});
+
 // Location schema
 export const locations = pgTable("locations", {
   id: serial("id").primaryKey(),
@@ -59,6 +79,7 @@ export const locations = pgTable("locations", {
   phone: text("phone").notNull(),
   email: text("email").notNull(),
   regionId: integer("region_id").notNull(),
+  cityCategoryId: integer("city_category_id"), // Optional city category assignment
   isActive: boolean("is_active").default(true),
   inventoryCount: integer("inventory_count").default(0),
   cashOnly: boolean("cash_only").default(false),
@@ -76,6 +97,7 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   phone: true,
   email: true,
   regionId: true,
+  cityCategoryId: true,
   isActive: true,
   inventoryCount: true,
   cashOnly: true,
@@ -226,6 +248,13 @@ export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).pick
 
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
+
+// Type definitions for the new schemas
+export type Region = typeof regions.$inferSelect;
+export type InsertRegion = z.infer<typeof insertRegionSchema>;
+
+export type CityCategory = typeof cityCategories.$inferSelect;
+export type InsertCityCategory = z.infer<typeof insertCityCategorySchema>;
 
 // Location Payment Methods (which methods each location accepts)
 export const locationPaymentMethods = pgTable("location_payment_methods", {
