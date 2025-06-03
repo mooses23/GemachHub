@@ -34,7 +34,7 @@ export function Header() {
           {/* Logo */}
           <div className="flex items-center space-x-2">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="text-primary">
+              <div className="text-blue-600">
                 <Headphones className="h-8 w-8" />
               </div>
             </Link>
