@@ -249,10 +249,7 @@ export const insertPaymentMethodSchema = createInsertSchema(paymentMethods).pick
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type InsertPaymentMethod = z.infer<typeof insertPaymentMethodSchema>;
 
-// Type definitions for the new schemas
-export type Region = typeof regions.$inferSelect;
-export type InsertRegion = z.infer<typeof insertRegionSchema>;
-
+// City category type definitions
 export type CityCategory = typeof cityCategories.$inferSelect;
 export type InsertCityCategory = z.infer<typeof insertCityCategorySchema>;
 
