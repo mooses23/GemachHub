@@ -74,6 +74,24 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         {user ? (
           <>
             {isOperator && (
+              <>
+                <Link
+                  href="/operator/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className="font-medium text-neutral-700 hover:text-primary transition-colors"
+                >
+                  Operator Dashboard
+                </Link>
+                <Link
+                  href="/operator/deposits"
+                  onClick={() => setIsOpen(false)}
+                  className="font-medium text-neutral-700 hover:text-primary transition-colors"
+                >
+                  Deposit Management
+                </Link>
+              </>
+            )}
+            {isOperator && (
               <Button
                 variant="outline"
                 asChild

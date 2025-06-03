@@ -256,7 +256,7 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Total Earmuffs:</span>
-                      <span className="font-medium">{locations.reduce((acc, loc) => acc + loc.inventoryCount, 0)}</span>
+                      <span className="font-medium">{locations.reduce((acc, loc) => acc + (loc.inventoryCount || 0), 0)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Active Loans:</span>
