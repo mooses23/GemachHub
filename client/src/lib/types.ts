@@ -11,11 +11,13 @@ export type {
   LocationPaymentMethod,
   InsertGemachApplication,
   InsertContact,
-  InsertTransaction
+  InsertTransaction,
+  InsertLocation
 } from "@shared/schema";
 
 export { 
   insertGemachApplicationSchema,
   insertContactSchema,
-  insertTransactionSchema
+  insertTransactionSchema,
+  insertLocationSchema
 } from "@shared/schema";

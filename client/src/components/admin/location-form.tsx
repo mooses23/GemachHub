@@ -2,8 +2,8 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { insertLocationSchema } from "@shared/schema";
-import type { InsertLocation, Location } from "@shared/schema";
+import { insertLocationSchema } from "@/lib/types";
+import type { InsertLocation, Location } from "@/lib/types";
 import { createLocation, updateLocation } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -122,7 +122,12 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
             <FormItem>
               <FormLabel>Gemach Name</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input 
+                  {...field} 
+                  className="w-full"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -136,7 +141,12 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
             <FormItem>
               <FormLabel>Contact Person</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input 
+                  {...field} 
+                  className="w-full"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -150,7 +160,12 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
             <FormItem>
               <FormLabel>Address</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input 
+                  {...field} 
+                  className="w-full"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
