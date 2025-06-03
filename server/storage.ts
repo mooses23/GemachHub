@@ -16,6 +16,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createSystemUser(userData: Omit<InsertUser, 'inviteCode'>): Promise<User>;
   validateInviteCode(code: string): Promise<boolean>;
 
   // Region operations
@@ -2205,6 +2206,20 @@ export class MemStorage implements IStorage {
       role: insertUser.role || "customer",
       isAdmin: insertUser.isAdmin ?? null,
       locationId: insertUser.locationId ?? null
+    };
+    this.users.set(id, user);
+    return user;
+  }
+
+  // Internal method for creating system users without invite code validation
+  async createSystemUser(userData: Omit<InsertUser, 'inviteCode'>): Promise<User> {
+    const id = this.userCounter++;
+    const user: User = { 
+      ...userData, 
+      id,
+      role: userData.role || "customer",
+      isAdmin: userData.isAdmin ?? null,
+      locationId: userData.locationId ?? null
     };
     this.users.set(id, user);
     return user;

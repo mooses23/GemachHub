@@ -38,7 +38,7 @@ export async function createTestUsers() {
     const adminUser = await storage.getUserByUsername('admin');
     if (!adminUser) {
       // Create admin user
-      await storage.createUser({
+      await storage.createSystemUser({
         username: "admin",
         password: await hashPassword("admin123"),
         email: "admin@earmuffsgemach.com",
@@ -54,7 +54,7 @@ export async function createTestUsers() {
     // Create operator user for Brooklyn gemach
     const brooklynUser = await storage.getUserByUsername('brooklyn');
     if (!brooklynUser) {
-      await storage.createUser({
+      await storage.createSystemUser({
         username: "brooklyn",
         password: await hashPassword("gemach123"),
         email: "brooklyn@earmuffsgemach.com",
