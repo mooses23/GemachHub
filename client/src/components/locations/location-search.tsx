@@ -61,7 +61,7 @@ export function LocationSearch() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Search Bar */}
-      <div className="mb-8">
+      <div className="mb-6 md:mb-8 px-4 md:px-0">
         <div className="relative max-w-2xl mx-auto">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
@@ -69,7 +69,7 @@ export function LocationSearch() {
             placeholder="Search by zip code, city, or location code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 pr-4 py-6 text-lg rounded-full border-2 border-gray-200 focus:border-blue-500 shadow-lg"
+            className="pl-12 pr-4 py-4 md:py-6 text-base md:text-lg rounded-full border-2 border-gray-200 focus:border-blue-500 shadow-lg w-full touch-manipulation"
           />
         </div>
       </div>

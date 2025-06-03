@@ -32,13 +32,16 @@ export function Header() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo and Title - Left */}
-          <div className="flex items-center space-x-3 ml-8">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="text-blue-600 bg-blue-50 rounded-full p-2">
-                <Headphones className="h-6 w-6" />
+          <div className="flex items-center space-x-2 md:space-x-3 ml-2 md:ml-8">
+            <Link href="/" className="flex items-center space-x-2 md:space-x-3">
+              <div className="text-blue-600 bg-blue-50 rounded-full p-1.5 md:p-2">
+                <Headphones className="h-5 w-5 md:h-6 md:w-6" />
               </div>
-              <h1 className="text-xl md:text-2xl font-bold text-blue-600 whitespace-nowrap">
+              <h1 className="text-lg md:text-2xl font-bold text-blue-600 hidden sm:block">
                 Baby Banz Gemach
+              </h1>
+              <h1 className="text-sm font-bold text-blue-600 sm:hidden">
+                Baby Banz
               </h1>
             </Link>
           </div>
