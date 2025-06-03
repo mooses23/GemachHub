@@ -182,7 +182,12 @@ export function ApplyForm() {
                   <FormItem>
                     <FormLabel>Why would you like to open a gemach?</FormLabel>
                     <FormControl>
-                      <Textarea rows={4} {...field} value={field.value || ""} />
+                      <Textarea 
+                        rows={4} 
+                        {...field}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
