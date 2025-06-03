@@ -18,15 +18,29 @@ interface PaymentBreakdown {
 }
 
 interface PaymentProcessorProps {
-  transactionId: number;
-  location: Location;
-  onPaymentComplete: (paymentResult: any) => void;
+  transactionId?: number;
+  location?: Location;
+  locationId?: number;
+  depositAmount?: number;
+  borrowerName?: string;
+  borrowerEmail?: string;
+  borrowerPhone?: string;
+  paymentMethod?: string;
+  onPaymentComplete?: (paymentResult: any) => void;
+  onSuccess?: () => void;
 }
 
 export default function PaymentProcessor({ 
   transactionId, 
   location, 
-  onPaymentComplete 
+  locationId,
+  depositAmount,
+  borrowerName,
+  borrowerEmail,
+  borrowerPhone,
+  paymentMethod,
+  onPaymentComplete,
+  onSuccess 
 }: PaymentProcessorProps) {
   const { toast } = useToast();
   const { user, isOperator, isAdmin } = useAuth();

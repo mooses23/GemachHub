@@ -8,6 +8,20 @@ import { EmailNotificationService } from "./email-notifications";
 import { AuditTrailService } from "./audit-trail";
 import { PaymentAnalyticsEngine } from "./analytics-engine";
 import { z } from "zod";
+
+// Utility function to detect card brand
+function detectCardBrand(cardNumber: string): string {
+  const cleanNumber = cardNumber.replace(/\D/g, '');
+  const firstDigit = cleanNumber.charAt(0);
+  const firstTwo = cleanNumber.substring(0, 2);
+  const firstFour = cleanNumber.substring(0, 4);
+  
+  if (firstDigit === '4') return 'Visa';
+  if (firstTwo >= '51' && firstTwo <= '55') return 'Mastercard';
+  if (['34', '37'].includes(firstTwo)) return 'American Express';
+  if (firstFour === '6011' || firstTwo === '65') return 'Discover';
+  return 'Unknown';
+}
 import { 
   insertLocationSchema,
   insertGemachApplicationSchema,
@@ -675,6 +689,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Audit trail error:", error);
       res.status(500).json({ message: "Error retrieving audit trail" });
+    }
+  });
+
+  // STRIPE PAYMENT PROCESSING
+  app.post("/api/stripe-payment", async (req, res) => {
+    try {
+      const { transactionId, paymentMethod, paymentProvider, depositAmount, totalAmount, cardDetails } = req.body;
+
+      // Create payment record with confirming status
+      const payment = await storage.createPayment({
+        transactionId,
+        paymentMethod,
+        paymentProvider,
+        depositAmount,
+        totalAmount,
+        status: "confirming",
+        externalPaymentId: `stripe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      });
+
+      // In a real implementation, you would process the card payment here
+      // For now, we'll simulate successful processing
+      const processedPayment = await storage.updatePaymentStatus(
+        payment.id,
+        "completed",
+        {
+          cardLast4: cardDetails.number.slice(-4),
+          cardBrand: detectCardBrand(cardDetails.number),
+          processedAt: new Date().toISOString()
+        }
+      );
+
+      res.json(processedPayment);
+    } catch (error) {
+      console.error("Stripe payment error:", error);
+      res.status(500).json({ message: "Error processing credit card payment" });
+    }
+  });
+
+  // PAYPAL PAYMENT PROCESSING
+  app.post("/api/paypal-payment", async (req, res) => {
+    try {
+      const { transactionId, paymentMethod, paymentProvider, depositAmount, totalAmount, paypalEmail } = req.body;
+
+      // Create payment record with confirming status
+      const payment = await storage.createPayment({
+        transactionId,
+        paymentMethod,
+        paymentProvider,
+        depositAmount,
+        totalAmount,
+        status: "confirming",
+        externalPaymentId: `paypal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      });
+
+      // In a real implementation, you would process PayPal payment here
+      // For now, we'll simulate successful processing
+      const processedPayment = await storage.updatePaymentStatus(
+        payment.id,
+        "completed",
+        {
+          paypalEmail,
+          processedAt: new Date().toISOString()
+        }
+      );
+
+      res.json(processedPayment);
+    } catch (error) {
+      console.error("PayPal payment error:", error);
+      res.status(500).json({ message: "Error processing PayPal payment" });
     }
   });
 
