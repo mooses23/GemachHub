@@ -4,6 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoginForm } from "@/components/auth/login-form";
 import { RegisterForm } from "@/components/auth/register-form";
 import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Home } from "lucide-react";
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<string>("login");
@@ -25,6 +27,18 @@ export default function AuthPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Navigation Button */}
+      <div className="p-4">
+        <Button 
+          variant="ghost" 
+          onClick={() => window.location.href = '/'}
+          className="flex items-center gap-2"
+        >
+          <Home className="h-4 w-4" />
+          Back to Home
+        </Button>
+      </div>
+
       <div className="flex-1 flex">
         {/* Left column - Auth forms */}
         <div className="w-full lg:w-1/2 p-4 sm:p-6 md:p-12 flex items-center justify-center">
