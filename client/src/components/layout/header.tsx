@@ -30,7 +30,7 @@ export function Header() {
   return (
     <header className="bg-white shadow-sm">
       <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between relative">
           {/* Logo */}
           <div className="flex items-center space-x-2">
             <Link href="/" className="flex items-center space-x-2">
@@ -63,9 +63,9 @@ export function Header() {
           </button>
 
           {/* Centered Baby Banz Title */}
-          <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2">
-            <h1 className="text-xl font-bold text-blue-600">
-              Baby Banz Earmuffs Gemach
+          <div className="hidden md:flex absolute left-1/2 transform -translate-x-1/2 items-center z-10">
+            <h1 className="text-xl font-bold text-blue-600 whitespace-nowrap bg-white px-4 py-1 rounded">
+              BabyBanz Gemach
             </h1>
           </div>
 
