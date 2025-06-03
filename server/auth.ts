@@ -127,8 +127,21 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
+      // Validate invite code
+      if (!req.body.inviteCode) {
+        return res.status(400).json({ message: "Invite code is required" });
+      }
+
+      const isValidInviteCode = await storage.validateInviteCode(req.body.inviteCode);
+      if (!isValidInviteCode) {
+        return res.status(400).json({ message: "Invalid invite code" });
+      }
+
+      // Remove invite code from user data before creating user
+      const { inviteCode, ...userDataWithoutInviteCode } = req.body;
+
       const user = await storage.createUser({
-        ...req.body,
+        ...userDataWithoutInviteCode,
         password: await hashPassword(req.body.password),
       });
 
