@@ -49,8 +49,8 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
   });
 
   return (
-    <section id="find-gemach" className="py-16 bg-gray-50">
-      <div className="container mx-auto px-4">
+    <section id="find-gemach" className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-neutral-800 mb-4">Find a Location Near You</h2>
           <p className="text-lg text-neutral-600 max-w-3xl mx-auto">
