@@ -137,8 +137,8 @@ export class MemStorage implements IStorage {
     const defaultRegions: InsertRegion[] = [
       { name: "United States", slug: "united-states", displayOrder: 1 },
       { name: "Canada", slug: "canada", displayOrder: 2 },
-      { name: "England", slug: "england", displayOrder: 3 },
-      { name: "Belgium", slug: "belgium", displayOrder: 4 },
+      { name: "United Kingdom", slug: "united-kingdom", displayOrder: 3 },
+      { name: "Europe", slug: "europe", displayOrder: 4 },
       { name: "Australia", slug: "australia", displayOrder: 5 },
       { name: "Israel", slug: "israel", displayOrder: 6 }
     ];
