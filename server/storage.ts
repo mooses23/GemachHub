@@ -16,6 +16,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  validateInviteCode(code: string): Promise<boolean>;
 
   // Region operations
   getAllRegions(): Promise<Region[]>;
@@ -82,6 +83,7 @@ export class MemStorage implements IStorage {
   private payments: Map<number, Payment>;
   private paymentMethods: Map<number, PaymentMethod>;
   private locationPaymentMethods: Map<number, LocationPaymentMethod>;
+  private validInviteCodes: Set<string>;
 
   private userCounter: number;
   private regionCounter: number;
@@ -103,6 +105,7 @@ export class MemStorage implements IStorage {
     this.payments = new Map();
     this.paymentMethods = new Map();
     this.locationPaymentMethods = new Map();
+    this.validInviteCodes = new Set();
 
     this.userCounter = 1;
     this.regionCounter = 1;
@@ -130,6 +133,12 @@ export class MemStorage implements IStorage {
     ];
 
     defaultRegions.forEach(region => this.createRegion(region));
+
+    // Initialize default invite codes
+    this.validInviteCodes.add("GEMACH2024");
+    this.validInviteCodes.add("BABYBANZ");
+    this.validInviteCodes.add("EARMUFFS");
+    this.validInviteCodes.add("WELCOME");
 
     // Add all locations from earmuffsgemach.com with simple numbering
     const allLocations: InsertLocation[] = [
@@ -2199,6 +2208,10 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, user);
     return user;
+  }
+
+  async validateInviteCode(code: string): Promise<boolean> {
+    return this.validInviteCodes.has(code);
   }
 
   // Region methods
