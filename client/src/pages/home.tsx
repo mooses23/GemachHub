@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { LocationSearch } from "@/components/locations/location-search";
+import { HierarchicalLocationSearch } from "@/components/locations/hierarchical-location-search";
 
 export default function Home() {
   return (

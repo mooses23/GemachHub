@@ -1,6 +1,7 @@
 import {
   users, type User, type InsertUser,
   regions, type Region, type InsertRegion,
+  cityCategories, type CityCategory, type InsertCityCategory,
   locations, type Location, type InsertLocation,
   gemachApplications, type GemachApplication, type InsertGemachApplication,
   transactions, type Transaction, type InsertTransaction,
@@ -25,6 +26,15 @@ export interface IStorage {
   getRegionBySlug(slug: string): Promise<Region | undefined>;
   createRegion(region: InsertRegion): Promise<Region>;
   updateRegion(id: number, data: Partial<InsertRegion>): Promise<Region>;
+
+  // City Category operations
+  getAllCityCategories(): Promise<CityCategory[]>;
+  getCityCategory(id: number): Promise<CityCategory | undefined>;
+  getCityCategoriesByRegionId(regionId: number): Promise<CityCategory[]>;
+  getPopularCitiesByRegionId(regionId: number): Promise<CityCategory[]>;
+  createCityCategory(cityCategory: InsertCityCategory): Promise<CityCategory>;
+  updateCityCategory(id: number, data: Partial<InsertCityCategory>): Promise<CityCategory>;
+  deleteCityCategory(id: number): Promise<void>;
 
   // Location operations
   getAllLocations(): Promise<Location[]>;
