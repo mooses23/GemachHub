@@ -2,8 +2,8 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { insertContactSchema } from "@shared/schema";
-import type { InsertContact } from "@shared/schema";
+import { insertContactSchema } from "@/lib/types";
+import type { InsertContact } from "@/lib/types";
 import { submitContactForm } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import {

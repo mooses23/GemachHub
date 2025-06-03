@@ -2,7 +2,7 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { insertTransactionSchema } from "@shared/schema";
+import { insertTransactionSchema } from "@/lib/types";
 import type { InsertTransaction, Transaction, Location } from "@shared/schema";
 import { createTransaction, updateTransaction } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";

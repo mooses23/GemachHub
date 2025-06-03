@@ -1,5 +1,5 @@
 import React from "react";
-import { Region } from "@shared/schema";
+import { Region } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
 interface RegionTabsProps {
