@@ -177,7 +177,12 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
               <FormItem>
                 <FormLabel>Borrower Email (Optional)</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} value={field.value || ""} />
+                  <Input 
+                    type="email" 
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -191,7 +196,11 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
               <FormItem>
                 <FormLabel>Borrower Phone (Optional)</FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value || ""} />
+                  <Input 
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -268,7 +277,12 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
             <FormItem>
               <FormLabel>Notes (Optional)</FormLabel>
               <FormControl>
-                <Textarea rows={3} {...field} value={field.value || ""} />
+                <Textarea 
+                  rows={3} 
+                  {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
