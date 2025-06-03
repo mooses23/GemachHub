@@ -129,19 +129,27 @@ export function Header() {
                 Contact
               </Link>
 
-              {/* Language Toggle */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleLanguage}
-                className="flex items-center gap-2 px-3 py-1.5"
-                title={isHebrew ? "Switch to English" : "Switch to Hebrew"}
-              >
-                <Languages className="h-4 w-4" />
-                <span className="text-sm font-medium">
-                  {isHebrew ? "EN" : "עב"}
-                </span>
-              </Button>
+              {/* Language Toggle Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2 px-3 py-1.5">
+                    <Languages className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      {isHebrew ? "עברית" : "English"}
+                    </span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={toggleLanguage}
+                    className="flex items-center gap-2"
+                  >
+                    <Languages className="h-4 w-4" />
+                    {isHebrew ? "English" : "עברית"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Auth Buttons */}
               {isLoading ? (
