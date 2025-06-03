@@ -169,12 +169,12 @@ export default function AdminLocations() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Region</TableHead>
-                    <TableHead>Inventory</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="min-w-[200px]">Name</TableHead>
+                    <TableHead className="min-w-[180px] hidden md:table-cell">Contact Person</TableHead>
+                    <TableHead className="min-w-[120px] hidden lg:table-cell">Region</TableHead>
+                    <TableHead className="min-w-[100px] hidden sm:table-cell">Inventory</TableHead>
+                    <TableHead className="min-w-[80px]">Status</TableHead>
+                    <TableHead className="min-w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -188,7 +188,7 @@ export default function AdminLocations() {
                             {location.address}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           <div>{location.contactPerson}</div>
                           <div className="text-xs text-muted-foreground flex items-center">
                             <Phone className="h-3 w-3 mr-1" />
@@ -199,16 +199,16 @@ export default function AdminLocations() {
                             {location.email}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           {getRegionNameById(location.regionId)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <Badge variant="outline">{location.inventoryCount}</Badge>
                         </TableCell>
                         <TableCell>
                           <Switch
-                            checked={location.isActive}
-                            onCheckedChange={() => toggleLocationStatus(location.id, location.isActive)}
+                            checked={Boolean(location.isActive)}
+                            onCheckedChange={() => toggleLocationStatus(location.id, Boolean(location.isActive))}
                           />
                         </TableCell>
                         <TableCell>
@@ -235,9 +235,17 @@ export default function AdminLocations() {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8">
                         {searchTerm ? (
-                          <p className="text-muted-foreground">No locations found matching your search.</p>
+                          <div className="space-y-2">
+                            <p className="text-muted-foreground">No locations found matching your search.</p>
+                            <p className="text-sm text-gray-500">Try adjusting your search terms.</p>
+                          </div>
                         ) : (
-                          <p className="text-muted-foreground">No locations available. Add your first location.</p>
+                          <div className="space-y-2">
+                            <p className="text-muted-foreground">No locations available. Add your first location.</p>
+                            <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
+                              Add Location
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
@@ -250,7 +258,7 @@ export default function AdminLocations() {
 
         {/* Edit Location Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[550px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Location</DialogTitle>
               <DialogDescription>

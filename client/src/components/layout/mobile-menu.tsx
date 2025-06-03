@@ -20,12 +20,12 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="md:hidden mt-4 pb-4">
-      <nav className="flex flex-col space-y-4">
+    <div className="md:hidden mt-4 pb-4 border-t border-gray-200">
+      <nav className="flex flex-col space-y-2 pt-4">
         <Link
           href="/"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors"
+          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
           Home
         </Link>
@@ -33,7 +33,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <Link
           href="/self-deposit"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors"
+          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
           Self Deposit
         </Link>
@@ -41,7 +41,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <Link
           href="/rules"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors"
+          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
           Our Rules
         </Link>
@@ -49,7 +49,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <Link
           href="/apply"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors"
+          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
           Open Location
         </Link>
@@ -57,7 +57,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <Link
           href="/contact"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors"
+          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
           Contact
         </Link>
