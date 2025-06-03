@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getLocations, getRegions } from "@/lib/api";
-import type { Location, Region } from "@shared/schema";
+import type { Location, Region } from "@/lib/types";
 
 export function LocationSearch() {
   const [searchQuery, setSearchQuery] = useState("");

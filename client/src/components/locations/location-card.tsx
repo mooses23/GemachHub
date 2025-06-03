@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Location } from "@shared/schema";
+import { Location } from "@/lib/types";
 import { User, MapPin, Phone, Mail } from "lucide-react";
 
 interface LocationCardProps {

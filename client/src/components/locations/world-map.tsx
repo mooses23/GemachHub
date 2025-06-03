@@ -1,5 +1,5 @@
 import { MapPin } from "lucide-react";
-import type { Location, Region } from "@shared/schema";
+import type { Location, Region } from "@/lib/types";
 
 interface WorldMapProps {
   locations: Location[];
