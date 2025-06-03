@@ -17,20 +17,8 @@ export default function Locations() {
   }, [location]);
 
   return (
-    <>
-      {/* Meta tags */}
-      <head>
-        <title>Find a Baby Banz Earmuffs Gemach Near You | Gemach Locations</title>
-        <meta name="description" content="Locate Baby Banz Earmuffs Gemach locations worldwide. Borrow noise-cancelling earmuffs for your baby with a $20 refundable deposit." />
-        <meta property="og:title" content="Baby Banz Earmuffs Gemach Locations" />
-        <meta property="og:description" content="Find the nearest Baby Banz Earmuffs Gemach location near you. Search by region or location." />
-        <meta property="og:url" content="https://earmuffsgemach.com/locations" />
-        <meta property="og:type" content="website" />
-      </head>
-      
-      <div className="pt-10 transition-all duration-300 ease-in-out">
-        <LocationFinder initialRegion={region} />
-      </div>
-    </>
+    <div className="transition-all duration-300 ease-in-out">
+      <LocationFinder initialRegion={region} />
+    </div>
   );
 }
