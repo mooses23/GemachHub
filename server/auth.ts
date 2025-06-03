@@ -5,7 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as SelectUser, loginSchema, insertUserSchema } from "@shared/schema";
+import { User as SelectUser, loginSchema, insertUserSchema } from "../shared/schema";
 import MemoryStore from "memorystore";
 
 declare global {
