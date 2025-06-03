@@ -207,6 +207,7 @@ export function HierarchicalLocationSearch() {
                     key={region.id} 
                     className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-blue-200"
                     onClick={() => setSelectedRegion(region)}
+                    data-region={region.slug}
                   >
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between mb-4">
