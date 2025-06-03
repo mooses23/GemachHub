@@ -548,10 +548,10 @@ export class MemStorage implements IStorage {
         inventoryCount: 5
       },
       {
-        name: "North Woodmere",
+        name: "Five Towns - North Woodmere",
         locationCode: "#33",
         contactPerson: "Location Coordinator",
-        address: "North Woodmere, NY",
+        address: "North Woodmere, Five Towns, NY",
         zipCode: "11581",
         phone: "718-869-4468",
         email: "earmuffsgemach@gmail.com",
@@ -560,10 +560,10 @@ export class MemStorage implements IStorage {
         inventoryCount: 7
       },
       {
-        name: "Woodmere",
+        name: "Five Towns - Woodmere",
         locationCode: "#34",
         contactPerson: "Location Coordinator",
-        address: "Woodmere, NY",
+        address: "Woodmere, Five Towns, NY",
         zipCode: "11598",
         phone: "516-592-8980",
         email: "earmuffsgemach@gmail.com",
