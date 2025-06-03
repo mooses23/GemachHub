@@ -34,34 +34,63 @@ export function HierarchicalLocationSearch() {
     queryFn: () => getRegions(),
   });
 
-  // Mock popular cities data - in real implementation, this would come from API
+  // Generate city categories from actual location data
   const popularCities: CityCategory[] = useMemo(() => {
-    const cities: CityCategory[] = [];
+    const cityGroups = new Map<string, { regionId: number; locations: Location[]; displayOrder: number }>();
     
-    // North America popular cities
-    const northAmericaRegion = regions.find(r => r.name === "United States");
-    if (northAmericaRegion) {
-      cities.push(
-        { id: 1, name: "New York", slug: "new-york", regionId: northAmericaRegion.id, displayOrder: 1, isPopular: true, description: "Brooklyn, Monsey, Lakewood areas" },
-        { id: 2, name: "Los Angeles", slug: "los-angeles", regionId: northAmericaRegion.id, displayOrder: 2, isPopular: true, description: "Pico, Valley Village areas" },
-        { id: 3, name: "Miami", slug: "miami", regionId: northAmericaRegion.id, displayOrder: 3, isPopular: true, description: "Miami Beach area" },
-        { id: 4, name: "Chicago", slug: "chicago", regionId: northAmericaRegion.id, displayOrder: 4, isPopular: true },
-        { id: 5, name: "Baltimore", slug: "baltimore", regionId: northAmericaRegion.id, displayOrder: 5, isPopular: true }
-      );
-    }
+    // Group locations by extracted city names
+    locations.forEach(location => {
+      // Extract city name from location name or address
+      let cityName = "";
+      
+      // Try to extract city from location name (e.g., "Los Angeles - Pico" -> "Los Angeles")
+      const nameMatch = location.name.match(/^([^-]+)/);
+      if (nameMatch) {
+        cityName = nameMatch[1].trim();
+      } else {
+        // Fallback to extracting from address
+        const addressParts = location.address.split(',');
+        if (addressParts.length >= 2) {
+          cityName = addressParts[1].trim();
+        } else {
+          cityName = location.name;
+        }
+      }
 
-    // Add more cities for other regions
-    const israelRegion = regions.find(r => r.name === "Israel");
-    if (israelRegion) {
-      cities.push(
-        { id: 6, name: "Jerusalem", slug: "jerusalem", regionId: israelRegion.id, displayOrder: 1, isPopular: true, description: "Multiple neighborhoods" },
-        { id: 7, name: "Tel Aviv", slug: "tel-aviv", regionId: israelRegion.id, displayOrder: 2, isPopular: true },
-        { id: 8, name: "Bnei Brak", slug: "bnei-brak", regionId: israelRegion.id, displayOrder: 3, isPopular: true }
-      );
-    }
+      const key = `${cityName}-${location.regionId}`;
+      if (!cityGroups.has(key)) {
+        cityGroups.set(key, {
+          regionId: location.regionId,
+          locations: [],
+          displayOrder: 0
+        });
+      }
+      cityGroups.get(key)!.locations.push(location);
+    });
+
+    // Convert to city categories, prioritizing cities with more locations
+    const cities: CityCategory[] = [];
+    let cityId = 1;
+
+    Array.from(cityGroups.entries())
+      .sort(([, a], [, b]) => b.locations.length - a.locations.length) // Sort by location count
+      .forEach(([key, group], index) => {
+        const cityName = key.split('-')[0];
+        const slug = cityName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        
+        cities.push({
+          id: cityId++,
+          name: cityName,
+          slug,
+          regionId: group.regionId,
+          displayOrder: index + 1,
+          isPopular: group.locations.length >= 2, // Mark as popular if 2+ locations
+          description: `${group.locations.length} location${group.locations.length > 1 ? 's' : ''} available`
+        });
+      });
 
     return cities;
-  }, [regions]);
+  }, [locations, regions]);
 
   const regionsMap = useMemo(() => {
     return regions.reduce((acc: Record<number, Region>, region: Region) => {
@@ -104,29 +133,17 @@ export function HierarchicalLocationSearch() {
     const result: Record<string, { city: CityCategory; locations: Location[] }> = {};
 
     citiesInRegion.forEach(city => {
-      // For now, group locations by city name matching
-      const cityLocations = filteredLocations.filter(location => 
-        location.name.toLowerCase().includes(city.name.toLowerCase()) ||
-        location.address.toLowerCase().includes(city.name.toLowerCase())
-      );
+      // Match locations by extracting city name from location name
+      const cityLocations = filteredLocations.filter((location: Location) => {
+        const nameMatch = location.name.match(/^([^-]+)/);
+        const locationCity = nameMatch ? nameMatch[1].trim() : location.name;
+        return locationCity.toLowerCase() === city.name.toLowerCase();
+      });
       
       if (cityLocations.length > 0) {
         result[city.slug] = { city, locations: cityLocations };
       }
     });
-
-    // Add "Other" category for locations that don't match any city
-    const assignedLocationIds = new Set(
-      Object.values(result).flatMap(group => group.locations.map(l => l.id))
-    );
-    const otherLocations = filteredLocations.filter(location => !assignedLocationIds.has(location.id));
-    
-    if (otherLocations.length > 0) {
-      result.other = {
-        city: { id: 999, name: "Other Areas", slug: "other", regionId: selectedRegion.id, displayOrder: 999, isPopular: false },
-        locations: otherLocations
-      };
-    }
 
     return result;
   }, [selectedRegion, popularCities, filteredLocations]);

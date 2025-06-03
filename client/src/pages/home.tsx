@@ -46,50 +46,9 @@ export default function Home() {
               </Link>
             </div>
 
-            <LocationSearch />
-
-            {/* Popular Cities */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 max-w-4xl mx-auto mt-8">
-              <h3 className="text-lg font-semibold text-center mb-4 text-gray-800">
-                Popular Cities
-              </h3>
-              <div className="flex flex-wrap justify-center gap-2">
-                <Link href="/locations?search=Brooklyn">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Brooklyn
-                  </button>
-                </Link>
-                <Link href="/locations?search=Lakewood">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Lakewood
-                  </button>
-                </Link>
-                <Link href="/locations?search=Monsey">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Monsey
-                  </button>
-                </Link>
-                <Link href="/locations?search=Los Angeles">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Los Angeles
-                  </button>
-                </Link>
-                <Link href="/locations?search=Jerusalem">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Jerusalem
-                  </button>
-                </Link>
-                <Link href="/locations?search=London">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    London
-                  </button>
-                </Link>
-                <Link href="/locations?search=Melbourne">
-                  <button className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200">
-                    Melbourne
-                  </button>
-                </Link>
-              </div>
+            {/* Hierarchical Location Search */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 max-w-6xl mx-auto mt-8">
+              <HierarchicalLocationSearch />
             </div>
           </div>
         </div>
