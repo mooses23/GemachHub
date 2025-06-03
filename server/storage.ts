@@ -500,10 +500,10 @@ export class MemStorage implements IStorage {
         inventoryCount: 7
       },
       {
-        name: "Far Rockaway",
+        name: "Five Towns & Far Rockaway",
         locationCode: "#29",
         contactPerson: "Location Coordinator",
-        address: "Far Rockaway, NY",
+        address: "Five Towns & Far Rockaway, NY",
         zipCode: "11691",
         phone: "718-309-3218",
         email: "earmuffsgemach@gmail.com",
@@ -512,10 +512,10 @@ export class MemStorage implements IStorage {
         inventoryCount: 9
       },
       {
-        name: "Lawrence",
+        name: "Five Towns - Lawrence",
         locationCode: "#30",
         contactPerson: "Location Coordinator",
-        address: "Lawrence, NY",
+        address: "Lawrence, Five Towns, NY",
         zipCode: "11559",
         phone: "347-515-0173",
         email: "earmuffsgemach@gmail.com",
@@ -524,10 +524,10 @@ export class MemStorage implements IStorage {
         inventoryCount: 8
       },
       {
-        name: "Cedarhurst",
+        name: "Five Towns - Cedarhurst",
         locationCode: "#31",
         contactPerson: "Location Coordinator",
-        address: "Cedarhurst, NY",
+        address: "Cedarhurst, Five Towns, NY",
         zipCode: "11516",
         phone: "516-582-1985",
         email: "earmuffsgemach@gmail.com",
@@ -536,10 +536,10 @@ export class MemStorage implements IStorage {
         inventoryCount: 6
       },
       {
-        name: "Cedarhurst (Second Location)",
+        name: "Five Towns - Cedarhurst (Second Location)",
         locationCode: "#32",
         contactPerson: "Location Coordinator",
-        address: "Cedarhurst, NY",
+        address: "Cedarhurst, Five Towns, NY",
         zipCode: "11516",
         phone: "917-817-7468",
         email: "earmuffsgemach@gmail.com",
