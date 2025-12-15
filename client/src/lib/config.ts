@@ -10,7 +10,8 @@
  */
 export function getBaseUrl(): string {
   if (typeof window === 'undefined') {
-    return import.meta.env.VITE_BASE_URL || 'http://localhost:5000';
+    // Server-side rendering fallback - use environment variable or empty string
+    return import.meta.env.VITE_BASE_URL || '';
   }
   
   return import.meta.env.VITE_BASE_URL || window.location.origin;

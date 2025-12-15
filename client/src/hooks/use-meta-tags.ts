@@ -35,10 +35,19 @@ export function useMetaTags(config: MetaTagsConfig) {
       
       if (!element) {
         element = document.createElement('meta');
-        const [attr, value] = selector.replace('meta[', '').replace(']', '').split('=');
-        element.setAttribute(attr, value.replace(/"/g, ''));
-        document.head.appendChild(element);
-        addedElements.push(element);
+        
+        // Parse selector to extract attribute and value
+        // Expected format: meta[name="description"] or meta[property="og:title"]
+        const match = selector.match(/meta\[(\w+)="([^"]+)"\]/);
+        if (match) {
+          const [, attr, value] = match;
+          element.setAttribute(attr, value);
+          document.head.appendChild(element);
+          addedElements.push(element);
+        } else {
+          console.warn(`Invalid meta tag selector format: ${selector}`);
+          return;
+        }
       }
       
       element.setAttribute('content', content);
