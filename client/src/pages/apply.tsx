@@ -1,18 +1,20 @@
 import React from "react";
 import { ApplyForm } from "@/components/apply/apply-form";
+import { useMetaTags } from "@/hooks/use-meta-tags";
+import { getFullUrl } from "@/lib/config";
 
 export default function Apply() {
+  useMetaTags({
+    title: "Open a Baby Banz Earmuffs Gemach | Application Form",
+    description: "Apply to open a Baby Banz Earmuffs Gemach in your community. Help protect babies' hearing at celebrations and events.",
+    ogTitle: "Open a Baby Banz Earmuffs Gemach",
+    ogDescription: "Start your own Baby Banz Earmuffs Gemach to serve your community. Simple application process.",
+    ogUrl: getFullUrl("/apply"),
+    ogType: "website",
+  });
+
   return (
     <>
-      {/* Meta tags */}
-      <head>
-        <title>Open a Baby Banz Earmuffs Gemach | Application Form</title>
-        <meta name="description" content="Apply to open a Baby Banz Earmuffs Gemach in your community. Help protect babies' hearing at celebrations and events." />
-        <meta property="og:title" content="Open a Baby Banz Earmuffs Gemach" />
-        <meta property="og:description" content="Start your own Baby Banz Earmuffs Gemach to serve your community. Simple application process." />
-        <meta property="og:url" content="https://earmuffsgemach.com/apply" />
-        <meta property="og:type" content="website" />
-      </head>
       
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4">

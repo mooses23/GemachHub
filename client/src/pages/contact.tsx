@@ -2,19 +2,21 @@ import React from "react";
 import { ContactForm } from "@/components/contact/contact-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Share2, Clock } from "lucide-react";
+import { useMetaTags } from "@/hooks/use-meta-tags";
+import { getFullUrl } from "@/lib/config";
 
 export default function Contact() {
+  useMetaTags({
+    title: "Contact Baby Banz Earmuffs Gemach | Get In Touch",
+    description: "Contact the Baby Banz Earmuffs Gemach with any questions or inquiries. We're here to help protect babies' hearing at events and celebrations.",
+    ogTitle: "Contact Baby Banz Earmuffs Gemach",
+    ogDescription: "Questions about borrowing earmuffs or starting a gemach? We're here to help. Get in touch with us.",
+    ogUrl: getFullUrl("/contact"),
+    ogType: "website",
+  });
+
   return (
     <>
-      {/* Meta tags */}
-      <head>
-        <title>Contact Baby Banz Earmuffs Gemach | Get In Touch</title>
-        <meta name="description" content="Contact the Baby Banz Earmuffs Gemach with any questions or inquiries. We're here to help protect babies' hearing at events and celebrations." />
-        <meta property="og:title" content="Contact Baby Banz Earmuffs Gemach" />
-        <meta property="og:description" content="Questions about borrowing earmuffs or starting a gemach? We're here to help. Get in touch with us." />
-        <meta property="og:url" content="https://earmuffsgemach.com/contact" />
-        <meta property="og:type" content="website" />
-      </head>
       
       <section className="py-16 bg-primary/10">
         <div className="container mx-auto px-4">
