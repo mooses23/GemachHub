@@ -142,13 +142,32 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Invalid invite code" });
       }
 
+      // Check if this is a location-specific invite code
+      const inviteCodeData = await storage.getInviteCodeByCode(req.body.inviteCode);
+      
       // Remove invite code from user data before creating user
       const { inviteCode, ...userDataWithoutInviteCode } = req.body;
 
-      const user = await storage.createSystemUser({
+      // If invite code is linked to a location, make user an operator for that location
+      let userData = {
         ...userDataWithoutInviteCode,
         password: await hashPassword(req.body.password),
-      });
+      };
+
+      if (inviteCodeData && inviteCodeData.locationId) {
+        userData = {
+          ...userData,
+          role: "operator",
+          locationId: inviteCodeData.locationId,
+        };
+      }
+
+      const user = await storage.createSystemUser(userData);
+
+      // Mark the invite code as used if it's a location-specific code
+      if (inviteCodeData) {
+        await storage.useInviteCode(req.body.inviteCode, user.id);
+      }
 
       req.login(user, (err) => {
         if (err) return next(err);
