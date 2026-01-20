@@ -101,6 +101,7 @@ export class MemStorage implements IStorage {
   private payments: Map<number, Payment>;
   private paymentMethods: Map<number, PaymentMethod>;
   private locationPaymentMethods: Map<number, LocationPaymentMethod>;
+  private cityCategories: Map<number, CityCategory>;
   private validInviteCodes: Set<string>;
 
   private userCounter: number;
@@ -113,6 +114,7 @@ export class MemStorage implements IStorage {
   private paymentCounter: number;
   private paymentMethodCounter: number;
   private locationPaymentMethodCounter: number;
+  private cityCategoryCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -125,6 +127,7 @@ export class MemStorage implements IStorage {
     this.payments = new Map();
     this.paymentMethods = new Map();
     this.locationPaymentMethods = new Map();
+    this.cityCategories = new Map();
     this.validInviteCodes = new Set();
 
     this.userCounter = 1;
@@ -137,6 +140,7 @@ export class MemStorage implements IStorage {
     this.paymentCounter = 1;
     this.paymentMethodCounter = 1;
     this.locationPaymentMethodCounter = 1;
+    this.cityCategoryCounter = 1;
 
     // Initialize with default regions
     this.initializeDefaultData();
@@ -2358,7 +2362,8 @@ export class MemStorage implements IStorage {
       cashOnly: insertLocation.cashOnly ?? null,
       depositAmount: insertLocation.depositAmount ?? null,
       paymentMethods: insertLocation.paymentMethods ?? null,
-      processingFeePercent: insertLocation.processingFeePercent ?? null
+      processingFeePercent: insertLocation.processingFeePercent ?? null,
+      cityCategoryId: insertLocation.cityCategoryId ?? null
     };
     this.locations.set(id, location);
     return location;
@@ -2391,7 +2396,8 @@ export class MemStorage implements IStorage {
       id, 
       status: "pending",
       submittedAt: new Date(),
-      message: insertApplication.message ?? null
+      message: insertApplication.message ?? null,
+      community: insertApplication.community ?? null
     };
     this.applications.set(id, application);
     return application;
@@ -2633,6 +2639,56 @@ export class MemStorage implements IStorage {
     if (lpm) {
       this.locationPaymentMethods.delete(lpm.id);
     }
+  }
+
+  // City Category operations
+  async getAllCityCategories(): Promise<CityCategory[]> {
+    return Array.from(this.cityCategories.values());
+  }
+
+  async getCityCategory(id: number): Promise<CityCategory | undefined> {
+    return this.cityCategories.get(id);
+  }
+
+  async getCityCategoriesByRegionId(regionId: number): Promise<CityCategory[]> {
+    return Array.from(this.cityCategories.values()).filter(
+      cat => cat.regionId === regionId
+    );
+  }
+
+  async getPopularCitiesByRegionId(regionId: number): Promise<CityCategory[]> {
+    return Array.from(this.cityCategories.values()).filter(
+      cat => cat.regionId === regionId && cat.isPopular
+    );
+  }
+
+  async createCityCategory(cityCategory: InsertCityCategory): Promise<CityCategory> {
+    const id = this.cityCategoryCounter++;
+    const newCategory: CityCategory = {
+      id,
+      name: cityCategory.name,
+      slug: cityCategory.slug,
+      regionId: cityCategory.regionId,
+      displayOrder: cityCategory.displayOrder ?? 0,
+      isPopular: cityCategory.isPopular ?? false,
+      description: cityCategory.description ?? null
+    };
+    this.cityCategories.set(id, newCategory);
+    return newCategory;
+  }
+
+  async updateCityCategory(id: number, data: Partial<InsertCityCategory>): Promise<CityCategory> {
+    const category = this.cityCategories.get(id);
+    if (!category) {
+      throw new Error(`City category with id ${id} not found`);
+    }
+    const updatedCategory: CityCategory = { ...category, ...data };
+    this.cityCategories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+
+  async deleteCityCategory(id: number): Promise<void> {
+    this.cityCategories.delete(id);
   }
 }
 

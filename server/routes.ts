@@ -30,7 +30,8 @@ import {
   insertTransactionSchema,
   insertPaymentSchema,
   insertPaymentMethodSchema,
-  insertLocationPaymentMethodSchema
+  insertLocationPaymentMethodSchema,
+  insertCityCategorySchema
 } from "../shared/schema";
 import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth";
 
@@ -59,6 +60,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating region:", error);
       res.status(500).json({ message: "Failed to create region" });
+    }
+  });
+
+  // CITY CATEGORIES ROUTES
+  app.get("/api/city-categories", async (req, res) => {
+    try {
+      const cityCategories = await storage.getAllCityCategories();
+      res.json(cityCategories);
+    } catch (error) {
+      console.error("Error fetching city categories:", error);
+      res.status(500).json({ message: "Failed to fetch city categories" });
+    }
+  });
+
+  app.get("/api/regions/:regionId/city-categories", async (req, res) => {
+    try {
+      const regionId = parseInt(req.params.regionId, 10);
+      const cityCategories = await storage.getCityCategoriesByRegionId(regionId);
+      res.json(cityCategories);
+    } catch (error) {
+      console.error("Error fetching city categories by region:", error);
+      res.status(500).json({ message: "Failed to fetch city categories" });
+    }
+  });
+
+  app.post("/api/city-categories", async (req, res) => {
+    try {
+      const categoryData = insertCityCategorySchema.parse(req.body);
+      const cityCategory = await storage.createCityCategory(categoryData);
+      res.status(201).json(cityCategory);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid city category data", errors: error.errors });
+      }
+      console.error("Error creating city category:", error);
+      res.status(500).json({ message: "Failed to create city category" });
     }
   });
 

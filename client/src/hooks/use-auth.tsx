@@ -68,8 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/login", credentials);
       return await res.json();
     },
-    onSuccess: (user: Omit<User, "password">) => {
+    onSuccess: async (user: Omit<User, "password">) => {
+      // Set the user data and invalidate to ensure session is established
       queryClient.setQueryData(["/api/user"], user);
+      // Invalidate to refetch and confirm session is working
+      await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "Logged in successfully",
         description: `Welcome back, ${user.firstName}!`,
@@ -90,8 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/register", data);
       return await res.json();
     },
-    onSuccess: (user: Omit<User, "password">) => {
+    onSuccess: async (user: Omit<User, "password">) => {
+      // Set the user data and invalidate to ensure session is established
       queryClient.setQueryData(["/api/user"], user);
+      // Invalidate to refetch and confirm session is working
+      await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
         title: "Registration successful",
         description: `Welcome, ${user.firstName}!`,
