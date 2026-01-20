@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getGemachApplications, updateGemachApplicationStatus } from "@/lib/api";
-import { GemachApplication } from "@shared/schema";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { getGemachApplications, updateGemachApplicationStatus, approveApplicationWithLocation } from "@/lib/api";
+import { GemachApplication, Region, InsertLocation, insertLocationSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -25,6 +27,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,17 +59,30 @@ import {
   Check,
   X,
   Eye,
-  User,
   Mail,
   Phone,
   MapPin,
   Calendar,
   Clock,
   ArrowLeft,
-  Home
+  Home,
+  Plus,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
+import { z } from "zod";
+
+const locationFormSchema = insertLocationSchema.omit({ locationCode: true }).extend({
+  name: z.string().min(1, "Location name is required"),
+  contactPerson: z.string().min(1, "Contact person is required"),
+  address: z.string().min(1, "Address is required"),
+  phone: z.string().min(1, "Phone is required"),
+  email: z.string().email("Valid email is required"),
+  regionId: z.number().min(1, "Region is required"),
+});
+
+type LocationFormData = z.infer<typeof locationFormSchema>;
 
 export default function AdminApplications() {
   const { toast } = useToast();
@@ -61,9 +91,34 @@ export default function AdminApplications() {
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [viewApplication, setViewApplication] = useState<GemachApplication | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [approveApplication, setApproveApplication] = useState<GemachApplication | null>(null);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
 
   const { data: applications = [] } = useQuery<GemachApplication[]>({
     queryKey: ["/api/applications"],
+  });
+
+  const { data: regions = [] } = useQuery<Region[]>({
+    queryKey: ["/api/regions"],
+  });
+
+  const form = useForm<LocationFormData>({
+    resolver: zodResolver(locationFormSchema),
+    defaultValues: {
+      name: "",
+      contactPerson: "",
+      address: "",
+      zipCode: "",
+      phone: "",
+      email: "",
+      regionId: 1,
+      isActive: true,
+      inventoryCount: 0,
+      cashOnly: false,
+      depositAmount: 20,
+      paymentMethods: ["cash"],
+      processingFeePercent: 300,
+    },
   });
 
   const updateStatusMutation = useMutation({
@@ -75,6 +130,7 @@ export default function AdminApplications() {
         description: "Application status has been updated successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      setIsViewDialogOpen(false);
     },
     onError: (error) => {
       toast({
@@ -85,9 +141,28 @@ export default function AdminApplications() {
     },
   });
 
-  const handleApprove = (id: number) => {
-    updateStatusMutation.mutate({ id, status: "approved" });
-  };
+  const approveWithLocationMutation = useMutation({
+    mutationFn: ({ id, locationData }: { id: number; locationData: InsertLocation }) => 
+      approveApplicationWithLocation(id, locationData),
+    onSuccess: () => {
+      toast({
+        title: "Application Approved",
+        description: "Application has been approved and new location has been created successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      setIsApproveDialogOpen(false);
+      setApproveApplication(null);
+      form.reset();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to approve application: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleReject = (id: number) => {
     updateStatusMutation.mutate({ id, status: "rejected" });
@@ -96,6 +171,35 @@ export default function AdminApplications() {
   const handleViewApplication = (application: GemachApplication) => {
     setViewApplication(application);
     setIsViewDialogOpen(true);
+  };
+
+  const handleStartApproval = (application: GemachApplication) => {
+    setApproveApplication(application);
+    form.reset({
+      name: `${application.firstName} ${application.lastName}'s Gemach`,
+      contactPerson: `${application.firstName} ${application.lastName}`,
+      address: application.location,
+      zipCode: "",
+      phone: application.phone,
+      email: application.email,
+      regionId: 1,
+      isActive: true,
+      inventoryCount: 0,
+      cashOnly: false,
+      depositAmount: 20,
+      paymentMethods: ["cash"],
+      processingFeePercent: 300,
+    });
+    setIsApproveDialogOpen(true);
+  };
+
+  const onSubmitApproval = (data: LocationFormData) => {
+    if (!approveApplication) return;
+    
+    approveWithLocationMutation.mutate({ 
+      id: approveApplication.id, 
+      locationData: data as InsertLocation
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -112,7 +216,6 @@ export default function AdminApplications() {
   };
 
   const filteredApplications = applications.filter(application => {
-    // Apply status filter
     if (filterStatus !== "all" && application.status !== filterStatus) return false;
     
     if (!searchTerm) return true;
@@ -129,7 +232,6 @@ export default function AdminApplications() {
   return (
     <div className="py-10">
       <div className="container mx-auto px-4">
-        {/* Navigation Breadcrumbs */}
         <div className="flex items-center gap-2 mb-6">
           <Button 
             variant="ghost" 
@@ -272,9 +374,9 @@ export default function AdminApplications() {
                               </DropdownMenuItem>
                               {application.status === "pending" && (
                                 <>
-                                  <DropdownMenuItem onClick={() => handleApprove(application.id)}>
-                                    <Check className="mr-2 h-4 w-4 text-green-600" />
-                                    Approve
+                                  <DropdownMenuItem onClick={() => handleStartApproval(application)}>
+                                    <Plus className="mr-2 h-4 w-4 text-green-600" />
+                                    Approve & Create Location
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleReject(application.id)}>
                                     <X className="mr-2 h-4 w-4 text-red-600" />
@@ -366,10 +468,13 @@ export default function AdminApplications() {
                         Reject
                       </Button>
                       <Button 
-                        onClick={() => handleApprove(viewApplication.id)}
+                        onClick={() => {
+                          setIsViewDialogOpen(false);
+                          handleStartApproval(viewApplication);
+                        }}
                       >
-                        <Check className="mr-2 h-4 w-4" />
-                        Approve
+                        <Plus className="mr-2 h-4 w-4" />
+                        Approve & Create Location
                       </Button>
                     </>
                   )}
@@ -379,6 +484,233 @@ export default function AdminApplications() {
                     </Button>
                   )}
                 </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Approve Application & Create Location Dialog */}
+        <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+          <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Approve Application & Create Location</DialogTitle>
+              <DialogDescription>
+                Fill in the location details to approve this application and create a new gemach location.
+              </DialogDescription>
+            </DialogHeader>
+            {approveApplication && (
+              <div className="space-y-4">
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Applicant Information</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Name:</span>{" "}
+                      {approveApplication.firstName} {approveApplication.lastName}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Email:</span>{" "}
+                      {approveApplication.email}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Phone:</span>{" "}
+                      {approveApplication.phone}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Location:</span>{" "}
+                      {approveApplication.location}
+                    </div>
+                  </div>
+                </div>
+
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmitApproval)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Location Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="e.g., Brooklyn Baby Banz Gemach" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="contactPerson"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Contact Person</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="regionId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Region</FormLabel>
+                            <Select 
+                              onValueChange={(value) => field.onChange(parseInt(value))}
+                              defaultValue={field.value?.toString()}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select region" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {regions.map((region) => (
+                                  <SelectItem key={region.id} value={region.id.toString()}>
+                                    {region.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Address</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Street, City, State, Country" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="zipCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Zip Code</FormLabel>
+                            <FormControl>
+                              <Input {...field} value={field.value ?? ""} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="tel" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="email" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="depositAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Deposit Amount ($)</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="number" 
+                                value={field.value ?? 20}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 20)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="inventoryCount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Initial Inventory</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="number" 
+                                value={field.value ?? 0}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        onClick={() => {
+                          setIsApproveDialogOpen(false);
+                          setApproveApplication(null);
+                          form.reset();
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit"
+                        disabled={approveWithLocationMutation.isPending}
+                      >
+                        {approveWithLocationMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating Location...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Approve & Create Location
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
               </div>
             )}
           </DialogContent>

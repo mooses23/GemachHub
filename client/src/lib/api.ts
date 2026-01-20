@@ -65,6 +65,10 @@ export const updateGemachApplicationStatus = async (id: number, status: string) 
   return apiRequest("PATCH", `/api/applications/${id}`, { status });
 };
 
+export const approveApplicationWithLocation = async (id: number, locationData: InsertLocation) => {
+  return apiRequest("POST", `/api/applications/${id}/approve-with-location`, locationData);
+};
+
 // Transactions API
 export const getTransactions = async () => {
   const response = await fetch("/api/transactions");
