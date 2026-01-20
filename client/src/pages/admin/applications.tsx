@@ -93,6 +93,8 @@ export default function AdminApplications() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [approveApplication, setApproveApplication] = useState<GemachApplication | null>(null);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [generatedInviteCode, setGeneratedInviteCode] = useState<string | null>(null);
+  const [isInviteCodeDialogOpen, setIsInviteCodeDialogOpen] = useState(false);
 
   const { data: applications = [] } = useQuery<GemachApplication[]>({
     queryKey: ["/api/applications"],
@@ -144,16 +146,23 @@ export default function AdminApplications() {
   const approveWithLocationMutation = useMutation({
     mutationFn: ({ id, locationData }: { id: number; locationData: InsertLocation }) => 
       approveApplicationWithLocation(id, locationData),
-    onSuccess: () => {
-      toast({
-        title: "Application Approved",
-        description: "Application has been approved and new location has been created successfully.",
-      });
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
       setIsApproveDialogOpen(false);
       setApproveApplication(null);
       form.reset();
+      
+      // Show invite code dialog
+      if (data.inviteCode) {
+        setGeneratedInviteCode(data.inviteCode);
+        setIsInviteCodeDialogOpen(true);
+      } else {
+        toast({
+          title: "Application Approved",
+          description: "Application has been approved and new location has been created successfully.",
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -713,6 +722,52 @@ export default function AdminApplications() {
                 </Form>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Invite Code Success Dialog */}
+        <Dialog open={isInviteCodeDialogOpen} onOpenChange={setIsInviteCodeDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Check className="h-5 w-5 text-green-500" />
+                Application Approved
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                The application has been approved and a new location has been created. 
+                Share this invite code with the new operator so they can create their account:
+              </p>
+              <div className="bg-muted p-4 rounded-lg text-center">
+                <p className="text-xs text-muted-foreground mb-2">Invite Code</p>
+                <p className="text-2xl font-mono font-bold tracking-wider">{generatedInviteCode}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This code can only be used once. The new operator will use this code when registering 
+                to automatically be assigned to their location.
+              </p>
+              <div className="flex justify-end">
+                <Button 
+                  onClick={() => {
+                    if (generatedInviteCode) {
+                      navigator.clipboard.writeText(generatedInviteCode);
+                      toast({
+                        title: "Copied!",
+                        description: "Invite code copied to clipboard.",
+                      });
+                    }
+                  }}
+                  variant="outline"
+                  className="mr-2"
+                >
+                  Copy Code
+                </Button>
+                <Button onClick={() => setIsInviteCodeDialogOpen(false)}>
+                  Done
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

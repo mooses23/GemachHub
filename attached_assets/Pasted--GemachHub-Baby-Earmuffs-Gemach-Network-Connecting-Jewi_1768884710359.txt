@@ -1,0 +1,578 @@
+# 🎧 GemachHub - Baby Earmuffs Gemach Network
+
+> Connecting Jewish communities worldwide to lend baby earmuffs for simchas and events
+
+**GemachHub** is a platform that helps Jewish communities manage gemach locations where baby earmuffs (Baby Banz) are lent out for simchas, weddings, and other loud events. Each gemach location operates independently, collecting and refunding deposits for the borrowed items.
+
+![GemachHub Logo](generated-icon.png)
+
+---
+
+## 📖 What is a Gemach?
+
+In Jewish communities, a **gemach** (Hebrew: גמ"ח, short for *gemilut chasadim* - acts of loving-kindness) is a free-loan organization. GemachHub specifically manages **baby earmuffs gemachs** - locations that lend protective earmuffs to parents attending loud celebrations with their babies.
+
+---
+
+## 🌟 How It Works
+
+### For the Public (Users)
+1. **Find a Location**: Search for gemach locations by region, city, or zip code
+2. **Borrow Earmuffs**: Contact a nearby location and pay a $20 deposit
+3. **Use at Event**:  Protect your baby's hearing at weddings, simchas, or celebrations
+4. **Return & Get Refund**: Return the earmuffs in good condition and get your full deposit back
+
+### For Gemach Operators (Location Managers)
+1. **Apply**:  Submit an application to open a gemach location in your community
+2. **Wait for Approval**: Admin reviews your application
+3. **Receive Invite Code**: Upon approval, admin generates a unique invite code and sends it to you
+4. **Create Account**: Use the invite code to register and create your operator login
+5. **Access Dashboard**: Login routes you directly to your location-specific operator dashboard
+6. **Manage Operations**:
+   - Track borrowed earmuffs
+   - Record deposits and refunds
+   - Manage inventory
+   - View transaction history
+7. **Serve Community**: Help local families while managing deposits independently
+
+### For Super Admin
+1. **Review Applications**: Approve or reject new gemach location applications
+2. **Generate Invite Codes**: Upon approval, system generates a unique, one-time-use invite code
+3. **Link to Location**:  Invite code is automatically linked to the approved location
+4. **Send to Applicant**: Share the invite code with the new operator (via email/phone)
+5. **Monitor Registration**: Track when operators use their codes to create accounts
+6. **Oversee Network**: Manage all locations across regions
+
+---
+
+## 🔐 Invite Code System
+
+### How It Works: 
+
+```
+Application → Admin Review → Approval → Invite Code Generated → Operator Signs Up → Dashboard Access
+```
+
+1. **Application Submitted**: Someone fills out the "Apply to Open a Gemach" form
+2. **Admin Reviews**: Super admin reviews application in admin panel
+3. **Admin Approves**: When approved, system automatically: 
+   - Generates a unique invite code (e.g., `GEMACH-BKLYN-X7K9P2`)
+   - Links code to the specific location
+   - Marks code as "unused" and "active"
+4. **Code Shared**: Admin shares the invite code with the applicant
+5. **Operator Registration**: Applicant visits signup page and enters: 
+   - Invite code
+   - Username
+   - Password
+   - Contact details
+6. **Code Validation**: System verifies: 
+   - Code exists and is valid
+   - Code hasn't been used before
+   - Code is linked to a location
+7. **Account Created**: 
+   - User account created with "operator" role
+   - Account linked to specific location
+   - Invite code marked as "used"
+8. **Dashboard Access**:  Upon login, operator is automatically routed to their location's dashboard
+
+### Security Features:
+- ✅ **One-Time Use**: Each invite code can only be used once
+- ✅ **Location-Specific**: Code is permanently linked to one location
+- ✅ **Expiration**:  Codes can have expiration dates (optional)
+- ✅ **No Direct Signup**: Can't create operator account without valid invite code
+- ✅ **Audit Trail**: System logs who used which code and when
+
+---
+
+## 🎯 Key Features
+
+### 🌍 **Global Network**
+- Multi-region support (USA, Israel, Europe, Australia, and more)
+- City categorization with popular cities highlighted
+- Search by zip code, city, or location code
+
+### 👥 **Role-Based Access**
+- **Public Users**: Browse locations and submit borrow requests
+- **Gemach Operators**: Manage their specific location's transactions and deposits
+- **Super Admin**:  Approve new locations and oversee the entire network
+
+### 🎟️ **Secure Invite Code System**
+- One-time-use invite codes for new operators
+- Automatic code generation upon application approval
+- Location-specific account linking
+- Prevents unauthorized operator signups
+
+### 💰 **Deposit Management**
+- $20 standard deposit (customizable per location)
+- Track deposit collection and refunds
+- Payment method flexibility (cash, Venmo, Zelle, PayPal, Stripe)
+- Transaction history and reporting
+
+### 🔒 **Secure & Isolated**
+- Each location operates independently
+- Operators only see their own location's data
+- Encrypted payment credentials
+- Session-based authentication
+- Invite-only operator registration
+
+### 📱 **User-Friendly**
+- Responsive design for mobile and desktop
+- Hierarchical location search (Region → City → Location)
+- Simple forms for borrowing and returning
+- Real-time inventory tracking
+
+### 🛠️ **No-Code Admin**
+- Add new gemach locations without coding
+- Approve applications through dashboard
+- Automatic invite code generation
+- Configure regions and cities visually
+- Payment method setup with simple forms
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **React** (18. 3.1) + **Vite** (5.4.14) - Fast, modern UI
+- **TypeScript** - Type safety throughout
+- **TailwindCSS** (3.4.17) - Beautiful, responsive design
+- **Radix UI** - Accessible, customizable components
+- **Wouter** (3.3.5) - Lightweight routing
+- **React Hook Form** + **Zod** - Form validation
+- **Tanstack Query** (5.60.5) - Data fetching and caching
+
+### Backend
+- **Express** (4.21.2) - Node.js web framework
+- **TypeScript** - Type-safe backend
+- **PostgreSQL** - Reliable database
+- **Drizzle ORM** (0.39.1) - Type-safe database queries
+- **Neon Database** - Serverless PostgreSQL
+- **Passport.js** (0.7.0) - Authentication
+
+### Payment Integrations
+- **Stripe** (18.2.1) - Online payments
+- **PayPal SDK** (1.1.0) - PayPal integration
+- Support for Venmo, Zelle, and cash
+
+---
+
+## 📦 Installation & Setup
+
+### Prerequisites
+- **Node.js** v18+
+- **PostgreSQL** database (or Neon Database account)
+- **npm** or **yarn**
+
+### Step-by-Step Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/mooses23/GemachHub.git
+   cd GemachHub
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   
+   Create a `.env` file in the root directory:
+   ```env
+   # Database
+   DATABASE_URL=your_postgres_connection_string
+   
+   # Session Security
+   SESSION_SECRET=your_random_secret_key_here
+   
+   # Stripe (Optional - for online payments)
+   STRIPE_SECRET_KEY=sk_test_your_stripe_secret
+   STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable
+   
+   # PayPal (Optional)
+   PAYPAL_CLIENT_ID=your_paypal_client_id
+   PAYPAL_CLIENT_SECRET=your_paypal_client_secret
+   
+   # Email Notifications (Optional)
+   ADMIN_EMAIL=your_email@example.com
+   
+   # Environment
+   NODE_ENV=development
+   ```
+
+4. **Set up the database**
+   ```bash
+   npm run db:push
+   ```
+
+5. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open your browser**
+   
+   Navigate to:  `http://localhost:5000`
+
+7. **Login with test accounts**
+   
+   **Admin Account:**
+   - Username: `admin`
+   - Password: `admin123`
+   
+   **Operator Account (Brooklyn):**
+   - Username: `brooklyn`
+   - Password: `gemach123`
+
+---
+
+## 📁 Project Structure
+
+```
+GemachHub/
+├── client/                    # Frontend React application
+│   ├── src/
+│   │   ├── components/       # Reusable UI components
+│   │   │   ├── locations/    # Location search & display
+│   │   │   ├── transactions/ # Borrow/return forms
+│   │   │   ├── apply/        # Gemach application form
+│   │   │   └── ui/          # Base UI components (buttons, forms, etc.)
+│   │   ├── pages/           # Route pages
+│   │   │   ├── home. tsx     # Landing page with search
+│   │   │   ├── locations.tsx # Browse all locations
+│   │   │   ├── borrow.tsx   # Borrow form
+│   │   │   ├── apply.tsx    # Apply to open gemach
+│   │   │   ├── rules.tsx    # Gemach rules
+│   │   │   ├── login.tsx    # Login page
+│   │   │   └── signup.tsx   # Operator signup (requires invite code)
+│   │   ├── hooks/           # Custom React hooks
+│   │   └── lib/             # Utilities and helpers
+│   └── index.html           # HTML entry point
+│
+├── server/                   # Backend Express application
+│   ├── index.ts             # Server entry point
+│   ├── routes. ts            # API routes definition
+│   ├── auth.ts              # Authentication & invite code validation
+│   ├── storage.ts           # Database access layer
+│   ├── payment-sync.ts      # Payment method synchronization
+│   ├── deposit-sync.ts      # Deposit tracking sync
+│   ├── deposit-refund.ts    # Refund processing
+│   ├── audit-trail.ts       # Audit logging
+│   └── email-notifications.ts # Email service
+│
+├── shared/                   # Shared code between client & server
+│   └── schema.ts            # Database schema & TypeScript types
+│
+├── drizzle. config.ts         # Drizzle ORM configuration
+├── vite.config.ts            # Vite bundler configuration
+├── tailwind. config.ts        # TailwindCSS styling config
+├── tsconfig.json             # TypeScript configuration
+└── package.json              # Dependencies and scripts
+```
+
+---
+
+## 🎮 Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server (http://localhost:5000) |
+| `npm run build` | Build for production (frontend + backend) |
+| `npm start` | Run production server |
+| `npm run check` | Type-check TypeScript code |
+| `npm run db:push` | Push database schema changes |
+
+---
+
+## 🔐 Security & Privacy
+
+- ✅ **Isolated Locations**: Each gemach operator only sees their own data
+- ✅ **Invite-Only Registration**: Operators can only signup with valid invite codes
+- ✅ **One-Time Codes**: Each invite code works once and is tied to one location
+- ✅ **Encrypted API Keys**: Payment credentials stored securely
+- ✅ **Session-Based Auth**: Secure login sessions
+- ✅ **Password Hashing**: Passwords never stored in plain text
+- ✅ **Environment Variables**: Sensitive data never in code
+- ✅ **HTTPS in Production**:  Encrypted connections
+
+---
+
+## 👥 User Roles & Access Flow
+
+### 🌐 Public Users
+- Search for locations
+- View location details and hours
+- See rules and deposit policies
+- Submit borrow requests
+- **Apply to open new locations** (triggers invite code flow)
+
+### 🏪 Gemach Operators
+**Access Flow:**
+```
+1. Apply via form → 2. Admin approves → 3. Receive invite code → 
+4. Register with code → 5. Login → 6. Auto-route to operator dashboard
+```
+
+**Dashboard Capabilities:**
+- Access location-specific dashboard only
+- Record deposits when lending earmuffs
+- Process refunds when items returned
+- Track inventory and borrowers
+- View transaction history for their location only
+- Manage location details
+
+### 👑 Super Admin
+**Application Management Flow:**
+```
+1. View pending applications → 2. Review details → 3. Approve/Reject �� 
+4. System generates invite code → 5. Share code with applicant → 
+6. Monitor operator signup
+```
+
+**Full Capabilities:**
+- Review and approve gemach applications
+- Generate and manage invite codes
+- Add new locations (no-code interface)
+- Configure regions and cities
+- Set up payment methods
+- Monitor all locations
+- Generate reports
+- View all transactions across locations
+
+---
+
+## 🗺️ Database Schema
+
+### Key Tables: 
+- **users** - Admin and operator accounts
+  - Includes `inviteCode` field (used during registration)
+  - Includes `locationId` (links operator to their location)
+- **regions** - Geographic regions (USA, Israel, Europe, etc.)
+- **cityCategories** - Cities within each region
+- **locations** - Individual gemach locations
+  - Each location can have one operator
+- **inviteCodes** (NEW) - Manages invite codes
+  - `code` - Unique invite code string
+  - `locationId` - Linked location
+  - `isUsed` - Whether code has been redeemed
+  - `usedBy` - User ID who used the code
+  - `usedAt` - Timestamp of usage
+  - `expiresAt` - Optional expiration date
+- **transactions** - Borrow/return records with deposits
+- **gemachApplications** - New location applications
+  - Status: pending → approved/rejected
+  - When approved, invite code is generated
+- **payments** - Payment tracking
+- **paymentMethods** - Available payment options
+- **contacts** - User inquiries
+
+---
+
+## 🎟️ Invite Code Implementation
+
+### Admin Workflow:
+```typescript
+// When admin approves application
+1. Admin clicks "Approve" on application
+2. System automatically: 
+   - Generates unique code:  generateInviteCode(locationId)
+   - Saves to database:  inviteCodes table
+   - Updates application status: "approved"
+   - (Optional) Sends email with code to applicant
+3. Admin can view/copy invite code to share manually
+```
+
+### Operator Registration Workflow:
+```typescript
+// When operator signs up
+1. Navigate to /signup
+2. Enter invite code in form
+3. System validates:
+   - Code exists
+   - Code hasn't been used
+   - Code hasn't expired
+4. If valid, show registration form
+5. After registration: 
+   - Create user account with role="operator"
+   - Link user to locationId from invite code
+   - Mark invite code as used
+6. Redirect to login
+```
+
+### Login Routing:
+```typescript
+// After successful login
+if (user.role === 'admin') {
+  redirect('/admin/dashboard')
+} else if (user.role === 'operator') {
+  redirect('/operator/dashboard')  // Shows only their location's data
+} else {
+  redirect('/') // Public user
+}
+```
+
+---
+
+## 🚀 Deploying to Production
+
+### Build the Application
+```bash
+npm run build
+```
+
+### Set Production Environment Variables
+Make sure `NODE_ENV=production` and all API keys are set properly.
+
+### Deploy Options:
+- **Replit** (where this was built!)
+- **Vercel** - Good for static + API routes
+- **Railway** - Easy Node.js deployment
+- **Heroku** - Classic PaaS option
+- **DigitalOcean** - Full VPS control
+
+---
+
+## 🤝 Contributing to GemachHub
+
+### For Beginners (Like You!)
+
+1. **Create a Branch**
+   ```bash
+   git checkout -b feature/my-new-feature
+   ```
+
+2. **Make Your Changes**
+   - Edit files in your code editor
+   - Test your changes with `npm run dev`
+
+3. **Commit Changes**
+   ```bash
+   git add .
+   git commit -m "Add:  description of what you changed"
+   ```
+
+4. **Push to GitHub**
+   ```bash
+   git push origin feature/my-new-feature
+   ```
+
+5. **Create Pull Request**
+   - Go to GitHub
+   - Click "Compare & pull request"
+   - Describe your changes
+   - Submit for review
+
+---
+
+## 📚 Learning Resources (For Beginners)
+
+### Git & GitHub Basics
+- [GitHub Skills](https://skills.github.com/) - Interactive tutorials
+- [Git Cheat Sheet](https://education.github.com/git-cheat-sheet-education.pdf)
+
+### JavaScript & TypeScript
+- [JavaScript. info](https://javascript.info/) - Complete beginner guide
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
+
+### React
+- [React Official Docs](https://react.dev/learn) - Start here! 
+- [React Tutorial for Beginners](https://react.dev/learn/tutorial-tic-tac-toe)
+
+### Backend (Express)
+- [Express Getting Started](https://expressjs.com/en/starter/installing.html)
+- [Node.js Beginner Guide](https://nodejs.dev/learn)
+
+### Database (PostgreSQL + Drizzle)
+- [PostgreSQL Tutorial](https://www.postgresqltutorial.com/)
+- [Drizzle ORM Docs](https://orm.drizzle.team/docs/overview)
+
+---
+
+## 🐛 Troubleshooting
+
+### "Cannot connect to database"
+```bash
+# Check your DATABASE_URL in .env file
+# Make sure PostgreSQL is running
+# Test with: npm run db:push
+```
+
+### "Invalid invite code"
+```bash
+# Make sure the invite code: 
+# 1. Was generated by admin approval
+# 2. Hasn't been used before
+# 3. Hasn't expired
+# Check the inviteCodes table in database
+```
+
+### "Port 5000 already in use"
+```bash
+# Kill the process: 
+# Mac/Linux: 
+lsof -ti: 5000 | xargs kill -9
+
+# Windows:
+netstat -ano | findstr :5000
+taskkill /PID <PID> /F
+```
+
+### "TypeScript errors"
+```bash
+# Run type checking: 
+npm run check
+```
+
+### "Module not found"
+```bash
+# Reinstall dependencies:
+rm -rf node_modules package-lock. json
+npm install
+```
+
+---
+
+## 📞 Support
+
+- **Issues**: [Open an issue on GitHub](https://github.com/mooses23/GemachHub/issues)
+- **Questions**: Ask in the discussions tab
+- **Email**: Contact the admin team
+
+---
+
+## 📄 License
+
+MIT License - Feel free to use for your community!
+
+---
+
+## 🙏 Acknowledgments
+
+**Built by mooses23 (Bridgelayer Founder) with GitHub Copilot**
+
+This project represents the power of collaboration between human vision and AI assistance. As a beginner to web development, this platform was created entirely through learning, experimentation, and guidance from Copilot.
+
+### Special Thanks: 
+- Jewish communities worldwide for inspiring this chesed project
+- GitHub Copilot for being a patient coding mentor
+- The open-source community for amazing tools and libraries
+
+---
+
+## 🎯 Future Roadmap
+
+- [ ] SMS notifications for return reminders
+- [ ] Multi-language support (Hebrew, Yiddish)
+- [ ] Mobile app (iOS/Android)
+- [ ] QR code check-in/out system
+- [ ] Automatic deposit refunds via Stripe
+- [ ] Advanced analytics for operators
+- [ ] Integration with community calendars
+- [ ] Damage assessment photo uploads
+- [ ] Bulk invite code generation
+- [ ] Email automation for invite code delivery
+
+---
+
+**Need help?  Remember: Every expert was once a beginner. You're doing amazing!  🌟**

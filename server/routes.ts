@@ -199,11 +199,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid region selected" });
       }
 
-      // Generate unique location code on server
-      const generateLocationCode = (): string => {
+      // Generate unique codes on server
+      const generateCode = (length: number): string => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let code = '';
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < length; i++) {
           code += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return code;
@@ -212,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create location data with server-generated code
       const locationDataWithCode = {
         ...req.body,
-        locationCode: generateLocationCode(),
+        locationCode: generateCode(6),
       };
 
       const locationData = insertLocationSchema.parse(locationDataWithCode);
@@ -220,10 +220,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create the location
       const location = await storage.createLocation(locationData);
       
+      // Generate invite code for new operator
+      const inviteCodeStr = `INV-${generateCode(8)}`;
+      const inviteCode = await storage.createInviteCode({
+        code: inviteCodeStr,
+        locationId: location.id,
+        applicationId: id
+      });
+      
       // Update application status to approved
       const updatedApplication = await storage.updateApplication(id, { status: "approved" });
       
-      res.status(201).json({ application: updatedApplication, location });
+      res.status(201).json({ 
+        application: updatedApplication, 
+        location,
+        inviteCode: inviteCode.code 
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid location data", errors: error.errors });

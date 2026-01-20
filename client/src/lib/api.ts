@@ -65,8 +65,9 @@ export const updateGemachApplicationStatus = async (id: number, status: string) 
   return apiRequest("PATCH", `/api/applications/${id}`, { status });
 };
 
-export const approveApplicationWithLocation = async (id: number, locationData: InsertLocation) => {
-  return apiRequest("POST", `/api/applications/${id}/approve-with-location`, locationData);
+export const approveApplicationWithLocation = async (id: number, locationData: InsertLocation): Promise<{ application: any; location: any; inviteCode: string }> => {
+  const response = await apiRequest("POST", `/api/applications/${id}/approve-with-location`, locationData);
+  return response.json();
 };
 
 // Transactions API
