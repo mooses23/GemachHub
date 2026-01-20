@@ -159,6 +159,42 @@ export class MemStorage implements IStorage {
 
     defaultRegions.forEach(region => this.createRegion(region));
 
+    // Initialize default city categories based on existing locations
+    const defaultCityCategories: InsertCityCategory[] = [
+      // United States (regionId: 1)
+      { name: "Los Angeles", slug: "los-angeles", regionId: 1, displayOrder: 1, isPopular: true },
+      { name: "New York", slug: "new-york", regionId: 1, displayOrder: 2, isPopular: true },
+      { name: "Brooklyn", slug: "brooklyn", regionId: 1, displayOrder: 3, isPopular: true },
+      { name: "Chicago", slug: "chicago", regionId: 1, displayOrder: 4 },
+      { name: "Miami", slug: "miami", regionId: 1, displayOrder: 5 },
+      { name: "Baltimore", slug: "baltimore", regionId: 1, displayOrder: 6 },
+      { name: "Lakewood", slug: "lakewood", regionId: 1, displayOrder: 7, isPopular: true },
+      { name: "Monsey", slug: "monsey", regionId: 1, displayOrder: 8 },
+      { name: "Cleveland", slug: "cleveland", regionId: 1, displayOrder: 9 },
+      { name: "Detroit", slug: "detroit", regionId: 1, displayOrder: 10 },
+      // Canada (regionId: 2)
+      { name: "Toronto", slug: "toronto", regionId: 2, displayOrder: 1, isPopular: true },
+      { name: "Montreal", slug: "montreal", regionId: 2, displayOrder: 2 },
+      // United Kingdom (regionId: 3)
+      { name: "London", slug: "london", regionId: 3, displayOrder: 1, isPopular: true },
+      { name: "Manchester", slug: "manchester", regionId: 3, displayOrder: 2 },
+      // Europe (regionId: 4)
+      { name: "Antwerp", slug: "antwerp", regionId: 4, displayOrder: 1 },
+      { name: "Paris", slug: "paris", regionId: 4, displayOrder: 2 },
+      { name: "Amsterdam", slug: "amsterdam", regionId: 4, displayOrder: 3 },
+      // Australia (regionId: 5)
+      { name: "Melbourne", slug: "melbourne", regionId: 5, displayOrder: 1 },
+      { name: "Sydney", slug: "sydney", regionId: 5, displayOrder: 2 },
+      // Israel (regionId: 6)
+      { name: "Jerusalem", slug: "jerusalem", regionId: 6, displayOrder: 1, isPopular: true },
+      { name: "Bnei Brak", slug: "bnei-brak", regionId: 6, displayOrder: 2, isPopular: true },
+      { name: "Beit Shemesh", slug: "beit-shemesh", regionId: 6, displayOrder: 3 },
+      { name: "Modi'in Illit", slug: "modiin-illit", regionId: 6, displayOrder: 4 },
+      { name: "Beitar Illit", slug: "beitar-illit", regionId: 6, displayOrder: 5 },
+    ];
+
+    defaultCityCategories.forEach(category => this.createCityCategory(category));
+
     // Initialize default invite codes
     // Generic invite codes removed - only location-specific invite codes are valid for operator registration
 
