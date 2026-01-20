@@ -19,6 +19,7 @@ import AdminApplications from "@/pages/admin/applications";
 import AdminPaymentMethods from "@/pages/admin/payment-methods";
 import PaymentConfirmations from "@/pages/admin/payment-confirmations";
 import PaymentStatusMonitor from "@/pages/admin/payment-status-monitor";
+import OperatorLogin from "@/pages/operator/login";
 import OperatorIndex from "@/pages/operator/index";
 import OperatorDashboard from "@/pages/operator/dashboard";
 import OperatorDepositDashboard from "@/pages/operator/deposit-dashboard";
@@ -26,6 +27,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Layout } from "@/components/layout/layout";
 import { AuthProvider } from "@/hooks/use-auth";
 import { LanguageProvider } from "@/hooks/use-language";
+import { OperatorAuthProvider } from "@/hooks/use-operator-auth";
 
 function Router() {
   return (
@@ -50,10 +52,11 @@ function Router() {
         <ProtectedRoute path="/admin/payment-confirmations" component={PaymentConfirmations} requiredRole="admin" />
         <ProtectedRoute path="/admin/payment-status" component={PaymentStatusMonitor} requiredRole="admin" />
         
-        {/* Protected Operator Routes */}
-        <ProtectedRoute path="/operator" component={OperatorIndex} requiredRole="operator" />
-        <ProtectedRoute path="/operator/dashboard" component={OperatorDashboard} requiredRole="operator" />
-        <ProtectedRoute path="/operator/deposits" component={OperatorDepositDashboard} requiredRole="operator" />
+        {/* Operator Routes - Use localStorage-based auth via useOperatorAuth hook */}
+        <Route path="/operator/login" component={OperatorLogin} />
+        <Route path="/operator" component={OperatorDashboard} />
+        <Route path="/operator/dashboard" component={OperatorDashboard} />
+        <Route path="/operator/deposits" component={OperatorDepositDashboard} />
         
         <Route component={NotFound} />
       </Switch>
@@ -66,10 +69,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
+          <OperatorAuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </OperatorAuthProvider>
         </AuthProvider>
       </LanguageProvider>
     </QueryClientProvider>

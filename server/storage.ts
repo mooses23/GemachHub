@@ -45,6 +45,7 @@ export interface IStorage {
   // Location operations
   getAllLocations(): Promise<Location[]>;
   getLocation(id: number): Promise<Location | undefined>;
+  getLocationByCode(code: string): Promise<Location | undefined>;
   getLocationsByRegionId(regionId: number): Promise<Location[]>;
   createLocation(location: InsertLocation): Promise<Location>;
   updateLocation(id: number, data: Partial<InsertLocation>): Promise<Location>;
@@ -227,7 +228,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Los Angeles - La Brea", 
@@ -239,7 +242,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Los Angeles - Valley Village", 
@@ -251,7 +256,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       // United States - Florida
       {
@@ -264,7 +271,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       // United States - Illinois
       {
@@ -277,7 +286,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       // United States - Maryland
       {
@@ -290,7 +301,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Baltimore - Western Run Drive", 
@@ -302,7 +315,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       // United States - Michigan
       {
@@ -315,7 +330,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       // United States - Ohio
       {
@@ -328,7 +345,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       // United States - Pennsylvania
       {
@@ -341,7 +360,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Bala Cynwyd Philadelphia", 
@@ -353,7 +374,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       // New York - Brooklyn
       {
@@ -366,7 +389,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn - Boro Park (14th Ave & 40th St)",
@@ -378,7 +403,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn - Boro Park (16th Ave & 42nd St)",
@@ -390,7 +417,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn - Crown Heights",
@@ -402,7 +431,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn - Flatbush (East 35th & Ave L)",
@@ -414,7 +445,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn - Flatbush (East 9th & Ave M)",
@@ -426,7 +459,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn - Flatbush (East 24th & Ave P)",
@@ -438,7 +473,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn - Kensington (Avenue F)",
@@ -450,7 +487,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn - Kensington (East 8th & Ave C)",
@@ -462,7 +501,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       // New York - Monsey
       {
@@ -475,7 +516,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Monsey - Butterfield Drive",
@@ -487,7 +530,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Monsey - Haverstraw",
@@ -499,7 +544,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Monsey - Homestead Lane",
@@ -511,7 +558,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Monsey - Scotland Hill",
@@ -523,7 +572,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Monsey - Wesley Hills",
@@ -535,7 +586,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       // New York - Other Areas
       {
@@ -548,7 +601,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 5
+        inventoryCount: 5,
+
+        operatorPin: "1234"
       },
       {
         name: "Queens - Kew Gardens",
@@ -560,7 +615,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Five Towns & Far Rockaway",
@@ -572,7 +629,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Five Towns - Lawrence",
@@ -584,7 +643,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Five Towns - Cedarhurst",
@@ -596,7 +657,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Five Towns - Cedarhurst (Second Location)",
@@ -608,7 +671,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 5
+        inventoryCount: 5,
+
+        operatorPin: "1234"
       },
       {
         name: "Five Towns - North Woodmere",
@@ -620,7 +685,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Five Towns - Woodmere",
@@ -632,7 +699,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Staten Island",
@@ -644,7 +713,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 4
+        inventoryCount: 4,
+
+        operatorPin: "1234"
       },
       {
         name: "West Hempstead",
@@ -656,7 +727,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       // New Jersey
       {
@@ -669,7 +742,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jackson",
@@ -681,7 +756,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood - Near Beis Feiga",
@@ -693,7 +770,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood - East County Line",
@@ -705,7 +784,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood - West County Line",
@@ -717,7 +798,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood - Pine Street",
@@ -729,7 +812,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood - Prospect Area",
@@ -741,7 +826,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood - Sunset & James",
@@ -753,7 +840,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood - Vine Ave",
@@ -765,7 +854,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood - Westgate",
@@ -777,7 +868,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 13
+        inventoryCount: 13,
+
+        operatorPin: "1234"
       },
       {
         name: "Passaic - Amsterdam Avenue",
@@ -789,7 +882,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Passaic - Boulevard",
@@ -801,7 +896,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Passaic - Passaic Avenue",
@@ -813,7 +910,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 5
+        inventoryCount: 5,
+
+        operatorPin: "1234"
       },
       {
         name: "Toms River",
@@ -825,7 +924,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       // Israel - Jerusalem
       {
@@ -838,7 +939,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Baka",
@@ -850,7 +953,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Bayit Vegan",
@@ -862,7 +967,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Eli HaKohen",
@@ -874,7 +981,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - French Hill",
@@ -886,7 +995,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ganei Geula",
@@ -898,7 +1009,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Givat Mordechai",
@@ -910,7 +1023,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Givat Shaul (Pinchas Kehati)",
@@ -922,7 +1037,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Har Nof",
@@ -934,7 +1051,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Katamon",
@@ -946,7 +1065,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Maalot Dafna",
@@ -958,7 +1079,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Mem Gimmel",
@@ -970,7 +1093,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Neve Yaakov",
@@ -982,7 +1107,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Pisgat Zeev (Neve HaPisga)",
@@ -994,7 +1121,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Pisgat Zeev",
@@ -1006,7 +1135,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ramat Eshkol",
@@ -1018,7 +1149,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ramat Eshkol (Second Location)",
@@ -1030,7 +1163,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ramat Shlomo (Rafael Baruch Toledano)",
@@ -1042,7 +1177,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ramat Shlomo (Chazon Ish)",
@@ -1054,7 +1191,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ramat Shlomo",
@@ -1066,7 +1205,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ramot",
@@ -1078,7 +1219,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ramot Daled (Rechov Valenstein)",
@@ -1090,7 +1233,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Rechavia-Nachlaot (Mordechai Narkis)",
@@ -1102,7 +1247,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Romema",
@@ -1114,7 +1261,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Rova Hayehudi",
@@ -1126,7 +1275,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 5
+        inventoryCount: 5,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Sanhedria Murchevet",
@@ -1138,7 +1289,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Sanz/Belz",
@@ -1150,7 +1303,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Sarei Yisroel",
@@ -1162,7 +1317,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Kiryat HaYovel",
@@ -1174,7 +1331,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       // Israel - Other Cities
       {
@@ -1187,7 +1346,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Lod - Shechunat Chabad",
@@ -1199,7 +1360,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Afula",
@@ -1211,7 +1374,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Beitar Illit",
@@ -1223,7 +1388,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Beit Shemesh - Ramat Beit Shemesh",
@@ -1235,7 +1402,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Beit Shemesh - Ramat Beit Shemesh Aleph",
@@ -1247,7 +1416,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Shechunat Or HaChaim",
@@ -1259,7 +1430,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Shichun Hey",
@@ -1271,7 +1444,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Zichron Meir",
@@ -1283,7 +1458,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 13
+        inventoryCount: 13,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Rechov Sokolov",
@@ -1295,7 +1472,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Rechov HaBanim",
@@ -1307,7 +1486,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Pardes Katz",
@@ -1319,7 +1500,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Rechov Amram Gaon 7 (Shikun Vav)",
@@ -1331,7 +1514,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Rechov Menachem 6",
@@ -1343,7 +1528,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Brak - Ramat Elchanan",
@@ -1355,7 +1542,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Bnei Re'em",
@@ -1367,7 +1556,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 5
+        inventoryCount: 5,
+
+        operatorPin: "1234"
       },
       {
         name: "Elad",
@@ -1379,7 +1570,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Givat Zeev - 33 Ha'yalot",
@@ -1391,7 +1584,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Givat Zeev - 59 Ha'yalot",
@@ -1403,7 +1598,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Haifa - Shechunat Hadar",
@@ -1415,7 +1612,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Kiryat Tivon",
@@ -1427,7 +1626,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Kochav HaShachar",
@@ -1439,7 +1640,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Maaleh Adumim",
@@ -1451,7 +1654,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Modiin Illit - Netivot Hamishpat",
@@ -1463,7 +1668,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Modiin Illit - Brachfeld",
@@ -1475,7 +1682,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Modiin Illit - Gan HaDasim",
@@ -1487,7 +1696,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Neriya",
@@ -1499,7 +1710,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 5
+        inventoryCount: 5,
+
+        operatorPin: "1234"
       },
       {
         name: "Telzstone/Kiryat Yearim - Ma'alot Kedushei Telz",
@@ -1511,7 +1724,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Telzstone/Kiryat Yearim - HaRif 16",
@@ -1523,7 +1738,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Rechovot",
@@ -1535,7 +1752,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Ashdod - Rova Gimmel",
@@ -1547,7 +1766,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Kfar Chabad",
@@ -1559,7 +1780,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Tel Aviv - Ramat Gan",
@@ -1571,7 +1794,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Moshav Yesodot",
@@ -1583,7 +1808,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Petach Tikvah - Kfar Ganim Gimmel",
@@ -1595,7 +1822,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Shomron - Revava",
@@ -1607,7 +1836,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 5
+        inventoryCount: 5,
+
+        operatorPin: "1234"
       },
       // Canada
       {
@@ -1620,7 +1851,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 2,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Toronto - Forest Hill",
@@ -1632,7 +1865,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 2,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Toronto - York Mills",
@@ -1644,7 +1879,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 2,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Montreal - Cote St-Luc",
@@ -1656,7 +1893,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 2,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Montreal - Hampstead",
@@ -1668,7 +1907,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 2,
         isActive: true,
-        inventoryCount: 5
+        inventoryCount: 5,
+
+        operatorPin: "1234"
       },
       // England
       {
@@ -1681,7 +1922,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 3,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "London - Hendon",
@@ -1693,7 +1936,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 3,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "London - Stamford Hill",
@@ -1705,7 +1950,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 3,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Manchester - Prestwich",
@@ -1717,7 +1964,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 3,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Manchester - Whitefield",
@@ -1729,7 +1978,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 3,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       // Belgium
       {
@@ -1742,7 +1993,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 4,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Antwerp - Berchem",
@@ -1754,7 +2007,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 4,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       // Australia
       {
@@ -1767,7 +2022,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 5,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Melbourne - St Kilda",
@@ -1779,7 +2036,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 5,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Sydney - Bondi",
@@ -1791,7 +2050,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 5,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Los Angeles - Valley Village",
@@ -1803,7 +2064,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Miami Beach",
@@ -1815,7 +2078,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 15
+        inventoryCount: 15,
+
+        operatorPin: "1234"
       },
       {
         name: "Chicago",
@@ -1827,7 +2092,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Baltimore - Shellydale Drive",
@@ -1839,7 +2106,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Baltimore - Western Run Drive", 
@@ -1851,7 +2120,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Detroit",
@@ -1863,7 +2134,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "University Heights",
@@ -1875,7 +2148,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Philadelphia",
@@ -1887,7 +2162,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Bala Cynwyd Philadelphia",
@@ -1899,7 +2176,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Brooklyn",
@@ -1911,7 +2190,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 15
+        inventoryCount: 15,
+
+        operatorPin: "1234"
       },
       {
         name: "Monsey",
@@ -1923,7 +2204,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Lakewood",
@@ -1935,7 +2218,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 18
+        inventoryCount: 18,
+
+        operatorPin: "1234"
       },
       {
         name: "Teaneck",
@@ -1947,7 +2232,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 1,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       // Canada
       {
@@ -1960,7 +2247,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com", 
         regionId: 2,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Toronto - Bathurst & Lawrence",
@@ -1972,7 +2261,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 2,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Toronto - Bathurst & Clark",
@@ -1984,7 +2275,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 2,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Montreal",
@@ -1996,7 +2289,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 2,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       // England
       {
@@ -2009,7 +2304,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 3,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "London - NW11",
@@ -2021,7 +2318,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 3,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       },
       {
         name: "Manchester",
@@ -2033,7 +2332,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 3,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       // Belgium
       {
@@ -2046,7 +2347,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 4,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       // Australia
       {
@@ -2059,7 +2362,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 5,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       // Israel
       {
@@ -2072,7 +2377,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 14
+        inventoryCount: 14,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Baka",
@@ -2084,7 +2391,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 12
+        inventoryCount: 12,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Bayit Vegan",
@@ -2096,7 +2405,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 10
+        inventoryCount: 10,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Eli HaKohen",
@@ -2108,7 +2419,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 8
+        inventoryCount: 8,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - French Hill",
@@ -2120,7 +2433,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 11
+        inventoryCount: 11,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Ganei Geula",
@@ -2132,7 +2447,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 9
+        inventoryCount: 9,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Givat Mordechai",
@@ -2144,7 +2461,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 7
+        inventoryCount: 7,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Givat Shaul",
@@ -2156,7 +2475,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 13
+        inventoryCount: 13,
+
+        operatorPin: "1234"
       },
       {
         name: "Jerusalem - Pinchas Kehari",
@@ -2168,7 +2489,9 @@ export class MemStorage implements IStorage {
         email: "earmuffsgemach@gmail.com",
         regionId: 6,
         isActive: true,
-        inventoryCount: 6
+        inventoryCount: 6,
+
+        operatorPin: "1234"
       }
     ];
 
@@ -2400,6 +2723,12 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getLocationByCode(code: string): Promise<Location | undefined> {
+    return Array.from(this.locations.values()).find(
+      (location) => location.locationCode.toLowerCase() === code.toLowerCase()
+    );
+  }
+
   async createLocation(insertLocation: InsertLocation): Promise<Location> {
     const id = this.locationCounter++;
     const location: Location = { 
@@ -2412,7 +2741,8 @@ export class MemStorage implements IStorage {
       depositAmount: insertLocation.depositAmount ?? null,
       paymentMethods: insertLocation.paymentMethods ?? null,
       processingFeePercent: insertLocation.processingFeePercent ?? null,
-      cityCategoryId: insertLocation.cityCategoryId ?? null
+      cityCategoryId: insertLocation.cityCategoryId ?? null,
+      operatorPin: insertLocation.operatorPin ?? null
     };
     this.locations.set(id, location);
     return location;

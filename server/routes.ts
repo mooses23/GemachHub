@@ -31,7 +31,8 @@ import {
   insertPaymentSchema,
   insertPaymentMethodSchema,
   insertLocationPaymentMethodSchema,
-  insertCityCategorySchema
+  insertCityCategorySchema,
+  operatorLoginSchema
 } from "../shared/schema";
 import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth";
 
@@ -41,6 +42,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Create test users for demonstration
   await createTestUsers();
+
+  // Helper to check operator authorization - supports both Passport auth and PIN-based session
+  function getOperatorLocationId(req: any): number | null {
+    // First check Passport authentication
+    if (req.isAuthenticated()) {
+      const user = req.user as Express.User;
+      if (user.isAdmin) return -1; // -1 indicates admin access
+      if (user.role === 'operator' && user.locationId) return user.locationId;
+    }
+    // Then check PIN-based session
+    const sessionLocationId = (req.session as any)?.operatorLocationId;
+    if (sessionLocationId) return sessionLocationId;
+    return null;
+  }
+
   // REGIONS ROUTES
   app.get("/api/regions", async (req, res) => {
     try {
@@ -172,6 +188,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error updating location:", error);
       res.status(500).json({ message: "Failed to update location" });
     }
+  });
+
+  app.get("/api/locations/:locationId/transactions", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      
+      if (isNaN(locationId)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+      
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Admin (-1) can access any location, operators can only access their location
+      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+        return res.status(403).json({ message: "Not authorized for this location" });
+      }
+      
+      const location = await storage.getLocation(locationId);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+      
+      const transactions = await storage.getTransactionsByLocation(locationId);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching location transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
+  // OPERATOR LOGIN ROUTE
+  app.post("/api/operator/login", async (req, res) => {
+    try {
+      const validationResult = operatorLoginSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: "Invalid login data", errors: validationResult.error.errors });
+      }
+      
+      const { locationCode, pin } = validationResult.data;
+      
+      const location = await storage.getLocationByCode(locationCode);
+      
+      if (!location) {
+        return res.status(401).json({ message: "Invalid location code or PIN" });
+      }
+      
+      if (location.operatorPin !== pin) {
+        return res.status(401).json({ message: "Invalid location code or PIN" });
+      }
+      
+      if (!location.isActive) {
+        return res.status(403).json({ message: "This location is not active" });
+      }
+      
+      // Store operator location in session for server-side auth
+      (req.session as any).operatorLocationId = location.id;
+      
+      const { operatorPin, ...locationWithoutPin } = location;
+      res.json({ 
+        success: true, 
+        location: locationWithoutPin 
+      });
+    } catch (error) {
+      console.error("Operator login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // OPERATOR LOGOUT ROUTE
+  app.post("/api/operator/logout", (req, res) => {
+    (req.session as any).operatorLocationId = undefined;
+    res.json({ success: true });
   });
 
   // APPLICATIONS ROUTES
@@ -339,21 +430,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Transaction not found" });
       }
       
-      // Check if user is authenticated and has permission for this transaction's location
-      if (!req.isAuthenticated()) {
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
         return res.status(401).json({ message: "Authentication required to process returns" });
       }
       
-      const user = req.user as Express.User;
-      
-      // Admin can return any transaction
-      if (!user.isAdmin) {
-        // Operator can only process returns for their location
-        if (user.role !== "operator" || user.locationId !== transaction.locationId) {
-          return res.status(403).json({ 
-            message: "You don't have permission to process returns for this location" 
-          });
-        }
+      // Admin can return any transaction, operators can only process their location's returns
+      if (operatorLocationId !== -1 && operatorLocationId !== transaction.locationId) {
+        return res.status(403).json({ 
+          message: "You don't have permission to process returns for this location" 
+        });
       }
       
       const updatedTransaction = await storage.markTransactionReturned(id);
@@ -367,25 +453,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Operator-specific routes
   app.get("/api/operator/transactions", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
         return res.status(401).json({ message: "Authentication required" });
       }
       
-      const user = req.user as Express.User;
-      
-      if (user.role !== "operator" && !user.isAdmin) {
-        return res.status(403).json({ message: "Access forbidden" });
-      }
-      
-      // If admin, get all transactions; if operator, get only their location's transactions
+      // If admin (-1), get all transactions; if operator, get only their location's transactions
       let transactions;
-      if (user.isAdmin) {
+      if (operatorLocationId === -1) {
         transactions = await storage.getAllTransactions();
       } else {
-        if (!user.locationId) {
-          return res.status(400).json({ message: "Operator not associated with a location" });
-        }
-        transactions = await storage.getTransactionsByLocation(user.locationId);
+        transactions = await storage.getTransactionsByLocation(operatorLocationId);
       }
       
       res.json(transactions);
@@ -398,50 +476,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get operator's location info
   app.get("/api/operator/location", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
         return res.status(401).json({ message: "Authentication required" });
       }
       
-      const user = req.user as Express.User;
-      
-      if (user.role !== "operator" && !user.isAdmin) {
-        return res.status(403).json({ message: "Access forbidden" });
-      }
-      
       // For admins, return a summary location for mass management
-      if (user.isAdmin) {
+      if (operatorLocationId === -1) {
         const allLocations = await storage.getAllLocations();
         const totalInventory = allLocations.reduce((sum, loc) => sum + (loc.inventoryCount || 0), 0);
-        
-        const adminLocation = {
+        return res.json({
           id: 0,
-          name: "Admin - All Locations",
+          name: "All Locations",
           locationCode: "ADMIN",
-          contactPerson: "System Administrator",
-          address: "All Locations",
-          zipCode: "00000",
-          phone: "System",
-          email: user.email,
-          regionId: 0,
-          isActive: true,
           inventoryCount: totalInventory,
-          cashOnly: false
-        };
-        
-        return res.json(adminLocation);
+          isActive: true,
+          locationCount: allLocations.length
+        });
       }
       
-      if (!user.locationId) {
-        return res.status(400).json({ message: "User not associated with a location" });
-      }
-      
-      const location = await storage.getLocation(user.locationId);
-      
+      // For operators, return their specific location
+      const location = await storage.getLocation(operatorLocationId);
       if (!location) {
         return res.status(404).json({ message: "Location not found" });
       }
       
-      res.json(location);
+      const { operatorPin, ...locationWithoutPin } = location;
+      res.json(locationWithoutPin);
     } catch (error) {
       console.error("Error fetching operator location:", error);
       res.status(500).json({ message: "Failed to fetch location" });
@@ -451,40 +512,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get operator's payments (filtered by location)
   app.get("/api/operator/payments", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
         return res.status(401).json({ message: "Authentication required" });
-      }
-      
-      const user = req.user as Express.User;
-      
-      if (user.role !== "operator" && !user.isAdmin) {
-        return res.status(403).json({ message: "Access forbidden" });
       }
       
       // Get all payments and transactions
       const allPayments = await storage.getAllPayments();
       const allTransactions = await storage.getAllTransactions();
       
-      // If admin, return all payments; if operator, filter by location
-      if (user.isAdmin) {
-        return res.json(allPayments);
-      }
-      
-      if (!user.locationId) {
-        return res.status(400).json({ message: "Operator not associated with a location" });
-      }
-      
-      // Get transactions for this location
-      const locationTransactionIds = allTransactions
-        .filter(t => t.locationId === user.locationId)
-        .map(t => t.id);
-      
-      // Filter payments by those transactions
-      const locationPayments = allPayments.filter(p => 
-        locationTransactionIds.includes(p.transactionId)
+      // Create a map of transaction IDs to location IDs
+      const transactionLocationMap = new Map(
+        allTransactions.map(t => [t.id, t.locationId])
       );
       
-      res.json(locationPayments);
+      // Filter payments by location (admin gets all)
+      let payments;
+      if (operatorLocationId === -1) {
+        payments = allPayments;
+      } else {
+        payments = allPayments.filter(p => {
+          const locationId = transactionLocationMap.get(p.transactionId);
+          return locationId === operatorLocationId;
+        });
+      }
+      
+      res.json(payments);
     } catch (error) {
       console.error("Error fetching operator payments:", error);
       res.status(500).json({ message: "Failed to fetch payments" });
@@ -738,11 +791,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Item return and refund processing
   app.post("/api/transactions/:id/return", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
+      const transactionId = parseInt(req.params.id);
+      const transaction = await storage.getTransaction(transactionId);
+      
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+      
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
         return res.status(401).json({ message: "Authentication required" });
       }
+      
+      // Admin (-1) can process any return, operators can only process their location's returns
+      if (operatorLocationId !== -1 && operatorLocationId !== transaction.locationId) {
+        return res.status(403).json({ message: "Not authorized for this location's returns" });
+      }
 
-      const transactionId = parseInt(req.params.id);
       const { condition, returnNotes, refundAmount } = req.body;
 
       const result = await DepositRefundService.processItemReturn(transactionId, {
@@ -752,10 +817,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refundAmount
       });
 
-      // Log refund in audit trail
+      // Log refund in audit trail (use session user if available)
+      const userId = req.isAuthenticated() ? req.user.id : 0;
+      const username = req.isAuthenticated() ? req.user.username : `operator_location_${operatorLocationId}`;
       await AuditTrailService.logRefundProcessing(
-        req.user.id,
-        req.user.username,
+        userId,
+        username,
         transactionId,
         result.refundAmount,
         condition || 'good',

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Loader2, CheckCircle2, Search, RefreshCw, Home, DollarSign, ClipboardList, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Transaction, Location } from "@shared/schema";
@@ -37,18 +37,19 @@ import { format } from "date-fns";
 import { OperatorTransactionForm } from "@/components/transactions/operator-transaction-form";
 
 export default function OperatorDashboard() {
-  const { user, logoutMutation } = useAuth();
+  const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
   const [currentPath] = useLocation();
+  const [, setPath] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
 
-  // Query operator's location
-  const { data: operatorLocation, isLoading: isLocationLoading } = useQuery<Location>({
-    queryKey: ["/api/operator/location"],
-    enabled: !!user,
-  });
+  useEffect(() => {
+    if (!isOperatorLoading && !operatorLocation) {
+      setPath("/operator/login");
+    }
+  }, [isOperatorLoading, operatorLocation, setPath]);
 
   // Query transactions for the operator's location
   const { 
@@ -57,8 +58,15 @@ export default function OperatorDashboard() {
     isError,
     error
   } = useQuery<Transaction[]>({
-    queryKey: ["/api/operator/transactions"],
-    enabled: !!user,
+    queryKey: ["/api/locations", operatorLocation?.id, "transactions"],
+    queryFn: async () => {
+      const res = await fetch(`/api/locations/${operatorLocation?.id}/transactions`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch transactions");
+      return res.json();
+    },
+    enabled: !!operatorLocation?.id,
   });
 
   // Mutation to mark transaction as returned
@@ -76,7 +84,7 @@ export default function OperatorDashboard() {
       setIsReturnDialogOpen(false);
       setSelectedTransaction(null);
       // Invalidate transactions cache to refresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "transactions"] });
     },
     onError: (error: Error) => {
       toast({
@@ -111,7 +119,7 @@ export default function OperatorDashboard() {
   });
 
   // Show loading state
-  if (isLocationLoading || isTransactionsLoading) {
+  if (isOperatorLoading || isTransactionsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -175,8 +183,7 @@ export default function OperatorDashboard() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
+            onClick={() => logout()}
             className="flex items-center gap-2 text-muted-foreground"
           >
             <LogOut className="h-4 w-4" />
