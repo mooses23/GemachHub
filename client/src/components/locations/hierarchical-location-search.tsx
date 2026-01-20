@@ -34,63 +34,16 @@ export function HierarchicalLocationSearch() {
     queryFn: () => getRegions(),
   });
 
-  // Generate city categories from actual location data
-  const popularCities: CityCategory[] = useMemo(() => {
-    const cityGroups = new Map<string, { regionId: number; locations: Location[]; displayOrder: number }>();
-    
-    // Group locations by extracted city names
-    locations.forEach((location: Location) => {
-      // Extract city name from location name or address
-      let cityName = "";
-      
-      // Try to extract city from location name (e.g., "Los Angeles - Pico" -> "Los Angeles")
-      const nameMatch = location.name.match(/^([^-]+)/);
-      if (nameMatch) {
-        cityName = nameMatch[1].trim();
-      } else {
-        // Fallback to extracting from address
-        const addressParts = location.address.split(',');
-        if (addressParts.length >= 2) {
-          cityName = addressParts[1].trim();
-        } else {
-          cityName = location.name;
-        }
-      }
+  const { data: cityCategories = [] } = useQuery<CityCategory[]>({
+    queryKey: ["/api/city-categories"],
+  });
 
-      const key = `${cityName}-${location.regionId}`;
-      if (!cityGroups.has(key)) {
-        cityGroups.set(key, {
-          regionId: location.regionId,
-          locations: [],
-          displayOrder: 0
-        });
-      }
-      cityGroups.get(key)!.locations.push(location);
-    });
-
-    // Convert to city categories, prioritizing cities with more locations
-    const cities: CityCategory[] = [];
-    let cityId = 1;
-
-    Array.from(cityGroups.entries())
-      .sort(([, a], [, b]) => b.locations.length - a.locations.length) // Sort by location count
-      .forEach(([key, group], index) => {
-        const cityName = key.split('-')[0];
-        const slug = cityName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        
-        cities.push({
-          id: cityId++,
-          name: cityName,
-          slug,
-          regionId: group.regionId,
-          displayOrder: index + 1,
-          isPopular: group.locations.length >= 2, // Mark as popular if 2+ locations
-          description: `${group.locations.length} location${group.locations.length > 1 ? 's' : ''} available`
-        });
-      });
-
-    return cities;
-  }, [locations, regions]);
+  const cityCategoryMap = useMemo(() => {
+    return cityCategories.reduce((acc: Record<number, CityCategory>, cat: CityCategory) => {
+      acc[cat.id] = cat;
+      return acc;
+    }, {} as Record<number, CityCategory>);
+  }, [cityCategories]);
 
   const regionsMap = useMemo(() => {
     return regions.reduce((acc: Record<number, Region>, region: Region) => {
@@ -129,24 +82,40 @@ export function HierarchicalLocationSearch() {
   const groupedByCity = useMemo(() => {
     if (!selectedRegion) return {};
     
-    const citiesInRegion = popularCities.filter(city => city.regionId === selectedRegion.id);
+    const citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
     const result: Record<string, { city: CityCategory; locations: Location[] }> = {};
 
-    citiesInRegion.forEach(city => {
-      // Match locations by extracting city name from location name
-      const cityLocations = filteredLocations.filter((location: Location) => {
-        const nameMatch = location.name.match(/^([^-]+)/);
-        const locationCity = nameMatch ? nameMatch[1].trim() : location.name;
-        return locationCity.toLowerCase() === city.name.toLowerCase();
-      });
+    citiesInRegion.forEach((city: CityCategory) => {
+      const cityLocations = filteredLocations.filter((location: Location) => 
+        location.cityCategoryId === city.id
+      );
       
       if (cityLocations.length > 0) {
         result[city.slug] = { city, locations: cityLocations };
       }
     });
 
+    const uncategorizedLocations = filteredLocations.filter((location: Location) => 
+      !location.cityCategoryId || !cityCategoryMap[location.cityCategoryId]
+    );
+    
+    if (uncategorizedLocations.length > 0) {
+      result["other"] = {
+        city: {
+          id: 0,
+          name: "Other",
+          slug: "other",
+          regionId: selectedRegion.id,
+          displayOrder: 999,
+          isPopular: false,
+          description: `${uncategorizedLocations.length} location${uncategorizedLocations.length > 1 ? 's' : ''}`
+        },
+        locations: uncategorizedLocations
+      };
+    }
+
     return result;
-  }, [selectedRegion, popularCities, filteredLocations]);
+  }, [selectedRegion, cityCategories, filteredLocations, cityCategoryMap]);
 
   if (!selectedRegion) {
     return (
@@ -175,11 +144,10 @@ export function HierarchicalLocationSearch() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 px-4 md:px-0">
-              {filteredLocations.map((location: Location, index: number) => (
+              {filteredLocations.map((location: Location) => (
                 <LocationCard 
                   key={location.id} 
                   location={location} 
-                  locationNumber={index + 1}
                   region={regionsMap[location.regionId]}
                 />
               ))}
@@ -200,7 +168,7 @@ export function HierarchicalLocationSearch() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 md:px-0">
               {regions.map((region: Region) => {
                 const regionLocations = locations.filter((l: Location) => l.regionId === region.id);
-                const regionCities = popularCities.filter(c => c.regionId === region.id);
+                const regionCities = cityCategories.filter((c: CityCategory) => c.regionId === region.id);
                 
                 return (
                   <Card 
@@ -313,11 +281,10 @@ export function HierarchicalLocationSearch() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 px-4 md:px-0">
-              {cityLocations.map((location: Location, index: number) => (
+              {cityLocations.map((location: Location) => (
                 <LocationCard 
                   key={location.id} 
                   location={location} 
-                  locationNumber={index + 1}
                   region={selectedRegion}
                 />
               ))}
@@ -345,25 +312,21 @@ export function HierarchicalLocationSearch() {
 
 interface LocationCardProps {
   location: Location;
-  locationNumber: number;
   region: Region;
 }
 
-function LocationCard({ location, locationNumber, region }: LocationCardProps) {
+function LocationCard({ location, region }: LocationCardProps) {
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 border-2 hover:border-blue-200">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <Badge variant="secondary" className="mb-2">
-              #{locationNumber}
+            <Badge variant="default" className="mb-2 font-mono text-sm">
+              {location.locationCode}
             </Badge>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+            <h3 className="text-lg font-semibold text-gray-900">
               {location.name}
             </h3>
-            <p className="text-sm font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block">
-              {location.locationCode}
-            </p>
           </div>
         </div>
         
