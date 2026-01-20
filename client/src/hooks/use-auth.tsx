@@ -62,19 +62,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check if user is an admin
   const isAdmin = Boolean(user && user.isAdmin);
 
+  // Helper to confirm session is established by refetching user
+  const confirmSession = async (retries = 5): Promise<Omit<User, "password"> | null> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = await fetch("/api/user", { credentials: "include" });
+        if (res.ok) {
+          const confirmedUser = await res.json();
+          return confirmedUser;
+        }
+      } catch (e) {
+        // Continue retrying
+      }
+      // Wait before retry with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, 150 * (i + 1)));
+    }
+    return null;
+  };
+
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
       return await res.json();
     },
-    onSuccess: (user: Omit<User, "password">) => {
-      // Set the user data directly - trust the login response
-      queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Logged in successfully",
-        description: `Welcome back, ${user.firstName}!`,
-      });
+    onSuccess: async (responseUser: Omit<User, "password">) => {
+      // Confirm session is established before setting user data
+      const confirmedUser = await confirmSession();
+      if (confirmedUser) {
+        queryClient.setQueryData(["/api/user"], confirmedUser);
+        toast({
+          title: "Logged in successfully",
+          description: `Welcome back, ${confirmedUser.firstName}!`,
+        });
+      } else {
+        // Session confirmation failed - show error
+        toast({
+          title: "Login issue",
+          description: "Session could not be established. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -91,13 +119,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/register", data);
       return await res.json();
     },
-    onSuccess: (user: Omit<User, "password">) => {
-      // Set the user data directly - trust the registration response
-      queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Registration successful",
-        description: `Welcome, ${user.firstName}!`,
-      });
+    onSuccess: async (responseUser: Omit<User, "password">) => {
+      // Confirm session is established before setting user data
+      const confirmedUser = await confirmSession();
+      if (confirmedUser) {
+        queryClient.setQueryData(["/api/user"], confirmedUser);
+        toast({
+          title: "Registration successful",
+          description: `Welcome, ${confirmedUser.firstName}!`,
+        });
+      } else {
+        // Session confirmation failed - show error
+        toast({
+          title: "Registration issue",
+          description: "Account created but session could not be established. Please log in.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
