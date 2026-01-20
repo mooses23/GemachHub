@@ -49,7 +49,12 @@ export function ApplyForm() {
       lastName: "",
       email: "",
       phone: "",
-      location: "",
+      streetAddress: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "",
+      community: "",
       message: "",
       terms: false,
     },
@@ -163,13 +168,88 @@ export function ApplyForm() {
 
               <FormField
                 control={form.control}
-                name="location"
+                name="streetAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Location (City, State/Province, Country)</FormLabel>
+                    <FormLabel>Street Address</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="123 Main Street" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Brooklyn" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State / Province</FormLabel>
+                      <FormControl>
+                        <Input placeholder="New York" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="zipCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ZIP / Postal Code</FormLabel>
+                      <FormControl>
+                        <Input placeholder="11201" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <FormControl>
+                        <Input placeholder="United States" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="community"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Community / Neighborhood (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Flatbush, Crown Heights, etc." {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormDescription>
+                      This helps us categorize your location for easier discovery
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
