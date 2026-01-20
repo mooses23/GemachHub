@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,7 +19,6 @@ import AdminApplications from "@/pages/admin/applications";
 import AdminPaymentMethods from "@/pages/admin/payment-methods";
 import PaymentConfirmations from "@/pages/admin/payment-confirmations";
 import PaymentStatusMonitor from "@/pages/admin/payment-status-monitor";
-import OperatorLogin from "@/pages/operator/login";
 import OperatorIndex from "@/pages/operator/index";
 import OperatorDashboard from "@/pages/operator/dashboard";
 import OperatorDepositDashboard from "@/pages/operator/deposit-dashboard";
@@ -53,7 +52,7 @@ function Router() {
         <ProtectedRoute path="/admin/payment-status" component={PaymentStatusMonitor} requiredRole="admin" />
         
         {/* Operator Routes - Use localStorage-based auth via useOperatorAuth hook */}
-        <Route path="/operator/login" component={OperatorLogin} />
+        <Route path="/operator/login">{() => <Redirect to="/auth" />}</Route>
         <Route path="/operator" component={OperatorDashboard} />
         <Route path="/operator/dashboard" component={OperatorDashboard} />
         <Route path="/operator/deposits" component={OperatorDepositDashboard} />

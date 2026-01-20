@@ -46,7 +46,7 @@ export function OperatorAuthProvider({ children }: { children: ReactNode }) {
     }
     localStorage.removeItem("operatorLocation");
     setOperatorLocation(null);
-    setPath("/operator/login");
+    setPath("/auth");
   };
 
   const refreshLocation = () => {
