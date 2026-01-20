@@ -57,13 +57,19 @@ export interface IStorage {
   createApplication(application: InsertGemachApplication): Promise<GemachApplication>;
   updateApplication(id: number, data: Partial<GemachApplication>): Promise<GemachApplication>;
 
+  // Inventory operations (color-based)
+  updateInventoryByColor(locationId: number, color: string, quantity: number): Promise<Location>;
+  addStock(locationId: number, color: string, quantity: number): Promise<Location>;
+  removeStock(locationId: number, color: string, quantity: number): Promise<Location>;
+
   // Transaction operations
   getAllTransactions(): Promise<Transaction[]>;
   getTransaction(id: number): Promise<Transaction | undefined>;
   getTransactionsByLocation(locationId: number): Promise<Transaction[]>;
+  getTransactionByPhone(locationId: number, phone: string): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction>;
-  markTransactionReturned(id: number): Promise<Transaction>;
+  markTransactionReturned(id: number, refundAmount?: number): Promise<Transaction>;
 
   // Contact operations
   getAllContacts(): Promise<Contact[]>;
@@ -245,6 +251,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 10,
+        inventoryByColor: JSON.stringify({ red: 3, blue: 2, black: 3, white: 2 }),
         cityCategoryId: 1,
         operatorPin: "1234"
       },
@@ -259,6 +266,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
+        inventoryByColor: JSON.stringify({ red: 2, blue: 3, black: 2, pink: 1 }),
         cityCategoryId: 1,
         operatorPin: "1234"
       },
@@ -273,6 +281,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 6,
+        inventoryByColor: JSON.stringify({ black: 2, white: 2, purple: 2 }),
         cityCategoryId: 1,
         operatorPin: "1234"
       },
@@ -288,6 +297,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 12,
+        inventoryByColor: JSON.stringify({ red: 3, blue: 3, black: 3, white: 2, pink: 1 }),
         cityCategoryId: 41,
         operatorPin: "1234"
       },
@@ -303,6 +313,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
+        inventoryByColor: JSON.stringify({ red: 2, blue: 2, black: 3, gray: 2 }),
         cityCategoryId: 42,
         operatorPin: "1234"
       },
@@ -2331,6 +2342,7 @@ export class MemStorage implements IStorage {
       zipCode: insertLocation.zipCode ?? null,
       isActive: insertLocation.isActive ?? true,
       inventoryCount: insertLocation.inventoryCount ?? null,
+      inventoryByColor: insertLocation.inventoryByColor ?? null,
       cashOnly: insertLocation.cashOnly ?? null,
       depositAmount: insertLocation.depositAmount ?? null,
       paymentMethods: insertLocation.paymentMethods ?? null,
@@ -2350,6 +2362,81 @@ export class MemStorage implements IStorage {
     
     const updatedLocation = { ...location, ...data };
     this.locations.set(id, updatedLocation);
+    return updatedLocation;
+  }
+
+  // Inventory by color methods
+  async updateInventoryByColor(locationId: number, color: string, quantity: number): Promise<Location> {
+    const location = this.locations.get(locationId);
+    if (!location) {
+      throw new Error(`Location with id ${locationId} not found`);
+    }
+    
+    const currentInventory = location.inventoryByColor ? JSON.parse(location.inventoryByColor) : {};
+    currentInventory[color] = quantity;
+    
+    // Calculate total inventory count
+    const totalCount = Object.values(currentInventory).reduce((sum: number, qty) => sum + (qty as number), 0);
+    
+    const updatedLocation: Location = { 
+      ...location, 
+      inventoryByColor: JSON.stringify(currentInventory),
+      inventoryCount: totalCount
+    };
+    this.locations.set(locationId, updatedLocation);
+    return updatedLocation;
+  }
+
+  async addStock(locationId: number, color: string, quantity: number): Promise<Location> {
+    const location = this.locations.get(locationId);
+    if (!location) {
+      throw new Error(`Location with id ${locationId} not found`);
+    }
+    
+    const currentInventory = location.inventoryByColor ? JSON.parse(location.inventoryByColor) : {};
+    currentInventory[color] = (currentInventory[color] || 0) + quantity;
+    
+    // Calculate total inventory count
+    const totalCount = Object.values(currentInventory).reduce((sum: number, qty) => sum + (qty as number), 0);
+    
+    const updatedLocation: Location = { 
+      ...location, 
+      inventoryByColor: JSON.stringify(currentInventory),
+      inventoryCount: totalCount
+    };
+    this.locations.set(locationId, updatedLocation);
+    return updatedLocation;
+  }
+
+  async removeStock(locationId: number, color: string, quantity: number): Promise<Location> {
+    const location = this.locations.get(locationId);
+    if (!location) {
+      throw new Error(`Location with id ${locationId} not found`);
+    }
+    
+    const currentInventory = location.inventoryByColor ? JSON.parse(location.inventoryByColor) : {};
+    const currentQty = currentInventory[color] || 0;
+    
+    if (currentQty < quantity) {
+      throw new Error(`Insufficient stock for color ${color}. Available: ${currentQty}, Requested: ${quantity}`);
+    }
+    
+    currentInventory[color] = currentQty - quantity;
+    
+    // Remove color if quantity is 0
+    if (currentInventory[color] === 0) {
+      delete currentInventory[color];
+    }
+    
+    // Calculate total inventory count
+    const totalCount = Object.values(currentInventory).reduce((sum: number, qty) => sum + (qty as number), 0);
+    
+    const updatedLocation: Location = { 
+      ...location, 
+      inventoryByColor: JSON.stringify(currentInventory),
+      inventoryCount: totalCount
+    };
+    this.locations.set(locationId, updatedLocation);
     return updatedLocation;
   }
 
@@ -2402,14 +2489,21 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getTransactionByPhone(locationId: number, phone: string): Promise<Transaction[]> {
+    const normalizedPhone = phone.replace(/\D/g, '');
+    return Array.from(this.transactions.values()).filter(
+      (transaction) => {
+        if (transaction.locationId !== locationId) return false;
+        if (!transaction.borrowerPhone) return false;
+        const txPhone = transaction.borrowerPhone.replace(/\D/g, '');
+        return txPhone.includes(normalizedPhone) || normalizedPhone.includes(txPhone);
+      }
+    );
+  }
+
   async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
     const id = this.transactionCounter++;
     
-    // Convert expectedReturnDate to string if it's a Date
-    const expectedReturnDate = insertTransaction.expectedReturnDate instanceof Date 
-      ? insertTransaction.expectedReturnDate.toISOString() 
-      : insertTransaction.expectedReturnDate;
-      
     const transaction: Transaction = { 
       ...insertTransaction, 
       id, 
@@ -2420,6 +2514,9 @@ export class MemStorage implements IStorage {
       depositAmount: insertTransaction.depositAmount ?? 20,
       borrowerEmail: insertTransaction.borrowerEmail ?? null,
       borrowerPhone: insertTransaction.borrowerPhone ?? null,
+      headbandColor: insertTransaction.headbandColor ?? null,
+      depositPaymentMethod: insertTransaction.depositPaymentMethod ?? "cash",
+      refundAmount: null,
       notes: insertTransaction.notes ?? null
     };
     
@@ -2438,7 +2535,7 @@ export class MemStorage implements IStorage {
     return updatedTransaction;
   }
 
-  async markTransactionReturned(id: number): Promise<Transaction> {
+  async markTransactionReturned(id: number, refundAmount?: number): Promise<Transaction> {
     const transaction = this.transactions.get(id);
     if (!transaction) {
       throw new Error(`Transaction with id ${id} not found`);
@@ -2447,7 +2544,8 @@ export class MemStorage implements IStorage {
     const updatedTransaction: Transaction = { 
       ...transaction, 
       isReturned: true,
-      actualReturnDate: new Date()
+      actualReturnDate: new Date(),
+      refundAmount: refundAmount ?? transaction.depositAmount
     };
     this.transactions.set(id, updatedTransaction);
     return updatedTransaction;
