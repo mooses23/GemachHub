@@ -63,6 +63,7 @@ export const cityCategories = pgTable("city_categories", {
   displayOrder: integer("display_order").notNull().default(0),
   isPopular: boolean("is_popular").default(false), // Admin can mark as popular city
   description: text("description"), // Optional description for the city category
+  stateCode: text("state_code"), // US state code for state-level grouping (e.g., "NY", "CA")
 });
 
 export const insertCityCategorySchema = createInsertSchema(cityCategories).pick({
@@ -72,6 +73,7 @@ export const insertCityCategorySchema = createInsertSchema(cityCategories).pick(
   displayOrder: true,
   isPopular: true,
   description: true,
+  stateCode: true,
 });
 
 // Location schema
