@@ -221,6 +221,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search transactions by phone number for quick borrower lookup
+  app.get("/api/locations/:locationId/transactions/search", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      const phone = req.query.phone as string;
+      
+      if (isNaN(locationId)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+      
+      if (!phone) {
+        return res.status(400).json({ message: "Phone number is required" });
+      }
+      
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+        return res.status(403).json({ message: "Not authorized for this location" });
+      }
+      
+      const transactions = await storage.getTransactionByPhone(locationId, phone);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error searching transactions:", error);
+      res.status(500).json({ message: "Failed to search transactions" });
+    }
+  });
+
+  // INVENTORY MANAGEMENT ROUTES
+  // Add stock by color
+  app.post("/api/locations/:locationId/inventory", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      const { color, quantity } = req.body;
+      
+      if (isNaN(locationId)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+      
+      if (!color || typeof quantity !== 'number' || quantity <= 0) {
+        return res.status(400).json({ message: "Color and positive quantity are required" });
+      }
+      
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+        return res.status(403).json({ message: "Not authorized for this location" });
+      }
+      
+      const location = await storage.getLocation(locationId);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+      
+      const updatedLocation = await storage.addStock(locationId, color, quantity);
+      res.json(updatedLocation);
+    } catch (error) {
+      console.error("Error adding stock:", error);
+      res.status(500).json({ message: "Failed to add stock" });
+    }
+  });
+
+  // Remove stock by color (for lending or adjustment)
+  app.delete("/api/locations/:locationId/inventory", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      const { color, quantity } = req.body;
+      
+      if (isNaN(locationId)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+      
+      if (!color || typeof quantity !== 'number' || quantity <= 0) {
+        return res.status(400).json({ message: "Color and positive quantity are required" });
+      }
+      
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+        return res.status(403).json({ message: "Not authorized for this location" });
+      }
+      
+      const location = await storage.getLocation(locationId);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+      
+      const updatedLocation = await storage.removeStock(locationId, color, quantity);
+      res.json(updatedLocation);
+    } catch (error: any) {
+      console.error("Error removing stock:", error);
+      if (error.message?.includes("Insufficient stock")) {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to remove stock" });
+    }
+  });
+
+  // Set inventory for a specific color (for adjustments)
+  app.put("/api/locations/:locationId/inventory", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      const { color, quantity } = req.body;
+      
+      if (isNaN(locationId)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+      
+      if (!color || typeof quantity !== 'number' || quantity < 0) {
+        return res.status(400).json({ message: "Color and non-negative quantity are required" });
+      }
+      
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+        return res.status(403).json({ message: "Not authorized for this location" });
+      }
+      
+      const location = await storage.getLocation(locationId);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+      
+      const updatedLocation = await storage.updateInventoryByColor(locationId, color, quantity);
+      res.json(updatedLocation);
+    } catch (error) {
+      console.error("Error updating inventory:", error);
+      res.status(500).json({ message: "Failed to update inventory" });
+    }
+  });
+
   // OPERATOR LOGIN ROUTE
   app.post("/api/operator/login", async (req, res) => {
     try {

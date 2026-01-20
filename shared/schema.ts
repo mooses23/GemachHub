@@ -76,6 +76,13 @@ export const insertCityCategorySchema = createInsertSchema(cityCategories).pick(
   stateCode: true,
 });
 
+// Headband colors available in the system
+export const HEADBAND_COLORS = ["red", "blue", "black", "white", "pink", "purple", "green", "orange", "yellow", "gray"] as const;
+export type HeadbandColor = typeof HEADBAND_COLORS[number];
+
+// Inventory by color type (e.g., { "red": 5, "blue": 3 })
+export type InventoryByColor = Partial<Record<HeadbandColor, number>>;
+
 // Location schema
 export const locations = pgTable("locations", {
   id: serial("id").primaryKey(),
@@ -90,6 +97,7 @@ export const locations = pgTable("locations", {
   cityCategoryId: integer("city_category_id"), // Optional city category assignment
   isActive: boolean("is_active").default(true),
   inventoryCount: integer("inventory_count").default(0),
+  inventoryByColor: text("inventory_by_color"), // JSON string: {"red": 5, "blue": 3}
   cashOnly: boolean("cash_only").default(false),
   depositAmount: integer("deposit_amount").default(20),
   paymentMethods: text("payment_methods").array().default(["cash"]),
@@ -109,6 +117,7 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   cityCategoryId: true,
   isActive: true,
   inventoryCount: true,
+  inventoryByColor: true,
   cashOnly: true,
   depositAmount: true,
   paymentMethods: true,
@@ -173,7 +182,10 @@ export const transactions = pgTable("transactions", {
   borrowerName: text("borrower_name").notNull(),
   borrowerEmail: text("borrower_email"),
   borrowerPhone: text("borrower_phone"),
+  headbandColor: text("headband_color"), // Color of headband borrowed
   depositAmount: doublePrecision("deposit_amount").notNull().default(20), // Default $20
+  depositPaymentMethod: text("deposit_payment_method").default("cash"), // "cash" or "card"
+  refundAmount: doublePrecision("refund_amount"), // Amount actually refunded (for partial refunds)
   isReturned: boolean("is_returned").default(false),
   borrowDate: timestamp("borrow_date").notNull().defaultNow(),
   expectedReturnDate: timestamp("expected_return_date"),
@@ -186,7 +198,9 @@ export const insertTransactionSchema = createInsertSchema(transactions).pick({
   borrowerName: true,
   borrowerEmail: true,
   borrowerPhone: true,
+  headbandColor: true,
   depositAmount: true,
+  depositPaymentMethod: true,
   expectedReturnDate: true,
   notes: true,
 }).extend({
