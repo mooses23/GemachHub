@@ -47,7 +47,7 @@ export interface IStorage {
   getAllApplications(): Promise<GemachApplication[]>;
   getApplication(id: number): Promise<GemachApplication | undefined>;
   createApplication(application: InsertGemachApplication): Promise<GemachApplication>;
-  updateApplication(id: number, data: Partial<InsertGemachApplication>): Promise<GemachApplication>;
+  updateApplication(id: number, data: Partial<GemachApplication>): Promise<GemachApplication>;
 
   // Transaction operations
   getAllTransactions(): Promise<Transaction[]>;
@@ -2341,7 +2341,7 @@ export class MemStorage implements IStorage {
     return application;
   }
 
-  async updateApplication(id: number, data: Partial<InsertGemachApplication>): Promise<GemachApplication> {
+  async updateApplication(id: number, data: Partial<GemachApplication>): Promise<GemachApplication> {
     const application = this.applications.get(id);
     if (!application) {
       throw new Error(`Application with id ${id} not found`);

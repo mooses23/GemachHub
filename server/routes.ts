@@ -179,6 +179,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Approve application and create location
+  app.post("/api/applications/:id/approve-with-location", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const application = await storage.getApplication(id);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+      
+      if (application.status !== "pending") {
+        return res.status(400).json({ message: "Application is not pending" });
+      }
+
+      // Validate regionId exists
+      const region = await storage.getRegion(req.body.regionId);
+      if (!region) {
+        return res.status(400).json({ message: "Invalid region selected" });
+      }
+
+      // Generate unique location code on server
+      const generateLocationCode = (): string => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) {
+          code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+      };
+
+      // Create location data with server-generated code
+      const locationDataWithCode = {
+        ...req.body,
+        locationCode: generateLocationCode(),
+      };
+
+      const locationData = insertLocationSchema.parse(locationDataWithCode);
+      
+      // Create the location
+      const location = await storage.createLocation(locationData);
+      
+      // Update application status to approved
+      const updatedApplication = await storage.updateApplication(id, { status: "approved" });
+      
+      res.status(201).json({ application: updatedApplication, location });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid location data", errors: error.errors });
+      }
+      console.error("Error approving application:", error);
+      res.status(500).json({ message: "Failed to approve application and create location" });
+    }
+  });
+
   // TRANSACTIONS ROUTES
   app.get("/api/transactions", async (req, res) => {
     try {
