@@ -32,11 +32,38 @@ const US_STATE_NAMES: Record<string, string> = {
   PA: "Pennsylvania"
 };
 
+// Canadian provinces
+const CA_PROVINCE_NAMES: Record<string, string> = {
+  ON: "Ontario",
+  QC: "Quebec"
+};
+
+// Israeli regions
+const IL_REGION_NAMES: Record<string, string> = {
+  JER: "Jerusalem",
+  TEL: "Tel Aviv Area",
+  CEN: "Central",
+  SHA: "Shomron"
+};
+
+// UK regions
+const UK_REGION_NAMES: Record<string, string> = {
+  LON: "London",
+  MAN: "Manchester"
+};
+
+// Australian states
+const AU_STATE_NAMES: Record<string, string> = {
+  VIC: "Victoria",
+  NSW: "New South Wales"
+};
+
 export function HierarchicalLocationSearch() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [selectedCity, setSelectedCity] = useState<CityCategory | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [selectedSubRegion, setSelectedSubRegion] = useState<string | null>(null);
 
   const { data: locations = [] } = useQuery({
     queryKey: ["/api/locations"],
@@ -113,6 +140,49 @@ export function HierarchicalLocationSearch() {
     });
   }, [selectedRegion, cityCategories]);
 
+  // Get sub-regions for other continents (cities as the grouping)
+  const subRegions = useMemo(() => {
+    if (!selectedRegion) return { codes: [], names: {} as Record<string, string>, labelType: "" };
+    
+    const citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
+    
+    // For non-US regions, use city names as sub-regions
+    switch (selectedRegion.slug) {
+      case "canada":
+        return {
+          codes: citiesInRegion.map(c => c.slug),
+          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
+          labelType: "Cities"
+        };
+      case "israel":
+        return {
+          codes: citiesInRegion.map(c => c.slug),
+          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
+          labelType: "Cities"
+        };
+      case "england":
+        return {
+          codes: citiesInRegion.map(c => c.slug),
+          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
+          labelType: "Cities"
+        };
+      case "belgium":
+        return {
+          codes: citiesInRegion.map(c => c.slug),
+          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
+          labelType: "Cities"
+        };
+      case "australia":
+        return {
+          codes: citiesInRegion.map(c => c.slug),
+          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
+          labelType: "Cities"
+        };
+      default:
+        return { codes: [], names: {} as Record<string, string>, labelType: "" };
+    }
+  }, [selectedRegion, cityCategories]);
+
   const groupedByCity = useMemo(() => {
     if (!selectedRegion) return {};
     
@@ -121,6 +191,11 @@ export function HierarchicalLocationSearch() {
     // Filter by selected state if in US
     if (selectedRegion.slug === "united-states" && selectedState) {
       citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.stateCode === selectedState);
+    }
+    
+    // Filter by selected sub-region for other continents
+    if (selectedRegion.slug !== "united-states" && selectedSubRegion) {
+      citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.slug === selectedSubRegion);
     }
     
     const result: Record<string, { city: CityCategory; locations: Location[] }> = {};
@@ -136,7 +211,7 @@ export function HierarchicalLocationSearch() {
     });
 
     return result;
-  }, [selectedRegion, cityCategories, filteredLocations, selectedState]);
+  }, [selectedRegion, cityCategories, filteredLocations, selectedState, selectedSubRegion]);
 
   if (!selectedRegion) {
     return (
@@ -244,7 +319,7 @@ export function HierarchicalLocationSearch() {
         <div className="flex items-center gap-2 mb-4">
           <Button 
             variant="ghost" 
-            onClick={() => { setSelectedRegion(null); setSelectedState(null); }}
+            onClick={() => { setSelectedRegion(null); setSelectedState(null); setSelectedSubRegion(null); }}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -308,6 +383,37 @@ export function HierarchicalLocationSearch() {
                 }`}
               >
                 {US_STATE_NAMES[stateCode] || stateCode}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* City selector for other continents - glass-like floating design */}
+      {selectedRegion.slug !== "united-states" && subRegions.codes.length > 1 && (
+        <div className="mb-8 px-4 md:px-0">
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => setSelectedSubRegion(null)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-sm border ${
+                selectedSubRegion === null
+                  ? "bg-blue-500/90 text-white border-blue-400 shadow-lg shadow-blue-500/25"
+                  : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
+              }`}
+            >
+              All {subRegions.labelType}
+            </button>
+            {subRegions.codes.map((code) => (
+              <button
+                key={code}
+                onClick={() => setSelectedSubRegion(code)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-sm border ${
+                  selectedSubRegion === code
+                    ? "bg-blue-500/90 text-white border-blue-400 shadow-lg shadow-blue-500/25"
+                    : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
+                }`}
+              >
+                {subRegions.names[code] || code}
               </button>
             ))}
           </div>
