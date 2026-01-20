@@ -147,40 +147,16 @@ export function HierarchicalLocationSearch() {
     const citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
     
     // For non-US regions, use city names as sub-regions
-    switch (selectedRegion.slug) {
-      case "canada":
-        return {
-          codes: citiesInRegion.map(c => c.slug),
-          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
-          labelType: "Cities"
-        };
-      case "israel":
-        return {
-          codes: citiesInRegion.map(c => c.slug),
-          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
-          labelType: "Cities"
-        };
-      case "england":
-        return {
-          codes: citiesInRegion.map(c => c.slug),
-          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
-          labelType: "Cities"
-        };
-      case "belgium":
-        return {
-          codes: citiesInRegion.map(c => c.slug),
-          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
-          labelType: "Cities"
-        };
-      case "australia":
-        return {
-          codes: citiesInRegion.map(c => c.slug),
-          names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
-          labelType: "Cities"
-        };
-      default:
-        return { codes: [], names: {} as Record<string, string>, labelType: "" };
+    // Show glass selector for all regions except United States (which uses state selector)
+    if (selectedRegion.slug !== "united-states" && citiesInRegion.length > 0) {
+      return {
+        codes: citiesInRegion.map(c => c.slug),
+        names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
+        labelType: "Cities"
+      };
     }
+    
+    return { codes: [], names: {} as Record<string, string>, labelType: "" };
   }, [selectedRegion, cityCategories]);
 
   const groupedByCity = useMemo(() => {
