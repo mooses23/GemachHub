@@ -248,10 +248,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store operator location in session for server-side auth
       (req.session as any).operatorLocationId = location.id;
       
-      const { operatorPin, ...locationWithoutPin } = location;
-      res.json({ 
-        success: true, 
-        location: locationWithoutPin 
+      // Explicitly save session before responding
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Login failed - session error" });
+        }
+        
+        const { operatorPin, ...locationWithoutPin } = location;
+        res.json({ 
+          success: true, 
+          location: locationWithoutPin 
+        });
       });
     } catch (error) {
       console.error("Operator login error:", error);
