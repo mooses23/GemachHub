@@ -66,6 +66,32 @@ Key entities: Users, Regions, CityCategories, Locations, Transactions, Payments,
 - Payment status monitoring and webhook handling
 - Audit trail for compliance
 
+### Operator Dashboard Features
+The operator dashboard (`/operator/dashboard`) provides a redesigned interface for managing headband lending:
+
+**Inventory Management:**
+- Color-based inventory tracking (JSON field `inventoryByColor` on locations)
+- Visual color swatches for red, blue, black, white, pink, purple, green, orange, yellow, gray
+- Low stock alerts for colors with ≤3 items
+- Add Stock dialog to log incoming inventory by color
+
+**Lend Wizard (4 steps):**
+1. Color Selection - Visual swatches showing available quantities
+2. Borrower Info - Name/phone with auto-fill for repeat borrowers
+3. Deposit - Numeric keypad with cash/card toggle
+4. Confirmation - Summary of all details before processing
+
+**Return Wizard (3 steps):**
+1. Borrower Selection - Phone search or list with overdue indicators
+2. Refund Options - Full or partial refund with damage deductions
+3. Confirmation - Refund amount and details before processing
+
+**Transaction Fields:**
+- `headbandColor` - Color of lent headband
+- `depositPaymentMethod` - "cash" or "card"
+- `expectedReturnDate` - For overdue detection
+- `refundAmount` - For partial refunds
+
 ## External Dependencies
 
 ### Payment Integrations
