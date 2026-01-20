@@ -47,7 +47,7 @@ export default function OperatorDashboard() {
 
   useEffect(() => {
     if (!isOperatorLoading && !operatorLocation) {
-      setPath("/operator/login");
+      setPath("/auth");
     }
   }, [isOperatorLoading, operatorLocation, setPath]);
 
