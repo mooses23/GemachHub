@@ -159,19 +159,22 @@ export class MemStorage implements IStorage {
 
     defaultRegions.forEach(region => this.createRegion(region));
 
-    // Initialize default city categories based on existing locations
+    // Initialize default city categories aligned with existing hardcoded locations
     const defaultCityCategories: InsertCityCategory[] = [
-      // United States (regionId: 1)
+      // United States (regionId: 1) - aligned with existing locations
       { name: "Los Angeles", slug: "los-angeles", regionId: 1, displayOrder: 1, isPopular: true },
-      { name: "New York", slug: "new-york", regionId: 1, displayOrder: 2, isPopular: true },
-      { name: "Brooklyn", slug: "brooklyn", regionId: 1, displayOrder: 3, isPopular: true },
-      { name: "Chicago", slug: "chicago", regionId: 1, displayOrder: 4 },
-      { name: "Miami", slug: "miami", regionId: 1, displayOrder: 5 },
-      { name: "Baltimore", slug: "baltimore", regionId: 1, displayOrder: 6 },
-      { name: "Lakewood", slug: "lakewood", regionId: 1, displayOrder: 7, isPopular: true },
-      { name: "Monsey", slug: "monsey", regionId: 1, displayOrder: 8 },
-      { name: "Cleveland", slug: "cleveland", regionId: 1, displayOrder: 9 },
-      { name: "Detroit", slug: "detroit", regionId: 1, displayOrder: 10 },
+      { name: "Brooklyn", slug: "brooklyn", regionId: 1, displayOrder: 2, isPopular: true },
+      { name: "Monsey", slug: "monsey", regionId: 1, displayOrder: 3, isPopular: true },
+      { name: "New Square", slug: "new-square", regionId: 1, displayOrder: 4 },
+      { name: "Queens", slug: "queens", regionId: 1, displayOrder: 5 },
+      { name: "Five Towns & Far Rockaway", slug: "five-towns-far-rockaway", regionId: 1, displayOrder: 6, isPopular: true },
+      { name: "Staten Island", slug: "staten-island", regionId: 1, displayOrder: 7 },
+      { name: "West Hempstead", slug: "west-hempstead", regionId: 1, displayOrder: 8 },
+      { name: "Highland Park / Edison", slug: "highland-park-edison", regionId: 1, displayOrder: 9 },
+      { name: "Jackson", slug: "jackson", regionId: 1, displayOrder: 10 },
+      { name: "Lakewood", slug: "lakewood", regionId: 1, displayOrder: 11, isPopular: true },
+      { name: "Passaic", slug: "passaic", regionId: 1, displayOrder: 12 },
+      { name: "Toms River", slug: "toms-river", regionId: 1, displayOrder: 13 },
       // Canada (regionId: 2)
       { name: "Toronto", slug: "toronto", regionId: 2, displayOrder: 1, isPopular: true },
       { name: "Montreal", slug: "montreal", regionId: 2, displayOrder: 2 },
@@ -185,12 +188,25 @@ export class MemStorage implements IStorage {
       // Australia (regionId: 5)
       { name: "Melbourne", slug: "melbourne", regionId: 5, displayOrder: 1 },
       { name: "Sydney", slug: "sydney", regionId: 5, displayOrder: 2 },
-      // Israel (regionId: 6)
+      // Israel (regionId: 6) - aligned with existing locations
       { name: "Jerusalem", slug: "jerusalem", regionId: 6, displayOrder: 1, isPopular: true },
       { name: "Bnei Brak", slug: "bnei-brak", regionId: 6, displayOrder: 2, isPopular: true },
-      { name: "Beit Shemesh", slug: "beit-shemesh", regionId: 6, displayOrder: 3 },
+      { name: "Beit Shemesh", slug: "beit-shemesh", regionId: 6, displayOrder: 3, isPopular: true },
       { name: "Modi'in Illit", slug: "modiin-illit", regionId: 6, displayOrder: 4 },
       { name: "Beitar Illit", slug: "beitar-illit", regionId: 6, displayOrder: 5 },
+      { name: "Lod", slug: "lod", regionId: 6, displayOrder: 6 },
+      { name: "Afula", slug: "afula", regionId: 6, displayOrder: 7 },
+      { name: "Elad", slug: "elad", regionId: 6, displayOrder: 8 },
+      { name: "Givat Zeev", slug: "givat-zeev", regionId: 6, displayOrder: 9 },
+      { name: "Haifa", slug: "haifa", regionId: 6, displayOrder: 10 },
+      { name: "Kiryat Tivon", slug: "kiryat-tivon", regionId: 6, displayOrder: 11 },
+      { name: "Kochav HaShachar", slug: "kochav-hashachar", regionId: 6, displayOrder: 12 },
+      { name: "Maaleh Adumim", slug: "maaleh-adumim", regionId: 6, displayOrder: 13 },
+      { name: "Neriya", slug: "neriya", regionId: 6, displayOrder: 14 },
+      { name: "Telzstone/Kiryat Yearim", slug: "telzstone-kiryat-yearim", regionId: 6, displayOrder: 15 },
+      { name: "Rechovot", slug: "rechovot", regionId: 6, displayOrder: 16 },
+      { name: "Ashdod", slug: "ashdod", regionId: 6, displayOrder: 17 },
+      { name: "Bnei Re'em", slug: "bnei-reem", regionId: 6, displayOrder: 18 },
     ];
 
     defaultCityCategories.forEach(category => this.createCityCategory(category));
