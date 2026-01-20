@@ -39,7 +39,7 @@ export function HierarchicalLocationSearch() {
     const cityGroups = new Map<string, { regionId: number; locations: Location[]; displayOrder: number }>();
     
     // Group locations by extracted city names
-    locations.forEach(location => {
+    locations.forEach((location: Location) => {
       // Extract city name from location name or address
       let cityName = "";
       
@@ -120,7 +120,7 @@ export function HierarchicalLocationSearch() {
 
     // Filter by selected region
     if (selectedRegion) {
-      filtered = filtered.filter(location => location.regionId === selectedRegion.id);
+      filtered = filtered.filter((location: Location) => location.regionId === selectedRegion.id);
     }
 
     return filtered;
@@ -199,7 +199,7 @@ export function HierarchicalLocationSearch() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 md:px-0">
               {regions.map((region: Region) => {
-                const regionLocations = locations.filter(l => l.regionId === region.id);
+                const regionLocations = locations.filter((l: Location) => l.regionId === region.id);
                 const regionCities = popularCities.filter(c => c.regionId === region.id);
                 
                 return (
