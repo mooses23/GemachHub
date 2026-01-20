@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, CheckCircle, XCircle, AlertTriangle, DollarSign, TrendingUp, Users } from "lucide-react";
+import { Clock, CheckCircle, XCircle, AlertTriangle, DollarSign, TrendingUp, Users, Home, ClipboardList, LogOut } from "lucide-react";
 import { DepositConfirmation } from "@/components/payment/deposit-confirmation";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -44,34 +45,30 @@ interface Location {
 }
 
 export default function OperatorDepositDashboard() {
-  const { user } = useAuth();
+  const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
-  const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
+  const [currentPath] = useLocation();
 
+  // Query operator's location
+  const { data: operatorLocation, isLoading: operatorLocationLoading } = useQuery<Location>({
+    queryKey: ["/api/operator/location"],
+    enabled: !!user,
+  });
+
+  // Use operator-scoped endpoints - these filter by the operator's location on the backend
   const { data: payments = [], isLoading: paymentsLoading } = useQuery<Payment[]>({
-    queryKey: ["/api/payments"],
+    queryKey: ["/api/operator/payments"],
+    enabled: !!user,
   });
 
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
-    queryKey: ["/api/transactions"],
+    queryKey: ["/api/operator/transactions"],
+    enabled: !!user,
   });
 
-  const { data: locations = [], isLoading: locationsLoading } = useQuery<Location[]>({
-    queryKey: ["/api/locations"],
-  });
-
-  // Filter data based on operator's location access
-  const operatorLocations = user?.locationId ? locations.filter(l => l.id === user.locationId) : locations;
-  const locationIds = operatorLocations.map(l => l.id);
-  
-  const relevantTransactions = transactions.filter(t => 
-    selectedLocation ? t.locationId === selectedLocation : locationIds.includes(t.locationId)
-  );
-  
-  const relevantPayments = payments.filter(p => {
-    const transaction = transactions.find(t => t.id === p.transactionId);
-    return transaction && (selectedLocation ? transaction.locationId === selectedLocation : locationIds.includes(transaction.locationId));
-  });
+  // All payments and transactions are already filtered by the backend to the operator's location
+  const relevantTransactions = transactions;
+  const relevantPayments = payments;
 
   const pendingConfirmations = relevantPayments.filter(p => p.status === "confirming");
   const todayDeposits = relevantPayments.filter(p => {
@@ -102,8 +99,8 @@ export default function OperatorDepositDashboard() {
         title: "Bulk Confirmation Complete",
         description: `Successfully confirmed ${pendingConfirmations.length} deposits.`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions"] });
     },
     onError: () => {
       toast({
@@ -121,9 +118,9 @@ export default function OperatorDepositDashboard() {
     }
   };
 
-  if (paymentsLoading || transactionsLoading || locationsLoading) {
+  if (paymentsLoading || transactionsLoading || operatorLocationLoading) {
     return (
-      <div className="space-y-6">
+      <div className="container py-6 space-y-6">
         <h1 className="text-2xl font-bold">Deposit Dashboard</h1>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -133,27 +130,60 @@ export default function OperatorDepositDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container py-6 space-y-6">
+      {/* Operator Navigation */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Home
+            </Button>
+          </Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-medium">{operatorLocation?.name || "My Location"}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/operator/dashboard">
+            <Button 
+              variant={currentPath === "/operator/dashboard" ? "default" : "outline"} 
+              size="sm" 
+              className="flex items-center gap-2"
+            >
+              <ClipboardList className="h-4 w-4" />
+              Transactions
+            </Button>
+          </Link>
+          <Link href="/operator/deposits">
+            <Button 
+              variant={currentPath === "/operator/deposits" ? "default" : "outline"} 
+              size="sm" 
+              className="flex items-center gap-2"
+            >
+              <DollarSign className="h-4 w-4" />
+              Deposits
+            </Button>
+          </Link>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
+            className="flex items-center gap-2 text-muted-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
+      </div>
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Deposit Dashboard</h1>
           <p className="text-gray-600 mt-1">
-            Manage and confirm deposits for your locations
+            Manage and confirm deposits for your location
           </p>
         </div>
-        
-        {operatorLocations.length > 1 && (
-          <select 
-            value={selectedLocation || ""} 
-            onChange={(e) => setSelectedLocation(e.target.value ? Number(e.target.value) : null)}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="">All Locations</option>
-            {operatorLocations.map(location => (
-              <option key={location.id} value={location.id}>{location.name}</option>
-            ))}
-          </select>
-        )}
       </div>
 
       {/* Overview Cards */}
@@ -239,8 +269,8 @@ export default function OperatorDepositDashboard() {
                   key={payment.id} 
                   payment={payment}
                   onConfirmed={() => {
-                    queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-                    queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/operator/payments"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions"] });
                   }}
                 />
               ))}
@@ -267,7 +297,6 @@ export default function OperatorDepositDashboard() {
               <CardContent className="space-y-3">
                 {completedDeposits.slice(0, 5).map((payment) => {
                   const transaction = transactions.find(t => t.id === payment.transactionId);
-                  const location = locations.find(l => l.id === transaction?.locationId);
                   return (
                     <div key={payment.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                       <div className="flex items-center gap-3">
@@ -275,7 +304,7 @@ export default function OperatorDepositDashboard() {
                         <div>
                           <div className="font-medium">{transaction?.borrowerName}</div>
                           <div className="text-sm text-gray-600">
-                            {location?.name} • {payment.paymentMethod}
+                            {payment.paymentMethod}
                           </div>
                         </div>
                       </div>
@@ -298,7 +327,6 @@ export default function OperatorDepositDashboard() {
               <CardContent className="space-y-3">
                 {failedDeposits.slice(0, 5).map((payment) => {
                   const transaction = transactions.find(t => t.id === payment.transactionId);
-                  const location = locations.find(l => l.id === transaction?.locationId);
                   return (
                     <div key={payment.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                       <div className="flex items-center gap-3">
@@ -306,7 +334,7 @@ export default function OperatorDepositDashboard() {
                         <div>
                           <div className="font-medium">{transaction?.borrowerName}</div>
                           <div className="text-sm text-gray-600">
-                            {location?.name} • {payment.paymentMethod}
+                            {payment.paymentMethod}
                           </div>
                         </div>
                       </div>
