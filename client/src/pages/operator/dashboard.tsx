@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, CheckCircle2, Search, RefreshCw, ArrowLeft, Home } from "lucide-react";
+import { Loader2, CheckCircle2, Search, RefreshCw, Home, DollarSign, ClipboardList, LogOut } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -36,14 +37,15 @@ import { format } from "date-fns";
 import { OperatorTransactionForm } from "@/components/transactions/operator-transaction-form";
 
 export default function OperatorDashboard() {
-  const { user } = useAuth();
+  const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
+  const [currentPath] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
 
   // Query operator's location
-  const { data: location, isLoading: isLocationLoading } = useQuery<Location>({
+  const { data: operatorLocation, isLoading: isLocationLoading } = useQuery<Location>({
     queryKey: ["/api/operator/location"],
     enabled: !!user,
   });
@@ -118,7 +120,7 @@ export default function OperatorDashboard() {
   }
 
   // Show error state
-  if (isError || !location) {
+  if (isError || !operatorLocation) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="text-center space-y-4 max-w-md">
@@ -137,22 +139,55 @@ export default function OperatorDashboard() {
 
   return (
     <div className="container py-6 space-y-6">
-      {/* Navigation Breadcrumbs */}
-      <div className="flex items-center gap-2 mb-6">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => window.location.href = '/'}
-          className="flex items-center gap-2"
-        >
-          <Home className="h-4 w-4" />
-          Home
-        </Button>
+      {/* Operator Navigation */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              Home
+            </Button>
+          </Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-medium">{operatorLocation.name}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/operator/dashboard">
+            <Button 
+              variant={currentPath === "/operator/dashboard" ? "default" : "outline"} 
+              size="sm" 
+              className="flex items-center gap-2"
+            >
+              <ClipboardList className="h-4 w-4" />
+              Transactions
+            </Button>
+          </Link>
+          <Link href="/operator/deposits">
+            <Button 
+              variant={currentPath === "/operator/deposits" ? "default" : "outline"} 
+              size="sm" 
+              className="flex items-center gap-2"
+            >
+              <DollarSign className="h-4 w-4" />
+              Deposits
+            </Button>
+          </Link>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
+            className="flex items-center gap-2 text-muted-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{location.name} Dashboard</h1>
+          <h1 className="text-3xl font-bold">{operatorLocation.name} Dashboard</h1>
           <p className="text-muted-foreground">
             Manage borrower transactions and deposit returns
           </p>
@@ -163,7 +198,7 @@ export default function OperatorDashboard() {
             <CardTitle className="text-sm font-medium">Available Inventory</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{location.inventoryCount} earmuffs</div>
+            <div className="text-2xl font-bold">{operatorLocation.inventoryCount} earmuffs</div>
           </CardContent>
         </Card>
       </div>

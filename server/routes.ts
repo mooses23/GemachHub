@@ -411,6 +411,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get operator's payments (filtered by location)
+  app.get("/api/operator/payments", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const user = req.user as Express.User;
+      
+      if (user.role !== "operator" && !user.isAdmin) {
+        return res.status(403).json({ message: "Access forbidden" });
+      }
+      
+      // Get all payments and transactions
+      const allPayments = await storage.getAllPayments();
+      const allTransactions = await storage.getAllTransactions();
+      
+      // If admin, return all payments; if operator, filter by location
+      if (user.isAdmin) {
+        return res.json(allPayments);
+      }
+      
+      if (!user.locationId) {
+        return res.status(400).json({ message: "Operator not associated with a location" });
+      }
+      
+      // Get transactions for this location
+      const locationTransactionIds = allTransactions
+        .filter(t => t.locationId === user.locationId)
+        .map(t => t.id);
+      
+      // Filter payments by those transactions
+      const locationPayments = allPayments.filter(p => 
+        locationTransactionIds.includes(p.transactionId)
+      );
+      
+      res.json(locationPayments);
+    } catch (error) {
+      console.error("Error fetching operator payments:", error);
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+  
   // CONTACT ROUTES
   app.get("/api/contact", async (req, res) => {
     try {
