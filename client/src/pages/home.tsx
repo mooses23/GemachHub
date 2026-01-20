@@ -21,62 +21,6 @@ export default function Home() {
                 Search by zip code, city, or location code to find the nearest location.
               </p>
             </div>
-            
-            {/* Continental Navigation */}
-            <div className="flex flex-wrap justify-center gap-3 mb-6">
-              <button 
-                onClick={() => {
-                  const element = document.getElementById('location-search');
-                  element?.scrollIntoView({ behavior: 'smooth' });
-                  setTimeout(() => {
-                    const usaButton = document.querySelector('[data-region="united-states"]') as HTMLElement;
-                    usaButton?.click();
-                  }, 500);
-                }}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 cursor-pointer"
-              >
-                USA
-              </button>
-              <button 
-                onClick={() => {
-                  const element = document.getElementById('location-search');
-                  element?.scrollIntoView({ behavior: 'smooth' });
-                  setTimeout(() => {
-                    const europeButton = document.querySelector('[data-region="europe"]') as HTMLElement;
-                    europeButton?.click();
-                  }, 500);
-                }}
-                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 cursor-pointer"
-              >
-                Europe
-              </button>
-              <button 
-                onClick={() => {
-                  const element = document.getElementById('location-search');
-                  element?.scrollIntoView({ behavior: 'smooth' });
-                  setTimeout(() => {
-                    const israelButton = document.querySelector('[data-region="israel"]') as HTMLElement;
-                    israelButton?.click();
-                  }, 500);
-                }}
-                className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 cursor-pointer"
-              >
-                Israel
-              </button>
-              <button 
-                onClick={() => {
-                  const element = document.getElementById('location-search');
-                  element?.scrollIntoView({ behavior: 'smooth' });
-                  setTimeout(() => {
-                    const australiaButton = document.querySelector('[data-region="australia"]') as HTMLElement;
-                    australiaButton?.click();
-                  }, 500);
-                }}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 cursor-pointer"
-              >
-                Australia
-              </button>
-            </div>
 
             {/* Hierarchical Location Search */}
             <div id="location-search" className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 max-w-6xl mx-auto mt-8">
