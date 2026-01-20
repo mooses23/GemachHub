@@ -182,13 +182,18 @@ export default function AdminApplications() {
     setIsViewDialogOpen(true);
   };
 
+  const getFullAddress = (app: GemachApplication) => {
+    const parts = [app.streetAddress, app.city, app.state, app.zipCode, app.country].filter(Boolean);
+    return parts.join(", ");
+  };
+
   const handleStartApproval = (application: GemachApplication) => {
     setApproveApplication(application);
     form.reset({
       name: `${application.firstName} ${application.lastName}'s Gemach`,
       contactPerson: `${application.firstName} ${application.lastName}`,
-      address: application.location,
-      zipCode: "",
+      address: getFullAddress(application),
+      zipCode: application.zipCode,
       phone: application.phone,
       email: application.email,
       regionId: 1,
@@ -234,7 +239,9 @@ export default function AdminApplications() {
       application.firstName.toLowerCase().includes(searchLower) ||
       application.lastName.toLowerCase().includes(searchLower) ||
       application.email.toLowerCase().includes(searchLower) ||
-      application.location.toLowerCase().includes(searchLower)
+      application.city.toLowerCase().includes(searchLower) ||
+      application.state.toLowerCase().includes(searchLower) ||
+      application.country.toLowerCase().includes(searchLower)
     );
   });
 
@@ -348,7 +355,10 @@ export default function AdminApplications() {
                         <TableCell>
                           <div className="flex items-center">
                             <MapPin className="h-4 w-4 mr-1 text-muted-foreground" />
-                            {application.location}
+                            {application.city}, {application.state}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {application.country}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -448,8 +458,13 @@ export default function AdminApplications() {
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Location</h3>
-                  <p>{viewApplication.location}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground">Address</h3>
+                  <p>{viewApplication.streetAddress}</p>
+                  <p>{viewApplication.city}, {viewApplication.state} {viewApplication.zipCode}</p>
+                  <p>{viewApplication.country}</p>
+                  {viewApplication.community && (
+                    <p className="text-muted-foreground text-sm mt-1">Community: {viewApplication.community}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -524,9 +539,10 @@ export default function AdminApplications() {
                       <span className="text-muted-foreground">Phone:</span>{" "}
                       {approveApplication.phone}
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Location:</span>{" "}
-                      {approveApplication.location}
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Address:</span>{" "}
+                      {approveApplication.streetAddress}, {approveApplication.city}, {approveApplication.state} {approveApplication.zipCode}, {approveApplication.country}
+                      {approveApplication.community && ` (${approveApplication.community})`}
                     </div>
                   </div>
                 </div>
