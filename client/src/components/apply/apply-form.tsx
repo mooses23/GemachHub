@@ -315,11 +315,6 @@ export function ApplyForm() {
                                 ))}
                               </div>
                             ))}
-                            {cityCategories.length === 0 && (
-                              <SelectItem value="__new__" disabled>
-                                No communities yet - add yours!
-                              </SelectItem>
-                            )}
                           </SelectContent>
                         </Select>
                       </div>
