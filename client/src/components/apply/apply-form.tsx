@@ -1,9 +1,10 @@
-import React from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { insertGemachApplicationSchema } from "@/lib/types";
 import type { InsertGemachApplication } from "@/lib/types";
+import { CityCategory, Region } from "@shared/schema";
 import { submitGemachApplication } from "@/lib/api";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -23,11 +24,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { LoaderCircle, CheckCircle2 } from "lucide-react";
+import { LoaderCircle, CheckCircle2, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Extend the schema with additional validation
@@ -41,6 +49,16 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function ApplyForm() {
   const { toast } = useToast();
+  const [showNewCommunity, setShowNewCommunity] = useState(false);
+  const [selectedCommunity, setSelectedCommunity] = useState<string>("");
+
+  const { data: cityCategories = [] } = useQuery<CityCategory[]>({
+    queryKey: ["/api/city-categories"],
+  });
+
+  const { data: regions = [] } = useQuery<Region[]>({
+    queryKey: ["/api/regions"],
+  });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -59,6 +77,20 @@ export function ApplyForm() {
       terms: false,
     },
   });
+
+  const getRegionName = (regionId: number) => {
+    const region = regions.find(r => r.id === regionId);
+    return region?.name || "Other";
+  };
+
+  const categoriesByRegion = cityCategories.reduce((acc, cat) => {
+    const regionName = getRegionName(cat.regionId);
+    if (!acc[regionName]) {
+      acc[regionName] = [];
+    }
+    acc[regionName].push(cat);
+    return acc;
+  }, {} as Record<string, CityCategory[]>);
 
   const { mutate, isPending, isSuccess, reset } = useMutation({
     mutationFn: (data: InsertGemachApplication) => submitGemachApplication(data),
@@ -244,11 +276,77 @@ export function ApplyForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Community / Neighborhood (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Flatbush, Crown Heights, etc." {...field} value={field.value ?? ""} />
-                    </FormControl>
+                    {!showNewCommunity ? (
+                      <div className="space-y-2">
+                        <Select
+                          value={selectedCommunity}
+                          onValueChange={(value) => {
+                            if (value === "__new__") {
+                              setShowNewCommunity(true);
+                              setSelectedCommunity("");
+                              field.onChange("");
+                            } else {
+                              setSelectedCommunity(value);
+                              field.onChange(value);
+                            }
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an existing community or add new" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="__new__">
+                              <span className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Add New Community
+                              </span>
+                            </SelectItem>
+                            {Object.entries(categoriesByRegion).map(([regionName, categories]) => (
+                              <div key={regionName}>
+                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted">
+                                  {regionName}
+                                </div>
+                                {categories.map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.name}>
+                                    {cat.name}
+                                  </SelectItem>
+                                ))}
+                              </div>
+                            ))}
+                            {cityCategories.length === 0 && (
+                              <SelectItem value="__new__" disabled>
+                                No communities yet - add yours!
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter your community name (e.g., Flatbush, Crown Heights)" 
+                            {...field} 
+                            value={field.value ?? ""} 
+                          />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setShowNewCommunity(false);
+                            field.onChange("");
+                          }}
+                        >
+                          Back to existing communities
+                        </Button>
+                      </div>
+                    )}
                     <FormDescription>
-                      This helps us categorize your location for easier discovery
+                      Select an existing community or add a new one for easier discovery
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
