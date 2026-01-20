@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getGemachApplications, updateGemachApplicationStatus, approveApplicationWithLocation } from "@/lib/api";
-import { GemachApplication, Region, InsertLocation, insertLocationSchema } from "@shared/schema";
+import { GemachApplication, Region, InsertLocation, insertLocationSchema, CityCategory } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -80,6 +80,8 @@ const locationFormSchema = insertLocationSchema.omit({ locationCode: true }).ext
   phone: z.string().min(1, "Phone is required"),
   email: z.string().email("Valid email is required"),
   regionId: z.number().min(1, "Region is required"),
+  cityCategoryId: z.number().nullable().optional(),
+  operatorPin: z.string().min(4, "PIN must be at least 4 digits").max(6, "PIN must be at most 6 digits").optional(),
 });
 
 type LocationFormData = z.infer<typeof locationFormSchema>;
@@ -104,6 +106,10 @@ export default function AdminApplications() {
     queryKey: ["/api/regions"],
   });
 
+  const { data: cityCategories = [] } = useQuery<CityCategory[]>({
+    queryKey: ["/api/city-categories"],
+  });
+
   const form = useForm<LocationFormData>({
     resolver: zodResolver(locationFormSchema),
     defaultValues: {
@@ -114,6 +120,8 @@ export default function AdminApplications() {
       phone: "",
       email: "",
       regionId: 1,
+      cityCategoryId: null,
+      operatorPin: "1234",
       isActive: true,
       inventoryCount: 0,
       cashOnly: false,
@@ -122,6 +130,12 @@ export default function AdminApplications() {
       processingFeePercent: 300,
     },
   });
+
+  const selectedRegionId = form.watch("regionId");
+  
+  const filteredCityCategories = cityCategories.filter(
+    (cat) => cat.regionId === selectedRegionId
+  );
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) => 
@@ -189,6 +203,20 @@ export default function AdminApplications() {
 
   const handleStartApproval = (application: GemachApplication) => {
     setApproveApplication(application);
+    
+    // Try to match applicant's community to an existing city category
+    let matchedCityCategoryId: number | null = null;
+    if (application.community) {
+      const communityLower = application.community.toLowerCase().trim();
+      const matchedCategory = cityCategories.find(
+        cat => cat.name.toLowerCase().trim() === communityLower ||
+               cat.slug.toLowerCase() === communityLower.replace(/\s+/g, '-')
+      );
+      if (matchedCategory) {
+        matchedCityCategoryId = matchedCategory.id;
+      }
+    }
+    
     form.reset({
       name: `${application.firstName} ${application.lastName}'s Gemach`,
       contactPerson: `${application.firstName} ${application.lastName}`,
@@ -196,7 +224,9 @@ export default function AdminApplications() {
       zipCode: application.zipCode,
       phone: application.phone,
       email: application.email,
-      regionId: 1,
+      regionId: matchedCityCategoryId ? (cityCategories.find(c => c.id === matchedCityCategoryId)?.regionId ?? 1) : 1,
+      cityCategoryId: matchedCityCategoryId,
+      operatorPin: "1234",
       isActive: true,
       inventoryCount: 0,
       cashOnly: false,
@@ -585,8 +615,11 @@ export default function AdminApplications() {
                           <FormItem>
                             <FormLabel>Region</FormLabel>
                             <Select 
-                              onValueChange={(value) => field.onChange(parseInt(value))}
-                              defaultValue={field.value?.toString()}
+                              onValueChange={(value) => {
+                                field.onChange(parseInt(value));
+                                form.setValue("cityCategoryId", null);
+                              }}
+                              value={field.value?.toString()}
                             >
                               <FormControl>
                                 <SelectTrigger>
@@ -601,6 +634,65 @@ export default function AdminApplications() {
                                 ))}
                               </SelectContent>
                             </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="cityCategoryId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Community Category
+                              {approveApplication?.community && (
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  (Applicant selected: {approveApplication.community})
+                                </span>
+                              )}
+                            </FormLabel>
+                            <Select 
+                              onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))}
+                              value={field.value?.toString() ?? "none"}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select community category" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="none">No category (will appear at end of region)</SelectItem>
+                                {filteredCityCategories.map((category) => (
+                                  <SelectItem key={category.id} value={category.id.toString()}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="operatorPin"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Operator PIN</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field}
+                                placeholder="4-6 digit PIN"
+                                value={field.value ?? ""}
+                                maxLength={6}
+                                inputMode="numeric"
+                                onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                              />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
