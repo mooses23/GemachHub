@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, CheckCircle, XCircle, AlertTriangle, DollarSign, TrendingUp, Users, Home, ClipboardList, LogOut } from "lucide-react";
 import { DepositConfirmation } from "@/components/payment/deposit-confirmation";
-import { useAuth } from "@/hooks/use-auth";
+import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -45,25 +45,39 @@ interface Location {
 }
 
 export default function OperatorDepositDashboard() {
-  const { user, logoutMutation } = useAuth();
+  const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
-  const [currentPath] = useLocation();
+  const [currentPath, setPath] = useLocation();
 
-  // Query operator's location
-  const { data: operatorLocation, isLoading: operatorLocationLoading } = useQuery<Location>({
-    queryKey: ["/api/operator/location"],
-    enabled: !!user,
-  });
+  useEffect(() => {
+    if (!isOperatorLoading && !operatorLocation) {
+      setPath("/operator/login");
+    }
+  }, [isOperatorLoading, operatorLocation, setPath]);
 
   // Use operator-scoped endpoints - these filter by the operator's location on the backend
   const { data: payments = [], isLoading: paymentsLoading } = useQuery<Payment[]>({
-    queryKey: ["/api/operator/payments"],
-    enabled: !!user,
+    queryKey: ["/api/locations", operatorLocation?.id, "payments"],
+    enabled: !!operatorLocation?.id,
+    queryFn: async () => {
+      const res = await fetch("/api/operator/payments", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch payments");
+      return res.json();
+    },
   });
 
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery<Transaction[]>({
-    queryKey: ["/api/operator/transactions"],
-    enabled: !!user,
+    queryKey: ["/api/locations", operatorLocation?.id, "transactions"],
+    enabled: !!operatorLocation?.id,
+    queryFn: async () => {
+      const res = await fetch(`/api/locations/${operatorLocation?.id}/transactions`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch transactions");
+      return res.json();
+    },
   });
 
   // All payments and transactions are already filtered by the backend to the operator's location
@@ -99,8 +113,8 @@ export default function OperatorDepositDashboard() {
         title: "Bulk Confirmation Complete",
         description: `Successfully confirmed ${pendingConfirmations.length} deposits.`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/operator/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "transactions"] });
     },
     onError: () => {
       toast({
@@ -118,7 +132,7 @@ export default function OperatorDepositDashboard() {
     }
   };
 
-  if (paymentsLoading || transactionsLoading || operatorLocationLoading) {
+  if (paymentsLoading || transactionsLoading || isOperatorLoading) {
     return (
       <div className="container py-6 space-y-6">
         <h1 className="text-2xl font-bold">Deposit Dashboard</h1>
@@ -167,8 +181,7 @@ export default function OperatorDepositDashboard() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
+            onClick={() => logout()}
             className="flex items-center gap-2 text-muted-foreground"
           >
             <LogOut className="h-4 w-4" />
@@ -269,8 +282,8 @@ export default function OperatorDepositDashboard() {
                   key={payment.id} 
                   payment={payment}
                   onConfirmed={() => {
-                    queryClient.invalidateQueries({ queryKey: ["/api/operator/payments"] });
-                    queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "payments"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "transactions"] });
                   }}
                 />
               ))}

@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/use-auth";
+import { useOperatorAuth } from "@/hooks/use-operator-auth";
 
 // Form validation schema
 const transactionFormSchema = z.object({
@@ -40,7 +40,7 @@ type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 
 export function OperatorTransactionForm() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { operatorLocation } = useOperatorAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   // Form setup
@@ -59,12 +59,12 @@ export function OperatorTransactionForm() {
   // Transaction creation mutation
   const createTransactionMutation = useMutation({
     mutationFn: async (data: TransactionFormValues) => {
-      if (!user?.locationId) {
+      if (!operatorLocation?.id) {
         throw new Error("No location associated with your account");
       }
 
       const transactionData = {
-        locationId: user.locationId,
+        locationId: operatorLocation.id,
         borrowerName: data.borrowerName,
         borrowerEmail: data.borrowerEmail || undefined,
         borrowerPhone: data.borrowerPhone,
@@ -84,7 +84,7 @@ export function OperatorTransactionForm() {
       form.reset();
       setIsOpen(false);
       // Refresh the transactions list
-      queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "transactions"] });
     },
     onError: (error: Error) => {
       toast({

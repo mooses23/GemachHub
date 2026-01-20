@@ -34,6 +34,12 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+// Operator login schema (PIN-based access)
+export const operatorLoginSchema = z.object({
+  locationCode: z.string().min(1, "Location code is required"),
+  pin: z.string().min(4, "PIN must be at least 4 digits").max(6, "PIN must be at most 6 digits"),
+});
+
 // Region schema (for grouping locations by continent)
 export const regions = pgTable("regions", {
   id: serial("id").primaryKey(),
@@ -86,6 +92,7 @@ export const locations = pgTable("locations", {
   depositAmount: integer("deposit_amount").default(20),
   paymentMethods: text("payment_methods").array().default(["cash"]),
   processingFeePercent: integer("processing_fee_percent").default(300), // 3.00% stored as 300 basis points
+  operatorPin: text("operator_pin"),
 });
 
 export const insertLocationSchema = createInsertSchema(locations).pick({
@@ -104,6 +111,7 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   depositAmount: true,
   paymentMethods: true,
   processingFeePercent: true,
+  operatorPin: true,
 });
 
 // GemachApplication schema
