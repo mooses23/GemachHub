@@ -51,6 +51,12 @@ Key entities: Users, Regions, CityCategories, Locations, Transactions, Payments,
 - Role-based access control: user, operator, admin
 - Invite code system for registration
 - Protected routes on both frontend and backend
+- **Operator PIN-based login**: Operators authenticate using location code + PIN (e.g., "#1" + "1234") instead of username/password
+  - Login: POST `/api/operator/login` stores `operatorLocationId` in session
+  - Logout: POST `/api/operator/logout` clears session
+  - All operator endpoints support dual auth (Passport-based or PIN-based session)
+  - Default PIN for all locations: "1234" (configurable via admin panel)
+  - Frontend stores location in localStorage for UX, server validates via session
 - Operators are associated with specific locations
 
 ### Payment Processing
