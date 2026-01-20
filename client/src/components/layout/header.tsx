@@ -188,7 +188,7 @@ export function Header() {
                   </DropdownMenu>
                 ) : (
                   <Button asChild>
-                    <Link href="/auth">Log In / Register</Link>
+                    <Link href="/auth">Operator Pin / Admin Login</Link>
                   </Button>
                 )}
             </nav>
