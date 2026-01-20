@@ -8,7 +8,7 @@ import {
 
 // Locations API
 export const getLocations = async () => {
-  const response = await fetch("/api/locations");
+  const response = await fetch("/api/locations", { credentials: "include" });
   if (!response.ok) {
     throw new Error("Failed to fetch locations");
   }
@@ -16,7 +16,7 @@ export const getLocations = async () => {
 };
 
 export const getLocationsByRegion = async (regionSlug: string) => {
-  const response = await fetch(`/api/regions/${regionSlug}/locations`);
+  const response = await fetch(`/api/regions/${regionSlug}/locations`, { credentials: "include" });
   if (!response.ok) {
     throw new Error(`Failed to fetch locations for region: ${regionSlug}`);
   }
@@ -24,7 +24,7 @@ export const getLocationsByRegion = async (regionSlug: string) => {
 };
 
 export const getLocation = async (id: number) => {
-  const response = await fetch(`/api/locations/${id}`);
+  const response = await fetch(`/api/locations/${id}`, { credentials: "include" });
   if (!response.ok) {
     throw new Error(`Failed to fetch location with id: ${id}`);
   }
@@ -41,7 +41,7 @@ export const updateLocation = async (id: number, data: Partial<InsertLocation>) 
 
 // Regions API
 export const getRegions = async () => {
-  const response = await fetch("/api/regions");
+  const response = await fetch("/api/regions", { credentials: "include" });
   if (!response.ok) {
     throw new Error("Failed to fetch regions");
   }
@@ -54,7 +54,7 @@ export const submitGemachApplication = async (data: InsertGemachApplication) => 
 };
 
 export const getGemachApplications = async () => {
-  const response = await fetch("/api/applications");
+  const response = await fetch("/api/applications", { credentials: "include" });
   if (!response.ok) {
     throw new Error("Failed to fetch gemach applications");
   }
@@ -72,7 +72,7 @@ export const approveApplicationWithLocation = async (id: number, locationData: I
 
 // Transactions API
 export const getTransactions = async () => {
-  const response = await fetch("/api/transactions");
+  const response = await fetch("/api/transactions", { credentials: "include" });
   if (!response.ok) {
     throw new Error("Failed to fetch transactions");
   }
@@ -100,7 +100,7 @@ export const submitContactForm = async (data: InsertContact) => {
 };
 
 export const getContacts = async () => {
-  const response = await fetch("/api/contact");
+  const response = await fetch("/api/contact", { credentials: "include" });
   if (!response.ok) {
     throw new Error("Failed to fetch contacts");
   }
