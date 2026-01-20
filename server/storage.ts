@@ -230,7 +230,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 1,
         operatorPin: "1234"
       },
       {
@@ -244,7 +244,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 1,
         operatorPin: "1234"
       },
       {
@@ -258,7 +258,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 1,
         operatorPin: "1234"
       },
       // United States - Florida
@@ -391,7 +391,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -405,7 +405,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -419,7 +419,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -433,7 +433,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -447,7 +447,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -461,7 +461,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -475,7 +475,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -489,7 +489,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -503,7 +503,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       // New York - Monsey
@@ -518,7 +518,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 3,
         operatorPin: "1234"
       },
       {
@@ -532,7 +532,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 3,
         operatorPin: "1234"
       },
       {
@@ -546,7 +546,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 3,
         operatorPin: "1234"
       },
       {
@@ -560,7 +560,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 3,
         operatorPin: "1234"
       },
       {
@@ -574,7 +574,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 3,
         operatorPin: "1234"
       },
       {
@@ -588,7 +588,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 3,
         operatorPin: "1234"
       },
       // New York - Other Areas
@@ -603,7 +603,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 5,
-
+        cityCategoryId: 4,
         operatorPin: "1234"
       },
       {
@@ -617,7 +617,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 5,
         operatorPin: "1234"
       },
       {
@@ -631,7 +631,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 6,
         operatorPin: "1234"
       },
       {
@@ -645,7 +645,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 6,
         operatorPin: "1234"
       },
       {
@@ -659,7 +659,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 6,
         operatorPin: "1234"
       },
       {
@@ -673,7 +673,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 5,
-
+        cityCategoryId: 6,
         operatorPin: "1234"
       },
       {
@@ -687,7 +687,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 6,
         operatorPin: "1234"
       },
       {
@@ -701,7 +701,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 6,
         operatorPin: "1234"
       },
       {
@@ -715,7 +715,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 4,
-
+        cityCategoryId: 7,
         operatorPin: "1234"
       },
       {
@@ -729,7 +729,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 8,
         operatorPin: "1234"
       },
       // New Jersey
@@ -744,7 +744,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 9,
         operatorPin: "1234"
       },
       {
@@ -758,7 +758,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 10,
         operatorPin: "1234"
       },
       {
@@ -772,7 +772,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -786,7 +786,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -800,7 +800,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -814,7 +814,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -828,7 +828,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -842,7 +842,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -856,7 +856,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -870,7 +870,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 13,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -884,7 +884,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 12,
         operatorPin: "1234"
       },
       {
@@ -898,7 +898,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 12,
         operatorPin: "1234"
       },
       {
@@ -912,7 +912,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 5,
-
+        cityCategoryId: 12,
         operatorPin: "1234"
       },
       {
@@ -926,7 +926,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 13,
         operatorPin: "1234"
       },
       // Israel - Jerusalem
@@ -941,7 +941,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -955,7 +955,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -969,7 +969,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -983,7 +983,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -997,7 +997,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1011,7 +1011,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1025,7 +1025,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1039,7 +1039,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1053,7 +1053,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1067,7 +1067,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1081,7 +1081,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1095,7 +1095,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1109,7 +1109,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1123,7 +1123,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1137,7 +1137,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1151,7 +1151,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1165,7 +1165,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1179,7 +1179,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1193,7 +1193,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1207,7 +1207,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1221,7 +1221,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1235,7 +1235,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1249,7 +1249,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1263,7 +1263,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1277,7 +1277,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 5,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1291,7 +1291,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1305,7 +1305,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1319,7 +1319,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -1333,7 +1333,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       // Israel - Other Cities
@@ -1348,7 +1348,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 28,
         operatorPin: "1234"
       },
       {
@@ -1362,7 +1362,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 28,
         operatorPin: "1234"
       },
       {
@@ -1376,7 +1376,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 29,
         operatorPin: "1234"
       },
       {
@@ -1390,7 +1390,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 27,
         operatorPin: "1234"
       },
       {
@@ -1404,7 +1404,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 25,
         operatorPin: "1234"
       },
       {
@@ -1418,7 +1418,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 25,
         operatorPin: "1234"
       },
       {
@@ -1432,7 +1432,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1446,7 +1446,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1460,7 +1460,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 13,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1474,7 +1474,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1488,7 +1488,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1502,7 +1502,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1516,7 +1516,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1530,7 +1530,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1544,7 +1544,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 24,
         operatorPin: "1234"
       },
       {
@@ -1558,7 +1558,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 5,
-
+        cityCategoryId: 40,
         operatorPin: "1234"
       },
       {
@@ -1572,7 +1572,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 30,
         operatorPin: "1234"
       },
       {
@@ -1586,7 +1586,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 31,
         operatorPin: "1234"
       },
       {
@@ -1600,7 +1600,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 31,
         operatorPin: "1234"
       },
       {
@@ -1614,7 +1614,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 32,
         operatorPin: "1234"
       },
       {
@@ -1628,7 +1628,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 33,
         operatorPin: "1234"
       },
       {
@@ -1642,7 +1642,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 34,
         operatorPin: "1234"
       },
       {
@@ -1656,7 +1656,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 35,
         operatorPin: "1234"
       },
       {
@@ -1670,7 +1670,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 26,
         operatorPin: "1234"
       },
       {
@@ -1684,7 +1684,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 26,
         operatorPin: "1234"
       },
       {
@@ -1698,7 +1698,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 26,
         operatorPin: "1234"
       },
       {
@@ -1712,7 +1712,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 5,
-
+        cityCategoryId: 36,
         operatorPin: "1234"
       },
       {
@@ -1726,7 +1726,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 37,
         operatorPin: "1234"
       },
       {
@@ -1740,7 +1740,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 37,
         operatorPin: "1234"
       },
       {
@@ -1754,7 +1754,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 38,
         operatorPin: "1234"
       },
       {
@@ -1768,7 +1768,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 39,
         operatorPin: "1234"
       },
       {
@@ -1853,7 +1853,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 14,
         operatorPin: "1234"
       },
       {
@@ -1867,7 +1867,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 14,
         operatorPin: "1234"
       },
       {
@@ -1881,7 +1881,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 14,
         operatorPin: "1234"
       },
       {
@@ -1895,7 +1895,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 15,
         operatorPin: "1234"
       },
       {
@@ -1909,7 +1909,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 5,
-
+        cityCategoryId: 15,
         operatorPin: "1234"
       },
       // England
@@ -1924,7 +1924,7 @@ export class MemStorage implements IStorage {
         regionId: 3,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 16,
         operatorPin: "1234"
       },
       {
@@ -1938,7 +1938,7 @@ export class MemStorage implements IStorage {
         regionId: 3,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 16,
         operatorPin: "1234"
       },
       {
@@ -1952,7 +1952,7 @@ export class MemStorage implements IStorage {
         regionId: 3,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 16,
         operatorPin: "1234"
       },
       {
@@ -1966,7 +1966,7 @@ export class MemStorage implements IStorage {
         regionId: 3,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 17,
         operatorPin: "1234"
       },
       {
@@ -1980,7 +1980,7 @@ export class MemStorage implements IStorage {
         regionId: 3,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 17,
         operatorPin: "1234"
       },
       // Belgium
@@ -1995,7 +1995,7 @@ export class MemStorage implements IStorage {
         regionId: 4,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 18,
         operatorPin: "1234"
       },
       {
@@ -2009,7 +2009,7 @@ export class MemStorage implements IStorage {
         regionId: 4,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 18,
         operatorPin: "1234"
       },
       // Australia
@@ -2024,7 +2024,7 @@ export class MemStorage implements IStorage {
         regionId: 5,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 21,
         operatorPin: "1234"
       },
       {
@@ -2038,7 +2038,7 @@ export class MemStorage implements IStorage {
         regionId: 5,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 21,
         operatorPin: "1234"
       },
       {
@@ -2052,7 +2052,7 @@ export class MemStorage implements IStorage {
         regionId: 5,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 22,
         operatorPin: "1234"
       },
       {
@@ -2066,7 +2066,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 1,
         operatorPin: "1234"
       },
       {
@@ -2192,7 +2192,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 15,
-
+        cityCategoryId: 2,
         operatorPin: "1234"
       },
       {
@@ -2206,7 +2206,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 3,
         operatorPin: "1234"
       },
       {
@@ -2220,7 +2220,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 18,
-
+        cityCategoryId: 11,
         operatorPin: "1234"
       },
       {
@@ -2249,7 +2249,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 14,
         operatorPin: "1234"
       },
       {
@@ -2263,7 +2263,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 14,
         operatorPin: "1234"
       },
       {
@@ -2277,7 +2277,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 14,
         operatorPin: "1234"
       },
       {
@@ -2291,7 +2291,7 @@ export class MemStorage implements IStorage {
         regionId: 2,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 15,
         operatorPin: "1234"
       },
       // England
@@ -2306,7 +2306,7 @@ export class MemStorage implements IStorage {
         regionId: 3,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 16,
         operatorPin: "1234"
       },
       {
@@ -2320,7 +2320,7 @@ export class MemStorage implements IStorage {
         regionId: 3,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 16,
         operatorPin: "1234"
       },
       {
@@ -2334,7 +2334,7 @@ export class MemStorage implements IStorage {
         regionId: 3,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 17,
         operatorPin: "1234"
       },
       // Belgium
@@ -2349,7 +2349,7 @@ export class MemStorage implements IStorage {
         regionId: 4,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 18,
         operatorPin: "1234"
       },
       // Australia
@@ -2364,7 +2364,7 @@ export class MemStorage implements IStorage {
         regionId: 5,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 21,
         operatorPin: "1234"
       },
       // Israel
@@ -2379,7 +2379,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 14,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -2393,7 +2393,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -2407,7 +2407,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -2421,7 +2421,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -2435,7 +2435,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -2449,7 +2449,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -2463,7 +2463,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -2477,7 +2477,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 13,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       },
       {
@@ -2491,7 +2491,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 23,
         operatorPin: "1234"
       }
     ];
