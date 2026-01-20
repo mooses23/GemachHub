@@ -160,10 +160,7 @@ export class MemStorage implements IStorage {
     defaultRegions.forEach(region => this.createRegion(region));
 
     // Initialize default invite codes
-    this.validInviteCodes.add("GEMACH2024");
-    this.validInviteCodes.add("BABYBANZ");
-    this.validInviteCodes.add("EARMUFFS");
-    this.validInviteCodes.add("WELCOME");
+    // Generic invite codes removed - only location-specific invite codes are valid for operator registration
 
     // Add all locations from earmuffsgemach.com with simple numbering
     const allLocations: InsertLocation[] = [
@@ -2241,7 +2238,7 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...userData, 
       id,
-      role: userData.role || "customer",
+      role: userData.role || "operator",
       isAdmin: userData.isAdmin ?? null,
       locationId: userData.locationId ?? null
     };

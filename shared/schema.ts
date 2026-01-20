@@ -10,7 +10,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  role: text("role").notNull().default("user"), // "operator", "admin"
+  role: text("role").notNull().default("operator"), // "operator", "admin" - no generic user role
   isAdmin: boolean("is_admin").default(false),
   locationId: integer("location_id"), // Associated gemach location (for operators)
 });
