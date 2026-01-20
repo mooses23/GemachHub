@@ -43,7 +43,7 @@ export default function PayPalPayment({
     const loadPayPalSDK = async () => {
       try {
         // Get client token from server
-        const response = await fetch("/api/paypal/setup");
+        const response = await fetch("/api/paypal/setup", { credentials: "include" });
         if (!response.ok) {
           throw new Error("Failed to setup PayPal");
         }
@@ -115,6 +115,7 @@ export default function PayPalPayment({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           transactionId,
           locationId,
@@ -142,6 +143,7 @@ export default function PayPalPayment({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
 
       if (!response.ok) {

@@ -95,9 +95,10 @@ export default function PaymentProcessor({
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           transactionId,
-          locationId: location.id,
+          locationId: location?.id || locationId,
         }),
       });
 
@@ -107,7 +108,7 @@ export default function PaymentProcessor({
 
       const result = await response.json();
       setPaymentCompleted(true);
-      onPaymentComplete({
+      onPaymentComplete?.({
         paymentMethod: "cash",
         amount: result.amount,
         paymentId: result.paymentId,
@@ -131,7 +132,7 @@ export default function PaymentProcessor({
 
   const handleDigitalPaymentSuccess = (paymentResult: any) => {
     setPaymentCompleted(true);
-    onPaymentComplete({
+    onPaymentComplete?.({
       ...paymentResult,
       paymentMethod: selectedMethod,
     });
@@ -162,7 +163,7 @@ export default function PaymentProcessor({
     );
   }
 
-  if (!breakdown) {
+  if (!breakdown || !location) {
     return (
       <Card className="w-full max-w-2xl mx-auto">
         <CardContent className="flex items-center justify-center p-8">
@@ -296,7 +297,7 @@ export default function PaymentProcessor({
           </Card>
         </TabsContent>
 
-        {paymentMethods.includes("stripe") && (
+        {paymentMethods.includes("stripe") && transactionId && (
           <TabsContent value="stripe" className="mt-6">
             <StripePayment
               transactionId={transactionId}
@@ -309,7 +310,7 @@ export default function PaymentProcessor({
           </TabsContent>
         )}
 
-        {paymentMethods.includes("paypal") && (
+        {paymentMethods.includes("paypal") && transactionId && (
           <TabsContent value="paypal" className="mt-6">
             <PayPalPayment
               transactionId={transactionId}
