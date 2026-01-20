@@ -4,6 +4,7 @@ import {
   cityCategories, type CityCategory, type InsertCityCategory,
   locations, type Location, type InsertLocation,
   gemachApplications, type GemachApplication, type InsertGemachApplication,
+  inviteCodes, type InviteCode, type InsertInviteCode,
   transactions, type Transaction, type InsertTransaction,
   contacts, type Contact, type InsertContact,
   payments, type Payment, type InsertPayment,
@@ -18,7 +19,12 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   createSystemUser(userData: Omit<InsertUser, 'inviteCode'>): Promise<User>;
+  
+  // Invite Code operations
+  createInviteCode(inviteCode: InsertInviteCode): Promise<InviteCode>;
+  getInviteCodeByCode(code: string): Promise<InviteCode | undefined>;
   validateInviteCode(code: string): Promise<boolean>;
+  useInviteCode(code: string, userId: number): Promise<InviteCode>;
 
   // Region operations
   getAllRegions(): Promise<Region[]>;
@@ -89,6 +95,7 @@ export class MemStorage implements IStorage {
   private regions: Map<number, Region>;
   private locations: Map<number, Location>;
   private applications: Map<number, GemachApplication>;
+  private inviteCodesMap: Map<number, InviteCode>;
   private transactions: Map<number, Transaction>;
   private contacts: Map<number, Contact>;
   private payments: Map<number, Payment>;
@@ -100,6 +107,7 @@ export class MemStorage implements IStorage {
   private regionCounter: number;
   private locationCounter: number;
   private applicationCounter: number;
+  private inviteCodeCounter: number;
   private transactionCounter: number;
   private contactCounter: number;
   private paymentCounter: number;
@@ -111,6 +119,7 @@ export class MemStorage implements IStorage {
     this.regions = new Map();
     this.locations = new Map();
     this.applications = new Map();
+    this.inviteCodesMap = new Map();
     this.transactions = new Map();
     this.contacts = new Map();
     this.payments = new Map();
@@ -122,6 +131,7 @@ export class MemStorage implements IStorage {
     this.regionCounter = 1;
     this.locationCounter = 1;
     this.applicationCounter = 1;
+    this.inviteCodeCounter = 1;
     this.transactionCounter = 1;
     this.contactCounter = 1;
     this.paymentCounter = 1;
@@ -2235,8 +2245,54 @@ export class MemStorage implements IStorage {
     return user;
   }
 
+  // Invite Code methods
+  async createInviteCode(insertInviteCode: InsertInviteCode): Promise<InviteCode> {
+    const id = this.inviteCodeCounter++;
+    const inviteCode: InviteCode = {
+      ...insertInviteCode,
+      id,
+      applicationId: insertInviteCode.applicationId ?? null,
+      isUsed: false,
+      createdAt: new Date(),
+      usedAt: null,
+      usedByUserId: null
+    };
+    this.inviteCodesMap.set(id, inviteCode);
+    return inviteCode;
+  }
+
+  async getInviteCodeByCode(code: string): Promise<InviteCode | undefined> {
+    return Array.from(this.inviteCodesMap.values()).find(
+      (inviteCode) => inviteCode.code === code
+    );
+  }
+
   async validateInviteCode(code: string): Promise<boolean> {
-    return this.validInviteCodes.has(code);
+    // Check legacy static invite codes first
+    if (this.validInviteCodes.has(code)) {
+      return true;
+    }
+    // Check dynamic invite codes
+    const inviteCode = await this.getInviteCodeByCode(code);
+    return inviteCode !== undefined && !inviteCode.isUsed;
+  }
+
+  async useInviteCode(code: string, userId: number): Promise<InviteCode> {
+    const inviteCode = await this.getInviteCodeByCode(code);
+    if (!inviteCode) {
+      throw new Error("Invite code not found");
+    }
+    if (inviteCode.isUsed) {
+      throw new Error("Invite code has already been used");
+    }
+    const updatedCode: InviteCode = {
+      ...inviteCode,
+      isUsed: true,
+      usedAt: new Date(),
+      usedByUserId: userId
+    };
+    this.inviteCodesMap.set(inviteCode.id, updatedCode);
+    return updatedCode;
   }
 
   // Region methods
