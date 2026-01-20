@@ -17,12 +17,26 @@ type CityCategory = {
   displayOrder: number;
   isPopular: boolean;
   description?: string;
+  stateCode?: string | null;
+};
+
+const US_STATE_NAMES: Record<string, string> = {
+  CA: "California",
+  NY: "New York",
+  NJ: "New Jersey",
+  FL: "Florida",
+  IL: "Illinois",
+  MD: "Maryland",
+  MI: "Michigan",
+  OH: "Ohio",
+  PA: "Pennsylvania"
 };
 
 export function HierarchicalLocationSearch() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [selectedCity, setSelectedCity] = useState<CityCategory | null>(null);
+  const [selectedState, setSelectedState] = useState<string | null>(null);
 
   const { data: locations = [] } = useQuery({
     queryKey: ["/api/locations"],
@@ -79,10 +93,36 @@ export function HierarchicalLocationSearch() {
     return filtered;
   }, [locations, searchQuery, regionsMap, selectedRegion]);
 
+  // Get unique states for US region
+  const usStates = useMemo(() => {
+    if (!selectedRegion || selectedRegion.slug !== "united-states") return [];
+    
+    const citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
+    const statesSet = new Set<string>();
+    
+    citiesInRegion.forEach((city: CityCategory) => {
+      if (city.stateCode) {
+        statesSet.add(city.stateCode);
+      }
+    });
+    
+    return Array.from(statesSet).sort((a, b) => {
+      const nameA = US_STATE_NAMES[a] || a;
+      const nameB = US_STATE_NAMES[b] || b;
+      return nameA.localeCompare(nameB);
+    });
+  }, [selectedRegion, cityCategories]);
+
   const groupedByCity = useMemo(() => {
     if (!selectedRegion) return {};
     
-    const citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
+    let citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
+    
+    // Filter by selected state if in US
+    if (selectedRegion.slug === "united-states" && selectedState) {
+      citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.stateCode === selectedState);
+    }
+    
     const result: Record<string, { city: CityCategory; locations: Location[] }> = {};
 
     citiesInRegion.forEach((city: CityCategory) => {
@@ -95,27 +135,8 @@ export function HierarchicalLocationSearch() {
       }
     });
 
-    const uncategorizedLocations = filteredLocations.filter((location: Location) => 
-      !location.cityCategoryId || !cityCategoryMap[location.cityCategoryId]
-    );
-    
-    if (uncategorizedLocations.length > 0) {
-      result["other"] = {
-        city: {
-          id: 0,
-          name: "Other",
-          slug: "other",
-          regionId: selectedRegion.id,
-          displayOrder: 999,
-          isPopular: false,
-          description: `${uncategorizedLocations.length} location${uncategorizedLocations.length > 1 ? 's' : ''}`
-        },
-        locations: uncategorizedLocations
-      };
-    }
-
     return result;
-  }, [selectedRegion, cityCategories, filteredLocations, cityCategoryMap]);
+  }, [selectedRegion, cityCategories, filteredLocations, selectedState]);
 
   if (!selectedRegion) {
     return (
@@ -223,7 +244,7 @@ export function HierarchicalLocationSearch() {
         <div className="flex items-center gap-2 mb-4">
           <Button 
             variant="ghost" 
-            onClick={() => setSelectedRegion(null)}
+            onClick={() => { setSelectedRegion(null); setSelectedState(null); }}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -261,6 +282,37 @@ export function HierarchicalLocationSearch() {
           />
         </div>
       </div>
+
+      {/* State selector for United States - glass-like floating design */}
+      {selectedRegion.slug === "united-states" && usStates.length > 0 && (
+        <div className="mb-8 px-4 md:px-0">
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => setSelectedState(null)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-sm border ${
+                selectedState === null
+                  ? "bg-blue-500/90 text-white border-blue-400 shadow-lg shadow-blue-500/25"
+                  : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
+              }`}
+            >
+              All States
+            </button>
+            {usStates.map((stateCode) => (
+              <button
+                key={stateCode}
+                onClick={() => setSelectedState(stateCode)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-sm border ${
+                  selectedState === stateCode
+                    ? "bg-blue-500/90 text-white border-blue-400 shadow-lg shadow-blue-500/25"
+                    : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
+                }`}
+              >
+                {US_STATE_NAMES[stateCode] || stateCode}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Cities in region */}
       <div className="space-y-8">

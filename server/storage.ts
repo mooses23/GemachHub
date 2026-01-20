@@ -163,34 +163,34 @@ export class MemStorage implements IStorage {
 
     // Initialize default city categories aligned with existing hardcoded locations
     const defaultCityCategories: InsertCityCategory[] = [
-      // United States (regionId: 1) - aligned with existing locations
-      { name: "Los Angeles", slug: "los-angeles", regionId: 1, displayOrder: 1, isPopular: true },
-      { name: "Brooklyn", slug: "brooklyn", regionId: 1, displayOrder: 2, isPopular: true },
-      { name: "Monsey", slug: "monsey", regionId: 1, displayOrder: 3, isPopular: true },
-      { name: "New Square", slug: "new-square", regionId: 1, displayOrder: 4 },
-      { name: "Queens", slug: "queens", regionId: 1, displayOrder: 5 },
-      { name: "Five Towns & Far Rockaway", slug: "five-towns-far-rockaway", regionId: 1, displayOrder: 6, isPopular: true },
-      { name: "Staten Island", slug: "staten-island", regionId: 1, displayOrder: 7 },
-      { name: "West Hempstead", slug: "west-hempstead", regionId: 1, displayOrder: 8 },
-      { name: "Highland Park / Edison", slug: "highland-park-edison", regionId: 1, displayOrder: 9 },
-      { name: "Jackson", slug: "jackson", regionId: 1, displayOrder: 10 },
-      { name: "Lakewood", slug: "lakewood", regionId: 1, displayOrder: 11, isPopular: true },
-      { name: "Passaic", slug: "passaic", regionId: 1, displayOrder: 12 },
-      { name: "Toms River", slug: "toms-river", regionId: 1, displayOrder: 13 },
-      // Canada (regionId: 2)
+      // United States (regionId: 1) - aligned with existing locations (IDs 1-13)
+      { name: "Los Angeles", slug: "los-angeles", regionId: 1, displayOrder: 1, isPopular: true, stateCode: "CA" },
+      { name: "Brooklyn", slug: "brooklyn", regionId: 1, displayOrder: 2, isPopular: true, stateCode: "NY" },
+      { name: "Monsey", slug: "monsey", regionId: 1, displayOrder: 3, isPopular: true, stateCode: "NY" },
+      { name: "New Square", slug: "new-square", regionId: 1, displayOrder: 4, stateCode: "NY" },
+      { name: "Queens", slug: "queens", regionId: 1, displayOrder: 5, stateCode: "NY" },
+      { name: "Five Towns & Far Rockaway", slug: "five-towns-far-rockaway", regionId: 1, displayOrder: 6, isPopular: true, stateCode: "NY" },
+      { name: "Staten Island", slug: "staten-island", regionId: 1, displayOrder: 7, stateCode: "NY" },
+      { name: "West Hempstead", slug: "west-hempstead", regionId: 1, displayOrder: 8, stateCode: "NY" },
+      { name: "Highland Park / Edison", slug: "highland-park-edison", regionId: 1, displayOrder: 9, stateCode: "NJ" },
+      { name: "Jackson", slug: "jackson", regionId: 1, displayOrder: 10, stateCode: "NJ" },
+      { name: "Lakewood", slug: "lakewood", regionId: 1, displayOrder: 11, isPopular: true, stateCode: "NJ" },
+      { name: "Passaic", slug: "passaic", regionId: 1, displayOrder: 12, stateCode: "NJ" },
+      { name: "Toms River", slug: "toms-river", regionId: 1, displayOrder: 13, stateCode: "NJ" },
+      // Canada (regionId: 2) - IDs 14-15
       { name: "Toronto", slug: "toronto", regionId: 2, displayOrder: 1, isPopular: true },
       { name: "Montreal", slug: "montreal", regionId: 2, displayOrder: 2 },
-      // United Kingdom (regionId: 3)
+      // United Kingdom (regionId: 3) - IDs 16-17
       { name: "London", slug: "london", regionId: 3, displayOrder: 1, isPopular: true },
       { name: "Manchester", slug: "manchester", regionId: 3, displayOrder: 2 },
-      // Europe (regionId: 4)
+      // Europe (regionId: 4) - IDs 18-20
       { name: "Antwerp", slug: "antwerp", regionId: 4, displayOrder: 1 },
       { name: "Paris", slug: "paris", regionId: 4, displayOrder: 2 },
       { name: "Amsterdam", slug: "amsterdam", regionId: 4, displayOrder: 3 },
-      // Australia (regionId: 5)
+      // Australia (regionId: 5) - IDs 21-22
       { name: "Melbourne", slug: "melbourne", regionId: 5, displayOrder: 1 },
       { name: "Sydney", slug: "sydney", regionId: 5, displayOrder: 2 },
-      // Israel (regionId: 6) - aligned with existing locations
+      // Israel (regionId: 6) - aligned with existing locations (IDs 23-40)
       { name: "Jerusalem", slug: "jerusalem", regionId: 6, displayOrder: 1, isPopular: true },
       { name: "Bnei Brak", slug: "bnei-brak", regionId: 6, displayOrder: 2, isPopular: true },
       { name: "Beit Shemesh", slug: "beit-shemesh", regionId: 6, displayOrder: 3, isPopular: true },
@@ -209,6 +209,21 @@ export class MemStorage implements IStorage {
       { name: "Rechovot", slug: "rechovot", regionId: 6, displayOrder: 16 },
       { name: "Ashdod", slug: "ashdod", regionId: 6, displayOrder: 17 },
       { name: "Bnei Re'em", slug: "bnei-reem", regionId: 6, displayOrder: 18 },
+      // NEW CATEGORIES (IDs 41-52) - Added at end to maintain backward compatibility
+      // New US city categories for uncategorized locations (IDs 41-47)
+      { name: "Miami", slug: "miami", regionId: 1, displayOrder: 14, stateCode: "FL" },
+      { name: "Chicago", slug: "chicago", regionId: 1, displayOrder: 15, stateCode: "IL" },
+      { name: "Baltimore", slug: "baltimore", regionId: 1, displayOrder: 16, stateCode: "MD" },
+      { name: "Detroit", slug: "detroit", regionId: 1, displayOrder: 17, stateCode: "MI" },
+      { name: "Cleveland", slug: "cleveland", regionId: 1, displayOrder: 18, stateCode: "OH" },
+      { name: "Philadelphia", slug: "philadelphia", regionId: 1, displayOrder: 19, stateCode: "PA" },
+      { name: "Teaneck", slug: "teaneck", regionId: 1, displayOrder: 20, stateCode: "NJ" },
+      // New Israel city categories for uncategorized locations (IDs 48-52)
+      { name: "Kfar Chabad", slug: "kfar-chabad", regionId: 6, displayOrder: 19 },
+      { name: "Tel Aviv", slug: "tel-aviv", regionId: 6, displayOrder: 20 },
+      { name: "Petach Tikvah", slug: "petach-tikvah", regionId: 6, displayOrder: 21 },
+      { name: "Moshav Yesodot", slug: "moshav-yesodot", regionId: 6, displayOrder: 22 },
+      { name: "Shomron", slug: "shomron", regionId: 6, displayOrder: 23 },
     ];
 
     defaultCityCategories.forEach(category => this.createCityCategory(category));
@@ -273,7 +288,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 12,
-
+        cityCategoryId: 41,
         operatorPin: "1234"
       },
       // United States - Illinois
@@ -288,7 +303,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 42,
         operatorPin: "1234"
       },
       // United States - Maryland
@@ -303,7 +318,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 11,
-
+        cityCategoryId: 43,
         operatorPin: "1234"
       },
       {
@@ -317,7 +332,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 43,
         operatorPin: "1234"
       },
       // United States - Michigan
@@ -332,7 +347,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 44,
         operatorPin: "1234"
       },
       // United States - Ohio
@@ -347,7 +362,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 45,
         operatorPin: "1234"
       },
       // United States - Pennsylvania
@@ -362,7 +377,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 9,
-
+        cityCategoryId: 46,
         operatorPin: "1234"
       },
       {
@@ -376,7 +391,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 46,
         operatorPin: "1234"
       },
       // New York - Brooklyn
@@ -1782,7 +1797,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 7,
-
+        cityCategoryId: 48,
         operatorPin: "1234"
       },
       {
@@ -1796,7 +1811,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 49,
         operatorPin: "1234"
       },
       {
@@ -1810,7 +1825,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 6,
-
+        cityCategoryId: 51,
         operatorPin: "1234"
       },
       {
@@ -1824,7 +1839,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 8,
-
+        cityCategoryId: 50,
         operatorPin: "1234"
       },
       {
@@ -1838,7 +1853,7 @@ export class MemStorage implements IStorage {
         regionId: 6,
         isActive: true,
         inventoryCount: 5,
-
+        cityCategoryId: 52,
         operatorPin: "1234"
       },
       // Canada
@@ -2234,7 +2249,7 @@ export class MemStorage implements IStorage {
         regionId: 1,
         isActive: true,
         inventoryCount: 10,
-
+        cityCategoryId: 47,
         operatorPin: "1234"
       },
       // Canada
@@ -3068,7 +3083,8 @@ export class MemStorage implements IStorage {
       regionId: cityCategory.regionId,
       displayOrder: cityCategory.displayOrder ?? 0,
       isPopular: cityCategory.isPopular ?? false,
-      description: cityCategory.description ?? null
+      description: cityCategory.description ?? null,
+      stateCode: cityCategory.stateCode ?? null
     };
     this.cityCategories.set(id, newCategory);
     return newCategory;
