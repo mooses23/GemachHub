@@ -327,7 +327,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid region selected" });
       }
 
-      // Generate unique codes on server
+      // Generate sequential location code (#1, #2, #3, etc.)
+      const nextLocationCode = await storage.getNextLocationCode();
+      
+      // Generate random alphanumeric code for invite codes
       const generateCode = (length: number): string => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let code = '';
@@ -337,10 +340,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return code;
       };
 
-      // Create location data with server-generated code
+      // Create location data with sequential code and ensure cityCategoryId is passed
       const locationDataWithCode = {
         ...req.body,
-        locationCode: generateCode(6),
+        locationCode: nextLocationCode,
       };
 
       const locationData = insertLocationSchema.parse(locationDataWithCode);

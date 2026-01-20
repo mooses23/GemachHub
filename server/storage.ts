@@ -47,6 +47,7 @@ export interface IStorage {
   getLocation(id: number): Promise<Location | undefined>;
   getLocationByCode(code: string): Promise<Location | undefined>;
   getLocationsByRegionId(regionId: number): Promise<Location[]>;
+  getNextLocationCode(): Promise<string>;
   createLocation(location: InsertLocation): Promise<Location>;
   updateLocation(id: number, data: Partial<InsertLocation>): Promise<Location>;
 
@@ -2727,6 +2728,23 @@ export class MemStorage implements IStorage {
     return Array.from(this.locations.values()).find(
       (location) => location.locationCode.toLowerCase() === code.toLowerCase()
     );
+  }
+
+  async getNextLocationCode(): Promise<string> {
+    const locations = Array.from(this.locations.values());
+    let maxNumber = 0;
+    
+    for (const location of locations) {
+      const match = location.locationCode.match(/^#(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+    
+    return `#${maxNumber + 1}`;
   }
 
   async createLocation(insertLocation: InsertLocation): Promise<Location> {
