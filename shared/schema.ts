@@ -128,6 +128,24 @@ export const insertGemachApplicationSchema = createInsertSchema(gemachApplicatio
   message: true,
 });
 
+// Invite Codes schema (for operator registration)
+export const inviteCodes = pgTable("invite_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  locationId: integer("location_id").notNull(),
+  applicationId: integer("application_id"),
+  isUsed: boolean("is_used").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  usedAt: timestamp("used_at"),
+  usedByUserId: integer("used_by_user_id"),
+});
+
+export const insertInviteCodeSchema = createInsertSchema(inviteCodes).pick({
+  code: true,
+  locationId: true,
+  applicationId: true,
+});
+
 // Transaction schema (for deposit tracking)
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
@@ -188,6 +206,9 @@ export type InsertLocation = z.infer<typeof insertLocationSchema>;
 
 export type GemachApplication = typeof gemachApplications.$inferSelect;
 export type InsertGemachApplication = z.infer<typeof insertGemachApplicationSchema>;
+
+export type InviteCode = typeof inviteCodes.$inferSelect;
+export type InsertInviteCode = z.infer<typeof insertInviteCodeSchema>;
 
 export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
