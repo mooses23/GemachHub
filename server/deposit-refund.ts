@@ -5,21 +5,38 @@
 
 import { storage } from "./storage";
 import { DepositSyncService } from "./deposit-sync";
+import type { UserRole } from "./depositService";
 
 export class DepositRefundService {
   /**
    * Processes complete deposit refund when item is returned
    */
-  static async processItemReturn(transactionId: number, returnData: {
-    actualReturnDate: Date;
-    returnNotes?: string;
-    condition?: 'good' | 'damaged' | 'missing';
-    refundAmount?: number;
-  }): Promise<{ transaction: any; refundStatus: string; refundAmount: number }> {
+  static async processItemReturn(
+    transactionId: number,
+    returnData: {
+      actualReturnDate: Date;
+      returnNotes?: string;
+      condition?: 'good' | 'damaged' | 'missing';
+      refundAmount?: number;
+    },
+    userRole: UserRole,
+    userId: number,
+    operatorLocationId?: number
+  ): Promise<{ transaction: any; refundStatus: string; refundAmount: number }> {
     try {
+      if (userRole === 'borrower') {
+        throw new Error('Borrowers cannot process refunds');
+      }
+
       const transaction = await storage.getTransaction(transactionId);
       if (!transaction) {
         throw new Error(`Transaction ${transactionId} not found`);
+      }
+
+      if (userRole === 'operator') {
+        if (operatorLocationId !== undefined && operatorLocationId !== transaction.locationId) {
+          throw new Error('Operator not authorized for this location');
+        }
       }
 
       if (transaction.isReturned) {
@@ -121,13 +138,21 @@ export class DepositRefundService {
   }
 
   /**
-   * Processes bulk refunds for multiple returns
+   * Processes bulk refunds for multiple returns (admin only)
    */
-  static async processBulkRefunds(transactionIds: number[]): Promise<{
+  static async processBulkRefunds(
+    transactionIds: number[],
+    userRole: UserRole,
+    userId: number
+  ): Promise<{
     successful: number;
     failed: number;
     details: Array<{ transactionId: number; status: string; error?: string }>
   }> {
+    if (userRole !== 'admin') {
+      return { successful: 0, failed: transactionIds.length, details: transactionIds.map(id => ({ transactionId: id, status: 'failed', error: 'Only admins can process bulk refunds' })) };
+    }
+
     const results = [];
     let successful = 0;
     let failed = 0;
@@ -137,7 +162,7 @@ export class DepositRefundService {
         await this.processItemReturn(transactionId, {
           actualReturnDate: new Date(),
           returnNotes: 'Bulk return processing'
-        });
+        }, userRole, userId);
         results.push({ transactionId, status: 'success' });
         successful++;
       } catch (error: any) {
