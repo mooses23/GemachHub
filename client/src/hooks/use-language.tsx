@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { translations, TranslationKey } from "@/lib/translations";
 
 type Language = 'en' | 'he';
 
@@ -6,6 +7,7 @@ interface LanguageContextType {
   language: Language;
   toggleLanguage: () => void;
   isHebrew: boolean;
+  t: (key: TranslationKey) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | null>(null);
@@ -33,13 +35,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLanguage(prev => prev === 'en' ? 'he' : 'en');
   };
 
+  const t = useCallback((key: TranslationKey): string => {
+    return translations[language][key] || key;
+  }, [language]);
+
   const isHebrew = language === 'he';
 
   return (
     <LanguageContext.Provider value={{
       language,
       toggleLanguage,
-      isHebrew
+      isHebrew,
+      t
     }}>
       {children}
     </LanguageContext.Provider>
