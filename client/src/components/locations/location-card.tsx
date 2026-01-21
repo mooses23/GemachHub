@@ -1,7 +1,6 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Location } from "@/lib/types";
 import { User, MapPin, Phone, Mail, Package } from "lucide-react";
-import { InventoryByColor } from "@shared/schema";
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -15,16 +14,6 @@ const COLOR_SWATCHES: Record<string, string> = {
   yellow: "#EAB308",
   gray: "#6B7280",
 };
-
-function safeParseInventoryByColor(json: string | null): InventoryByColor {
-  if (!json) return {};
-  try {
-    return JSON.parse(json);
-  } catch (error) {
-    console.error("Failed to parse inventory JSON:", json, error);
-    return {};
-  }
-}
 
 function ColorDot({ color }: { color: string }) {
   const bgColor = COLOR_SWATCHES[color] || "#9CA3AF";
@@ -42,13 +31,12 @@ function ColorDot({ color }: { color: string }) {
 interface LocationCardProps {
   location: Location;
   locationNumber?: number;
+  inventory?: { color: string; quantity: number }[];
+  totalStock?: number;
 }
 
-export function LocationCard({ location, locationNumber }: LocationCardProps) {
-  const inventory: InventoryByColor = safeParseInventoryByColor(location.inventoryByColor);
-  
-  const colorEntries = Object.entries(inventory).filter(([_, qty]) => (qty || 0) > 0);
-  const totalStock = location.inventoryCount || 0;
+export function LocationCard({ location, locationNumber, inventory = [], totalStock = 0 }: LocationCardProps) {
+  const colorEntries = inventory.filter(item => item.quantity > 0).map(item => [item.color, item.quantity] as [string, number]);
   
   return (
     <Card className="hover:shadow-md transition-shadow">

@@ -27,16 +27,6 @@ const COLOR_SWATCHES: Record<string, string> = {
   gray: "#6B7280",
 };
 
-function safeParseInventoryByColor(json: string | null): InventoryByColor {
-  if (!json) return {};
-  try {
-    return JSON.parse(json);
-  } catch (error) {
-    console.error("Failed to parse inventory JSON:", json, error);
-    return {};
-  }
-}
-
 function ColorSwatch({ color, size = "md" }: { color: string; size?: "sm" | "md" | "lg" }) {
   const sizes = { sm: "w-4 h-4", md: "w-6 h-6", lg: "w-10 h-10" };
   const bgColor = COLOR_SWATCHES[color] || "#9CA3AF";
@@ -50,13 +40,11 @@ function ColorSwatch({ color, size = "md" }: { color: string; size?: "sm" | "md"
   );
 }
 
-function StockOverview({ location, onAddStock }: { location: Location; onAddStock: () => void }) {
-  const inventory: InventoryByColor = safeParseInventoryByColor(location.inventoryByColor);
+function StockOverview({ inventory, totalStock, onAddStock }: { inventory: { color: string; quantity: number }[]; totalStock: number; onAddStock: () => void }) {
+  const inventoryByColor = inventory.reduce((acc, item) => ({ ...acc, [item.color]: item.quantity }), {} as InventoryByColor);
   
-  const totalStock = Object.values(inventory).reduce((sum, qty) => sum + (qty || 0), 0);
   const lowStockThreshold = 3;
-  const lowStockColors = Object.entries(inventory).filter(([_, qty]) => (qty || 0) <= lowStockThreshold && (qty || 0) > 0);
-  const outOfStockColors = Object.entries(inventory).filter(([_, qty]) => (qty || 0) === 0);
+  const lowStockColors = Object.entries(inventoryByColor).filter(([_, qty]) => (qty || 0) <= lowStockThreshold && (qty || 0) > 0);
   
   return (
     <Card>
@@ -97,7 +85,7 @@ function StockOverview({ location, onAddStock }: { location: Location; onAddStoc
         )}
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-          {Object.entries(inventory).filter(([_, qty]) => (qty || 0) > 0).map(([color, qty]) => (
+          {Object.entries(inventoryByColor).filter(([_, qty]) => (qty || 0) > 0).map(([color, qty]) => (
             <div key={color} className="flex items-center gap-2 p-2 border rounded-lg">
               <ColorSwatch color={color} />
               <div>
@@ -106,7 +94,7 @@ function StockOverview({ location, onAddStock }: { location: Location; onAddStoc
               </div>
             </div>
           ))}
-          {Object.keys(inventory).length === 0 && (
+          {inventory.length === 0 && (
             <div className="col-span-full text-center py-4 text-muted-foreground">
               No inventory data. Add stock to get started.
             </div>
@@ -194,11 +182,13 @@ function NumericKeypad({ value, onChange, maxValue = 999 }: { value: string; onC
 
 function LendWizard({ 
   location, 
+  inventory,
   onComplete, 
   onCancel,
   transactions = []
 }: { 
   location: Location; 
+  inventory: { color: string; quantity: number }[];
   onComplete: () => void; 
   onCancel: () => void;
   transactions?: Transaction[];
@@ -211,9 +201,7 @@ function LendWizard({
   const [depositAmount, setDepositAmount] = useState(location.depositAmount?.toString() || "20");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
   
-  const inventory: InventoryByColor = safeParseInventoryByColor(location.inventoryByColor);
-  
-  const availableColors = Object.entries(inventory).filter(([_, qty]) => (qty || 0) > 0);
+  const availableColors = inventory.filter(item => item.quantity > 0).map(item => [item.color, item.quantity] as [string, number]);
   
   useEffect(() => {
     if (borrowerPhone.trim()) {
@@ -243,6 +231,7 @@ function LendWizard({
         quantity: 1,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
       toast({ title: "Success!", description: "Headband lent successfully." });
       onComplete();
@@ -488,6 +477,7 @@ function ReturnWizard({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
       toast({ title: "Success!", description: "Return processed successfully." });
       onComplete();
@@ -728,6 +718,7 @@ function AddStockDialog({
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
       toast({ title: "Success!", description: `Added ${quantity} ${selectedColor} headband(s) to stock.` });
       onOpenChange(false);
@@ -843,7 +834,17 @@ export default function OperatorDashboard() {
     enabled: !!operatorLocation?.id,
   });
 
-  if (isOperatorLoading || isTransactionsLoading) {
+  const { data: inventoryData, isLoading: isInventoryLoading } = useQuery<{ inventory: { color: string; quantity: number }[]; total: number }>({
+    queryKey: ["/api/locations", operatorLocation?.id, "inventory"],
+    queryFn: async () => {
+      const res = await fetch(`/api/locations/${operatorLocation?.id}/inventory`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch inventory");
+      return res.json();
+    },
+    enabled: !!operatorLocation?.id,
+  });
+
+  if (isOperatorLoading || isTransactionsLoading || isInventoryLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -914,7 +915,7 @@ export default function OperatorDashboard() {
           <div className="grid gap-4 md:grid-cols-3 mb-6">
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{operatorLocation.inventoryCount || 0}</div>
+                <div className="text-2xl font-bold">{inventoryData?.total || 0}</div>
                 <p className="text-sm text-muted-foreground">Total in Stock</p>
               </CardContent>
             </Card>
@@ -935,7 +936,7 @@ export default function OperatorDashboard() {
           </div>
 
           <TabsContent value="overview" className="space-y-6">
-            <StockOverview location={operatorLocation} onAddStock={() => setShowAddStock(true)} />
+            <StockOverview inventory={inventoryData?.inventory || []} totalStock={inventoryData?.total || 0} onAddStock={() => setShowAddStock(true)} />
             <RecentActivity transactions={transactions} />
           </TabsContent>
 
@@ -944,6 +945,7 @@ export default function OperatorDashboard() {
               <CardContent className="pt-6">
                 <LendWizard
                   location={operatorLocation}
+                  inventory={inventoryData?.inventory || []}
                   transactions={transactions}
                   onComplete={() => setActiveTab("overview")}
                   onCancel={() => setActiveTab("overview")}

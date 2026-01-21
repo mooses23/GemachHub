@@ -9,7 +9,8 @@ import {
   contacts, type Contact, type InsertContact,
   payments, type Payment, type InsertPayment,
   paymentMethods, type PaymentMethod, type InsertPaymentMethod,
-  locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod
+  locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod,
+  inventory, type Inventory, type InsertInventory
 } from "../shared/schema";
 
 // Interface for storage operations
@@ -57,10 +58,11 @@ export interface IStorage {
   createApplication(application: InsertGemachApplication): Promise<GemachApplication>;
   updateApplication(id: number, data: Partial<GemachApplication>): Promise<GemachApplication>;
 
-  // Inventory operations (color-based)
-  updateInventoryByColor(locationId: number, color: string, quantity: number): Promise<Location>;
-  addStock(locationId: number, color: string, quantity: number): Promise<Location>;
-  removeStock(locationId: number, color: string, quantity: number): Promise<Location>;
+  // Inventory operations (using new inventory table)
+  getInventoryByLocation(locationId: number): Promise<Inventory[]>;
+  setInventoryItem(locationId: number, color: string, quantity: number): Promise<Inventory>;
+  adjustInventory(locationId: number, color: string, delta: number): Promise<Inventory>;
+  getInventoryTotal(locationId: number): Promise<number>;
 
   // Transaction operations
   getAllTransactions(): Promise<Transaction[]>;
@@ -110,6 +112,7 @@ export class MemStorage implements IStorage {
   private paymentMethods: Map<number, PaymentMethod>;
   private locationPaymentMethods: Map<number, LocationPaymentMethod>;
   private cityCategories: Map<number, CityCategory>;
+  private inventoryItems: Map<number, Inventory>;
   private validInviteCodes: Set<string>;
 
   private userCounter: number;
@@ -123,6 +126,7 @@ export class MemStorage implements IStorage {
   private paymentMethodCounter: number;
   private locationPaymentMethodCounter: number;
   private cityCategoryCounter: number;
+  private inventoryCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -136,6 +140,7 @@ export class MemStorage implements IStorage {
     this.paymentMethods = new Map();
     this.locationPaymentMethods = new Map();
     this.cityCategories = new Map();
+    this.inventoryItems = new Map();
     this.validInviteCodes = new Set();
 
     this.userCounter = 1;
@@ -149,6 +154,7 @@ export class MemStorage implements IStorage {
     this.paymentMethodCounter = 1;
     this.locationPaymentMethodCounter = 1;
     this.cityCategoryCounter = 1;
+    this.inventoryCounter = 1;
 
     // Initialize with default regions
     this.initializeDefaultData();
@@ -238,7 +244,8 @@ export class MemStorage implements IStorage {
     // Generic invite codes removed - only location-specific invite codes are valid for operator registration
 
     // Add all locations from earmuffsgemach.com with simple numbering
-    const allLocations: InsertLocation[] = [
+    // Using any[] for legacy inventory data compatibility during migration
+    const allLocations: any[] = [
       // United States - California
       {
         name: "Los Angeles - Pico",
@@ -2083,15 +2090,30 @@ export class MemStorage implements IStorage {
       }
     ];
 
-    allLocations.forEach(location => {
-      // Ensure all locations have default values if not specified
+    allLocations.forEach((location: any) => {
+      const { inventoryCount, inventoryByColor, ...locationData } = location;
       const locationWithDefaults = {
-        ...location,
+        ...locationData,
         depositAmount: location.depositAmount || 20,
         paymentMethods: location.paymentMethods || ["cash"],
         processingFeePercent: location.processingFeePercent || 300 // 3.00%
       };
-      this.createLocation(locationWithDefaults);
+      const createdLocation = this.createLocationSync(locationWithDefaults);
+      
+      if (inventoryByColor) {
+        try {
+          const colorInventory = typeof inventoryByColor === 'string' 
+            ? JSON.parse(inventoryByColor) 
+            : inventoryByColor;
+          for (const [color, quantity] of Object.entries(colorInventory)) {
+            this.addInventoryItem(createdLocation.id, color, quantity as number);
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      } else if (inventoryCount) {
+        this.addInventoryItem(createdLocation.id, "black", inventoryCount);
+      }
     });
 
     // Initialize default payment methods
@@ -2335,14 +2357,16 @@ export class MemStorage implements IStorage {
   }
 
   async createLocation(insertLocation: InsertLocation): Promise<Location> {
+    return this.createLocationSync(insertLocation);
+  }
+
+  private createLocationSync(insertLocation: InsertLocation): Location {
     const id = this.locationCounter++;
     const location: Location = { 
       ...insertLocation, 
       id,
       zipCode: insertLocation.zipCode ?? null,
       isActive: insertLocation.isActive ?? true,
-      inventoryCount: insertLocation.inventoryCount ?? null,
-      inventoryByColor: insertLocation.inventoryByColor ?? null,
       cashOnly: insertLocation.cashOnly ?? null,
       depositAmount: insertLocation.depositAmount ?? null,
       paymentMethods: insertLocation.paymentMethods ?? null,
@@ -2352,6 +2376,13 @@ export class MemStorage implements IStorage {
     };
     this.locations.set(id, location);
     return location;
+  }
+
+  private addInventoryItem(locationId: number, color: string, quantity: number): Inventory {
+    const id = this.inventoryCounter++;
+    const item: Inventory = { id, locationId, color, quantity };
+    this.inventoryItems.set(id, item);
+    return item;
   }
 
   async updateLocation(id: number, data: Partial<InsertLocation>): Promise<Location> {
@@ -2365,79 +2396,68 @@ export class MemStorage implements IStorage {
     return updatedLocation;
   }
 
-  // Inventory by color methods
-  async updateInventoryByColor(locationId: number, color: string, quantity: number): Promise<Location> {
-    const location = this.locations.get(locationId);
-    if (!location) {
-      throw new Error(`Location with id ${locationId} not found`);
-    }
-    
-    const currentInventory = location.inventoryByColor ? JSON.parse(location.inventoryByColor) : {};
-    currentInventory[color] = quantity;
-    
-    // Calculate total inventory count
-    const totalCount = Object.values(currentInventory).reduce((sum: number, qty) => sum + (qty as number), 0);
-    
-    const updatedLocation: Location = { 
-      ...location, 
-      inventoryByColor: JSON.stringify(currentInventory),
-      inventoryCount: totalCount
-    };
-    this.locations.set(locationId, updatedLocation);
-    return updatedLocation;
+  // Inventory methods (using inventory table)
+  async getInventoryByLocation(locationId: number): Promise<Inventory[]> {
+    return Array.from(this.inventoryItems.values()).filter(
+      item => item.locationId === locationId
+    );
   }
 
-  async addStock(locationId: number, color: string, quantity: number): Promise<Location> {
+  async setInventoryItem(locationId: number, color: string, quantity: number): Promise<Inventory> {
     const location = this.locations.get(locationId);
     if (!location) {
       throw new Error(`Location with id ${locationId} not found`);
     }
-    
-    const currentInventory = location.inventoryByColor ? JSON.parse(location.inventoryByColor) : {};
-    currentInventory[color] = (currentInventory[color] || 0) + quantity;
-    
-    // Calculate total inventory count
-    const totalCount = Object.values(currentInventory).reduce((sum: number, qty) => sum + (qty as number), 0);
-    
-    const updatedLocation: Location = { 
-      ...location, 
-      inventoryByColor: JSON.stringify(currentInventory),
-      inventoryCount: totalCount
-    };
-    this.locations.set(locationId, updatedLocation);
-    return updatedLocation;
+
+    const existing = Array.from(this.inventoryItems.values()).find(
+      item => item.locationId === locationId && item.color === color
+    );
+
+    if (existing) {
+      const updated: Inventory = { ...existing, quantity };
+      this.inventoryItems.set(existing.id, updated);
+      return updated;
+    }
+
+    const id = this.inventoryCounter++;
+    const newItem: Inventory = { id, locationId, color, quantity };
+    this.inventoryItems.set(id, newItem);
+    return newItem;
   }
 
-  async removeStock(locationId: number, color: string, quantity: number): Promise<Location> {
+  async adjustInventory(locationId: number, color: string, delta: number): Promise<Inventory> {
     const location = this.locations.get(locationId);
     if (!location) {
       throw new Error(`Location with id ${locationId} not found`);
     }
-    
-    const currentInventory = location.inventoryByColor ? JSON.parse(location.inventoryByColor) : {};
-    const currentQty = currentInventory[color] || 0;
-    
-    if (currentQty < quantity) {
-      throw new Error(`Insufficient stock for color ${color}. Available: ${currentQty}, Requested: ${quantity}`);
+
+    const existing = Array.from(this.inventoryItems.values()).find(
+      item => item.locationId === locationId && item.color === color
+    );
+
+    if (existing) {
+      const newQuantity = existing.quantity + delta;
+      if (newQuantity < 0) {
+        throw new Error(`Insufficient stock for color ${color}. Available: ${existing.quantity}, Requested: ${-delta}`);
+      }
+      const updated: Inventory = { ...existing, quantity: newQuantity };
+      this.inventoryItems.set(existing.id, updated);
+      return updated;
     }
-    
-    currentInventory[color] = currentQty - quantity;
-    
-    // Remove color if quantity is 0
-    if (currentInventory[color] === 0) {
-      delete currentInventory[color];
+
+    if (delta < 0) {
+      throw new Error(`Insufficient stock for color ${color}. Available: 0, Requested: ${-delta}`);
     }
-    
-    // Calculate total inventory count
-    const totalCount = Object.values(currentInventory).reduce((sum: number, qty) => sum + (qty as number), 0);
-    
-    const updatedLocation: Location = { 
-      ...location, 
-      inventoryByColor: JSON.stringify(currentInventory),
-      inventoryCount: totalCount
-    };
-    this.locations.set(locationId, updatedLocation);
-    return updatedLocation;
+
+    const id = this.inventoryCounter++;
+    const newItem: Inventory = { id, locationId, color, quantity: delta };
+    this.inventoryItems.set(id, newItem);
+    return newItem;
+  }
+
+  async getInventoryTotal(locationId: number): Promise<number> {
+    const items = await this.getInventoryByLocation(locationId);
+    return items.reduce((sum, item) => sum + item.quantity, 0);
   }
 
   // GemachApplication methods
