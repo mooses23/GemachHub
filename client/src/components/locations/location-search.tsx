@@ -172,7 +172,7 @@ function LocationCard({ location, locationNumber }: LocationCardProps) {
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="text-center">
             <span className="text-xs text-gray-500">
-              {location.inventoryCount} units available
+              Items available
             </span>
           </div>
         </div>

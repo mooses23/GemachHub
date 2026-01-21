@@ -195,7 +195,6 @@ export default function AdminLocations() {
                     <TableHead className="min-w-[200px]">Name</TableHead>
                     <TableHead className="min-w-[180px] hidden md:table-cell">Contact Person</TableHead>
                     <TableHead className="min-w-[120px] hidden lg:table-cell">Region</TableHead>
-                    <TableHead className="min-w-[100px] hidden sm:table-cell">Inventory</TableHead>
                     <TableHead className="min-w-[80px]">Status</TableHead>
                     <TableHead className="min-w-[80px]">Actions</TableHead>
                   </TableRow>
@@ -225,9 +224,6 @@ export default function AdminLocations() {
                         <TableCell className="hidden lg:table-cell">
                           {getRegionNameById(location.regionId)}
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Badge variant="outline">{location.inventoryCount}</Badge>
-                        </TableCell>
                         <TableCell>
                           <Switch
                             checked={Boolean(location.isActive)}
@@ -256,7 +252,7 @@ export default function AdminLocations() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={5} className="text-center py-8">
                         {searchTerm ? (
                           <div className="space-y-2">
                             <p className="text-muted-foreground">No locations found matching your search.</p>

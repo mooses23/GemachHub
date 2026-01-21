@@ -90,14 +90,6 @@ export class DepositDetectionService {
       // Send confirmation email
       await EmailNotificationService.notifyDepositConfirmed(payment, transaction);
 
-      // Update location inventory if applicable
-      const location = await storage.getLocation(transaction.locationId);
-      if (location && location.inventoryCount > 0) {
-        await storage.updateLocation(transaction.locationId, {
-          inventoryCount: location.inventoryCount - 1
-        });
-      }
-
       console.log(`Payment ${payment.id} successfully accepted and processed`);
     } catch (error) {
       console.error('Error handling accepted payment:', error);

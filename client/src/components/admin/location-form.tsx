@@ -50,7 +50,6 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
       email: location.email || "",
       regionId: location.regionId || 1,
       isActive: location.isActive ?? true,
-      inventoryCount: location.inventoryCount || 5,
       cashOnly: location.cashOnly || false,
       depositAmount: location.depositAmount || 20,
       processingFeePercent: location.processingFeePercent || 300,
@@ -64,7 +63,6 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
       email: "",
       regionId: regions[0]?.id || 1,
       isActive: true,
-      inventoryCount: 5,
       cashOnly: false,
       depositAmount: 20,
       processingFeePercent: 300,
@@ -264,25 +262,6 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
                   ))}
                 </SelectContent>
               </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="inventoryCount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Inventory Count</FormLabel>
-              <FormControl>
-                <Input 
-                  type="number" 
-                  min="0" 
-                  value={field.value || 0}
-                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)} 
-                />
-              </FormControl>
               <FormMessage />
             </FormItem>
           )}

@@ -123,7 +123,6 @@ export default function AdminApplications() {
       cityCategoryId: null,
       operatorPin: "1234",
       isActive: true,
-      inventoryCount: 0,
       cashOnly: false,
       depositAmount: 20,
       paymentMethods: ["cash"],
@@ -228,7 +227,6 @@ export default function AdminApplications() {
       cityCategoryId: matchedCityCategoryId,
       operatorPin: "1234",
       isActive: true,
-      inventoryCount: 0,
       cashOnly: false,
       depositAmount: 20,
       paymentMethods: ["cash"],
@@ -757,7 +755,7 @@ export default function AdminApplications() {
                       )}
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       <FormField
                         control={form.control}
                         name="depositAmount"
@@ -770,25 +768,6 @@ export default function AdminApplications() {
                                 type="number" 
                                 value={field.value ?? 20}
                                 onChange={(e) => field.onChange(parseInt(e.target.value) || 20)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="inventoryCount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Initial Inventory</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field} 
-                                type="number" 
-                                value={field.value ?? 0}
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                               />
                             </FormControl>
                             <FormMessage />
