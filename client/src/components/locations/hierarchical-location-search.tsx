@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Phone, Mail, MapPin, ChevronRight, ArrowLeft, Home } from "lucide-react";
+import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -444,12 +444,60 @@ export function HierarchicalLocationSearch() {
   );
 }
 
+const COLOR_SWATCHES: Record<string, string> = {
+  red: "#EF4444",
+  blue: "#3B82F6",
+  black: "#1F2937",
+  white: "#F9FAFB",
+  pink: "#EC4899",
+  purple: "#8B5CF6",
+  green: "#22C55E",
+  orange: "#F97316",
+  yellow: "#EAB308",
+  gray: "#6B7280",
+};
+
+function InventoryCircle({ color, quantity }: { color: string; quantity: number }) {
+  const bgColor = COLOR_SWATCHES[color] || "#9CA3AF";
+  const isLight = color === "white" || color === "yellow";
+  
+  return (
+    <div 
+      className="relative w-6 h-6 rounded-full flex items-center justify-center"
+      style={{ 
+        backgroundColor: bgColor,
+        boxShadow: `inset 0 2px 4px rgba(255,255,255,0.3), inset 0 -2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.1)`,
+        border: isLight ? '1px solid #d1d5db' : 'none'
+      }}
+      title={`${color}: ${quantity}`}
+    >
+      <span 
+        className={`text-[9px] font-bold ${isLight ? 'text-gray-700' : 'text-white'}`}
+        style={{ textShadow: isLight ? 'none' : '0 1px 1px rgba(0,0,0,0.3)' }}
+      >
+        {quantity}
+      </span>
+    </div>
+  );
+}
+
 interface LocationCardProps {
   location: Location;
   region: Region;
 }
 
 function LocationCard({ location, region }: LocationCardProps) {
+  const { data: inventoryData } = useQuery<{ inventory: { color: string; quantity: number }[]; total: number }>({
+    queryKey: ["/api/locations", location.id, "inventory"],
+    queryFn: async () => {
+      const res = await fetch(`/api/locations/${location.id}/inventory`);
+      if (!res.ok) return { inventory: [], total: 0 };
+      return res.json();
+    },
+  });
+
+  const inventory = inventoryData?.inventory?.filter(item => item.quantity > 0) || [];
+
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 border-2 hover:border-blue-200">
       <CardContent className="p-6">
@@ -476,8 +524,16 @@ function LocationCard({ location, region }: LocationCardProps) {
           </div>
           
           <div className="flex items-center">
-            <Mail className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-            <p className="text-sm text-gray-600 truncate">{location.email}</p>
+            <Package className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+            {inventory.length > 0 ? (
+              <div className="flex items-center gap-1 flex-wrap">
+                {inventory.map(item => (
+                  <InventoryCircle key={item.color} color={item.color} quantity={item.quantity} />
+                ))}
+              </div>
+            ) : (
+              <span className="text-sm text-gray-400">No stock info</span>
+            )}
           </div>
         </div>
         
