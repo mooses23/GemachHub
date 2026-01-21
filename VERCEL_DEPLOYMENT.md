@@ -14,8 +14,11 @@ Add these environment variables in the Vercel dashboard (Project Settings > Envi
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host/db?sslmode=require` |
-| `SESSION_SECRET` | Secret key for session encryption | A random 32+ character string |
+| `DATABASE_URL` | PostgreSQL connection string (must include `?sslmode=require`) | `postgresql://user:pass@host/db?sslmode=require` |
+| `SESSION_SECRET` | **REQUIRED** - Secret key for session encryption | A random 32+ character string |
+| `NODE_ENV` | Set to `production` for Vercel deployment | `production` |
+
+**Important:** `SESSION_SECRET` is **mandatory** in production. The application will fail to start without it. Generate a secure secret with: `openssl rand -base64 32`
 
 ### Optional Variables (for payment processing)
 

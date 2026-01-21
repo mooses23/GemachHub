@@ -35,22 +35,23 @@ app.post(
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  const status = err.status || err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-  res.status(status).json({ message });
-});
-
-let routesRegistered = false;
-async function ensureRoutesRegistered() {
-  if (!routesRegistered) {
-    await registerRoutes(app);
-    routesRegistered = true;
-  }
-}
+let initialized = false;
+const initPromise = (async () => {
+  await registerRoutes(app);
+  
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    res.status(status).json({ message });
+  });
+  
+  initialized = true;
+})();
 
 const handler = async (req: Request, res: Response) => {
-  await ensureRoutesRegistered();
+  if (!initialized) {
+    await initPromise;
+  }
   return app(req, res);
 };
 
