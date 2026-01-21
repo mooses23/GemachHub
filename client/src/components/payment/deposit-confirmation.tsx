@@ -35,7 +35,7 @@ export function DepositConfirmation({ payment, onConfirmed }: DepositConfirmatio
 
   const confirmPaymentMutation = useMutation({
     mutationFn: async (data: { confirmationCode?: string; notes?: string; confirmed: boolean }) => {
-      const response = await apiRequest("POST", `/api/payments/${payment.id}/confirm`, data);
+      const response = await apiRequest("POST", `/api/deposits/${payment.id}/confirm`, data);
       return response.json();
     },
     onSuccess: () => {
@@ -45,6 +45,7 @@ export function DepositConfirmation({ payment, onConfirmed }: DepositConfirmatio
       });
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deposits/pending"] });
       onConfirmed?.();
     },
     onError: (error: Error) => {
@@ -58,7 +59,10 @@ export function DepositConfirmation({ payment, onConfirmed }: DepositConfirmatio
 
   const rejectPaymentMutation = useMutation({
     mutationFn: async (data: { notes?: string }) => {
-      const response = await apiRequest("POST", `/api/payments/${payment.id}/reject`, data);
+      const response = await apiRequest("POST", `/api/deposits/${payment.id}/confirm`, {
+        ...data,
+        confirmed: false
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -69,6 +73,7 @@ export function DepositConfirmation({ payment, onConfirmed }: DepositConfirmatio
       });
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deposits/pending"] });
       onConfirmed?.();
     },
     onError: (error: Error) => {
