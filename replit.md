@@ -123,6 +123,31 @@ The operator dashboard (`/operator/dashboard`) provides a redesigned interface f
 2. Refund Options - Full or partial refund with damage deductions
 3. Confirmation - Refund amount and details before processing
 
+### Refund System
+The refund system is aligned with the deposit system's role-based access control:
+
+**Role Hierarchy:**
+- **Borrowers** - Cannot process refunds (explicitly blocked)
+- **Operators** - Can only process refunds for transactions at their assigned location
+- **Admins** - Can process refunds for any transaction globally
+
+**Unified Refund API:**
+- `PATCH /api/transactions/:id/return` - Process item return with refund
+  - Request: `{ refundAmount?, notes?, condition? }`
+  - Returns: Updated transaction and refund status
+  - Protected by role-based access control
+
+**Refund Processing Service:**
+- `DepositRefundService` (server/deposit-refund.ts) handles refund logic
+- Accepts userRole, userId, operatorLocationId for authorization
+- Supports partial refunds with custom amounts
+- Supports bulk refunds (admin only)
+
+**Admin Refund Oversight:**
+- Admin transactions page (`/admin/transactions`) shows all refunds
+- Refund column displays amount and status (Full/Partial/None)
+- Admins can process refunds with custom amounts via refund dialog
+
 **Transaction Fields:**
 - `headbandColor` - Color of lent headband
 - `depositPaymentMethod` - "cash" or "card"
