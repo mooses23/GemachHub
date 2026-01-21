@@ -70,7 +70,9 @@ Key entities: Users, Regions, CityCategories, Locations, Transactions, Payments,
 The operator dashboard (`/operator/dashboard`) provides a redesigned interface for managing headband lending:
 
 **Inventory Management:**
-- Color-based inventory tracking (JSON field `inventoryByColor` on locations)
+- Color-based inventory tracking via dedicated `inventory` table (normalized database structure)
+- Each inventory record has: locationId, color, quantity
+- API endpoint: GET/POST/DELETE `/api/locations/:id/inventory`
 - Visual color swatches for red, blue, black, white, pink, purple, green, orange, yellow, gray
 - Low stock alerts for colors with ≤3 items
 - Add Stock dialog to log incoming inventory by color
