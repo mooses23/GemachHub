@@ -87,10 +87,15 @@ export const updateTransaction = async (id: number, data: Partial<InsertTransact
   return apiRequest("PATCH", `/api/transactions/${id}`, data);
 };
 
-export const markTransactionReturned = async (id: number) => {
+export const markTransactionReturned = async (
+  id: number, 
+  options?: { refundAmount?: number; notes?: string }
+) => {
   return apiRequest("PATCH", `/api/transactions/${id}/return`, {
     isReturned: true,
     actualReturnDate: new Date(),
+    ...(options?.refundAmount !== undefined && { refundAmount: options.refundAmount }),
+    ...(options?.notes && { notes: options.notes }),
   });
 };
 

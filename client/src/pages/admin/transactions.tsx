@@ -23,6 +23,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -38,6 +39,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { 
   Plus, 
   Search, 
@@ -50,7 +54,9 @@ import {
   Phone,
   ArrowLeft,
   Home,
-  AlertCircle 
+  AlertCircle,
+  DollarSign,
+  RefreshCw
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -68,6 +74,13 @@ export default function AdminTransactions() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "returned">("all");
+  
+  const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
+  const [refundTransaction, setRefundTransaction] = useState<Transaction | null>(null);
+  const [isFullRefund, setIsFullRefund] = useState(true);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundNotes, setRefundNotes] = useState("");
+  const [confirmStep, setConfirmStep] = useState(false);
 
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
@@ -78,13 +91,15 @@ export default function AdminTransactions() {
   });
 
   const markReturnedMutation = useMutation({
-    mutationFn: (id: number) => markTransactionReturned(id),
+    mutationFn: ({ id, refundAmount, notes }: { id: number; refundAmount?: number; notes?: string }) => 
+      markTransactionReturned(id, { refundAmount, notes }),
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Earmuffs have been marked as returned and deposit refunded.",
+        description: "Earmuffs have been marked as returned and refund processed.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      closeRefundDialog();
     },
     onError: (error) => {
       toast({
@@ -95,8 +110,34 @@ export default function AdminTransactions() {
     },
   });
 
-  const handleMarkReturned = (id: number) => {
-    markReturnedMutation.mutate(id);
+  const openRefundDialog = (transaction: Transaction) => {
+    setRefundTransaction(transaction);
+    setIsFullRefund(true);
+    setRefundAmount(transaction.depositAmount?.toString() || "0");
+    setRefundNotes("");
+    setConfirmStep(false);
+    setIsRefundDialogOpen(true);
+  };
+
+  const closeRefundDialog = () => {
+    setIsRefundDialogOpen(false);
+    setRefundTransaction(null);
+    setIsFullRefund(true);
+    setRefundAmount("");
+    setRefundNotes("");
+    setConfirmStep(false);
+  };
+
+  const handleProcessRefund = () => {
+    if (!refundTransaction) return;
+    
+    const amount = isFullRefund ? refundTransaction.depositAmount : parseFloat(refundAmount);
+    
+    markReturnedMutation.mutate({
+      id: refundTransaction.id,
+      refundAmount: amount || 0,
+      notes: refundNotes || undefined,
+    });
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
@@ -114,8 +155,18 @@ export default function AdminTransactions() {
     return location ? location.name : "Unknown";
   };
 
+  const getRefundStatus = (transaction: Transaction) => {
+    if (!transaction.isReturned) return null;
+    
+    const refund = transaction.refundAmount ?? 0;
+    const deposit = transaction.depositAmount ?? 0;
+    
+    if (refund === 0) return "none";
+    if (refund >= deposit) return "full";
+    return "partial";
+  };
+
   const filteredTransactions = transactions.filter(transaction => {
-    // Apply status filter
     if (filterStatus === "active" && transaction.isReturned) return false;
     if (filterStatus === "returned" && !transaction.isReturned) return false;
     
@@ -133,7 +184,6 @@ export default function AdminTransactions() {
   return (
     <div className="py-10">
       <div className="container mx-auto px-4">
-        {/* Navigation Breadcrumbs */}
         <div className="flex items-center gap-2 mb-6">
           <Button 
             variant="ghost" 
@@ -233,6 +283,7 @@ export default function AdminTransactions() {
                     <TableHead>Borrower</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Deposit</TableHead>
+                    <TableHead>Refund</TableHead>
                     <TableHead>Dates</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -244,6 +295,8 @@ export default function AdminTransactions() {
                       const isOverdue = !transaction.isReturned && 
                         transaction.expectedReturnDate && 
                         new Date(transaction.expectedReturnDate) < new Date();
+                      
+                      const refundStatus = getRefundStatus(transaction);
                         
                       return (
                         <TableRow key={transaction.id}>
@@ -270,6 +323,33 @@ export default function AdminTransactions() {
                           </TableCell>
                           <TableCell>
                             <Badge variant="secondary">${transaction.depositAmount}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {transaction.isReturned ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <DollarSign className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-medium">${transaction.refundAmount ?? 0}</span>
+                                </div>
+                                {refundStatus === "full" && (
+                                  <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                    Full Refund
+                                  </Badge>
+                                )}
+                                {refundStatus === "partial" && (
+                                  <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                                    Partial
+                                  </Badge>
+                                )}
+                                {refundStatus === "none" && (
+                                  <Badge variant="outline" className="text-muted-foreground">
+                                    No Refund
+                                  </Badge>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center">
@@ -304,9 +384,15 @@ export default function AdminTransactions() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={transaction.isReturned ? "success" : "warning"}>
-                              {transaction.isReturned ? "Returned" : "Active"}
-                            </Badge>
+                            {transaction.isReturned ? (
+                              <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                Returned
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                                Active
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             <DropdownMenu>
@@ -324,7 +410,7 @@ export default function AdminTransactions() {
                                   Edit Details
                                 </DropdownMenuItem>
                                 {!transaction.isReturned && (
-                                  <DropdownMenuItem onClick={() => handleMarkReturned(transaction.id)}>
+                                  <DropdownMenuItem onClick={() => openRefundDialog(transaction)}>
                                     <RotateCw className="mr-2 h-4 w-4" />
                                     Mark as Returned
                                   </DropdownMenuItem>
@@ -337,7 +423,7 @@ export default function AdminTransactions() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={7} className="text-center py-8">
                         {searchTerm || filterStatus !== "all" ? (
                           <p className="text-muted-foreground">No transactions found matching your search criteria.</p>
                         ) : (
@@ -352,7 +438,6 @@ export default function AdminTransactions() {
           </CardContent>
         </Card>
 
-        {/* Edit Transaction Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
@@ -368,6 +453,153 @@ export default function AdminTransactions() {
                 onSuccess={closeEditDialog}
               />
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
+          <DialogContent className="sm:max-w-[450px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Process Refund
+              </DialogTitle>
+              <DialogDescription>
+                Mark earmuffs as returned and process the deposit refund.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {refundTransaction && !confirmStep && (
+              <div className="space-y-6 py-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-muted-foreground">Borrower</span>
+                    <span className="font-medium">{refundTransaction.borrowerName}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Original Deposit</span>
+                    <span className="font-bold text-lg">${refundTransaction.depositAmount}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="full-refund" className="flex flex-col gap-1">
+                    <span>Full Refund</span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      Refund the entire deposit amount
+                    </span>
+                  </Label>
+                  <Switch
+                    id="full-refund"
+                    checked={isFullRefund}
+                    onCheckedChange={(checked) => {
+                      setIsFullRefund(checked);
+                      if (checked) {
+                        setRefundAmount(refundTransaction.depositAmount?.toString() || "0");
+                      }
+                    }}
+                  />
+                </div>
+
+                {!isFullRefund && (
+                  <div className="space-y-2">
+                    <Label htmlFor="refund-amount">Refund Amount</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="refund-amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={refundTransaction.depositAmount || 0}
+                        placeholder="Enter refund amount"
+                        className="pl-9"
+                        value={refundAmount}
+                        onChange={(e) => setRefundAmount(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Max refund: ${refundTransaction.depositAmount}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="refund-notes">Notes (Optional)</Label>
+                  <Textarea
+                    id="refund-notes"
+                    placeholder="Reason for refund amount, condition of returned item, etc."
+                    value={refundNotes}
+                    onChange={(e) => setRefundNotes(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+
+            {refundTransaction && confirmStep && (
+              <div className="space-y-4 py-4">
+                <div className="p-4 bg-muted rounded-lg space-y-3">
+                  <h4 className="font-semibold">Confirm Refund Details</h4>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Borrower</span>
+                    <span className="font-medium">{refundTransaction.borrowerName}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Original Deposit</span>
+                    <span>${refundTransaction.depositAmount}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-t pt-2">
+                    <span className="text-sm font-medium">Refund Amount</span>
+                    <span className="font-bold text-lg text-green-600">
+                      ${isFullRefund ? refundTransaction.depositAmount : refundAmount}
+                    </span>
+                  </div>
+                  {!isFullRefund && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Retained</span>
+                      <span className="text-amber-600">
+                        ${((refundTransaction.depositAmount || 0) - parseFloat(refundAmount || "0")).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {refundNotes && (
+                    <div className="border-t pt-2">
+                      <span className="text-sm text-muted-foreground">Notes:</span>
+                      <p className="text-sm mt-1">{refundNotes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2">
+              {!confirmStep ? (
+                <>
+                  <Button variant="outline" onClick={closeRefundDialog}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => setConfirmStep(true)}
+                    disabled={!isFullRefund && (!refundAmount || parseFloat(refundAmount) < 0)}
+                  >
+                    Review Refund
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setConfirmStep(false)}>
+                    Back
+                  </Button>
+                  <Button 
+                    onClick={handleProcessRefund}
+                    disabled={markReturnedMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {markReturnedMutation.isPending ? "Processing..." : "Confirm & Process Refund"}
+                  </Button>
+                </>
+              )}
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
