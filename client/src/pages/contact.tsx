@@ -2,8 +2,11 @@ import { useEffect } from "react";
 import { ContactForm } from "@/components/contact/contact-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Share2, Clock } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function Contact() {
+  const { t } = useLanguage();
+
   useEffect(() => {
     document.title = "Contact Baby Banz Earmuffs Gemach | Get In Touch";
   }, []);
@@ -13,9 +16,9 @@ export default function Contact() {
       <section className="py-16 bg-primary/10">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold text-neutral-800 mb-4">Contact Us</h1>
+            <h1 className="text-3xl font-bold text-neutral-800 mb-4">{t("contactUs")}</h1>
             <p className="text-lg text-neutral-600 max-w-3xl mx-auto">
-              Have questions or need assistance? We're here to help.
+              {t("contactDescription")}
             </p>
           </div>
           
@@ -27,7 +30,7 @@ export default function Contact() {
                   <div className="mb-4 text-primary text-3xl">
                     <Mail className="h-8 w-8 mx-auto" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Email Us</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t("emailUs")}</h3>
                   <p className="text-neutral-600">
                     <a href="mailto:earmuffsgemach@gmail.com" className="hover:text-primary transition-colors">earmuffsgemach@gmail.com</a>
                   </p>
@@ -40,7 +43,7 @@ export default function Contact() {
                   <div className="mb-4 text-primary text-3xl">
                     <Share2 className="h-8 w-8 mx-auto" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Follow Us</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t("followUs")}</h3>
                   <div className="flex justify-center space-x-4">
                     <a href="https://instagram.com" className="text-2xl text-neutral-600 hover:text-primary transition-colors" aria-label="Instagram">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
@@ -67,9 +70,9 @@ export default function Contact() {
                   <div className="mb-4 text-primary text-3xl">
                     <Clock className="h-8 w-8 mx-auto" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Response Hours</h3>
+                  <h3 className="text-xl font-semibold mb-2">{t("responseHours")}</h3>
                   <p className="text-neutral-600">
-                    We typically respond to inquiries within 24-48 hours, excluding Shabbat and Jewish holidays.
+                    {t("responseHoursDescription")}
                   </p>
                 </CardContent>
               </Card>
@@ -77,7 +80,7 @@ export default function Contact() {
             
             <Card>
               <CardContent className="pt-6">
-                <h3 className="text-xl font-semibold mb-6">Send Us a Message</h3>
+                <h3 className="text-xl font-semibold mb-6">{t("sendUsMessage")}</h3>
                 <ContactForm />
               </CardContent>
             </Card>
