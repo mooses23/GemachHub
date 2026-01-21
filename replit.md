@@ -30,7 +30,7 @@ The frontend follows a pages-based structure under `client/src/pages/` with reus
 - **Language**: TypeScript with ESM modules
 - **API Pattern**: REST endpoints under `/api/` prefix
 - **Authentication**: Passport.js with local strategy, session-based auth using express-session
-- **Session Storage**: MemoryStore (development) with connect-pg-simple available for production
+- **Session Storage**: PostgreSQL via connect-pg-simple (supports serverless deployments)
 
 The server uses a modular structure with specialized services:
 - `routes.ts` - Main API route definitions
@@ -171,8 +171,8 @@ The refund system is aligned with the deposit system's role-based access control
 - **PayPal**: `@paypal/paypal-server-sdk` for server-side PayPal integration
 
 ### Database
-- **Neon**: `@neondatabase/serverless` - Serverless PostgreSQL driver
-- **Drizzle ORM**: Database queries and schema management
+- **PostgreSQL**: Using pg Pool driver with Drizzle ORM
+- **Storage**: DatabaseStorage class (`server/databaseStorage.ts`) - 50+ methods implementing IStorage interface
 - Requires `DATABASE_URL` environment variable
 
 ### Email (Prepared but not connected)
@@ -180,8 +180,22 @@ The refund system is aligned with the deposit system's role-based access control
 - Requires SMTP or email service credentials (SendGrid, AWS SES) to activate
 
 ### Environment Variables Required
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - PostgreSQL connection string (must include `?sslmode=require` for production)
+- `SESSION_SECRET` - Express session secret (**REQUIRED** in production)
 - `STRIPE_SECRET_KEY` - Stripe API secret (for payment processing)
-- `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` - PayPal credentials
-- `SESSION_SECRET` - Express session secret (optional, has default)
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
+- `VITE_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key (for frontend)
 - `ADMIN_EMAIL` - For admin notifications
+
+## Vercel Deployment
+
+This application is configured for Vercel deployment. See `VERCEL_DEPLOYMENT.md` for complete instructions.
+
+Key files:
+- `vercel.json` - Vercel configuration with rewrites for API and SPA
+- `api/index.ts` - Serverless entry point for Express API
+- `server/seed.ts` - Database seeding script
+
+Default credentials after seeding:
+- Admin: username=admin, password=admin123
+- Operator (Brooklyn): username=brooklyn, password=gemach123

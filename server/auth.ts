@@ -75,12 +75,19 @@ export async function createTestUsers() {
 export function setupAuth(app: Express) {
   const PgSession = connectPgSimple(session);
   
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  if (isProduction && !process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is required in production");
+  }
+  
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
+    ssl: isProduction ? { rejectUnauthorized: false } : undefined,
   });
   
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "gemach-app-secret-key-change-in-prod",
+    secret: process.env.SESSION_SECRET || "gemach-dev-secret-key",
     resave: false,
     saveUninitialized: false,
     store: new PgSession({
