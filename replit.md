@@ -66,6 +66,41 @@ Key entities: Users, Regions, CityCategories, Locations, Transactions, Payments,
 - Payment status monitoring and webhook handling
 - Audit trail for compliance
 
+### Unified Deposit System
+The deposit system uses a centralized backend service (`server/depositService.ts`) with strict role-based access control:
+
+**Role Hierarchy:**
+- **Borrowers** - Can only submit deposit payments (via Self Deposit form at `/`)
+- **Operators** - Can confirm/reject payments only for their assigned location
+- **Admins** - Can confirm/reject all payments globally
+
+**Unified API Endpoints:**
+- `GET /api/stripe/publishable-key` - Fetch Stripe publishable key for frontend
+- `POST /api/deposits/initiate` - Create transaction and initiate payment
+  - Request: `{ locationId, borrowerName, borrowerEmail, borrowerPhone?, paymentMethod }`
+  - For Stripe: Returns `{ clientSecret, publishableKey }` for Stripe Elements
+  - For cash: Returns `{ paymentId }` with "confirming" status
+- `POST /api/deposits/:paymentId/confirm` - Confirm or reject a payment (operators/admins only)
+  - Request: `{ confirmed: boolean, notes?: string }`
+- `POST /api/deposits/bulk-confirm-v2` - Bulk confirm multiple payments
+  - Request: `{ paymentIds: number[] }`
+- `GET /api/deposits/pending` - Get pending payments for current user's role
+- `POST /api/deposits/:transactionId/refund` - Process refund for completed transaction
+
+**Stripe Integration:**
+- Uses Replit Stripe connector for API key management
+- Stripe webhook registered BEFORE express.json() middleware (requires raw Buffer)
+- Webhook endpoint: `POST /api/stripe/webhook`
+- Frontend uses Stripe Elements (`@stripe/react-stripe-js`) for secure payment collection
+- Key files: `server/stripeClient.ts`, `server/webhookHandlers.ts`, `client/src/components/payment/stripe-checkout.tsx`
+
+**Payment Flow:**
+1. Borrower submits deposit form on homepage
+2. Backend creates transaction and PaymentIntent (Stripe) or payment record (cash)
+3. For Stripe: Frontend renders Stripe Elements with clientSecret
+4. Payment confirmed via webhook (Stripe) or manual confirmation (cash)
+5. Operator/admin confirms payment in Payment Confirmations page
+
 ### Operator Dashboard Features
 The operator dashboard (`/operator/dashboard`) provides a redesigned interface for managing headband lending:
 
