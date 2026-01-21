@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "vite build",
   "outputDirectory": "dist/public",
-  "installCommand": "npm install",
+  "installCommand": "npm install --legacy-peer-deps",
   "framework": null,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
