@@ -1,7 +1,9 @@
 import { Link } from "wouter";
 import { HierarchicalLocationSearch } from "@/components/locations/hierarchical-location-search";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function Home() {
+  const { t } = useLanguage();
   return (
     <>
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -14,11 +16,10 @@ export default function Home() {
           <div className="relative z-10 container mx-auto px-4 py-16">
             <div className="text-center max-w-4xl mx-auto mb-12">
               <h1 className="text-5xl font-bold text-gray-900 mb-6">
-                Find Baby Earmuffs Near You
+                {t("findBabyEarmuffsNearYou")}
               </h1>
               <p className="text-xl text-gray-600 mb-8">
-                Protect your baby's hearing with our global gemach network. 
-                Search by zip code, city, or location code to find the nearest location.
+                {t("homeHeroDescription")}
               </p>
             </div>
 
@@ -34,10 +35,10 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                How It Works
+                {t("howItWorks")}
               </h2>
               <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                Our gemach network makes it easy to protect your baby's hearing at events and gatherings.
+                {t("howItWorksDescription")}
               </p>
             </div>
             
@@ -46,9 +47,9 @@ export default function Home() {
                 <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">🔍</span>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Find a Location</h3>
+                <h3 className="text-xl font-semibold mb-2">{t("findALocation")}</h3>
                 <p className="text-gray-600">
-                  Search for the nearest gemach location using our search tool above.
+                  {t("findLocationDescription")}
                 </p>
               </div>
               
@@ -56,9 +57,9 @@ export default function Home() {
                 <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">📞</span>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Contact & Reserve</h3>
+                <h3 className="text-xl font-semibold mb-2">{t("contactAndReserve")}</h3>
                 <p className="text-gray-600">
-                  Call or message the location coordinator to reserve earmuffs for your event.
+                  {t("contactReserveDescription")}
                 </p>
               </div>
               
@@ -66,9 +67,9 @@ export default function Home() {
                 <div className="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">👶</span>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Protect & Return</h3>
+                <h3 className="text-xl font-semibold mb-2">{t("protectAndReturn")}</h3>
                 <p className="text-gray-600">
-                  Use the earmuffs to protect your baby's hearing and return them when done.
+                  {t("protectReturnDescription")}
                 </p>
               </div>
             </div>
@@ -79,14 +80,14 @@ export default function Home() {
         <div className="bg-blue-900 text-white py-16">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl font-bold mb-4">
-              Want to Open a Location?
+              {t("wantToOpenLocation")}
             </h2>
             <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-              Help expand our network by opening a gemach location in your community.
+              {t("wantToOpenLocationDescription")}
             </p>
             <Link href="/apply">
               <button className="bg-white text-blue-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-                Apply to Open a Location
+                {t("applyToOpenLocation")}
               </button>
             </Link>
           </div>

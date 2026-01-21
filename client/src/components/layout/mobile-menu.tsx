@@ -12,7 +12,7 @@ interface MobileMenuProps {
 
 export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
   const { user, isOperator, isAdmin, logoutMutation } = useAuth();
-  const { language, toggleLanguage, isHebrew } = useLanguage();
+  const { language, toggleLanguage, isHebrew, t } = useLanguage();
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -29,7 +29,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
-          Home
+          {t("home")}
         </Link>
         
         <Link
@@ -37,7 +37,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
-          Self Deposit
+          {t("selfDeposit")}
         </Link>
         
         <Link
@@ -45,7 +45,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
-          Our Rules
+          {t("ourRules")}
         </Link>
         
         <Link
@@ -53,7 +53,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
-          Open Location
+          {t("openLocation")}
         </Link>
         
         <Link
@@ -61,7 +61,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
         >
-          Contact
+          {t("contact")}
         </Link>
         
         {/* Language Toggle */}
@@ -70,7 +70,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50 flex items-center gap-2 text-left w-full"
         >
           <Languages className="h-4 w-4" />
-          {isHebrew ? "Switch to English" : "Switch to Hebrew"}
+          {isHebrew ? t("switchToEnglishMobile") : t("switchToHebrewMobile")}
         </button>
         
         <Link
@@ -78,7 +78,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
           onClick={() => setIsOpen(false)}
           className="font-medium text-neutral-700 hover:text-primary transition-colors"
         >
-          Login
+          {t("login")}
         </Link>
         
         {/* Auth Buttons */}
@@ -91,14 +91,14 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
                   onClick={() => setIsOpen(false)}
                   className="font-medium text-neutral-700 hover:text-primary transition-colors"
                 >
-                  Operator Dashboard
+                  {t("operatorDashboard")}
                 </Link>
                 <Link
                   href="/operator/deposits"
                   onClick={() => setIsOpen(false)}
                   className="font-medium text-neutral-700 hover:text-primary transition-colors"
                 >
-                  Deposit Management
+                  {t("depositManagement")}
                 </Link>
               </>
             )}
@@ -114,7 +114,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
                   className="flex items-center gap-2"
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  Operator Dashboard
+                  {t("operatorDashboard")}
                 </Link>
               </Button>
             )}
@@ -131,7 +131,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
                   className="flex items-center gap-2"
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  Admin Dashboard
+                  {t("adminDashboard")}
                 </Link>
               </Button>
             )}
@@ -142,7 +142,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
               className="text-center flex items-center justify-center gap-2"
             >
               <LogOut className="h-4 w-4" />
-              Log Out
+              {t("logOut")}
             </Button>
           </>
         ) : (
@@ -151,7 +151,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
             className="text-center"
           >
             <Link href="/auth" onClick={() => setIsOpen(false)}>
-              Log In / Register
+              {t("login")}
             </Link>
           </Button>
         )}
