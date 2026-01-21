@@ -8,6 +8,8 @@ import { EmailNotificationService } from "./email-notifications";
 import { AuditTrailService } from "./audit-trail";
 import { PaymentAnalyticsEngine } from "./analytics-engine";
 import { DepositDetectionService } from "./deposit-detection";
+import { DepositService, type UserRole } from "./depositService";
+import { getStripePublishableKey } from "./stripeClient";
 import { z } from "zod";
 
 // Utility function to detect card brand
@@ -1487,6 +1489,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error disabling payment method for location:", error);
       res.status(500).json({ message: "Failed to disable payment method" });
+    }
+  });
+
+  // ============================================
+  // UNIFIED DEPOSIT SYSTEM ROUTES
+  // ============================================
+
+  // Get Stripe publishable key for frontend
+  app.get("/api/stripe/publishable-key", async (req, res) => {
+    try {
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error) {
+      console.error("Error fetching Stripe publishable key:", error);
+      res.status(500).json({ message: "Failed to fetch Stripe configuration" });
+    }
+  });
+
+  // Create deposit transaction and initiate payment
+  app.post("/api/deposits/initiate", async (req, res) => {
+    try {
+      const { locationId, borrowerName, borrowerEmail, borrowerPhone, headbandColor, notes, paymentMethod } = req.body;
+
+      if (!locationId || !borrowerName || !borrowerEmail || !paymentMethod) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Create the transaction first
+      const transaction = await DepositService.createDepositTransaction({
+        locationId,
+        borrowerName,
+        borrowerEmail,
+        borrowerPhone,
+        headbandColor,
+        notes
+      });
+
+      // Initiate payment based on method
+      let paymentResult;
+      if (paymentMethod === 'stripe') {
+        paymentResult = await DepositService.initiateStripePayment(transaction.id, locationId);
+      } else if (paymentMethod === 'cash') {
+        paymentResult = await DepositService.initiateCashPayment(transaction.id, locationId);
+      } else {
+        return res.status(400).json({ message: "Unsupported payment method" });
+      }
+
+      if (!paymentResult.success) {
+        return res.status(400).json({ message: paymentResult.error });
+      }
+
+      res.json({
+        transactionId: transaction.id,
+        paymentId: paymentResult.paymentId,
+        clientSecret: paymentResult.clientSecret,
+        publishableKey: paymentResult.publishableKey,
+        paymentMethod
+      });
+    } catch (error: any) {
+      console.error("Deposit initiation error:", error);
+      res.status(500).json({ message: error.message || "Failed to initiate deposit" });
+    }
+  });
+
+  // Confirm a payment (operators and admins only)
+  app.post("/api/deposits/:paymentId/confirm", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const paymentId = parseInt(req.params.paymentId);
+      const { confirmed, notes } = req.body;
+      const user = req.user as Express.User;
+
+      const userRole: UserRole = user.isAdmin ? 'admin' : (user.role as UserRole);
+
+      const result = await DepositService.confirmPayment(
+        paymentId,
+        user.id,
+        userRole,
+        confirmed !== false,
+        notes
+      );
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      res.json({ success: true, payment: result.payment });
+    } catch (error: any) {
+      console.error("Deposit confirmation error:", error);
+      res.status(500).json({ message: error.message || "Failed to confirm deposit" });
+    }
+  });
+
+  // Bulk confirm payments
+  app.post("/api/deposits/bulk-confirm-v2", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { paymentIds } = req.body;
+      if (!Array.isArray(paymentIds)) {
+        return res.status(400).json({ message: "paymentIds must be an array" });
+      }
+
+      const user = req.user as Express.User;
+      const userRole: UserRole = user.isAdmin ? 'admin' : (user.role as UserRole);
+
+      const result = await DepositService.bulkConfirmPayments(paymentIds, user.id, userRole);
+
+      res.json({
+        success: result.success,
+        failed: result.failed,
+        total: paymentIds.length
+      });
+    } catch (error: any) {
+      console.error("Bulk confirmation error:", error);
+      res.status(500).json({ message: error.message || "Failed to bulk confirm deposits" });
+    }
+  });
+
+  // Get pending confirmations for current user
+  app.get("/api/deposits/pending", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const user = req.user as Express.User;
+      const userRole: UserRole = user.isAdmin ? 'admin' : (user.role as UserRole);
+
+      const pendingPayments = await DepositService.getPendingConfirmations(
+        userRole,
+        user.id
+      );
+
+      // Enrich with transaction data
+      const enrichedPayments = await Promise.all(
+        pendingPayments.map(async (payment) => {
+          const transaction = await storage.getTransaction(payment.transactionId);
+          const location = transaction ? await storage.getLocation(transaction.locationId) : null;
+          return {
+            ...payment,
+            transaction,
+            location
+          };
+        })
+      );
+
+      res.json(enrichedPayments);
+    } catch (error: any) {
+      console.error("Pending deposits error:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch pending deposits" });
+    }
+  });
+
+  // Refund a deposit
+  app.post("/api/deposits/:transactionId/refund", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const transactionId = parseInt(req.params.transactionId);
+      const { refundAmount } = req.body;
+      const user = req.user as Express.User;
+      const userRole: UserRole = user.isAdmin ? 'admin' : (user.role as UserRole);
+
+      const result = await DepositService.refundDeposit(
+        transactionId,
+        user.id,
+        userRole,
+        refundAmount
+      );
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Refund error:", error);
+      res.status(500).json({ message: error.message || "Failed to process refund" });
     }
   });
 
