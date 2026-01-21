@@ -94,6 +94,16 @@ The operator dashboard (`/operator/dashboard`) provides a redesigned interface f
 - `expectedReturnDate` - For overdue detection
 - `refundAmount` - For partial refunds
 
+### Internationalization (i18n)
+- **Languages**: English (en) and Hebrew (he) fully supported
+- **Translation System**: Custom hook-based translation using React Context
+  - Translations defined in `client/src/lib/translations.ts`
+  - `useLanguage()` hook provides `t()` function and `isHebrew` boolean
+  - Language toggle in header switches between English/Hebrew
+- **RTL Support**: Automatic document direction switching (ltr/rtl) when language changes
+- **Persistence**: Language preference saved to localStorage and restored on page load
+- **Coverage**: All main public-facing pages and components are translated
+
 ## External Dependencies
 
 ### Payment Integrations
