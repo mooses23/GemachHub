@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 type Language = 'en' | 'he';
 
@@ -10,8 +10,24 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | null>(null);
 
+function getInitialLanguage(): Language {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('language');
+    if (saved === 'en' || saved === 'he') {
+      return saved;
+    }
+  }
+  return 'en';
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>(getInitialLanguage);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === 'he' ? 'rtl' : 'ltr';
+    localStorage.setItem('language', language);
+  }, [language]);
 
   const toggleLanguage = () => {
     setLanguage(prev => prev === 'en' ? 'he' : 'en');
