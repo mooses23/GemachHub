@@ -40,7 +40,7 @@ function ColorSwatch({ color, size = "md" }: { color: string; size?: "sm" | "md"
   );
 }
 
-function StockOverview({ inventory, totalStock, onAddStock }: { inventory: { color: string; quantity: number }[]; totalStock: number; onAddStock: () => void }) {
+function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inventory: { color: string; quantity: number }[]; totalStock: number; onAddStock: () => void; onEditStock: (color: string, currentQty: number) => void }) {
   const inventoryByColor = inventory.reduce((acc, item) => ({ ...acc, [item.color]: item.quantity }), {} as InventoryByColor);
   
   const lowStockThreshold = 3;
@@ -55,7 +55,7 @@ function StockOverview({ inventory, totalStock, onAddStock }: { inventory: { col
               <Package className="h-5 w-5" />
               Stock Overview
             </CardTitle>
-            <CardDescription>Current headband inventory by color</CardDescription>
+            <CardDescription>Current headband inventory by color (tap to edit)</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={onAddStock}>
             <Plus className="h-4 w-4 mr-1" /> Add Stock
@@ -86,13 +86,17 @@ function StockOverview({ inventory, totalStock, onAddStock }: { inventory: { col
         
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           {Object.entries(inventoryByColor).filter(([_, qty]) => (qty || 0) > 0).map(([color, qty]) => (
-            <div key={color} className="flex items-center gap-2 p-2 border rounded-lg">
+            <button
+              key={color}
+              onClick={() => onEditStock(color, qty || 0)}
+              className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/50 hover:border-primary/50 transition-colors cursor-pointer text-left"
+            >
               <ColorSwatch color={color} />
               <div>
                 <div className="text-sm capitalize font-medium">{color}</div>
                 <div className="text-lg font-bold">{qty}</div>
               </div>
-            </div>
+            </button>
           ))}
           {inventory.length === 0 && (
             <div className="col-span-full text-center py-4 text-muted-foreground">
@@ -804,12 +808,129 @@ function AddStockDialog({
   );
 }
 
+function EditStockDialog({ 
+  location, 
+  open, 
+  onOpenChange,
+  color,
+  currentQty
+}: { 
+  location: Location; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  color: string;
+  currentQty: number;
+}) {
+  const { toast } = useToast();
+  const [quantity, setQuantity] = useState(currentQty.toString());
+  
+  useEffect(() => {
+    setQuantity(currentQty.toString());
+  }, [currentQty, open]);
+  
+  const updateStockMutation = useMutation({
+    mutationFn: async () => {
+      const newQty = parseInt(quantity);
+      const diff = newQty - currentQty;
+      if (diff > 0) {
+        const res = await apiRequest("POST", `/api/locations/${location.id}/inventory`, {
+          color,
+          quantity: diff,
+        });
+        return res.json();
+      } else if (diff < 0) {
+        const res = await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
+          color,
+          quantity: Math.abs(diff),
+        });
+        return res.json();
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
+      toast({ title: "Success!", description: `Updated ${color} stock to ${quantity}.` });
+      onOpenChange(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+  
+  const newQty = parseInt(quantity) || 0;
+  const diff = newQty - currentQty;
+  
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ColorSwatch color={color} />
+            <span className="capitalize">Edit {color} Stock</span>
+          </DialogTitle>
+          <DialogDescription>Adjust the quantity for this color</DialogDescription>
+        </DialogHeader>
+        
+        <div className="py-4">
+          <label className="text-sm font-medium mb-2 block">Quantity</label>
+          <div className="flex items-center gap-2 justify-center">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setQuantity(Math.max(0, parseInt(quantity) - 1).toString())}
+            >
+              -
+            </Button>
+            <Input
+              type="number"
+              min="0"
+              className="w-24 text-center text-lg font-bold"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setQuantity((parseInt(quantity) + 1).toString())}
+            >
+              +
+            </Button>
+          </div>
+          {diff !== 0 && (
+            <p className={`text-center mt-2 text-sm ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {diff > 0 ? `+${diff}` : diff} from current stock
+            </p>
+          )}
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => updateStockMutation.mutate()}
+            disabled={diff === 0 || updateStockMutation.isPending}
+          >
+            {updateStockMutation.isPending ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Updating...</>
+            ) : (
+              <>Update Stock</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function OperatorDashboard() {
   const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
   const [, setPath] = useLocation();
   const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return">("overview");
   const [showAddStock, setShowAddStock] = useState(false);
+  const [editStockColor, setEditStockColor] = useState<string | null>(null);
+  const [editStockQty, setEditStockQty] = useState(0);
 
   useEffect(() => {
     if (!isOperatorLoading && !operatorLocation) {
@@ -936,7 +1057,12 @@ export default function OperatorDashboard() {
           </div>
 
           <TabsContent value="overview" className="space-y-6">
-            <StockOverview inventory={inventoryData?.inventory || []} totalStock={inventoryData?.total || 0} onAddStock={() => setShowAddStock(true)} />
+            <StockOverview 
+              inventory={inventoryData?.inventory || []} 
+              totalStock={inventoryData?.total || 0} 
+              onAddStock={() => setShowAddStock(true)} 
+              onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
+            />
             <RecentActivity transactions={transactions} />
           </TabsContent>
 
@@ -973,6 +1099,14 @@ export default function OperatorDashboard() {
         location={operatorLocation} 
         open={showAddStock} 
         onOpenChange={setShowAddStock} 
+      />
+      
+      <EditStockDialog 
+        location={operatorLocation} 
+        open={!!editStockColor} 
+        onOpenChange={(open) => !open && setEditStockColor(null)}
+        color={editStockColor || ""}
+        currentQty={editStockQty}
       />
     </div>
   );

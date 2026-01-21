@@ -1,6 +1,7 @@
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
 import { Location } from "@/lib/types";
-import { User, MapPin, Phone, Mail, Package } from "lucide-react";
+import { User, MapPin, Phone, Package } from "lucide-react";
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -15,28 +16,46 @@ const COLOR_SWATCHES: Record<string, string> = {
   gray: "#6B7280",
 };
 
-function ColorDot({ color }: { color: string }) {
+function InventoryCircle({ color, quantity }: { color: string; quantity: number }) {
   const bgColor = COLOR_SWATCHES[color] || "#9CA3AF";
   const isLight = color === "white" || color === "yellow";
   
   return (
     <div 
-      className={`w-4 h-4 rounded-full ${isLight ? 'border border-gray-300' : ''}`}
-      style={{ backgroundColor: bgColor }}
-      title={color}
-    />
+      className="relative w-6 h-6 rounded-full flex items-center justify-center"
+      style={{ 
+        backgroundColor: bgColor,
+        boxShadow: `inset 0 2px 4px rgba(255,255,255,0.4), inset 0 -2px 4px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.12)`,
+        border: isLight ? '1px solid #d1d5db' : 'none'
+      }}
+      title={`${color}: ${quantity}`}
+    >
+      <span 
+        className={`text-[9px] font-bold ${isLight ? 'text-gray-700' : 'text-white'}`}
+        style={{ textShadow: isLight ? 'none' : '0 1px 1px rgba(0,0,0,0.4)' }}
+      >
+        {quantity}
+      </span>
+    </div>
   );
 }
 
 interface LocationCardProps {
   location: Location;
   locationNumber?: number;
-  inventory?: { color: string; quantity: number }[];
-  totalStock?: number;
 }
 
-export function LocationCard({ location, locationNumber, inventory = [], totalStock = 0 }: LocationCardProps) {
-  const colorEntries = inventory.filter(item => item.quantity > 0).map(item => [item.color, item.quantity] as [string, number]);
+export function LocationCard({ location, locationNumber }: LocationCardProps) {
+  const { data: inventoryData } = useQuery<{ inventory: { color: string; quantity: number }[]; total: number }>({
+    queryKey: ["/api/locations", location.id, "inventory"],
+    queryFn: async () => {
+      const res = await fetch(`/api/locations/${location.id}/inventory`);
+      if (!res.ok) return { inventory: [], total: 0 };
+      return res.json();
+    },
+  });
+
+  const inventory = inventoryData?.inventory?.filter(item => item.quantity > 0) || [];
   
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -68,33 +87,19 @@ export function LocationCard({ location, locationNumber, inventory = [], totalSt
             <span>{location.phone}</span>
           </p>
           <p className="flex items-center">
-            <Mail className="w-5 h-5 mr-2 text-neutral-500" />
-            <span>{location.email}</span>
+            <Package className="w-5 h-5 mr-2 text-neutral-500" />
+            {inventory.length > 0 ? (
+              <span className="flex items-center gap-1 flex-wrap">
+                {inventory.map(item => (
+                  <InventoryCircle key={item.color} color={item.color} quantity={item.quantity} />
+                ))}
+              </span>
+            ) : (
+              <span className="text-neutral-400 text-sm">No stock data</span>
+            )}
           </p>
         </div>
       </CardContent>
-      <CardFooter className="border-t border-gray-200 pt-4 flex-col gap-2">
-        <div className="flex items-center gap-2 w-full">
-          <Package className="w-4 h-4 text-neutral-500" />
-          <span className="text-sm font-medium">{totalStock} in stock</span>
-        </div>
-        {colorEntries.length > 0 && (
-          <div className="flex flex-wrap gap-2 w-full">
-            {colorEntries.slice(0, 5).map(([color, qty]) => (
-              <div key={color} className="flex items-center gap-1 text-xs text-neutral-600">
-                <ColorDot color={color} />
-                <span>{qty}</span>
-              </div>
-            ))}
-            {colorEntries.length > 5 && (
-              <span className="text-xs text-neutral-400">+{colorEntries.length - 5} more</span>
-            )}
-          </div>
-        )}
-        {colorEntries.length === 0 && totalStock > 0 && (
-          <span className="text-xs text-neutral-400">Colors not specified</span>
-        )}
-      </CardFooter>
     </Card>
   );
 }
