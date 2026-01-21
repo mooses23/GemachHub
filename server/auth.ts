@@ -6,7 +6,8 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser, loginSchema, insertUserSchema } from "../shared/schema";
-import MemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
+import pg from "pg";
 
 declare global {
   namespace Express {
@@ -72,14 +73,20 @@ export async function createTestUsers() {
 }
 
 export function setupAuth(app: Express) {
-  const MemStore = MemoryStore(session);
+  const PgSession = connectPgSimple(session);
+  
+  const pool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+  });
   
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "gemach-app-secret-key-change-in-prod",
     resave: false,
     saveUninitialized: false,
-    store: new MemStore({
-      checkPeriod: 86400000 // prune expired entries every 24h
+    store: new PgSession({
+      pool: pool,
+      tableName: 'user_sessions',
+      createTableIfMissing: true
     }),
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
