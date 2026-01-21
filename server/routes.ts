@@ -32,7 +32,8 @@ import {
   insertPaymentMethodSchema,
   insertLocationPaymentMethodSchema,
   insertCityCategorySchema,
-  operatorLoginSchema
+  operatorLoginSchema,
+  HEADBAND_COLORS
 } from "../shared/schema";
 import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth";
 
@@ -253,6 +254,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // INVENTORY MANAGEMENT ROUTES
+  // Get inventory for a location
+  app.get("/api/locations/:locationId/inventory", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      
+      if (isNaN(locationId)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+      
+      const location = await storage.getLocation(locationId);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+      
+      const inventory = await storage.getInventoryByLocation(locationId);
+      const total = await storage.getInventoryTotal(locationId);
+      res.json({ inventory, total });
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+      res.status(500).json({ message: "Failed to fetch inventory" });
+    }
+  });
+
   // Add stock by color
   app.post("/api/locations/:locationId/inventory", async (req, res) => {
     try {
@@ -265,6 +289,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!color || typeof quantity !== 'number' || quantity <= 0) {
         return res.status(400).json({ message: "Color and positive quantity are required" });
+      }
+      
+      if (!HEADBAND_COLORS.includes(color as any)) {
+        return res.status(400).json({ message: `Invalid color. Must be one of: ${HEADBAND_COLORS.join(', ')}` });
       }
       
       const operatorLocationId = getOperatorLocationId(req);
@@ -281,8 +309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Location not found" });
       }
       
-      const updatedLocation = await storage.addStock(locationId, color, quantity);
-      res.json(updatedLocation);
+      const inventoryItem = await storage.adjustInventory(locationId, color, quantity);
+      res.json(inventoryItem);
     } catch (error) {
       console.error("Error adding stock:", error);
       res.status(500).json({ message: "Failed to add stock" });
@@ -303,6 +331,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Color and positive quantity are required" });
       }
       
+      if (!HEADBAND_COLORS.includes(color as any)) {
+        return res.status(400).json({ message: `Invalid color. Must be one of: ${HEADBAND_COLORS.join(', ')}` });
+      }
+      
       const operatorLocationId = getOperatorLocationId(req);
       if (!operatorLocationId) {
         return res.status(401).json({ message: "Authentication required" });
@@ -317,8 +349,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Location not found" });
       }
       
-      const updatedLocation = await storage.removeStock(locationId, color, quantity);
-      res.json(updatedLocation);
+      const inventoryItem = await storage.adjustInventory(locationId, color, -quantity);
+      res.json(inventoryItem);
     } catch (error: any) {
       console.error("Error removing stock:", error);
       if (error.message?.includes("Insufficient stock")) {
@@ -342,6 +374,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Color and non-negative quantity are required" });
       }
       
+      if (!HEADBAND_COLORS.includes(color as any)) {
+        return res.status(400).json({ message: `Invalid color. Must be one of: ${HEADBAND_COLORS.join(', ')}` });
+      }
+      
       const operatorLocationId = getOperatorLocationId(req);
       if (!operatorLocationId) {
         return res.status(401).json({ message: "Authentication required" });
@@ -356,8 +392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Location not found" });
       }
       
-      const updatedLocation = await storage.updateInventoryByColor(locationId, color, quantity);
-      res.json(updatedLocation);
+      const inventoryItem = await storage.setInventoryItem(locationId, color, quantity);
+      res.json(inventoryItem);
     } catch (error) {
       console.error("Error updating inventory:", error);
       res.status(500).json({ message: "Failed to update inventory" });
@@ -638,12 +674,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For admins, return a summary location for mass management
       if (operatorLocationId === -1) {
         const allLocations = await storage.getAllLocations();
-        const totalInventory = allLocations.reduce((sum, loc) => sum + (loc.inventoryCount || 0), 0);
+        let totalInventory = 0;
+        for (const loc of allLocations) {
+          totalInventory += await storage.getInventoryTotal(loc.id);
+        }
         return res.json({
           id: 0,
           name: "All Locations",
           locationCode: "ADMIN",
-          inventoryCount: totalInventory,
+          totalInventory: totalInventory,
           isActive: true,
           locationCount: allLocations.length
         });

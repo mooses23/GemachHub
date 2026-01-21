@@ -80,8 +80,25 @@ export const insertCityCategorySchema = createInsertSchema(cityCategories).pick(
 export const HEADBAND_COLORS = ["red", "blue", "black", "white", "pink", "purple", "green", "orange", "yellow", "gray"] as const;
 export type HeadbandColor = typeof HEADBAND_COLORS[number];
 
-// Inventory by color type (e.g., { "red": 5, "blue": 3 })
+// Inventory by color type (e.g., { "red": 5, "blue": 3 }) - for API responses
 export type InventoryByColor = Partial<Record<HeadbandColor, number>>;
+
+// Inventory table - proper normalized storage for headband inventory
+export const inventory = pgTable("inventory", {
+  id: serial("id").primaryKey(),
+  locationId: integer("location_id").notNull(),
+  color: text("color").notNull(), // One of HEADBAND_COLORS
+  quantity: integer("quantity").notNull().default(0),
+});
+
+export const insertInventorySchema = createInsertSchema(inventory).pick({
+  locationId: true,
+  color: true,
+  quantity: true,
+});
+
+export type Inventory = typeof inventory.$inferSelect;
+export type InsertInventory = z.infer<typeof insertInventorySchema>;
 
 // Location schema
 export const locations = pgTable("locations", {
@@ -96,8 +113,6 @@ export const locations = pgTable("locations", {
   regionId: integer("region_id").notNull(),
   cityCategoryId: integer("city_category_id"), // Optional city category assignment
   isActive: boolean("is_active").default(true),
-  inventoryCount: integer("inventory_count").default(0),
-  inventoryByColor: text("inventory_by_color"), // JSON string: {"red": 5, "blue": 3}
   cashOnly: boolean("cash_only").default(false),
   depositAmount: integer("deposit_amount").default(20),
   paymentMethods: text("payment_methods").array().default(["cash"]),
@@ -116,8 +131,6 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   regionId: true,
   cityCategoryId: true,
   isActive: true,
-  inventoryCount: true,
-  inventoryByColor: true,
   cashOnly: true,
   depositAmount: true,
   paymentMethods: true,
