@@ -984,7 +984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Item return and refund processing
-  app.post("/api/transactions/:id/return", async (req, res) => {
+  app.patch("/api/transactions/:id/return", async (req, res) => {
     try {
       const transactionId = parseInt(req.params.id);
       const transaction = await storage.getTransaction(transactionId);
@@ -993,9 +993,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Transaction not found" });
       }
       
+      // Check authentication
       const operatorLocationId = getOperatorLocationId(req);
       if (!operatorLocationId) {
         return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Determine user role and explicitly block borrowers
+      let userRole: UserRole = 'borrower';
+      let userId = 0;
+      
+      if (req.isAuthenticated()) {
+        const user = req.user as Express.User;
+        userId = user.id;
+        if (user.isAdmin) {
+          userRole = 'admin';
+        } else if (user.role === 'operator') {
+          userRole = 'operator';
+        } else {
+          userRole = 'borrower';
+        }
+      } else if (operatorLocationId) {
+        // PIN-based session - treat as operator
+        userRole = 'operator';
+      }
+      
+      // Explicitly block borrowers from processing refunds
+      if (userRole === 'borrower') {
+        return res.status(403).json({ message: "Borrowers cannot process refunds" });
       }
       
       // Admin (-1) can process any return, operators can only process their location's returns
@@ -1005,18 +1030,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { condition, returnNotes, refundAmount } = req.body;
 
-      const result = await DepositRefundService.processItemReturn(transactionId, {
-        actualReturnDate: new Date(),
-        returnNotes,
-        condition,
-        refundAmount
-      });
+      const result = await DepositRefundService.processItemReturn(
+        transactionId,
+        {
+          actualReturnDate: new Date(),
+          returnNotes,
+          condition,
+          refundAmount
+        },
+        userRole,
+        userId,
+        operatorLocationId === -1 ? undefined : operatorLocationId
+      );
 
       // Log refund in audit trail (use session user if available)
-      const userId = req.isAuthenticated() ? req.user.id : 0;
+      const auditUserId = req.isAuthenticated() ? req.user.id : userId;
       const username = req.isAuthenticated() ? req.user.username : `operator_location_${operatorLocationId}`;
       await AuditTrailService.logRefundProcessing(
-        userId,
+        auditUserId,
         username,
         transactionId,
         result.refundAmount,
