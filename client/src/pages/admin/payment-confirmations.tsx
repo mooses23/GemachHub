@@ -1,8 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, CheckCircle, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
 import { DepositConfirmation } from "@/components/payment/deposit-confirmation";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface Payment {
   id: number;
@@ -16,14 +19,71 @@ interface Payment {
   createdAt: string;
 }
 
+interface PendingPayment extends Payment {
+  transaction?: {
+    id: number;
+    borrowerName: string;
+    borrowerEmail: string;
+    locationId: number;
+  };
+  location?: {
+    id: number;
+    name: string;
+    locationCode: string;
+  };
+}
+
 export default function PaymentConfirmations() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: payments = [], isLoading } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
   });
 
-  const pendingPayments = payments.filter(p => p.status === "confirming" || p.status === "pending");
+  const { data: pendingDeposits = [], isLoading: pendingLoading, refetch: refetchPending } = useQuery<PendingPayment[]>({
+    queryKey: ["/api/deposits/pending"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/deposits/pending");
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
+  const bulkConfirmMutation = useMutation({
+    mutationFn: async (paymentIds: number[]) => {
+      const res = await apiRequest("POST", "/api/deposits/bulk-confirm-v2", { paymentIds });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Bulk Confirmation Complete",
+        description: `${data.success} confirmed, ${data.failed} failed`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deposits/pending"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Bulk Confirmation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const pendingPayments = pendingDeposits.length > 0 
+    ? pendingDeposits 
+    : payments.filter(p => p.status === "confirming" || p.status === "pending");
   const recentCompleted = payments.filter(p => p.status === "completed").slice(0, 5);
   const recentFailed = payments.filter(p => p.status === "failed").slice(0, 3);
+
+  const handleBulkConfirm = () => {
+    const ids = pendingPayments.map(p => p.id);
+    if (ids.length > 0) {
+      bulkConfirmMutation.mutate(ids);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -51,7 +111,7 @@ export default function PaymentConfirmations() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || pendingLoading) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Payment Confirmations</h1>
@@ -64,11 +124,32 @@ export default function PaymentConfirmations() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Payment Confirmations</h1>
-        <p className="text-gray-600 mt-1">
-          Review and confirm deposit payments from approved partner methods
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Payment Confirmations</h1>
+          <p className="text-gray-600 mt-1">
+            Review and confirm deposit payments from approved partner methods
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => refetchPending()}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          {pendingPayments.length > 0 && (
+            <Button 
+              size="sm" 
+              onClick={handleBulkConfirm}
+              disabled={bulkConfirmMutation.isPending}
+            >
+              {bulkConfirmMutation.isPending ? "Confirming..." : `Confirm All (${pendingPayments.length})`}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}
