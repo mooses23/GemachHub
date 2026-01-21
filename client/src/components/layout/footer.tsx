@@ -2,8 +2,10 @@ import React from "react";
 import { Link } from "wouter";
 import { Headphones } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { useLanguage } from "@/hooks/use-language";
 
 export function Footer() {
+  const { t } = useLanguage();
   return (
     <footer className="bg-neutral-800 text-white py-12">
       <div className="container mx-auto px-4">
@@ -15,11 +17,11 @@ export function Footer() {
                 <Headphones className="h-6 w-6" />
               </div>
               <div>
-                <span className="font-semibold text-lg">Baby Banz Earmuffs Gemach</span>
+                <span className="font-semibold text-lg">{t("babyBanzEarmuffsGemach")}</span>
               </div>
             </div>
             <p className="text-neutral-300 mb-4">
-              Protecting babies' hearing at simchas and events worldwide through our network of gemachs lending Baby Banz Noise Cancelling Earmuffs.
+              {t("footerDescription")}
             </p>
             <div className="flex space-x-4">
               <a href="https://instagram.com" className="text-neutral-300 hover:text-white transition-colors" aria-label="Instagram">
@@ -57,31 +59,31 @@ export function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+            <h3 className="text-lg font-semibold mb-4">{t("quickLinks")}</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/" className="text-neutral-300 hover:text-white transition-colors">
-                  Home
+                  {t("home")}
                 </Link>
               </li>
               <li>
                 <Link href="/locations" className="text-neutral-300 hover:text-white transition-colors">
-                  Find a Gemach
+                  {t("findAGemach")}
                 </Link>
               </li>
               <li>
                 <Link href="/#how-it-works" className="text-neutral-300 hover:text-white transition-colors">
-                  How It Works
+                  {t("howItWorks")}
                 </Link>
               </li>
               <li>
                 <Link href="/apply" className="text-neutral-300 hover:text-white transition-colors">
-                  Open a Gemach
+                  {t("openAGemach")}
                 </Link>
               </li>
               <li>
                 <Link href="/contact" className="text-neutral-300 hover:text-white transition-colors">
-                  Contact Us
+                  {t("contactUs")}
                 </Link>
               </li>
             </ul>
@@ -89,31 +91,31 @@ export function Footer() {
 
           {/* Regions */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Regions</h3>
+            <h3 className="text-lg font-semibold mb-4">{t("regions")}</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/locations?region=united-states" className="text-neutral-300 hover:text-white transition-colors">
-                  United States
+                  {t("unitedStates")}
                 </Link>
               </li>
               <li>
                 <Link href="/locations?region=canada" className="text-neutral-300 hover:text-white transition-colors">
-                  Canada
+                  {t("canada")}
                 </Link>
               </li>
               <li>
                 <Link href="/locations?region=australia" className="text-neutral-300 hover:text-white transition-colors">
-                  Australia
+                  {t("australia")}
                 </Link>
               </li>
               <li>
                 <Link href="/locations?region=europe" className="text-neutral-300 hover:text-white transition-colors">
-                  Europe
+                  {t("europe")}
                 </Link>
               </li>
               <li>
                 <Link href="/locations?region=israel" className="text-neutral-300 hover:text-white transition-colors">
-                  Israel
+                  {t("israel")}
                 </Link>
               </li>
             </ul>
@@ -123,13 +125,13 @@ export function Footer() {
         <Separator className="border-neutral-700 mt-8 mb-8" />
 
         <div className="text-center text-neutral-400 text-sm">
-          <p className="mb-2">© {new Date().getFullYear()} Baby Banz Earmuffs Gemach. All rights reserved.</p>
+          <p className="mb-2">© {new Date().getFullYear()} {t("babyBanzEarmuffsGemach")}. {t("allRightsReserved")}</p>
           <div className="flex justify-center space-x-4">
             <Link href="/privacy" className="hover:text-white transition-colors">
-              Privacy Policy
+              {t("privacyPolicy")}
             </Link>
             <Link href="/terms" className="hover:text-white transition-colors">
-              Terms of Service
+              {t("termsOfService")}
             </Link>
           </div>
         </div>

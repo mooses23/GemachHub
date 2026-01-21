@@ -17,7 +17,7 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [location] = useLocation();
   const { user, isLoading, logoutMutation, isOperator, isAdmin } = useAuth();
-  const { language, toggleLanguage, isHebrew } = useLanguage();
+  const { language, toggleLanguage, isHebrew, t } = useLanguage();
 
   const isActiveLink = (path: string) => {
     if (path === "/" && location === "/") return true;
@@ -40,10 +40,10 @@ export function Header() {
                 <Headphones className="h-5 w-5 md:h-6 md:w-6" />
               </div>
               <h1 className="text-lg md:text-2xl font-bold text-blue-600 hidden sm:block">
-                Baby Banz Gemach
+                {t("babyBanzGemach")}
               </h1>
               <h1 className="text-sm font-bold text-blue-600 sm:hidden">
-                Baby Banz
+                {t("babyBanz")}
               </h1>
             </Link>
           </div>
@@ -82,7 +82,7 @@ export function Header() {
                     : "text-neutral-700 hover:text-primary"
                 } transition-colors`}
               >
-                Home
+                {t("home")}
               </Link>
               
               <Link
@@ -93,7 +93,7 @@ export function Header() {
                     : "text-neutral-700 hover:text-primary"
                 } transition-colors`}
               >
-                Self Deposit
+                {t("selfDeposit")}
               </Link>
               
               <Link
@@ -104,7 +104,7 @@ export function Header() {
                     : "text-neutral-700 hover:text-primary"
                 } transition-colors`}
               >
-                Our Rules
+                {t("ourRules")}
               </Link>
               
               <Link
@@ -115,7 +115,7 @@ export function Header() {
                     : "text-neutral-700 hover:text-primary"
                 } transition-colors`}
               >
-                Open Location
+                {t("openLocation")}
               </Link>
               
               <Link
@@ -126,7 +126,7 @@ export function Header() {
                     : "text-neutral-700 hover:text-primary"
                 } transition-colors`}
               >
-                Contact
+                {t("contact")}
               </Link>
 
               {/* Language Toggle Dropdown */}
@@ -167,7 +167,7 @@ export function Header() {
                         <DropdownMenuItem asChild>
                           <Link href="/operator/dashboard" className="flex items-center gap-2 w-full">
                             <LayoutDashboard className="h-4 w-4" />
-                            Operator Dashboard
+                            {t("operatorDashboard")}
                           </Link>
                         </DropdownMenuItem>
                       )}
@@ -175,20 +175,20 @@ export function Header() {
                         <DropdownMenuItem asChild>
                           <Link href="/admin/dashboard" className="flex items-center gap-2 w-full">
                             <LayoutDashboard className="h-4 w-4" />
-                            Admin Dashboard
+                            {t("adminDashboard")}
                           </Link>
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
                         <LogOut className="h-4 w-4" />
-                        Log Out
+                        {t("logOut")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
                   <Button asChild>
-                    <Link href="/auth">Operator Pin / Admin Login</Link>
+                    <Link href="/auth">{t("operatorPin")} / {t("adminLogin")}</Link>
                   </Button>
                 )}
             </nav>
