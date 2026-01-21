@@ -203,7 +203,25 @@ function LendWizard({
   const [borrowerName, setBorrowerName] = useState("");
   const [borrowerPhone, setBorrowerPhone] = useState("");
   const [depositAmount, setDepositAmount] = useState(location.depositAmount?.toString() || "20");
+  const [depositEdited, setDepositEdited] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
+  
+  // Custom handler to clear default value on first keypress
+  const handleDepositChange = (newValue: string) => {
+    if (!depositEdited) {
+      // First edit - if user types a number, clear the default and use just the typed value
+      if (newValue.length > depositAmount.length) {
+        const typedChar = newValue.slice(-1);
+        if (/[0-9]/.test(typedChar)) {
+          setDepositAmount(typedChar);
+          setDepositEdited(true);
+          return;
+        }
+      }
+      setDepositEdited(true);
+    }
+    setDepositAmount(newValue);
+  };
   
   const availableColors = inventory.filter(item => item.quantity > 0).map(item => [item.color, item.quantity] as [string, number]);
   
@@ -366,7 +384,7 @@ function LendWizard({
               <div className="text-sm text-muted-foreground">Deposit Amount</div>
             </div>
             
-            <NumericKeypad value={depositAmount} onChange={setDepositAmount} />
+            <NumericKeypad value={depositAmount} onChange={handleDepositChange} />
           </div>
         </div>
       )}
@@ -492,8 +510,13 @@ function ReturnWizard({
   });
   
   useEffect(() => {
-    if (selectedTransaction && !isPartialRefund) {
-      setRefundAmount(selectedTransaction.depositAmount.toString());
+    if (selectedTransaction) {
+      if (!isPartialRefund) {
+        setRefundAmount(selectedTransaction.depositAmount.toString());
+      } else {
+        // Clear the amount when switching to partial refund so user can enter fresh value
+        setRefundAmount("");
+      }
     }
   }, [selectedTransaction, isPartialRefund]);
   
