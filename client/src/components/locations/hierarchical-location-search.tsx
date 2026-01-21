@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getLocations, getRegions } from "@/lib/api";
+import { useLanguage } from "@/hooks/use-language";
 import type { Location, Region } from "@/lib/types";
 
 type CityCategory = {
@@ -59,6 +60,7 @@ const AU_STATE_NAMES: Record<string, string> = {
 };
 
 export function HierarchicalLocationSearch() {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [selectedCity, setSelectedCity] = useState<CityCategory | null>(null);
@@ -198,7 +200,7 @@ export function HierarchicalLocationSearch() {
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <Input
               type="text"
-              placeholder="Search all locations or select a continent below..."
+              placeholder={t("searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-12 pr-4 py-4 md:py-6 text-base md:text-lg rounded-full border-2 border-gray-200 focus:border-blue-500 shadow-lg w-full"
@@ -211,7 +213,7 @@ export function HierarchicalLocationSearch() {
           <div className="space-y-8">
             <div className="text-center">
               <p className="text-gray-600">
-                Showing <span className="font-semibold">{filteredLocations.length}</span> locations
+                {t("showing")} <span className="font-semibold">{filteredLocations.length}</span> {t("locations")}
               </p>
             </div>
             
@@ -230,10 +232,10 @@ export function HierarchicalLocationSearch() {
           <div className="space-y-8">
             <div className="text-center mb-8">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
-                Choose Your Continent
+                {t("chooseYourContinent")}
               </h2>
               <p className="text-gray-600">
-                Select a continent to browse popular cities and locations
+                {t("selectContinentBrowse")}
               </p>
             </div>
 
@@ -259,7 +261,7 @@ export function HierarchicalLocationSearch() {
                       
                       <div className="space-y-2">
                         <p className="text-sm text-gray-600">
-                          {regionLocations.length} locations available
+                          {regionLocations.length} {t("locationsAvailable")}
                         </p>
                         {regionCities.length > 0 && (
                           <div className="flex flex-wrap gap-1">
@@ -270,7 +272,7 @@ export function HierarchicalLocationSearch() {
                             ))}
                             {regionCities.length > 3 && (
                               <Badge variant="outline" className="text-xs">
-                                +{regionCities.length - 3} more
+                                +{regionCities.length - 3} {t("more")}
                               </Badge>
                             )}
                           </div>
@@ -299,7 +301,7 @@ export function HierarchicalLocationSearch() {
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Continents
+            {t("backToContinents")}
           </Button>
           <Button 
             variant="outline" 
@@ -308,7 +310,7 @@ export function HierarchicalLocationSearch() {
             className="flex items-center gap-2"
           >
             <Home className="h-4 w-4" />
-            Home
+            {t("home")}
           </Button>
         </div>
         
@@ -316,7 +318,7 @@ export function HierarchicalLocationSearch() {
           {selectedRegion.name}
         </h2>
         <p className="text-gray-600">
-          Choose a popular city or browse all locations
+          {t("choosePopularCity")}
         </p>
       </div>
 
@@ -326,7 +328,7 @@ export function HierarchicalLocationSearch() {
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
             type="text"
-            placeholder={`Search locations in ${selectedRegion.name}...`}
+            placeholder={`${t("searchLocationsIn")} ${selectedRegion.name}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-12 pr-4 py-4 text-base rounded-full border-2 border-gray-200 focus:border-blue-500 shadow-lg w-full"
@@ -346,7 +348,7 @@ export function HierarchicalLocationSearch() {
                   : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
               }`}
             >
-              All States
+              {t("allStates")}
             </button>
             {usStates.map((stateCode) => (
               <button
@@ -377,7 +379,7 @@ export function HierarchicalLocationSearch() {
                   : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
               }`}
             >
-              All {subRegions.labelType}
+              {t("all")} {subRegions.labelType}
             </button>
             {subRegions.codes.map((code) => (
               <button
@@ -410,7 +412,7 @@ export function HierarchicalLocationSearch() {
                 )}
               </div>
               <Badge variant="secondary">
-                {cityLocations.length} locations
+                {cityLocations.length} {t("locations")}
               </Badge>
             </div>
             
@@ -433,10 +435,10 @@ export function HierarchicalLocationSearch() {
             <Search className="h-16 w-16 mx-auto" />
           </div>
           <h3 className="text-xl font-semibold text-gray-600 mb-2">
-            No locations found
+            {t("noLocationsFound")}
           </h3>
           <p className="text-gray-500">
-            Try adjusting your search or browse other cities
+            {t("tryAdjustingSearch")}
           </p>
         </div>
       )}
@@ -487,6 +489,7 @@ interface LocationCardProps {
 }
 
 function LocationCard({ location, region }: LocationCardProps) {
+  const { t } = useLanguage();
   const { data: inventoryData } = useQuery<{ inventory: { color: string; quantity: number }[]; total: number }>({
     queryKey: ["/api/locations", location.id, "inventory"],
     queryFn: async () => {
@@ -532,7 +535,7 @@ function LocationCard({ location, region }: LocationCardProps) {
                 ))}
               </div>
             ) : (
-              <span className="text-sm text-gray-400">No stock info</span>
+              <span className="text-sm text-gray-400">{t("noStockInfo")}</span>
             )}
           </div>
         </div>
@@ -540,16 +543,16 @@ function LocationCard({ location, region }: LocationCardProps) {
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between">
             <div className="text-sm">
-              <span className="text-gray-500">Contact:</span>
+              <span className="text-gray-500">{t("contactLabel")}</span>
               <span className="font-medium text-gray-900 ml-1">{location.contactPerson}</span>
             </div>
             <Badge variant={location.isActive ? "default" : "secondary"}>
-              {location.isActive ? "Active" : "Inactive"}
+              {location.isActive ? t("active") : t("inactive")}
             </Badge>
           </div>
           
           <div className="mt-2 text-sm">
-            <span className="text-gray-500">Deposit:</span>
+            <span className="text-gray-500">{t("depositLabel")}</span>
             <span className="font-medium text-gray-900 ml-1">${location.depositAmount}</span>
           </div>
         </div>
