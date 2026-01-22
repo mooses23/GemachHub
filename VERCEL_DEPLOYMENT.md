@@ -162,6 +162,35 @@ The codebase has been updated to work independently of Replit:
 - No Replit-specific code runs in production
 - All environment variables are standard across platforms
 
+### Migration Changes Made
+
+1. **Stripe Client Rewritten** (`server/stripeClient.ts`)
+   - Removed Replit connector API calls (`REPLIT_CONNECTORS_HOSTNAME`, `REPL_IDENTITY`)
+   - Now uses standard `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` environment variables
+   - Added `getStripeWebhookSecret()` for webhook signature verification
+
+2. **Webhook Handlers Updated** (`server/webhookHandlers.ts`)
+   - Removed `stripe-replit-sync` dependency
+   - Implemented standard Stripe webhook event processing
+   - Handles `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`
+
+3. **Database Connection Optimized** (`server/db.ts`, `server/auth.ts`)
+   - Added SSL configuration for production (Neon compatibility)
+   - Optimized connection pool settings for serverless (max: 5, timeouts configured)
+   - Added connection timeout handling
+
+4. **ESM Import Extensions**
+   - All server-side relative imports now include `.js` extensions
+   - Required for Vercel's ESM runtime
+
+5. **Health Check Endpoint**
+   - Added `GET /api/health` for Vercel monitoring
+   - Returns database connection status and timestamp
+
+6. **Environment Variables Updated**
+   - See `.env.example` for complete list
+   - Documented Replit → Vercel variable mapping
+
 ## Post-Migration Checklist
 
 - [ ] Database created and `DATABASE_URL` added to Vercel
