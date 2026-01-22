@@ -87,14 +87,26 @@ Update `vercel.json` to include database setup:
 
 ## Step 4: Create Admin User
 
-After seeding, you'll need an admin user. Run this SQL directly in your database (via Neon dashboard or psql):
+After seeding, you'll need an admin user. 
+
+**Note:** The seed script (`npm run seed`) creates a default admin user automatically. If you need to create an additional admin user manually, you can use the SQL below.
+
+To generate a password hash for manual user creation:
+```bash
+# Using Node.js
+node -e "const bcrypt = require('bcrypt'); bcrypt.hash('your-password', 10, (err, hash) => console.log(hash));"
+
+# Or using an online bcrypt generator (use trusted sources only)
+```
+
+Run this SQL directly in your database (via Neon dashboard or psql):
 
 ```sql
--- Create admin user (update password hash appropriately)
+-- Create admin user (replace the password hash with your generated hash)
 INSERT INTO users (username, password, email, first_name, last_name, role, is_admin, created_at)
 VALUES (
   'admin',
-  '$2a$10$encrypted_password_here', -- You'll need to hash this properly
+  '$2a$10$your_generated_bcrypt_hash_here', -- Use bcrypt.hash() to generate this
   'admin@gemachhub.com',
   'Admin',
   'User',
