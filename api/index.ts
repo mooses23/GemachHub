@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "../server/routes";
-import { WebhookHandlers } from "../server/webhookHandlers";
+import { registerRoutes } from "../server/routes.js";
+import { WebhookHandlers } from "../server/webhookHandlers.js";
 
 const app = express();
 
