@@ -905,8 +905,19 @@ heroku config:set SESSION_SECRET="your-secret"
 git push heroku main
 ```
 
-#### Vercel
+#### Vercel (Recommended for Production)
 
+For a complete step-by-step guide to deploying GemachHub on Vercel, including:
+- Database setup with Neon
+- Environment variable configuration
+- Database schema migration
+- Data seeding
+- Webhook configuration
+- Troubleshooting tips
+
+**See the comprehensive guide:** [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
+
+Quick start:
 ```bash
 # Install Vercel CLI
 npm install -g vercel
@@ -915,7 +926,13 @@ npm install -g vercel
 vercel
 
 # Set environment variables in Vercel dashboard
+# See .env.example for all required variables
 ```
+
+**Important:** 
+- Use `.env.example` as a reference for all required environment variables
+- Run `npm run verify-env` to check your environment setup
+- See [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md) for complete migration guide from Replit
 
 #### Railway
 
