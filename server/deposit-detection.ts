@@ -3,10 +3,10 @@
  * Monitors payment status changes and handles declined/accepted processing
  */
 
-import { storage } from "./storage";
-import { DepositSyncService } from "./deposit-sync";
-import { EmailNotificationService } from "./email-notifications";
-import { AuditTrailService } from "./audit-trail";
+import { storage } from "./storage.js";
+import { DepositSyncService } from "./deposit-sync.js";
+import { EmailNotificationService } from "./email-notifications.js";
+import { AuditTrailService } from "./audit-trail.js";
 
 export class DepositDetectionService {
   /**

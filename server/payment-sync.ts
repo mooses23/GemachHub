@@ -1,4 +1,4 @@
-import { storage } from './storage';
+import { storage } from './storage.js';
 import { PaymentMethod } from '@shared/schema';
 
 /**

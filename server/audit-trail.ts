@@ -3,7 +3,7 @@
  * Tracks all deposit-related actions for compliance and debugging
  */
 
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 
 interface AuditEntry {
   id: number;

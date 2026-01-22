@@ -2,8 +2,8 @@
  * Real-time Deposit Synchronization Service
  * Ensures all deposit-related changes propagate across the entire system
  */
-import { storage } from "./storage";
-import { PaymentSyncService } from "./payment-sync";
+import { storage } from "./storage.js";
+import { PaymentSyncService } from "./payment-sync.js";
 
 export class DepositSyncService {
   /**

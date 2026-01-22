@@ -11,7 +11,7 @@ import {
   paymentMethods, type PaymentMethod, type InsertPaymentMethod,
   locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod,
   inventory, type Inventory, type InsertInventory
-} from "../shared/schema";
+} from "../shared/schema.js";
 
 // Interface for storage operations
 export interface IStorage {

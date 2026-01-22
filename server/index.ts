@@ -1,8 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { WebhookHandlers } from "./webhookHandlers";
-import { DepositService } from "./depositService";
+import { registerRoutes } from "./routes.js";
+import { setupVite, serveStatic, log } from "./vite.js";
+import { WebhookHandlers } from "./webhookHandlers.js";
+import { DepositService } from "./depositService.js";
 
 const app = express();
 

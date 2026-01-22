@@ -3,9 +3,9 @@
  * Handles comprehensive refund workflow when items are returned
  */
 
-import { storage } from "./storage";
-import { DepositSyncService } from "./deposit-sync";
-import type { UserRole } from "./depositService";
+import { storage } from "./storage.js";
+import { DepositSyncService } from "./deposit-sync.js";
+import type { UserRole } from "./depositService.js";
 
 export class DepositRefundService {
   /**

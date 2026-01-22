@@ -1,6 +1,6 @@
-import { getUncachableStripeClient, getStripePublishableKey } from './stripeClient';
-import { storage } from './storage';
-import type { Payment, Transaction, Location } from '../shared/schema';
+import { getUncachableStripeClient, getStripePublishableKey } from './stripeClient.js';
+import { storage } from './storage.js';
+import type { Payment, Transaction, Location } from '../shared/schema.js';
 
 export interface DepositRequest {
   locationId: number;

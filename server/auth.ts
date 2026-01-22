@@ -4,8 +4,8 @@ import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { storage } from "./storage";
-import { User as SelectUser, loginSchema, insertUserSchema } from "../shared/schema";
+import { storage } from "./storage.js";
+import { User as SelectUser, loginSchema, insertUserSchema } from "../shared/schema.js";
 import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
 
@@ -33,7 +33,7 @@ async function comparePasswords(supplied: string, stored: string) {
 // Create a function to manually create test users
 export async function createTestUsers() {
   try {
-    const { storage } = await import('./storage');
+    const { storage } = await import('./storage.js');
     
     // Check if admin user already exists
     const adminUser = await storage.getUserByUsername('admin');
