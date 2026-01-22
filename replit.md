@@ -199,3 +199,30 @@ Key files:
 Default credentials after seeding:
 - Admin: username=admin, password=admin123
 - Operator (Brooklyn): username=brooklyn, password=gemach123
+
+## Recent Changes (January 2026)
+
+### Replit → Vercel Migration
+
+The following changes were made to enable Vercel deployment:
+
+1. **Stripe Integration Rewritten**
+   - Removed Replit connector dependency (`stripe-replit-sync`)
+   - `server/stripeClient.ts` now uses standard environment variables
+   - Webhook handlers use native Stripe SDK
+
+2. **Database Serverless Optimization**
+   - Connection pooling optimized for Neon (max 5 connections, timeouts)
+   - SSL enabled for production connections
+   - Pool shared between app and session store
+
+3. **ESM Compatibility**
+   - All server imports use `.js` extensions for Vercel's ESM runtime
+
+4. **New Endpoints**
+   - `GET /api/health` - Health check for monitoring
+
+5. **Environment Variables**
+   - Removed: `REPLIT_CONNECTORS_HOSTNAME`, `REPL_IDENTITY`, `WEB_REPL_RENEWAL`
+   - Required: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
+   - See `.env.example` for complete reference

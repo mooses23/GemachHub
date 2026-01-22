@@ -84,6 +84,9 @@ export function setupAuth(app: Express) {
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: isProduction ? { rejectUnauthorized: false } : undefined,
+    max: isProduction ? 5 : 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
   });
   
   const sessionSettings: session.SessionOptions = {

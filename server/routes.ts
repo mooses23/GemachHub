@@ -60,6 +60,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return null;
   }
 
+  // HEALTH CHECK ENDPOINT (for Vercel monitoring)
+  app.get("/api/health", async (req, res) => {
+    try {
+      const regions = await storage.getAllRegions();
+      res.json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        database: regions.length >= 0 ? "connected" : "error",
+        version: "1.0.0"
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        timestamp: new Date().toISOString(),
+        database: "disconnected",
+        error: "Database connection failed"
+      });
+    }
+  });
+
   // REGIONS ROUTES
   app.get("/api/regions", async (req, res) => {
     try {
