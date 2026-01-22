@@ -1,0 +1,75 @@
+00:35:12.920 Running build in Washington, D.C., USA (East) – iad1
+00:35:12.921 Build machine configuration: 2 cores, 8 GB
+00:35:13.058 Cloning github.com/mooses23/GemachHub (Branch: main, Commit: a80df74)
+00:35:14.246 Cloning completed: 1.186s
+00:35:14.290 Found .vercelignore
+00:35:14.296 Removed 1 ignored files defined in .vercelignore
+00:35:14.296   /.replit
+00:35:14.374 Restored build cache from previous deployment (DSR14Yzr3XCgrNhAtLKsNJ1dfhua)
+00:35:14.723 Running "vercel build"
+00:35:15.750 Vercel CLI 50.4.9
+00:35:16.513 Running "install" command: `npm ci --legacy-peer-deps --include=dev || npm install --legacy-peer-deps --include=dev`...
+00:35:22.787 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+00:35:22.835 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+00:35:29.467 
+00:35:29.468 added 524 packages, and audited 525 packages in 13s
+00:35:29.469 
+00:35:29.469 69 packages are looking for funding
+00:35:29.469   run `npm fund` for details
+00:35:29.490 
+00:35:29.491 5 moderate severity vulnerabilities
+00:35:29.491 
+00:35:29.491 To address issues that do not require attention, run:
+00:35:29.491   npm audit fix
+00:35:29.491 
+00:35:29.491 To address all issues (including breaking changes), run:
+00:35:29.492   npm audit fix --force
+00:35:29.492 
+00:35:29.492 Run `npm audit` for details.
+00:35:29.979 
+00:35:29.979 > rest-express@1.0.0 build
+00:35:29.979 > npm run build:client && npm run build:server
+00:35:29.980 
+00:35:30.176 
+00:35:30.177 > rest-express@1.0.0 build:client
+00:35:30.177 > vite build
+00:35:30.177 
+00:35:30.616 [36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+00:35:30.704 transforming...
+00:35:31.706 Browserslist: browsers data (caniuse-lite) is 15 months old. Please run:
+00:35:31.707   npx update-browserslist-db@latest
+00:35:31.707   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+00:35:36.508 [32m✓[39m 2717 modules transformed.
+00:35:37.040 rendering chunks...
+00:35:37.059 computing gzip size...
+00:35:37.085 [2m../dist/public/[22m[32mindex.html                 [39m[1m[2m  0.63 kB[22m[1m[22m[2m │ gzip:   0.38 kB[22m
+00:35:37.086 [2m../dist/public/[22m[2massets/[22m[35mindex-DEd9W-CD.css  [39m[1m[2m 76.79 kB[22m[1m[22m[2m │ gzip:  13.15 kB[22m
+00:35:37.087 [2m../dist/public/[22m[2massets/[22m[36mindex-DZyzaRxI.js   [39m[1m[33m785.92 kB[39m[22m[2m │ gzip: 222.48 kB[22m
+00:35:37.087 [32m✓ built in 6.44s[39m
+00:35:37.087 [33m
+00:35:37.089 (!) Some chunks are larger than 500 kB after minification. Consider:
+00:35:37.089 - Using dynamic import() to code-split the application
+00:35:37.090 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+00:35:37.090 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+00:35:37.274 
+00:35:37.274 > rest-express@1.0.0 build:server
+00:35:37.275 > esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+00:35:37.275 
+00:35:37.305 
+00:35:37.305   dist/index.js  240.5kb
+00:35:37.305 
+00:35:37.311 ⚡ Done in 22ms
+00:35:37.353 Installing dependencies...
+00:35:38.260 
+00:35:38.261 up to date in 847ms
+00:35:38.262 
+00:35:38.262 69 packages are looking for funding
+00:35:38.262   run `npm fund` for details
+00:35:38.906 Using TypeScript 5.6.3 (local user-provided)
+00:35:50.030 Build Completed in /vercel/output [34s]
+00:35:50.216 Deploying outputs...
+00:35:56.459 Deployment completed
+00:35:57.511 Creating build cache...
+00:36:16.150 Created build cache: 18.640s
+00:36:16.152 Uploading build cache [81.29 MB]
+00:36:17.346 Build cache uploaded: 1.195s
