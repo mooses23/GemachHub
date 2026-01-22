@@ -2629,7 +2629,8 @@ export class MemStorage implements IStorage {
       processingFee: insertPayment.processingFee ?? null,
       paymentData: insertPayment.paymentData ?? null,
       createdAt: new Date(),
-      completedAt: insertPayment.status === "completed" ? new Date() : null
+      completedAt: insertPayment.status === "completed" ? new Date() : null,
+      retryAttempts: 0
     };
     this.payments.set(id, payment);
     return payment;

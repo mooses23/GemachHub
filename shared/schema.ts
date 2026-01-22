@@ -355,6 +355,7 @@ export const payments = pgTable("payments", {
   paymentData: text("payment_data"), // JSON string of provider response
   createdAt: timestamp("created_at").defaultNow(),
   completedAt: timestamp("completed_at"),
+  retryAttempts: integer("retry_attempts").default(0),
 });
 
 export const insertPaymentSchema = createInsertSchema(payments).pick({

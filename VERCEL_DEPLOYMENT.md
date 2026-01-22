@@ -1,122 +1,202 @@
-# Vercel Deployment Guide
+# Complete Replit → Vercel Migration Guide
 
 ## Prerequisites
 
-1. A Vercel account
-2. A PostgreSQL database (Neon recommended - integrates seamlessly with Vercel)
-3. Stripe account for payment processing (if using card payments)
+- Vercel account
+- Neon PostgreSQL database (or any PostgreSQL provider)
+- Stripe account (for payments)
+- PayPal account (optional, for PayPal payments)
 
-## Environment Variables
+## Step 1: Create Production Database
 
-Add these environment variables in the Vercel dashboard (Project Settings > Environment Variables):
-
-### Required Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string (must include `?sslmode=require`) | `postgresql://user:pass@host/db?sslmode=require` |
-| `SESSION_SECRET` | **REQUIRED** - Secret key for session encryption | A random 32+ character string |
-| `NODE_ENV` | Set to `production` for Vercel deployment | `production` |
-
-**Important:** `SESSION_SECRET` is **mandatory** in production. The application will fail to start without it. Generate a secure secret with: `openssl rand -base64 32`
-
-### Optional Variables (for payment processing)
-
-| Variable | Description |
-|----------|-------------|
-| `STRIPE_SECRET_KEY` | Your Stripe secret key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (for frontend) |
-
-## Deployment Steps
-
-### 1. Set Up Neon Database
+### Using Neon (Recommended)
 
 1. Go to [neon.tech](https://neon.tech) and create a free account
-2. Create a new project and database
-3. Copy the connection string (DATABASE_URL)
+2. Create a new project called "GemachHub Production"
+3. Copy the connection string (it looks like: `postgresql://user:password@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require`)
+4. Save this as your `DATABASE_URL`
 
-### 2. Run Database Migrations
+### Alternative: Use Vercel Postgres
 
-Before deploying, run the database migrations locally or use Neon's SQL editor:
+1. In Vercel dashboard, go to Storage tab
+2. Create new Postgres database
+3. Copy the connection string
 
-```bash
-# Set DATABASE_URL locally
-export DATABASE_URL="your_neon_connection_string"
+## Step 2: Configure Environment Variables in Vercel
 
-# Run migrations
-npm run db:push
+1. Go to your Vercel project dashboard
+2. Navigate to **Settings** → **Environment Variables**
+3. Add the following variables (use `.env.example` as reference):
 
-# Seed the database with initial data
-npx tsx server/seed.ts
+**Critical Variables (MUST HAVE):**
+- `DATABASE_URL` - Your Neon PostgreSQL connection string
+- `SESSION_SECRET` - Generate with: `openssl rand -base64 32`
+- `NODE_ENV` - Set to `production`
+
+**Payment Variables (Required for full functionality):**
+- `STRIPE_SECRET_KEY` - From Stripe dashboard
+- `STRIPE_PUBLISHABLE_KEY` - From Stripe dashboard  
+- `STRIPE_WEBHOOK_SECRET` - Created in Stripe webhook settings
+- `PAYPAL_CLIENT_ID` - From PayPal developer dashboard
+- `PAYPAL_CLIENT_SECRET` - From PayPal developer dashboard
+
+4. **IMPORTANT:** Select all three environments (Production, Preview, Development)
+5. Click **Save**
+
+## Step 3: Database Schema Setup
+
+After adding `DATABASE_URL` to Vercel, you need to push the schema to your database.
+
+### Option A: Local Setup (Recommended)
+
+1. Clone your repository locally:
+   ```bash
+   git clone https://github.com/mooses23/GemachHub.git
+   cd GemachHub
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Create a `.env` file with your production `DATABASE_URL`:
+   ```bash
+   DATABASE_URL="your-vercel-production-database-url"
+   ```
+
+4. Push the database schema:
+   ```bash
+   npm run db:push
+   ```
+
+5. Seed initial data:
+   ```bash
+   npm run seed
+   ```
+
+### Option B: Use Vercel Build Command (Advanced)
+
+Update `vercel.json` to include database setup:
+```json
+{
+  "buildCommand": "npm run build && npm run db:push",
+  ...
+}
 ```
 
-### 3. Deploy to Vercel
+## Step 4: Create Admin User
 
-#### Option A: Vercel CLI
+After seeding, you'll need an admin user. 
 
+**Note:** The seed script (`npm run seed`) creates a default admin user automatically. If you need to create an additional admin user manually, you can use the SQL below.
+
+To generate a password hash for manual user creation:
 ```bash
-# Install Vercel CLI
-npm i -g vercel
+# Using Node.js
+node -e "const bcrypt = require('bcrypt'); bcrypt.hash('your-password', 10, (err, hash) => console.log(hash));"
 
-# Deploy
-vercel
+# Or using an online bcrypt generator (use trusted sources only)
 ```
 
-#### Option B: Connect GitHub Repository
+Run this SQL directly in your database (via Neon dashboard or psql):
 
-1. Push your code to GitHub
-2. Go to [vercel.com](https://vercel.com)
-3. Click "Add New Project"
-4. Import your GitHub repository
-5. Add the environment variables
-6. Deploy
+```sql
+-- Create admin user (replace the password hash with your generated hash)
+INSERT INTO users (username, password, email, first_name, last_name, role, is_admin, created_at)
+VALUES (
+  'admin',
+  '$2a$10$your_generated_bcrypt_hash_here', -- Use bcrypt.hash() to generate this
+  'admin@gemachhub.com',
+  'Admin',
+  'User',
+  'admin',
+  true,
+  NOW()
+);
+```
 
-### 4. Configure Stripe Webhook (if using payments)
+## Step 5: Verify Deployment
 
-1. In Stripe Dashboard, go to Developers > Webhooks
-2. Add a new endpoint: `https://your-vercel-domain.vercel.app/api/stripe/webhook`
+1. Go to your Vercel deployment URL
+2. Check that locations appear on the homepage
+3. Test admin login at `/admin`
+4. Verify database connection in the console
+
+## Step 6: Configure Webhooks
+
+### Stripe Webhooks
+1. Go to Stripe Dashboard → Webhooks
+2. Add endpoint: `https://your-domain.vercel.app/api/stripe/webhook`
 3. Select events: `payment_intent.succeeded`, `payment_intent.payment_failed`
-4. Copy the signing secret and add it as `STRIPE_WEBHOOK_SECRET` in Vercel
+4. Copy the webhook secret to Vercel environment variables as `STRIPE_WEBHOOK_SECRET`
 
-## Build Configuration
-
-The project uses these build settings (already configured in vercel.json):
-
-- **Build Command:** `vite build`
-- **Output Directory:** `dist/public`
-- **Install Command:** `npm install`
-
-## File Structure for Vercel
-
-```
-/
-├── api/
-│   └── index.ts      # Serverless API entry point
-├── dist/
-│   └── public/       # Built frontend files
-├── vercel.json       # Vercel configuration
-└── ...
-```
+### PayPal Webhooks (if using PayPal)
+1. Go to PayPal Developer Dashboard → Webhooks
+2. Add webhook: `https://your-domain.vercel.app/api/paypal/webhook`
+3. Select relevant events
+4. Save credentials
 
 ## Troubleshooting
 
-### Database Connection Issues
-- Ensure `DATABASE_URL` includes `?sslmode=require` for Neon
-- Check that your Neon project allows connections from Vercel
+### Locations Not Showing
+- **Cause**: Database is empty or `DATABASE_URL` is incorrect
+- **Fix**: Check Vercel logs, verify `DATABASE_URL`, re-run `npm run db:push` and seed
 
-### Session Issues
-- Make sure `SESSION_SECRET` is set
-- Sessions are stored in PostgreSQL via connect-pg-simple
+### "Cannot find package 'vite'" Error
+- **Cause**: devDependencies not installed
+- **Fix**: Ensure `vercel.json` has `--include=dev` flag in install command
 
-### API Routes Not Working
-- Check Vercel function logs in the dashboard
-- Ensure all environment variables are set correctly
+### Session/Login Issues
+- **Cause**: Missing or invalid `SESSION_SECRET`
+- **Fix**: Generate new secret with `openssl rand -base64 32` and add to Vercel
 
-## Default Admin Credentials
+### Payment Failures
+- **Cause**: Missing Stripe/PayPal credentials
+- **Fix**: Add all payment-related environment variables to Vercel
 
-After seeding the database, you can log in with:
-- **Username:** admin
-- **Password:** admin123
+## Removing Replit Dependencies
 
-**Important:** Change the admin password after your first login!
+The codebase has been updated to work independently of Replit:
+- Replit-specific Vite plugins only load in development when `REPL_ID` exists
+- No Replit-specific code runs in production
+- All environment variables are standard across platforms
+
+## Post-Migration Checklist
+
+- [ ] Database created and `DATABASE_URL` added to Vercel
+- [ ] All environment variables configured in Vercel
+- [ ] Database schema pushed (`npm run db:push`)
+- [ ] Database seeded with initial data
+- [ ] Admin user created
+- [ ] Application deployed successfully
+- [ ] Locations visible on homepage
+- [ ] Admin login working
+- [ ] Payment methods tested
+- [ ] Webhooks configured (Stripe/PayPal)
+- [ ] Custom domain configured (optional)
+
+## Next Steps
+
+1. **Custom Domain**: Add your custom domain in Vercel project settings
+2. **SSL Certificate**: Vercel automatically provisions SSL
+3. **Monitoring**: Set up error tracking (Sentry, LogRocket, etc.)
+4. **Backup Strategy**: Configure database backups in Neon
+5. **Performance**: Monitor with Vercel Analytics
+
+Need help? Check the logs:
+- Vercel Dashboard → Deployments → View Function Logs
+- Neon Dashboard → Query History
+
+## Environment Variables Reference
+
+See `.env.example` for a complete list of all required and optional environment variables.
+
+## Useful Commands
+
+- `npm run verify-env` - Verify all environment variables are set
+- `npm run db:push` - Push database schema to production
+- `npm run seed` - Seed database with initial data
+- `npm run build` - Build the application for production
+- `npm run start` - Start the production server locally
+
