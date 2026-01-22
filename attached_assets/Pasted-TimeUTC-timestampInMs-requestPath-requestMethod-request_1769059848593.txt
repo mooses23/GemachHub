@@ -1,0 +1,413 @@
+TimeUTC,timestampInMs,requestPath,requestMethod,requestQueryString,responseStatusCode,requestId,requestUserAgent,level,environment,branch,vercelCache,type,function,host,deploymentDomain,deploymentId,durationMs,region,maxMemoryUsed,memorySize,message,projectId,traceId,sessionId,invocationId,instanceId,concurrency
+2026-01-22 05:23:15,1769059395645,gemach-hub.vercel.app/api/user,GET,,500,ghml2-1769059394730-5b71956340d1,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/user,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:23:14,1769059394730,gemach-hub.vercel.app/api/user,GET,,500,ghml2-1769059394730-5b71956340d1,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,887,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ2G95HKKGDZ2WWTQND6HEX,,-1
+2026-01-22 05:23:15,1769059395615,gemach-hub.vercel.app/api/regions,GET,,500,zd6zz-1769059394729-08c6e74ccaf7,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/regions,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:23:14,1769059394729,gemach-hub.vercel.app/api/regions,GET,,500,zd6zz-1769059394729-08c6e74ccaf7,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,860,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ2G95HKKGDZ2WWTNZZAZT0,,-1
+2026-01-22 05:23:15,1769059395584,gemach-hub.vercel.app/api/city-categories,GET,,500,z7hb5-1769059394729-11f43f09c03f,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/city-categories,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:23:14,1769059394729,gemach-hub.vercel.app/api/city-categories,GET,,500,z7hb5-1769059394729-11f43f09c03f,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,831,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ2G95FX29X0BHZ98ZH5EZV,,-1
+2026-01-22 05:23:15,1769059395510,gemach-hub.vercel.app/api/locations,GET,,500,sz7j7-1769059394729-9fcdc261e3e9,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/locations,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:23:14,1769059394729,gemach-hub.vercel.app/api/locations,GET,,500,sz7j7-1769059394729-9fcdc261e3e9,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,742,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ2G95YDG36QXNDAYE2H0SD,,-1
+2026-01-22 05:21:46,1769059306812,gemach-hub.vercel.app/api/city-categories,GET,,500,nplmp-1769059305963-c16a34af290f,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/city-categories,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:21:45,1769059305963,gemach-hub.vercel.app/api/city-categories,GET,,500,nplmp-1769059305963-c16a34af290f,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,792,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ2DJGD39TE48VPVBJ0NJAM,,-1
+2026-01-22 05:21:46,1769059306840,gemach-hub.vercel.app/api/regions,GET,,500,h8t9b-1769059305963-6c67b8bbe456,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/regions,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:21:45,1769059305963,gemach-hub.vercel.app/api/regions,GET,,500,h8t9b-1769059305963-6c67b8bbe456,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,823,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ2DJGBT0205E5DEQ81XEA7,,-1
+2026-01-22 05:21:46,1769059306813,gemach-hub.vercel.app/api/user,GET,,500,h4kqc-1769059305963-016dda6d1746,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/user,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:21:45,1769059305963,gemach-hub.vercel.app/api/user,GET,,500,h4kqc-1769059305963-016dda6d1746,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,805,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ2DJFZRYHRM9PVQBDZAFA4,,-1
+2026-01-22 05:21:46,1769059306754,gemach-hub.vercel.app/api/locations,GET,,500,b98l9-1769059305963-4cbd142fdbf5,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/locations,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:21:45,1769059305963,gemach-hub.vercel.app/api/locations,GET,,500,b98l9-1769059305963-4cbd142fdbf5,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,718,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ2DJH28A04KM2J8NAMBV76,,-1
+2026-01-22 05:16:28,1769058988402,gemach-hub.vercel.app/api/locations,GET,,500,zqf6l-1769058987519-10c210ce2221,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/locations,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:16:27,1769058987519,gemach-hub.vercel.app/api/locations,GET,,500,zqf6l-1769058987519-10c210ce2221,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,827,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ23VH8KJY5448BC1Y1C2CQ,,-1
+2026-01-22 05:16:28,1769058988397,gemach-hub.vercel.app/api/regions,GET,,500,dqtlc-1769058987519-f0a7b524f222,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/regions,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:16:27,1769058987519,gemach-hub.vercel.app/api/regions,GET,,500,dqtlc-1769058987519-f0a7b524f222,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,807,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ23VHN01EGZ81YXPMZHEB0,,-1
+2026-01-22 05:16:28,1769058988441,gemach-hub.vercel.app/api/user,GET,,500,6c48m-1769058987519-49addbbf7e69,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/user,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:16:27,1769058987519,gemach-hub.vercel.app/api/user,GET,,500,6c48m-1769058987519-49addbbf7e69,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,845,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ23VH8KJY5448BC1XYPZ46,,-1
+2026-01-22 05:16:28,1769058988415,gemach-hub.vercel.app/api/city-categories,GET,,500,5vktg-1769058987519-9bfdc546f283,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",error,production,main,MISS,serverless,/api/city-categories,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:16:27,1769058987519,gemach-hub.vercel.app/api/city-categories,GET,,500,5vktg-1769058987519-9bfdc546f283,"Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1",,production,main,MISS,serverless,/api,gemach-hub.vercel.app,gemach-hub.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,831,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ23VHHH4HV8HMXS7B938Q7,,-1
+2026-01-22 05:12:21,1769058741491,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/locations,GET,,500,pbjs6-1769058739382-0246e8361fd0,vercel-screenshot/1.0,error,production,main,MISS,serverless,/api/locations,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:12:19,1769058739382,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/locations,GET,,500,pbjs6-1769058739382-0246e8361fd0,vercel-screenshot/1.0,,production,main,MISS,serverless,/api,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,795,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ1W9A3SG1NQ4H5F173AAM1,,-1
+2026-01-22 05:12:21,1769058741520,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/user,GET,,500,lw5bt-1769058739382-f78fed1b25ac,vercel-screenshot/1.0,error,production,main,MISS,serverless,/api/user,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:12:19,1769058739382,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/user,GET,,500,lw5bt-1769058739382-f78fed1b25ac,vercel-screenshot/1.0,,production,main,MISS,serverless,/api,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,841,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ1W9A4T2ZC14RXQJKDC08Y,,-1
+2026-01-22 05:12:21,1769058741270,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/regions,GET,,500,hqtm4-1769058739382-3896780f3086,vercel-screenshot/1.0,error,production,main,MISS,serverless,/api/regions,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:12:19,1769058739382,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/regions,GET,,500,hqtm4-1769058739382-3896780f3086,vercel-screenshot/1.0,,production,main,MISS,serverless,/api,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,740,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ1W9A3SG1NQ4H5EY156MA8,,-1
+2026-01-22 05:12:21,1769058741465,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/city-categories,GET,,500,7qx7c-1769058739382-3ce54d091686,vercel-screenshot/1.0,error,production,main,MISS,serverless,/api/city-categories,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:12:19,1769058739382,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/city-categories,GET,,500,7qx7c-1769058739382-3ce54d091686,vercel-screenshot/1.0,,production,main,MISS,serverless,/api,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,817,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ1W9A0M6HE07TCD9T2FV8K,,-1
+2026-01-22 05:12:21,1769058741428,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/city-categories,GET,,500,zptmt-1769058739359-423d895ea395,vercel-screenshot/1.0,error,production,main,MISS,serverless,/api/city-categories,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:12:19,1769058739359,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/city-categories,GET,,500,zptmt-1769058739359-423d895ea395,vercel-screenshot/1.0,,production,main,MISS,serverless,/api,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,784,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ1W9A3SG1NQ4H5F15B659W,,-1
+2026-01-22 05:12:21,1769058741491,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/regions,GET,,500,pbjs6-1769058739359-fa38c4b1d747,vercel-screenshot/1.0,error,production,main,MISS,serverless,/api/regions,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:12:19,1769058739359,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/regions,GET,,500,pbjs6-1769058739359-fa38c4b1d747,vercel-screenshot/1.0,,production,main,MISS,serverless,/api,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,810,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ1W9A0M6HE07TCDCB4QN4E,,-1
+2026-01-22 05:12:21,1769058741299,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/user,GET,,500,d22sc-1769058739359-8ff1fe22fee2,vercel-screenshot/1.0,error,production,main,MISS,serverless,/api/user,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:12:19,1769058739359,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/user,GET,,500,d22sc-1769058739359-8ff1fe22fee2,vercel-screenshot/1.0,,production,main,MISS,serverless,/api,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,768,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ1W9A2MTRTRT45F6E9EXBK,,-1
+2026-01-22 05:12:21,1769058741585,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/locations,GET,,500,2cdkm-1769058739359-5da61eb80f6a,vercel-screenshot/1.0,error,production,main,MISS,serverless,/api/locations,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,,,,,"Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/server/databaseStorage' imported from /var/task/server/storage.js
+    at finalizeResolution (node:internal/modules/esm/resolve:280:11)
+    at moduleResolve (node:internal/modules/esm/resolve:870:10)
+    at moduleResolveWithNodePath (node:internal/modules/esm/resolve:996:14)
+    at defaultResolve (node:internal/modules/esm/resolve:1039:79)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:757:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:734:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:317:38)
+    at #link (node:internal/modules/esm/module_job:208:49)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/task/server/databaseStorage'
+}
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,,,
+2026-01-22 05:12:19,1769058739359,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app/api/locations,GET,,500,2cdkm-1769058739359-5da61eb80f6a,vercel-screenshot/1.0,,production,main,MISS,serverless,/api,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,gemach-1at41t3zf-mooses-projects-7504e4bb.vercel.app,dpl_DSR14Yzr3XCgrNhAtLKsNJ1dfhua,823,iad1,-1,2048,,prj_CENDQJ4CSXzZudulAiAzV1dLEABB,,,01KFJ1W9A2MTRTRT45F7QJYRJP,,-1
