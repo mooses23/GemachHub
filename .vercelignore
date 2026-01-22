@@ -1,0 +1,7 @@
+node_modules
+.replit
+.apt
+.cache
+dist
+*.log
+.env
