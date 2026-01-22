@@ -88,7 +88,7 @@ The deposit system uses a centralized backend service (`server/depositService.ts
 - `POST /api/deposits/:transactionId/refund` - Process refund for completed transaction
 
 **Stripe Integration:**
-- Uses Replit Stripe connector for API key management
+- Uses standard `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` environment variables
 - Stripe webhook registered BEFORE express.json() middleware (requires raw Buffer)
 - Webhook endpoint: `POST /api/stripe/webhook`
 - Frontend uses Stripe Elements (`@stripe/react-stripe-js`) for secure payment collection

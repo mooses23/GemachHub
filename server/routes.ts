@@ -63,11 +63,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // HEALTH CHECK ENDPOINT (for Vercel monitoring)
   app.get("/api/health", async (req, res) => {
     try {
-      const regions = await storage.getAllRegions();
+      await storage.getRegion(1);
       res.json({
         status: "ok",
         timestamp: new Date().toISOString(),
-        database: regions.length >= 0 ? "connected" : "error",
+        database: "connected",
         version: "1.0.0"
       });
     } catch (error) {

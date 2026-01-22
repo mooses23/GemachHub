@@ -7,7 +7,7 @@ import { promisify } from "util";
 import { storage } from "./storage.js";
 import { User as SelectUser, loginSchema, insertUserSchema } from "../shared/schema.js";
 import connectPgSimple from "connect-pg-simple";
-import pg from "pg";
+import { pool } from "./db.js";
 
 declare global {
   namespace Express {
@@ -80,14 +80,6 @@ export function setupAuth(app: Express) {
   if (isProduction && !process.env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET environment variable is required in production");
   }
-  
-  const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: isProduction ? { rejectUnauthorized: false } : undefined,
-    max: isProduction ? 5 : 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-  });
   
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "gemach-dev-secret-key",
