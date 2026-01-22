@@ -1,5 +1,5 @@
 import { eq, and, sql, ilike } from 'drizzle-orm';
-import { db } from './db';
+import { db } from './db.js';
 import {
   users, type User, type InsertUser,
   regions, type Region, type InsertRegion,
@@ -13,8 +13,8 @@ import {
   paymentMethods, type PaymentMethod, type InsertPaymentMethod,
   locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod,
   inventory, type Inventory, type InsertInventory
-} from '../shared/schema';
-import type { IStorage } from './storage';
+} from '../shared/schema.js';
+import type { IStorage } from './storage.js';
 
 export class DatabaseStorage implements IStorage {
   // User operations

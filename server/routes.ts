@@ -1,15 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { PaymentSyncService } from "./payment-sync";
-import { DepositSyncService } from "./deposit-sync";
-import { DepositRefundService } from "./deposit-refund";
-import { EmailNotificationService } from "./email-notifications";
-import { AuditTrailService } from "./audit-trail";
-import { PaymentAnalyticsEngine } from "./analytics-engine";
-import { DepositDetectionService } from "./deposit-detection";
-import { DepositService, type UserRole } from "./depositService";
-import { getStripePublishableKey } from "./stripeClient";
+import { storage } from "./storage.js";
+import { PaymentSyncService } from "./payment-sync.js";
+import { DepositSyncService } from "./deposit-sync.js";
+import { DepositRefundService } from "./deposit-refund.js";
+import { EmailNotificationService } from "./email-notifications.js";
+import { AuditTrailService } from "./audit-trail.js";
+import { PaymentAnalyticsEngine } from "./analytics-engine.js";
+import { DepositDetectionService } from "./deposit-detection.js";
+import { DepositService, type UserRole } from "./depositService.js";
+import { getStripePublishableKey } from "./stripeClient.js";
 import { z } from "zod";
 
 // Utility function to detect card brand
@@ -36,8 +36,8 @@ import {
   insertCityCategorySchema,
   operatorLoginSchema,
   HEADBAND_COLORS
-} from "../shared/schema";
-import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth";
+} from "../shared/schema.js";
+import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth.js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication

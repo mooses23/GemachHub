@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db } from "./db.js";
 import {
   regions,
   cityCategories,
@@ -10,7 +10,7 @@ import {
   type InsertPaymentMethod,
   type InsertLocation,
   type InsertInventory,
-} from "../shared/schema";
+} from "../shared/schema.js";
 import { eq } from "drizzle-orm";
 
 const defaultRegions: InsertRegion[] = [

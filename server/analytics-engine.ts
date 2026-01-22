@@ -3,7 +3,7 @@
  * Analyzes payment method effectiveness and generates insights
  */
 
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 
 export class PaymentAnalyticsEngine {
   /**
