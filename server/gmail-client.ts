@@ -1,8 +1,20 @@
 import { google } from 'googleapis';
 
 let connectionSettings: any;
+let vercelOAuth2Client: any = null;
 
-async function getAccessToken() {
+function isReplitEnvironment(): boolean {
+  return !!(process.env.REPLIT_CONNECTORS_HOSTNAME && 
+    (process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL));
+}
+
+function hasVercelGmailCredentials(): boolean {
+  return !!(process.env.GMAIL_CLIENT_ID && 
+    process.env.GMAIL_CLIENT_SECRET && 
+    process.env.GMAIL_REFRESH_TOKEN);
+}
+
+async function getReplitAccessToken() {
   if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
     return connectionSettings.settings.access_token;
   }
@@ -36,8 +48,21 @@ async function getAccessToken() {
   return accessToken;
 }
 
-export async function getUncachableGmailClient() {
-  const accessToken = await getAccessToken();
+async function getVercelGmailClient() {
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GMAIL_CLIENT_ID,
+    process.env.GMAIL_CLIENT_SECRET
+  );
+
+  oauth2Client.setCredentials({
+    refresh_token: process.env.GMAIL_REFRESH_TOKEN
+  });
+
+  return google.gmail({ version: 'v1', auth: oauth2Client });
+}
+
+async function getReplitGmailClient() {
+  const accessToken = await getReplitAccessToken();
 
   const oauth2Client = new google.auth.OAuth2();
   oauth2Client.setCredentials({
@@ -45,6 +70,41 @@ export async function getUncachableGmailClient() {
   });
 
   return google.gmail({ version: 'v1', auth: oauth2Client });
+}
+
+export async function getUncachableGmailClient() {
+  if (isReplitEnvironment()) {
+    return getReplitGmailClient();
+  } else if (hasVercelGmailCredentials()) {
+    return getVercelGmailClient();
+  } else {
+    throw new Error(
+      'Gmail not configured. For Replit: Connect Gmail integration. ' +
+      'For Vercel: Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN environment variables.'
+    );
+  }
+}
+
+export function getGmailConfigStatus(): { configured: boolean; environment: string; message: string } {
+  if (isReplitEnvironment()) {
+    return { 
+      configured: true, 
+      environment: 'replit', 
+      message: 'Using Replit Gmail connector' 
+    };
+  } else if (hasVercelGmailCredentials()) {
+    return { 
+      configured: true, 
+      environment: 'vercel', 
+      message: 'Using Vercel OAuth credentials' 
+    };
+  } else {
+    return { 
+      configured: false, 
+      environment: 'unknown', 
+      message: 'Gmail not configured. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN for Vercel deployment.' 
+    };
+  }
 }
 
 export interface EmailMessage {

@@ -10,7 +10,7 @@ import { PaymentAnalyticsEngine } from "./analytics-engine.js";
 import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { getStripePublishableKey } from "./stripeClient.js";
-import { listEmails, getEmail, markAsRead, sendReply } from "./gmail-client.js";
+import { listEmails, getEmail, markAsRead, sendReply, getGmailConfigStatus } from "./gmail-client.js";
 import { generateEmailResponse } from "./openai-client.js";
 import { z } from "zod";
 
@@ -1768,6 +1768,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ADMIN EMAIL ROUTES
+  // Check Gmail configuration status
+  app.get("/api/admin/emails/status", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const user = req.user as Express.User;
+      if (!user.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const status = getGmailConfigStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error("Error checking Gmail status:", error);
+      res.status(500).json({ message: error.message || "Failed to check Gmail status" });
+    }
+  });
+
   // Get list of emails from connected Gmail
   app.get("/api/admin/emails", async (req, res) => {
     try {

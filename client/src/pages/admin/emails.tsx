@@ -14,10 +14,12 @@ import {
   Sparkles, 
   Inbox,
   Clock,
-  User
+  User,
+  AlertCircle
 } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
+import DOMPurify from "dompurify";
 
 interface Email {
   id: string;
@@ -62,7 +64,7 @@ export default function AdminEmails() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: emails = [], isLoading, refetch, isRefetching } = useQuery<Email[]>({
+  const { data: emails = [], isLoading, refetch, isRefetching, error, isError } = useQuery<Email[]>({
     queryKey: ["/api/admin/emails"],
   });
 
@@ -178,9 +180,11 @@ export default function AdminEmails() {
                 <div 
                   className="whitespace-pre-wrap bg-muted/30 p-4 rounded-lg text-sm"
                   dangerouslySetInnerHTML={{ 
-                    __html: selectedEmail.body.includes('<') 
-                      ? selectedEmail.body 
-                      : selectedEmail.body.replace(/\n/g, '<br/>') 
+                    __html: DOMPurify.sanitize(
+                      selectedEmail.body.includes('<') 
+                        ? selectedEmail.body 
+                        : selectedEmail.body.replace(/\n/g, '<br/>')
+                    )
                   }}
                 />
               </div>
@@ -278,6 +282,18 @@ export default function AdminEmails() {
                     <Skeleton className="h-3 w-16" />
                   </div>
                 ))}
+              </div>
+            ) : isError ? (
+              <div className="p-12 text-center">
+                <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+                <h3 className="text-lg font-medium">Failed to load emails</h3>
+                <p className="text-muted-foreground mb-4">
+                  {(error as any)?.message || "Could not connect to Gmail. Please check your configuration."}
+                </p>
+                <Button variant="outline" onClick={() => refetch()}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </Button>
               </div>
             ) : emails.length === 0 ? (
               <div className="p-12 text-center">
