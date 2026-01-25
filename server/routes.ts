@@ -10,6 +10,8 @@ import { PaymentAnalyticsEngine } from "./analytics-engine.js";
 import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { getStripePublishableKey } from "./stripeClient.js";
+import { listEmails, getEmail, markAsRead, sendReply } from "./gmail-client.js";
+import { generateEmailResponse } from "./openai-client.js";
 import { z } from "zod";
 
 // Utility function to detect card brand
@@ -1762,6 +1764,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Refund error:", error);
       res.status(500).json({ message: error.message || "Failed to process refund" });
+    }
+  });
+
+  // ADMIN EMAIL ROUTES
+  // Get list of emails from connected Gmail
+  app.get("/api/admin/emails", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const user = req.user as Express.User;
+      if (!user.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const maxResults = parseInt(req.query.maxResults as string) || 20;
+      const emails = await listEmails(maxResults);
+      res.json(emails);
+    } catch (error: any) {
+      console.error("Error fetching emails:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch emails" });
+    }
+  });
+
+  // Get a single email by ID
+  app.get("/api/admin/emails/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const user = req.user as Express.User;
+      if (!user.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const email = await getEmail(req.params.id);
+      if (!email) {
+        return res.status(404).json({ message: "Email not found" });
+      }
+      res.json(email);
+    } catch (error: any) {
+      console.error("Error fetching email:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch email" });
+    }
+  });
+
+  // Mark email as read
+  app.post("/api/admin/emails/:id/read", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const user = req.user as Express.User;
+      if (!user.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      await markAsRead(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error marking email as read:", error);
+      res.status(500).json({ message: error.message || "Failed to mark as read" });
+    }
+  });
+
+  // Generate AI response for an email
+  app.post("/api/admin/emails/:id/generate-response", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const user = req.user as Express.User;
+      if (!user.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const email = await getEmail(req.params.id);
+      if (!email) {
+        return res.status(404).json({ message: "Email not found" });
+      }
+
+      const response = await generateEmailResponse(
+        email.subject,
+        email.body,
+        email.from
+      );
+      res.json({ response });
+    } catch (error: any) {
+      console.error("Error generating AI response:", error);
+      res.status(500).json({ message: error.message || "Failed to generate response" });
+    }
+  });
+
+  // Send reply to an email
+  app.post("/api/admin/emails/:id/reply", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const user = req.user as Express.User;
+      if (!user.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { replyText } = req.body;
+      if (!replyText || typeof replyText !== 'string') {
+        return res.status(400).json({ message: "Reply text is required" });
+      }
+
+      const email = await getEmail(req.params.id);
+      if (!email) {
+        return res.status(404).json({ message: "Email not found" });
+      }
+
+      await sendReply(
+        email.id,
+        email.threadId,
+        replyText,
+        email.from,
+        email.subject
+      );
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error sending reply:", error);
+      res.status(500).json({ message: error.message || "Failed to send reply" });
     }
   });
 
