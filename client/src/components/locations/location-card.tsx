@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Location } from "@/lib/types";
 import { User, MapPin, Phone, Package } from "lucide-react";
+import { Link } from "wouter";
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -58,48 +59,50 @@ export function LocationCard({ location, locationNumber }: LocationCardProps) {
   const inventory = inventoryData?.inventory?.filter(item => item.quantity > 0) || [];
   
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="pt-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            {locationNumber && (
-              <div className="bg-yellow-400 text-black text-sm font-bold px-3 py-1 rounded-full inline-block mb-2">
-                #{locationNumber}
-              </div>
-            )}
-            <h3 className="text-xl font-semibold">{location.name}</h3>
+    <Link href={`/self-deposit?locationId=${location.id}`}>
+      <Card className="hover:shadow-md transition-shadow cursor-pointer hover:border-blue-300 hover:bg-blue-50/30">
+        <CardContent className="pt-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              {locationNumber && (
+                <div className="bg-yellow-400 text-black text-sm font-bold px-3 py-1 rounded-full inline-block mb-2">
+                  #{locationNumber}
+                </div>
+              )}
+              <h3 className="text-xl font-semibold">{location.name}</h3>
+            </div>
+            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+              {location.isActive ? "Active" : "Inactive"}
+            </span>
           </div>
-          <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-            {location.isActive ? "Active" : "Inactive"}
-          </span>
-        </div>
-        <div className="mb-4 text-neutral-600">
-          <p className="flex items-center mb-2">
-            <User className="w-5 h-5 mr-2 text-neutral-500" />
-            <span>{location.contactPerson}</span>
-          </p>
-          <p className="flex items-center mb-2">
-            <MapPin className="w-5 h-5 mr-2 text-neutral-500" />
-            <span>{location.address}</span>
-          </p>
-          <p className="flex items-center mb-2">
-            <Phone className="w-5 h-5 mr-2 text-neutral-500" />
-            <span>{location.phone}</span>
-          </p>
-          <p className="flex items-center">
-            <Package className="w-5 h-5 mr-2 text-neutral-500" />
-            {inventory.length > 0 ? (
-              <span className="flex items-center gap-1 flex-wrap">
-                {inventory.map(item => (
-                  <InventoryCircle key={item.color} color={item.color} quantity={item.quantity} />
-                ))}
-              </span>
-            ) : (
-              <span className="text-neutral-400 text-sm">No stock data</span>
-            )}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="mb-4 text-neutral-600">
+            <p className="flex items-center mb-2">
+              <User className="w-5 h-5 mr-2 text-neutral-500" />
+              <span>{location.contactPerson}</span>
+            </p>
+            <p className="flex items-center mb-2">
+              <MapPin className="w-5 h-5 mr-2 text-neutral-500" />
+              <span>{location.address}</span>
+            </p>
+            <p className="flex items-center mb-2">
+              <Phone className="w-5 h-5 mr-2 text-neutral-500" />
+              <span>{location.phone}</span>
+            </p>
+            <p className="flex items-center">
+              <Package className="w-5 h-5 mr-2 text-neutral-500" />
+              {inventory.length > 0 ? (
+                <span className="flex items-center gap-1 flex-wrap">
+                  {inventory.map(item => (
+                    <InventoryCircle key={item.color} color={item.color} quantity={item.quantity} />
+                  ))}
+                </span>
+              ) : (
+                <span className="text-neutral-400 text-sm">No stock data</span>
+              )}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

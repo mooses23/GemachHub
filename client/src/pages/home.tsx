@@ -1,12 +1,27 @@
 import { Link } from "wouter";
 import { HierarchicalLocationSearch } from "@/components/locations/hierarchical-location-search";
 import { useLanguage } from "@/hooks/use-language";
+import logoImage from "@assets/BabyBanz_Gemach_1769321439923.jpg";
 
 export default function Home() {
   const { t } = useLanguage();
   return (
     <>
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        {/* Dedication Banner */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 border-b-2 border-amber-200">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(251,191,36,0.3),transparent_70%)]"></div>
+          </div>
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-300 text-2xl">✡</div>
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-300 text-2xl">✡</div>
+          <div className="relative py-4 px-8 text-center">
+            <p className="text-xl md:text-2xl font-serif text-amber-800 tracking-wide" dir="rtl">
+              לזכות רפואה שלימה לריבקה ברכה בת חנה שרה
+            </p>
+          </div>
+        </div>
+
         <div className="relative">
           {/* Background Pattern */}
           <div className="absolute inset-0 opacity-10">
@@ -15,6 +30,11 @@ export default function Home() {
           
           <div className="relative z-10 container mx-auto px-4 py-16">
             <div className="text-center max-w-4xl mx-auto mb-12">
+              <img 
+                src={logoImage} 
+                alt="BabyBanz Gemach" 
+                className="w-48 h-48 mx-auto mb-6 object-contain rounded-lg"
+              />
               <h1 className="text-5xl font-bold text-gray-900 mb-6">
                 {t("findBabyEarmuffsNearYou")}
               </h1>
