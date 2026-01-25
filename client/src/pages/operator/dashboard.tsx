@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, isAfter, addDays } from "date-fns";
+import StripeCheckout from "@/components/payment/stripe-checkout";
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -202,14 +203,17 @@ function LendWizard({
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [borrowerName, setBorrowerName] = useState("");
   const [borrowerPhone, setBorrowerPhone] = useState("");
+  const [borrowerEmail, setBorrowerEmail] = useState("");
   const [depositAmount, setDepositAmount] = useState(location.depositAmount?.toString() || "20");
   const [depositEdited, setDepositEdited] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
   
-  // Custom handler to clear default value on first keypress
+  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+  const [stripePublishableKey, setStripePublishableKey] = useState<string | null>(null);
+  const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
+  
   const handleDepositChange = (newValue: string) => {
     if (!depositEdited) {
-      // First edit - if user types a number, clear the default and use just the typed value
       if (newValue.length > depositAmount.length) {
         const typedChar = newValue.slice(-1);
         if (/[0-9]/.test(typedChar)) {
@@ -262,6 +266,67 @@ function LendWizard({
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const initiateStripePayment = async () => {
+    setIsInitiatingPayment(true);
+    try {
+      const emailToUse = borrowerEmail.trim() || `${borrowerPhone.replace(/\D/g, '')}@placeholder.local`;
+      
+      const res = await apiRequest("POST", "/api/deposits/initiate", {
+        locationId: location.id,
+        borrowerName,
+        borrowerEmail: emailToUse,
+        borrowerPhone,
+        headbandColor: selectedColor,
+        paymentMethod: 'stripe',
+      });
+      
+      const data = await res.json();
+      
+      if (data.clientSecret && data.publishableKey) {
+        setStripeClientSecret(data.clientSecret);
+        setStripePublishableKey(data.publishableKey);
+        setStep(5);
+      } else {
+        throw new Error(data.message || "Failed to initialize payment");
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Payment Error", 
+        description: error.message || "Failed to initialize card payment", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsInitiatingPayment(false);
+    }
+  };
+
+  const handleStripeSuccess = async () => {
+    try {
+      await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
+        color: selectedColor,
+        quantity: 1,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
+      toast({ title: "Success!", description: "Payment processed and headband lent successfully." });
+      onComplete();
+    } catch (error: any) {
+      toast({ title: "Error updating inventory", description: error.message, variant: "destructive" });
+      onComplete();
+    }
+  };
+
+  const handleStripeError = (error: string) => {
+    toast({ 
+      title: "Payment Failed", 
+      description: error, 
+      variant: "destructive" 
+    });
+  };
+  
+  const totalSteps = paymentMethod === "card" ? 5 : 4;
   
   const canProceed = () => {
     switch (step) {
@@ -269,6 +334,7 @@ function LendWizard({
       case 2: return borrowerName.trim() !== "" && borrowerPhone.trim() !== "";
       case 3: return parseFloat(depositAmount) > 0;
       case 4: return true;
+      case 5: return false;
       default: return false;
     }
   };
@@ -276,8 +342,12 @@ function LendWizard({
   const handleNext = () => {
     if (step < 4) {
       setStep(step + 1);
-    } else {
-      createTransactionMutation.mutate();
+    } else if (step === 4) {
+      if (paymentMethod === "card") {
+        initiateStripePayment();
+      } else {
+        createTransactionMutation.mutate();
+      }
     }
   };
   
@@ -285,7 +355,7 @@ function LendWizard({
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-6">
         <div className="flex gap-2">
-          {[1, 2, 3, 4].map((s) => (
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
             <div
               key={s}
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
@@ -295,7 +365,7 @@ function LendWizard({
             </div>
           ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={step === 5}>Cancel</Button>
       </div>
       
       {step === 1 && (
@@ -417,31 +487,66 @@ function LendWizard({
               <Badge variant="outline" className="capitalize">{paymentMethod}</Badge>
             </div>
           </div>
+          {paymentMethod === "card" && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-800 text-sm">
+                <CreditCard className="h-4 w-4" />
+                <span>Clicking "Process Payment" will open the card payment form</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 5 && stripeClientSecret && stripePublishableKey && (
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Card Payment</h3>
+          <div className="max-w-md mb-4 p-3 bg-muted/50 rounded-lg">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Amount to charge:</span>
+              <span className="font-bold">${depositAmount}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm mt-1">
+              <span className="text-muted-foreground">Borrower:</span>
+              <span>{borrowerName}</span>
+            </div>
+          </div>
+          <StripeCheckout
+            clientSecret={stripeClientSecret}
+            publishableKey={stripePublishableKey}
+            amount={Math.round(parseFloat(depositAmount) * 100)}
+            onSuccess={handleStripeSuccess}
+            onError={handleStripeError}
+          />
         </div>
       )}
       
-      <div className="flex justify-between pt-4">
-        <Button
-          variant="outline"
-          onClick={() => step > 1 ? setStep(step - 1) : onCancel()}
-          disabled={createTransactionMutation.isPending}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          {step === 1 ? "Cancel" : "Back"}
-        </Button>
-        <Button 
-          onClick={handleNext} 
-          disabled={!canProceed() || createTransactionMutation.isPending}
-        >
-          {createTransactionMutation.isPending ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
-          ) : step === 4 ? (
-            <><Check className="h-4 w-4 mr-2" /> Confirm Lend</>
-          ) : (
-            <>Next <ArrowRight className="h-4 w-4 ml-2" /></>
-          )}
-        </Button>
-      </div>
+      {step !== 5 && (
+        <div className="flex justify-between pt-4">
+          <Button
+            variant="outline"
+            onClick={() => step > 1 ? setStep(step - 1) : onCancel()}
+            disabled={createTransactionMutation.isPending || isInitiatingPayment}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            {step === 1 ? "Cancel" : "Back"}
+          </Button>
+          <Button 
+            onClick={handleNext} 
+            disabled={!canProceed() || createTransactionMutation.isPending || isInitiatingPayment}
+          >
+            {createTransactionMutation.isPending || isInitiatingPayment ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+            ) : step === 4 && paymentMethod === "card" ? (
+              <><CreditCard className="h-4 w-4 mr-2" /> Process Payment</>
+            ) : step === 4 ? (
+              <><Check className="h-4 w-4 mr-2" /> Confirm Lend</>
+            ) : (
+              <>Next <ArrowRight className="h-4 w-4 ml-2" /></>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
