@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,14 +16,23 @@ import type { Location } from "@/lib/types";
 import UniversalPaymentProcessor from "@/components/payment/universal-payment-processor";
 import { FeeCalculator } from "@/components/payment/fee-calculator";
 import { CreditCard, DollarSign, MapPin } from "lucide-react";
+import { useSearch } from "wouter";
 
 export function SelfDeposit() {
-  const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const searchParams = useSearch();
+  const urlParams = new URLSearchParams(searchParams);
+  const locationIdFromUrl = urlParams.get("locationId") || "";
+  
+  const [selectedLocation, setSelectedLocation] = useState<string>(locationIdFromUrl);
   const [borrowerName, setBorrowerName] = useState("");
   const [borrowerEmail, setBorrowerEmail] = useState("");
   const [borrowerPhone, setBorrowerPhone] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [showPayment, setShowPayment] = useState(false);
+
+  useEffect(() => {
+    setSelectedLocation(locationIdFromUrl);
+  }, [locationIdFromUrl]);
 
   const { data: locations = [] } = useQuery({
     queryKey: ["/api/locations"],

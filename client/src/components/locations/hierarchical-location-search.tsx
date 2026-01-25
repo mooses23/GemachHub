@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -502,61 +503,63 @@ function LocationCard({ location, region }: LocationCardProps) {
   const inventory = inventoryData?.inventory?.filter(item => item.quantity > 0) || [];
 
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-200 border-2 hover:border-blue-200">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <Badge variant="default" className="mb-2 font-mono text-sm">
-              {location.locationCode}
-            </Badge>
-            <h3 className="text-lg font-semibold text-gray-900">
-              {location.name}
-            </h3>
-          </div>
-        </div>
-        
-        <div className="space-y-3">
-          <div className="flex items-start">
-            <MapPin className="h-4 w-4 text-gray-400 mt-1 mr-2 flex-shrink-0" />
-            <p className="text-sm text-gray-600">{location.address}</p>
-          </div>
-          
-          <div className="flex items-center">
-            <Phone className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-            <p className="text-sm text-gray-600">{location.phone}</p>
-          </div>
-          
-          <div className="flex items-center">
-            <Package className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-            {inventory.length > 0 ? (
-              <div className="flex items-center gap-1 flex-wrap">
-                {inventory.map(item => (
-                  <InventoryCircle key={item.color} color={item.color} quantity={item.quantity} />
-                ))}
-              </div>
-            ) : (
-              <span className="text-sm text-gray-400">{t("noStockInfo")}</span>
-            )}
-          </div>
-        </div>
-        
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <span className="text-gray-500">{t("contactLabel")}</span>
-              <span className="font-medium text-gray-900 ml-1">{location.contactPerson}</span>
+    <Link href={`/self-deposit?locationId=${location.id}`}>
+      <Card className="hover:shadow-lg transition-shadow duration-200 border-2 hover:border-blue-200 cursor-pointer">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <Badge variant="default" className="mb-2 font-mono text-sm">
+                {location.locationCode}
+              </Badge>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {location.name}
+              </h3>
             </div>
-            <Badge variant={location.isActive ? "default" : "secondary"}>
-              {location.isActive ? t("active") : t("inactive")}
-            </Badge>
           </div>
           
-          <div className="mt-2 text-sm">
-            <span className="text-gray-500">{t("depositLabel")}</span>
-            <span className="font-medium text-gray-900 ml-1">${location.depositAmount}</span>
+          <div className="space-y-3">
+            <div className="flex items-start">
+              <MapPin className="h-4 w-4 text-gray-400 mt-1 mr-2 flex-shrink-0" />
+              <p className="text-sm text-gray-600">{location.address}</p>
+            </div>
+            
+            <div className="flex items-center">
+              <Phone className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+              <p className="text-sm text-gray-600">{location.phone}</p>
+            </div>
+            
+            <div className="flex items-center">
+              <Package className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+              {inventory.length > 0 ? (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {inventory.map(item => (
+                    <InventoryCircle key={item.color} color={item.color} quantity={item.quantity} />
+                  ))}
+                </div>
+              ) : (
+                <span className="text-sm text-gray-400">{t("noStockInfo")}</span>
+              )}
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+          
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <span className="text-gray-500">{t("contactLabel")}</span>
+                <span className="font-medium text-gray-900 ml-1">{location.contactPerson}</span>
+              </div>
+              <Badge variant={location.isActive ? "default" : "secondary"}>
+                {location.isActive ? t("active") : t("inactive")}
+              </Badge>
+            </div>
+            
+            <div className="mt-2 text-sm">
+              <span className="text-gray-500">{t("depositLabel")}</span>
+              <span className="font-medium text-gray-900 ml-1">${location.depositAmount}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
