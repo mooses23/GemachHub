@@ -101,11 +101,34 @@ export default function AdminTransactions() {
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       closeRefundDialog();
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      // Enhanced error messages for refund failures
+      let errorMessage = error.message || "Failed to process refund";
+      
+      // Provide specific feedback based on error type
+      if (error.message?.includes('already marked as returned')) {
+        errorMessage = "This transaction has already been marked as returned.";
+      } else if (error.message?.includes('no completed payment')) {
+        errorMessage = "Cannot process refund: No completed payment found for this transaction.";
+      } else if (error.message?.includes('not authorized')) {
+        errorMessage = "You are not authorized to process this refund.";
+      } else if (error.message?.includes('refund in progress')) {
+        errorMessage = "A refund is already in progress for this transaction.";
+      } else if (error.message?.includes('validation failed')) {
+        errorMessage = `Refund validation failed: ${error.message}`;
+      }
+      
       toast({
-        title: "Error",
-        description: `Failed to update status: ${error.message}`,
+        title: "Refund Failed",
+        description: errorMessage,
         variant: "destructive",
+      });
+      
+      // Log for debugging
+      console.error('Refund processing error:', {
+        transactionId: refundTransaction?.id,
+        error: error.message,
+        timestamp: new Date().toISOString()
       });
     },
   });
