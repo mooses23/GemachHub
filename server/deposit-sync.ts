@@ -198,8 +198,8 @@ export class DepositSyncService {
       // Only increment stock if item is in good condition
       // Damaged items may need repair, missing items don't get added back
       if (!condition || condition === 'good') {
-        // Get transaction color if available
-        const color = (transaction as any).headbandColor;
+        // Get transaction color - headbandColor is a valid field in the Transaction type
+        const color = transaction.headbandColor;
         
         if (color) {
           // Increment inventory by 1 for the returned item

@@ -12,6 +12,7 @@ import {
   locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod,
   inventory, type Inventory, type InsertInventory
 } from "../shared/schema.js";
+import { isLocationIdValid } from "./helpers/rbacUtils.js";
 
 // Interface for storage operations
 export interface IStorage {
@@ -2523,7 +2524,7 @@ export class MemStorage implements IStorage {
 
     // Operator can only access transactions from their location
     if (userRole === 'operator') {
-      if (userLocationId === undefined || userLocationId === null) {
+      if (!isLocationIdValid(userLocationId)) {
         throw new Error('Operator has no assigned location');
       }
       if (transaction.locationId !== userLocationId) {

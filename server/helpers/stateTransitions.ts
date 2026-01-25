@@ -3,6 +3,8 @@
  * Ensures valid state transitions for transactions and payments
  */
 
+// Type definitions for state management
+// These types document the possible states in the system
 export type TransactionState = 'active' | 'returned' | 'cancelled';
 export type PaymentState = 'pending' | 'confirming' | 'completed' | 'failed' | 'refund_pending' | 'refunded';
 export type RefundState = 'not_refunded' | 'refund_initiated' | 'refund_pending' | 'refund_completed' | 'refund_failed';

@@ -123,13 +123,6 @@ export default function AdminTransactions() {
         description: errorMessage,
         variant: "destructive",
       });
-      
-      // Log for debugging
-      console.error('Refund processing error:', {
-        transactionId: refundTransaction?.id,
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
     },
   });
 

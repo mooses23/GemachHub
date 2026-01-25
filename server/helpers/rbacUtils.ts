@@ -14,6 +14,14 @@ export interface AuthorizationContext {
 }
 
 /**
+ * Validates if a location ID is assigned and valid
+ * Common utility to check for null/undefined location IDs
+ */
+export function isLocationIdValid(locationId?: number | null): locationId is number {
+  return locationId !== undefined && locationId !== null;
+}
+
+/**
  * Checks if a user is authorized to access a specific location
  */
 export function isAuthorizedForLocation(context: AuthorizationContext): boolean {
@@ -26,7 +34,7 @@ export function isAuthorizedForLocation(context: AuthorizationContext): boolean 
 
   // Operators can only access their assigned location
   if (userRole === 'operator') {
-    if (userLocationId === undefined || userLocationId === null) {
+    if (!isLocationIdValid(userLocationId)) {
       return false; // Operator without location assignment
     }
     if (targetLocationId === undefined) {
@@ -83,7 +91,7 @@ export function canAccessTransaction(
 
   // Operators can only access transactions from their location
   if (userRole === 'operator') {
-    if (userLocationId === undefined || userLocationId === null) {
+    if (!isLocationIdValid(userLocationId)) {
       return false;
     }
     return transaction.locationId === userLocationId;
