@@ -127,7 +127,10 @@ export class DepositSyncService {
   /**
    * Handles deposit refund processing when items are returned
    */
-  static async processDepositRefund(transactionId: number): Promise<boolean> {
+  static async processDepositRefund(
+    transactionId: number,
+    condition?: 'good' | 'damaged' | 'missing'
+  ): Promise<boolean> {
     try {
       const transaction = await storage.getTransaction(transactionId);
       if (!transaction) return false;
@@ -155,10 +158,62 @@ export class DepositSyncService {
       }
 
       await this.syncDepositConfirmation(transactionId, "refunded", { refund: true });
+      
+      // Sync stock when refund is completed
+      await this.syncStockOnRefund(transactionId, condition);
+      
       return true;
     } catch (error) {
       console.error("Deposit refund error:", error);
       return false;
+    }
+  }
+
+  /**
+   * Synchronizes stock/inventory when a refund is completed
+   * Only increments inventory when refund is marked as completed and item is in good condition
+   */
+  static async syncStockOnRefund(
+    transactionId: number,
+    condition?: 'good' | 'damaged' | 'missing'
+  ): Promise<void> {
+    try {
+      const transaction = await storage.getTransaction(transactionId);
+      if (!transaction) {
+        console.warn(`Transaction ${transactionId} not found for stock sync`);
+        return;
+      }
+
+      // Get refund payment to verify it's completed
+      const payments = await storage.getPaymentsByTransaction(transactionId);
+      const refundPayment = payments.find(p => 
+        p.status === 'completed' && p.totalAmount < 0 // Negative amount indicates refund
+      );
+
+      if (!refundPayment) {
+        console.warn(`No completed refund found for transaction ${transactionId}, skipping stock sync`);
+        return;
+      }
+
+      // Only increment stock if item is in good condition
+      // Damaged items may need repair, missing items don't get added back
+      if (!condition || condition === 'good') {
+        // Get transaction color if available
+        const color = (transaction as any).headbandColor;
+        
+        if (color) {
+          // Increment inventory by 1 for the returned item
+          await storage.adjustInventory(transaction.locationId, color, 1);
+          console.log(`Incremented inventory for location ${transaction.locationId}, color ${color} (transaction ${transactionId})`);
+        } else {
+          console.warn(`No headband color found for transaction ${transactionId}, cannot update inventory`);
+        }
+      } else {
+        console.log(`Item returned in ${condition} condition, not incrementing inventory for transaction ${transactionId}`);
+      }
+    } catch (error) {
+      console.error("Stock sync on refund error:", error);
+      // Don't throw - log error but allow refund to complete
     }
   }
 

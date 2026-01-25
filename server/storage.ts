@@ -67,6 +67,7 @@ export interface IStorage {
   // Transaction operations
   getAllTransactions(): Promise<Transaction[]>;
   getTransaction(id: number): Promise<Transaction | undefined>;
+  getTransactionWithAuth(id: number, userRole: string, userLocationId?: number | null, isAdmin?: boolean): Promise<Transaction | undefined>;
   getTransactionsByLocation(locationId: number): Promise<Transaction[]>;
   getTransactionByPhone(locationId: number, phone: string): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
@@ -2501,6 +2502,42 @@ export class MemStorage implements IStorage {
 
   async getTransaction(id: number): Promise<Transaction | undefined> {
     return this.transactions.get(id);
+  }
+
+  async getTransactionWithAuth(
+    id: number, 
+    userRole: string, 
+    userLocationId?: number | null, 
+    isAdmin?: boolean
+  ): Promise<Transaction | undefined> {
+    const transaction = this.transactions.get(id);
+    
+    if (!transaction) {
+      return undefined;
+    }
+
+    // Admin can access any transaction
+    if (isAdmin || userRole === 'admin') {
+      return transaction;
+    }
+
+    // Operator can only access transactions from their location
+    if (userRole === 'operator') {
+      if (userLocationId === undefined || userLocationId === null) {
+        throw new Error('Operator has no assigned location');
+      }
+      if (transaction.locationId !== userLocationId) {
+        throw new Error(`Access denied: Transaction belongs to location ${transaction.locationId}, operator assigned to location ${userLocationId}`);
+      }
+      return transaction;
+    }
+
+    // Borrowers cannot access transaction management
+    if (userRole === 'borrower') {
+      throw new Error('Borrowers are not authorized to access transaction details');
+    }
+
+    throw new Error(`Unknown user role: ${userRole}`);
   }
 
   async getTransactionsByLocation(locationId: number): Promise<Transaction[]> {

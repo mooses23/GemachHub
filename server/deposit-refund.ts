@@ -6,6 +6,21 @@
 import { storage } from "./storage.js";
 import { DepositSyncService } from "./deposit-sync.js";
 import type { UserRole } from "./depositService.js";
+import { withRetry, logRetryFailure } from "./helpers/retryHandler.js";
+import { 
+  canProcessRefund, 
+  isAuthorizedForLocation, 
+  canPerformBulkOperations,
+  requireAuthorization,
+  getAuthorizationErrorMessage,
+  type AuthorizationContext
+} from "./helpers/rbacUtils.js";
+import {
+  canProcessRefund as validateRefund,
+  calculateRefundAmount,
+  isValidRefundAmount,
+  validateRefundWorkflow
+} from "./helpers/stateTransitions.js";
 
 export class DepositRefundService {
   /**
@@ -23,70 +38,131 @@ export class DepositRefundService {
     userId: number,
     operatorLocationId?: number
   ): Promise<{ transaction: any; refundStatus: string; refundAmount: number }> {
-    try {
-      if (userRole === 'borrower') {
-        throw new Error('Borrowers cannot process refunds');
-      }
+    // RBAC Check - centralized authorization
+    const authContext: AuthorizationContext = {
+      userRole,
+      userId,
+      userLocationId: operatorLocationId,
+      isAdmin: userRole === 'admin'
+    };
+    
+    requireAuthorization(
+      canProcessRefund(authContext),
+      getAuthorizationErrorMessage('refund', userRole)
+    );
 
-      const transaction = await storage.getTransaction(transactionId);
-      if (!transaction) {
-        throw new Error(`Transaction ${transactionId} not found`);
-      }
+    const result = await withRetry(
+      async () => {
+        const transaction = await storage.getTransaction(transactionId);
+        if (!transaction) {
+          throw new Error(`Transaction ${transactionId} not found`);
+        }
 
-      if (userRole === 'operator') {
-        if (operatorLocationId !== undefined && operatorLocationId !== transaction.locationId) {
-          throw new Error('Operator not authorized for this location');
+        // Location authorization check
+        if (userRole === 'operator') {
+          const locationAuth = isAuthorizedForLocation({
+            ...authContext,
+            targetLocationId: transaction.locationId
+          });
+          requireAuthorization(
+            locationAuth,
+            `Operator not authorized for location ${transaction.locationId}`
+          );
+        }
+
+        // Get payments for validation
+        const payments = await storage.getPaymentsByTransaction(transactionId);
+
+        // State validation - ensure transaction can be refunded
+        const validationResult = validateRefund(transaction, payments);
+        if (!validationResult.valid) {
+          throw new Error(validationResult.reason || 'Cannot process refund');
+        }
+
+        // Validate complete workflow
+        const workflowValidation = validateRefundWorkflow(transaction, payments);
+        if (!workflowValidation.valid) {
+          throw new Error(`Refund workflow validation failed: ${workflowValidation.errors.join(', ')}`);
+        }
+
+        // Calculate refund amount based on condition using helper
+        const calculatedAmount = calculateRefundAmount(
+          transaction.depositAmount,
+          returnData.condition
+        );
+        const refundAmount = returnData.refundAmount !== undefined 
+          ? returnData.refundAmount 
+          : calculatedAmount;
+
+        // Validate refund amount
+        const amountValidation = isValidRefundAmount(refundAmount, transaction.depositAmount);
+        if (!amountValidation.valid) {
+          throw new Error(amountValidation.reason || 'Invalid refund amount');
+        }
+
+        // Mark transaction as returned
+        const updatedTransaction = await storage.markTransactionReturned(transactionId);
+
+        // Process refund payment
+        const completedPayment = payments.find(p => p.status === 'completed');
+
+        let refundStatus = 'pending';
+        if (completedPayment) {
+          // Create refund payment record
+          await storage.createPayment({
+            transactionId,
+            paymentMethod: completedPayment.paymentMethod,
+            paymentProvider: completedPayment.paymentProvider,
+            depositAmount: refundAmount,
+            totalAmount: refundAmount,
+            status: 'refund_pending',
+            externalPaymentId: `refund_${completedPayment.externalPaymentId}`,
+            paymentData: JSON.stringify({
+              condition: returnData.condition,
+              notes: returnData.returnNotes,
+              processedBy: userId,
+              processedAt: new Date().toISOString()
+            })
+          });
+          
+          refundStatus = 'refund_initiated';
+        }
+
+        // Sync refund across system (including stock updates)
+        await DepositSyncService.processDepositRefund(transactionId, returnData.condition);
+
+        return {
+          transaction: updatedTransaction,
+          refundStatus,
+          refundAmount
+        };
+      },
+      {
+        maxRetries: 3,
+        initialDelayMs: 1000,
+        onRetry: (attempt, error) => {
+          console.warn(`Retry attempt ${attempt} for processItemReturn (transaction ${transactionId}):`, error.message);
         }
       }
+    );
 
-      if (transaction.isReturned) {
-        throw new Error(`Transaction ${transactionId} already marked as returned`);
-      }
-
-      // Calculate refund amount based on condition
-      let refundAmount = returnData.refundAmount || transaction.depositAmount;
-      
-      if (returnData.condition === 'damaged') {
-        refundAmount = transaction.depositAmount * 0.5; // 50% for damaged items
-      } else if (returnData.condition === 'missing') {
-        refundAmount = 0; // No refund for missing items
-      }
-
-      // Mark transaction as returned
-      const updatedTransaction = await storage.markTransactionReturned(transactionId);
-
-      // Process refund payment
-      const payments = await storage.getPaymentsByTransaction(transactionId);
-      const completedPayment = payments.find(p => p.status === 'completed');
-
-      let refundStatus = 'pending';
-      if (completedPayment) {
-        // Create refund payment record
-        await storage.createPayment({
+    if (!result.success) {
+      // Log failure persistently for later retry
+      await logRetryFailure(
+        'processItemReturn',
+        {
           transactionId,
-          paymentMethod: completedPayment.paymentMethod,
-          paymentProvider: completedPayment.paymentProvider,
-          depositAmount: refundAmount,
-          totalAmount: refundAmount,
-          status: 'refund_pending',
-          externalPaymentId: `refund_${completedPayment.externalPaymentId}`
-        });
-        
-        refundStatus = 'refund_initiated';
-      }
-
-      // Sync refund across system
-      await DepositSyncService.processDepositRefund(transactionId);
-
-      return {
-        transaction: updatedTransaction,
-        refundStatus,
-        refundAmount
-      };
-    } catch (error) {
-      console.error('Refund processing error:', error);
-      throw error;
+          returnData,
+          userRole,
+          userId,
+          operatorLocationId
+        },
+        result.error!
+      );
+      throw new Error(`Failed to process item return after ${result.attempts} attempts: ${result.error?.message}`);
     }
+
+    return result.data!;
   }
 
   /**
@@ -149,8 +225,24 @@ export class DepositRefundService {
     failed: number;
     details: Array<{ transactionId: number; status: string; error?: string }>
   }> {
-    if (userRole !== 'admin') {
-      return { successful: 0, failed: transactionIds.length, details: transactionIds.map(id => ({ transactionId: id, status: 'failed', error: 'Only admins can process bulk refunds' })) };
+    // Use centralized RBAC check
+    const authContext: AuthorizationContext = {
+      userRole,
+      userId,
+      isAdmin: userRole === 'admin'
+    };
+
+    if (!canPerformBulkOperations(authContext)) {
+      const errorMsg = getAuthorizationErrorMessage('bulk_operation', userRole);
+      return { 
+        successful: 0, 
+        failed: transactionIds.length, 
+        details: transactionIds.map(id => ({ 
+          transactionId: id, 
+          status: 'failed', 
+          error: errorMsg 
+        })) 
+      };
     }
 
     const results = [];
