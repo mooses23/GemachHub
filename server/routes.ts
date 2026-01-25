@@ -9,6 +9,7 @@ import { AuditTrailService } from "./audit-trail.js";
 import { PaymentAnalyticsEngine } from "./analytics-engine.js";
 import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
+import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey } from "./stripeClient.js";
 import { listEmails, getEmail, markAsRead, sendReply, getGmailConfigStatus } from "./gmail-client.js";
 import { generateEmailResponse } from "./openai-client.js";
@@ -1908,6 +1909,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error sending reply:", error);
       res.status(500).json({ message: error.message || "Failed to send reply" });
+    }
+  });
+
+  // ============================================
+  // PAY LATER (SETUP INTENT) ROUTES
+  // ============================================
+
+  // Create SetupIntent for card verification without charging
+  app.post("/api/deposits/setup-intent", async (req, res) => {
+    try {
+      const { locationId, borrowerName, borrowerEmail, borrowerPhone, amountCents } = req.body;
+
+      if (!locationId || !borrowerName) {
+        return res.status(400).json({ message: "Location ID and borrower name are required" });
+      }
+
+      const location = await storage.getLocation(locationId);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+
+      const amount = amountCents || (location.depositAmount || 20) * 100;
+
+      const result = await PayLaterService.createSetupIntent({
+        locationId,
+        borrowerName,
+        borrowerEmail,
+        borrowerPhone,
+        amountCents: amount,
+      });
+
+      res.json({
+        transactionId: result.transactionId,
+        clientSecret: result.clientSecret,
+        publicStatusUrl: result.publicStatusUrl,
+        publishableKey: getStripePublishableKey(),
+      });
+    } catch (error: any) {
+      console.error("SetupIntent creation error:", error);
+      res.status(500).json({ message: error.message || "Failed to create setup intent" });
+    }
+  });
+
+  // Public status page endpoint (no auth required, uses magic token)
+  app.get("/api/status/:transactionId", async (req, res) => {
+    try {
+      const transactionId = parseInt(req.params.transactionId);
+      const token = req.query.token as string;
+
+      if (!token) {
+        return res.status(401).json({ message: "Token required" });
+      }
+
+      const transaction = await PayLaterService.getTransactionByToken(transactionId, token);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found or token invalid/expired" });
+      }
+
+      const location = await storage.getLocation(transaction.locationId);
+
+      let paymentIntentClientSecret = null;
+      if (transaction.payLaterStatus === 'CHARGE_REQUIRES_ACTION') {
+        paymentIntentClientSecret = await PayLaterService.getPaymentIntentClientSecret(transactionId);
+      }
+
+      res.json({
+        id: transaction.id,
+        status: transaction.payLaterStatus,
+        borrowerName: transaction.borrowerName,
+        amountCents: transaction.amountPlannedCents,
+        currency: transaction.currency,
+        locationName: location?.name,
+        locationAddress: location?.address,
+        requiresAction: transaction.payLaterStatus === 'CHARGE_REQUIRES_ACTION',
+        paymentIntentClientSecret,
+        publishableKey: transaction.payLaterStatus === 'CHARGE_REQUIRES_ACTION' ? getStripePublishableKey() : undefined,
+      });
+    } catch (error: any) {
+      console.error("Status page error:", error);
+      res.status(500).json({ message: "Failed to retrieve status" });
+    }
+  });
+
+  // Get pending Pay Later transactions for operator
+  app.get("/api/operator/transactions/pending", async (req, res) => {
+    try {
+      const operatorLocationId = (req.session as any).operatorLocationId;
+      
+      if (!req.isAuthenticated() && !operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const locationId = operatorLocationId || (req.user as any)?.locationId;
+      
+      if (!locationId) {
+        return res.status(403).json({ message: "Operator location not set" });
+      }
+
+      const transactions = await storage.getPendingPayLaterTransactions(locationId);
+      res.json(transactions);
+    } catch (error: any) {
+      console.error("Error fetching pending transactions:", error);
+      res.status(500).json({ message: "Failed to fetch pending transactions" });
+    }
+  });
+
+  // Operator approves and charges a transaction
+  app.post("/api/operator/transactions/:id/charge", async (req, res) => {
+    try {
+      const transactionId = parseInt(req.params.id);
+      const operatorLocationId = (req.session as any).operatorLocationId;
+      
+      if (!req.isAuthenticated() && !operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const userId = req.isAuthenticated() ? (req.user as any).id : undefined;
+      const locationId = operatorLocationId || (req.user as any)?.locationId;
+
+      const result = await PayLaterService.chargeTransaction(transactionId, userId, locationId);
+
+      if (result.success) {
+        res.json({ 
+          success: true, 
+          status: result.status,
+          paymentIntentId: result.paymentIntentId 
+        });
+      } else if (result.requiresAction) {
+        res.json({
+          success: false,
+          status: result.status,
+          requiresAction: true,
+          message: "Customer needs to complete additional authentication",
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          status: result.status,
+          errorCode: result.errorCode,
+          errorMessage: result.errorMessage,
+        });
+      }
+    } catch (error: any) {
+      console.error("Charge transaction error:", error);
+      res.status(500).json({ message: error.message || "Failed to charge transaction" });
+    }
+  });
+
+  // Operator declines a transaction (no charge)
+  app.post("/api/operator/transactions/:id/decline", async (req, res) => {
+    try {
+      const transactionId = parseInt(req.params.id);
+      const { reason } = req.body;
+      const operatorLocationId = (req.session as any).operatorLocationId;
+      
+      if (!req.isAuthenticated() && !operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const userId = req.isAuthenticated() ? (req.user as any).id : undefined;
+      const locationId = operatorLocationId || (req.user as any)?.locationId;
+
+      const result = await PayLaterService.declineTransaction(transactionId, userId, locationId, reason);
+
+      if (result.success) {
+        res.json({ success: true, status: 'DECLINED' });
+      } else {
+        res.status(400).json({ success: false, message: result.errorMessage });
+      }
+    } catch (error: any) {
+      console.error("Decline transaction error:", error);
+      res.status(500).json({ message: error.message || "Failed to decline transaction" });
     }
   });
 
