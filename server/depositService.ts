@@ -75,15 +75,13 @@ export class DepositService {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: totalAmount,
         currency: 'usd',
+        payment_method_types: ['card'],
         metadata: {
           transactionId: transactionId.toString(),
           locationId: locationId.toString(),
           depositAmount: (depositAmount * 100).toString(),
           processingFee: processingFee.toString(),
           type: 'earmuff_deposit'
-        },
-        automatic_payment_methods: {
-          enabled: true,
         },
       });
 
