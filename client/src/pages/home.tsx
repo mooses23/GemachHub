@@ -17,7 +17,7 @@ export default function Home() {
           <div className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-300 text-2xl">✡</div>
           <div className="relative py-4 px-8 text-center">
             <p className="text-xl md:text-2xl font-serif text-amber-800 tracking-wide" dir="rtl">
-              לזכות רפואה שלימה לריבקה ברכה בת חנה שרה
+              לזכות רפואה שלימה לרבקה ברכה בת חנה שרה
             </p>
           </div>
         </div>
