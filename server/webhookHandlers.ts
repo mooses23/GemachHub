@@ -1,5 +1,6 @@
 import { getStripeClient, getStripeWebhookSecret } from './stripeClient.js';
 import { storage } from './storage.js';
+import { PayLaterService } from './payLaterService.js';
 
 export class WebhookHandlers {
   static async processWebhook(payload: Buffer, signature: string): Promise<void> {
@@ -25,12 +26,29 @@ export class WebhookHandlers {
 
     console.log(`Processing Stripe webhook event: ${event.type}`);
 
+    const existingEvent = await storage.getWebhookEvent(event.id);
+    if (existingEvent) {
+      console.log(`Webhook event ${event.id} already processed, skipping`);
+      return;
+    }
+
+    await storage.createWebhookEvent({
+      eventId: event.id,
+      eventType: event.type,
+    });
+
     switch (event.type) {
+      case 'setup_intent.succeeded':
+        await this.handleSetupIntentSucceeded(event.data.object);
+        break;
       case 'payment_intent.succeeded':
         await this.handlePaymentIntentSucceeded(event.data.object);
         break;
       case 'payment_intent.payment_failed':
         await this.handlePaymentIntentFailed(event.data.object);
+        break;
+      case 'payment_intent.requires_action':
+        await this.handlePaymentIntentRequiresAction(event.data.object);
         break;
       case 'charge.refunded':
         await this.handleChargeRefunded(event.data.object);
@@ -40,10 +58,37 @@ export class WebhookHandlers {
     }
   }
 
+  private static async handleSetupIntentSucceeded(setupIntent: any): Promise<void> {
+    console.log(`SetupIntent succeeded: ${setupIntent.id}`);
+    
+    try {
+      const paymentMethodId = setupIntent.payment_method;
+      if (paymentMethodId) {
+        await PayLaterService.handleSetupIntentSucceeded(setupIntent.id, paymentMethodId);
+      }
+    } catch (error) {
+      console.error('Error handling setup_intent.succeeded:', error);
+      throw error;
+    }
+  }
+
+  private static async handlePaymentIntentRequiresAction(paymentIntent: any): Promise<void> {
+    console.log(`PaymentIntent requires action: ${paymentIntent.id}`);
+    
+    try {
+      await PayLaterService.handlePaymentIntentRequiresAction(paymentIntent.id);
+    } catch (error) {
+      console.error('Error handling payment_intent.requires_action:', error);
+      throw error;
+    }
+  }
+
   private static async handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     console.log(`PaymentIntent succeeded: ${paymentIntent.id}`);
     
     try {
+      await PayLaterService.handlePaymentIntentSucceeded(paymentIntent.id);
+
       const payments = await storage.getAllPayments();
       const payment = payments.find(p => p.externalPaymentId === paymentIntent.id);
       
@@ -52,8 +97,6 @@ export class WebhookHandlers {
           notes: `Payment confirmed via webhook at ${new Date().toISOString()}`
         });
         console.log(`Updated payment ${payment.id} to completed`);
-      } else {
-        console.log(`No matching payment found for PaymentIntent: ${paymentIntent.id}`);
       }
     } catch (error) {
       console.error('Error handling payment_intent.succeeded:', error);
@@ -65,11 +108,13 @@ export class WebhookHandlers {
     console.log(`PaymentIntent failed: ${paymentIntent.id}`);
     
     try {
+      const failureMessage = paymentIntent.last_payment_error?.message || 'Payment failed';
+      await PayLaterService.handlePaymentIntentFailed(paymentIntent.id, failureMessage);
+
       const payments = await storage.getAllPayments();
       const payment = payments.find(p => p.externalPaymentId === paymentIntent.id);
       
       if (payment) {
-        const failureMessage = paymentIntent.last_payment_error?.message || 'Payment failed';
         await storage.updatePaymentStatus(payment.id, 'failed', {
           notes: `Payment failed: ${failureMessage}`
         });
