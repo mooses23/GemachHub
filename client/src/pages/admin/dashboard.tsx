@@ -15,7 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Location, Transaction, GemachApplication, Contact } from "@/lib/types";
 import { 
   Users, MapPin, FileText, Package, Settings, Grid, List, 
-  DollarSign, RefreshCw, AlarmClock, CreditCard, CheckCircle, BarChart3
+  DollarSign, RefreshCw, AlarmClock, CreditCard, CheckCircle, BarChart3, Mail
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -184,6 +184,12 @@ export default function Dashboard() {
                   <Link href="/admin/applications">
                     <Button className="w-full" variant="outline">
                       Review Applications
+                    </Button>
+                  </Link>
+                  <Link href="/admin/emails">
+                    <Button className="w-full" variant="outline">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Email Inbox
                     </Button>
                   </Link>
                 </CardContent>
