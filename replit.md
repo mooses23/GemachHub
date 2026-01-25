@@ -154,6 +154,75 @@ The refund system is aligned with the deposit system's role-based access control
 - `expectedReturnDate` - For overdue detection
 - `refundAmount` - For partial refunds
 
+### Pay Later System (Deferred Deposits)
+
+The Pay Later system enables card verification without immediate charging, designed to minimize payment fees since 98% of transactions result in full refunds (items returned properly). Instead of charging upfront and refunding later, the system only charges when actually needed.
+
+**Flow Overview:**
+1. Borrower provides card details → SetupIntent verifies card without charging
+2. Transaction created with status `CARD_SETUP_COMPLETE`
+3. Item returned → No charge needed (avoiding refund fees)
+4. Item damaged/not returned → Operator charges via stored PaymentMethod
+
+**Key API Endpoints:**
+
+- `POST /api/deposits/setup-intent` - Create SetupIntent for card verification
+  - Request: `{ locationId, borrowerName, borrowerEmail?, borrowerPhone?, amountCents? }`
+  - Response: `{ transactionId, clientSecret, publicStatusUrl, publishableKey }`
+  - Creates Stripe Customer + SetupIntent, stores magic token for status page
+
+- `GET /api/status/:transactionId?token=xxx` - Public status page data (no auth)
+  - Returns: transaction status, borrower info, amount, location details
+  - For SCA: includes `paymentIntentClientSecret` and `publishableKey`
+
+- `GET /api/operator/transactions/pending` - List pending Pay Later transactions
+  - Returns transactions with `payLaterStatus = CARD_SETUP_COMPLETE`
+
+- `POST /api/operator/transactions/:id/charge` - Operator approves and charges
+  - Creates off-session PaymentIntent using stored PaymentMethod
+  - Handles SCA with `CHARGE_REQUIRES_ACTION` status
+
+- `POST /api/operator/transactions/:id/decline` - Operator declines (no charge)
+  - Request: `{ reason?: string }`
+  - Updates status to `DECLINED`, logs in audit trail
+
+**PayLaterStatus Values:**
+- `REQUEST_CREATED` - Initial state
+- `CARD_SETUP_PENDING` - SetupIntent created, awaiting card submission
+- `CARD_SETUP_COMPLETE` - Card verified, ready for approval
+- `APPROVED` - Operator approved, waiting to charge
+- `CHARGE_ATTEMPTED` - PaymentIntent created
+- `CHARGED` - Payment successful
+- `CHARGE_REQUIRES_ACTION` - SCA required, client redirected to status page
+- `CHARGE_FAILED` - Payment failed
+- `DECLINED` - Operator declined request
+- `EXPIRED` - Token/session expired
+
+**Key Backend Services:**
+- `server/payLaterService.ts` - Core business logic for SetupIntent/PaymentIntent operations
+- Webhook handlers for `setup_intent.succeeded`, `payment_intent.requires_action`, `payment_intent.succeeded`, `payment_intent.payment_failed`
+- Audit logging for all operator actions
+
+**Frontend Components:**
+- `client/src/components/deposit/SetupIntentForm.tsx` - Card verification form with Stripe Elements
+- `client/src/pages/status.tsx` - Public status page with SCA completion support
+- Operator dashboard has "Pay Later" tab for pending transactions
+
+**Stripe Testing with CLI:**
+```bash
+# Forward Stripe webhooks to local server
+stripe listen --forward-to localhost:5000/api/stripe/webhook
+
+# Trigger test events
+stripe trigger setup_intent.succeeded
+stripe trigger payment_intent.requires_action
+```
+
+**Environment Variables:**
+- `STRIPE_SECRET_KEY` - Stripe API secret key
+- `STRIPE_PUBLISHABLE_KEY` - Stripe publishable key for frontend
+- `STRIPE_WEBHOOK_SECRET` - Webhook signing secret
+
 ### Internationalization (i18n)
 - **Languages**: English (en) and Hebrew (he) fully supported
 - **Translation System**: Custom hook-based translation using React Context
