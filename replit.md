@@ -179,6 +179,22 @@ The refund system is aligned with the deposit system's role-based access control
 - Email notification service structure exists in `server/email-notifications.ts`
 - Requires SMTP or email service credentials (SendGrid, AWS SES) to activate
 
+### Admin Gmail Inbox & AI Responses
+The admin dashboard includes a Gmail inbox integration with AI-assisted response generation:
+
+**Features:**
+- View emails from connected Gmail account (earmuffsgemach@gmail.com)
+- Read full email content with sender/date information
+- Generate AI-powered response drafts using OpenAI
+- Send replies directly from the admin interface
+
+**Files:**
+- `server/gmail-client.ts` - Gmail API client (supports both Replit connector and Vercel OAuth)
+- `server/openai-client.ts` - OpenAI client for AI response generation
+- `client/src/pages/admin/emails.tsx` - Admin email inbox page
+
+**Access:** `/admin/emails` (admin-only)
+
 ### Environment Variables Required
 - `DATABASE_URL` - PostgreSQL connection string (must include `?sslmode=require` for production)
 - `SESSION_SECRET` - Express session secret (**REQUIRED** in production)
@@ -186,6 +202,12 @@ The refund system is aligned with the deposit system's role-based access control
 - `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
 - `VITE_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key (for frontend)
 - `ADMIN_EMAIL` - For admin notifications
+- `OPENAI_API_KEY` - OpenAI API key (for AI-assisted email responses)
+
+**Gmail OAuth (Vercel only):**
+- `GMAIL_CLIENT_ID` - Google OAuth client ID
+- `GMAIL_CLIENT_SECRET` - Google OAuth client secret
+- `GMAIL_REFRESH_TOKEN` - Gmail OAuth refresh token
 
 ## Vercel Deployment
 
