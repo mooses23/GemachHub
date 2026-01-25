@@ -602,11 +602,16 @@ function ReturnWizard({
       
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
-      toast({ title: "Success!", description: "Return processed successfully." });
+      
+      const refundAmt = data?.refundAmount ?? selectedTransaction?.depositAmount ?? 0;
+      const refundMsg = data?.refundProcessed 
+        ? `Stripe refund of $${refundAmt.toFixed(2)} has been processed.`
+        : "Return processed successfully.";
+      toast({ title: "Success!", description: refundMsg });
       onComplete();
     },
     onError: (error: Error) => {
@@ -724,6 +729,15 @@ function ReturnWizard({
               Paid via {selectedTransaction.depositPaymentMethod || "cash"}
             </div>
           </div>
+          
+          {selectedTransaction.depositPaymentMethod === "stripe" && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-800 text-sm">
+                <CreditCard className="h-4 w-4" />
+                <span>This was a card payment. The refund will be processed automatically to the original card.</span>
+              </div>
+            </div>
+          )}
           
           <div className="mb-6">
             <div className="flex gap-4 mb-4">

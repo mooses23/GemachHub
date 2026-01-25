@@ -330,7 +330,8 @@ export class DepositService {
     transactionId: number,
     userId: number,
     userRole: UserRole,
-    refundAmount?: number
+    refundAmount?: number,
+    operatorLocationId?: number
   ): Promise<{ success: boolean; error?: string }> {
     if (userRole === 'borrower') {
       return { success: false, error: 'Borrowers cannot process refunds' };
@@ -342,9 +343,17 @@ export class DepositService {
     }
 
     if (userRole === 'operator') {
-      const user = await storage.getUser(userId);
-      if (!user || user.locationId !== transaction.locationId) {
-        return { success: false, error: 'Operator not authorized for this location' };
+      // For PIN-based auth, operatorLocationId is already validated by the route
+      if (operatorLocationId !== undefined) {
+        if (operatorLocationId !== transaction.locationId) {
+          return { success: false, error: 'Operator not authorized for this location' };
+        }
+      } else {
+        // For user-based auth, check user's locationId
+        const user = await storage.getUser(userId);
+        if (!user || user.locationId !== transaction.locationId) {
+          return { success: false, error: 'Operator not authorized for this location' };
+        }
       }
     }
 
