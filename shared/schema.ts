@@ -1,6 +1,21 @@
-import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Pay Later Status Enum for SetupIntent → PaymentIntent flow
+export const PAY_LATER_STATUSES = [
+  "REQUEST_CREATED",
+  "CARD_SETUP_PENDING",
+  "CARD_SETUP_COMPLETE",
+  "APPROVED",
+  "CHARGE_ATTEMPTED",
+  "CHARGED",
+  "CHARGE_REQUIRES_ACTION",
+  "CHARGE_FAILED",
+  "DECLINED",
+  "EXPIRED"
+] as const;
+export type PayLaterStatus = typeof PAY_LATER_STATUSES[number];
 
 // User schema (for authentication)
 export const users = pgTable("users", {
@@ -204,6 +219,18 @@ export const transactions = pgTable("transactions", {
   expectedReturnDate: timestamp("expected_return_date"),
   actualReturnDate: timestamp("actual_return_date"),
   notes: text("notes"),
+  // Pay Later (SetupIntent → PaymentIntent) fields
+  payLaterStatus: text("pay_later_status"), // One of PAY_LATER_STATUSES
+  stripeCustomerId: text("stripe_customer_id"), // cus_*
+  stripeSetupIntentId: text("stripe_setup_intent_id"), // seti_*
+  stripePaymentMethodId: text("stripe_payment_method_id"), // pm_*
+  stripePaymentIntentId: text("stripe_payment_intent_id"), // pi_* (nullable, set when charge is created)
+  amountPlannedCents: integer("amount_planned_cents"), // Amount to charge in cents
+  currency: text("currency").default("usd"),
+  magicToken: text("magic_token"), // Hashed token for public status page
+  magicTokenExpiresAt: timestamp("magic_token_expires_at"),
+  chargeErrorCode: text("charge_error_code"), // Stripe error code if charge fails
+  chargeErrorMessage: text("charge_error_message"), // Stripe error message
 });
 
 export const insertTransactionSchema = createInsertSchema(transactions).pick({
@@ -216,8 +243,23 @@ export const insertTransactionSchema = createInsertSchema(transactions).pick({
   depositPaymentMethod: true,
   expectedReturnDate: true,
   notes: true,
+  payLaterStatus: true,
+  stripeCustomerId: true,
+  stripeSetupIntentId: true,
+  stripePaymentMethodId: true,
+  stripePaymentIntentId: true,
+  amountPlannedCents: true,
+  currency: true,
+  magicToken: true,
+  magicTokenExpiresAt: true,
+  chargeErrorCode: true,
+  chargeErrorMessage: true,
 }).extend({
   expectedReturnDate: z.union([
+    z.date(),
+    z.string().transform((str) => new Date(str)),
+  ]).optional(),
+  magicTokenExpiresAt: z.union([
     z.date(),
     z.string().transform((str) => new Date(str)),
   ]).optional(),
@@ -372,3 +414,49 @@ export const insertPaymentSchema = createInsertSchema(payments).pick({
 
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+
+// Audit Log schema for tracking operator/admin actions (Pay Later flow)
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  actorUserId: integer("actor_user_id"), // User who performed the action (null for system actions)
+  actorType: text("actor_type").notNull().default("user"), // "user", "operator", "system", "webhook"
+  action: text("action").notNull(), // "charge_initiated", "charge_succeeded", "charge_failed", "declined", etc.
+  entityType: text("entity_type").notNull(), // "transaction", "payment", etc.
+  entityId: integer("entity_id").notNull(),
+  beforeJson: text("before_json"), // JSON snapshot before change
+  afterJson: text("after_json"), // JSON snapshot after change
+  metadata: text("metadata"), // Additional context (error codes, stripe event ids, etc.)
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).pick({
+  actorUserId: true,
+  actorType: true,
+  action: true,
+  entityType: true,
+  entityId: true,
+  beforeJson: true,
+  afterJson: true,
+  metadata: true,
+  ipAddress: true,
+});
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+// Webhook Events deduplication table (for idempotent webhook handling)
+export const webhookEvents = pgTable("webhook_events", {
+  id: serial("id").primaryKey(),
+  eventId: text("event_id").notNull().unique(), // Stripe event ID
+  eventType: text("event_type").notNull(),
+  processedAt: timestamp("processed_at").notNull().defaultNow(),
+});
+
+export const insertWebhookEventSchema = createInsertSchema(webhookEvents).pick({
+  eventId: true,
+  eventType: true,
+});
+
+export type WebhookEvent = typeof webhookEvents.$inferSelect;
+export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;

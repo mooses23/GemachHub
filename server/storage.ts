@@ -10,7 +10,10 @@ import {
   payments, type Payment, type InsertPayment,
   paymentMethods, type PaymentMethod, type InsertPaymentMethod,
   locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod,
-  inventory, type Inventory, type InsertInventory
+  inventory, type Inventory, type InsertInventory,
+  auditLogs, type AuditLog, type InsertAuditLog,
+  webhookEvents, type WebhookEvent, type InsertWebhookEvent,
+  type PayLaterStatus
 } from "../shared/schema.js";
 
 // Interface for storage operations
@@ -98,6 +101,21 @@ export interface IStorage {
   getAvailablePaymentMethodsForLocation(locationId: number): Promise<PaymentMethod[]>;
   enablePaymentMethodForLocation(locationId: number, paymentMethodId: number, customFee?: number): Promise<LocationPaymentMethod>;
   disablePaymentMethodForLocation(locationId: number, paymentMethodId: number): Promise<void>;
+
+  // Pay Later operations
+  getTransactionByMagicToken(magicToken: string): Promise<Transaction | undefined>;
+  getTransactionBySetupIntentId(setupIntentId: string): Promise<Transaction | undefined>;
+  getTransactionByPaymentIntentId(paymentIntentId: string): Promise<Transaction | undefined>;
+  getPendingPayLaterTransactions(locationId?: number): Promise<Transaction[]>;
+  updateTransactionPayLaterStatus(id: number, status: PayLaterStatus, additionalData?: Partial<Transaction>): Promise<Transaction>;
+
+  // Audit Log operations
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogsForEntity(entityType: string, entityId: number): Promise<AuditLog[]>;
+
+  // Webhook Event operations (for idempotency)
+  getWebhookEvent(eventId: string): Promise<WebhookEvent | undefined>;
+  createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent>;
 }
 
 export class MemStorage implements IStorage {
@@ -2537,7 +2555,19 @@ export class MemStorage implements IStorage {
       headbandColor: insertTransaction.headbandColor ?? null,
       depositPaymentMethod: insertTransaction.depositPaymentMethod ?? "cash",
       refundAmount: null,
-      notes: insertTransaction.notes ?? null
+      notes: insertTransaction.notes ?? null,
+      // Pay Later fields
+      payLaterStatus: insertTransaction.payLaterStatus ?? null,
+      stripeCustomerId: insertTransaction.stripeCustomerId ?? null,
+      stripeSetupIntentId: insertTransaction.stripeSetupIntentId ?? null,
+      stripePaymentMethodId: insertTransaction.stripePaymentMethodId ?? null,
+      stripePaymentIntentId: insertTransaction.stripePaymentIntentId ?? null,
+      amountPlannedCents: insertTransaction.amountPlannedCents ?? null,
+      currency: insertTransaction.currency ?? "usd",
+      magicToken: insertTransaction.magicToken ?? null,
+      magicTokenExpiresAt: insertTransaction.magicTokenExpiresAt ? new Date(insertTransaction.magicTokenExpiresAt) : null,
+      chargeErrorCode: insertTransaction.chargeErrorCode ?? null,
+      chargeErrorMessage: insertTransaction.chargeErrorMessage ?? null
     };
     
     this.transactions.set(id, transaction);

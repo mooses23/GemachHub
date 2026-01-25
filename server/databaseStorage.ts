@@ -1,4 +1,4 @@
-import { eq, and, sql, ilike } from 'drizzle-orm';
+import { eq, and, sql, ilike, isNull, or, inArray } from 'drizzle-orm';
 import { db } from './db.js';
 import {
   users, type User, type InsertUser,
@@ -12,7 +12,10 @@ import {
   payments, type Payment, type InsertPayment,
   paymentMethods, type PaymentMethod, type InsertPaymentMethod,
   locationPaymentMethods, type LocationPaymentMethod, type InsertLocationPaymentMethod,
-  inventory, type Inventory, type InsertInventory
+  inventory, type Inventory, type InsertInventory,
+  auditLogs, type AuditLog, type InsertAuditLog,
+  webhookEvents, type WebhookEvent, type InsertWebhookEvent,
+  type PayLaterStatus
 } from '../shared/schema.js';
 import type { IStorage } from './storage.js';
 
@@ -568,5 +571,84 @@ export class DatabaseStorage implements IStorage {
         eq(locationPaymentMethods.paymentMethodId, paymentMethodId)
       )
     );
+  }
+
+  // Pay Later operations
+  async getTransactionByMagicToken(magicToken: string): Promise<Transaction | undefined> {
+    const result = await db.select().from(transactions).where(eq(transactions.magicToken, magicToken));
+    return result[0];
+  }
+
+  async getTransactionBySetupIntentId(setupIntentId: string): Promise<Transaction | undefined> {
+    const result = await db.select().from(transactions).where(eq(transactions.stripeSetupIntentId, setupIntentId));
+    return result[0];
+  }
+
+  async getTransactionByPaymentIntentId(paymentIntentId: string): Promise<Transaction | undefined> {
+    const result = await db.select().from(transactions).where(eq(transactions.stripePaymentIntentId, paymentIntentId));
+    return result[0];
+  }
+
+  async getPendingPayLaterTransactions(locationId?: number): Promise<Transaction[]> {
+    const pendingStatuses = ['CARD_SETUP_PENDING', 'CARD_SETUP_COMPLETE', 'CHARGE_REQUIRES_ACTION'];
+    
+    if (locationId) {
+      return db.select().from(transactions).where(
+        and(
+          eq(transactions.locationId, locationId),
+          inArray(transactions.payLaterStatus, pendingStatuses)
+        )
+      );
+    }
+    
+    return db.select().from(transactions).where(
+      inArray(transactions.payLaterStatus, pendingStatuses)
+    );
+  }
+
+  async updateTransactionPayLaterStatus(id: number, status: PayLaterStatus, additionalData?: Partial<Transaction>): Promise<Transaction> {
+    const updateData: any = { payLaterStatus: status, ...additionalData };
+    
+    const result = await db.update(transactions)
+      .set(updateData)
+      .where(eq(transactions.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error(`Transaction with id ${id} not found`);
+    }
+    return result[0];
+  }
+
+  // Audit Log operations
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const result = await db.insert(auditLogs).values({
+      ...log,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async getAuditLogsForEntity(entityType: string, entityId: number): Promise<AuditLog[]> {
+    return db.select().from(auditLogs).where(
+      and(
+        eq(auditLogs.entityType, entityType),
+        eq(auditLogs.entityId, entityId)
+      )
+    );
+  }
+
+  // Webhook Event operations (for idempotency)
+  async getWebhookEvent(eventId: string): Promise<WebhookEvent | undefined> {
+    const result = await db.select().from(webhookEvents).where(eq(webhookEvents.eventId, eventId));
+    return result[0];
+  }
+
+  async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
+    const result = await db.insert(webhookEvents).values({
+      ...event,
+      processedAt: new Date()
+    }).returning();
+    return result[0];
   }
 }
