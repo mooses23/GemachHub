@@ -636,6 +636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/transactions/:id/return", async (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
+      const { refundAmount } = req.body;
       const transaction = await storage.getTransaction(id);
       
       if (!transaction) {
@@ -654,11 +655,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Check if there's a Stripe payment that needs to be refunded
+      const payments = await storage.getAllPayments();
+      const stripePayment = payments.find(p => 
+        p.transactionId === id && 
+        p.paymentMethod === 'stripe' && 
+        p.status === 'completed'
+      );
+      
+      let refundProcessed = false;
+      
+      if (stripePayment) {
+        // Process Stripe refund
+        const userRole: UserRole = operatorLocationId === -1 ? 'admin' : 'operator';
+        const refundResult = await DepositService.refundDeposit(
+          id,
+          0, // userId not needed for operator PIN auth
+          userRole,
+          refundAmount,
+          operatorLocationId // Pass operatorLocationId for PIN-based auth
+        );
+        
+        if (!refundResult.success) {
+          return res.status(400).json({ 
+            message: refundResult.error || "Failed to process Stripe refund" 
+          });
+        }
+        refundProcessed = true;
+      }
+      
+      // Mark transaction as returned
       const updatedTransaction = await storage.markTransactionReturned(id);
-      res.json(updatedTransaction);
+      
+      res.json({ 
+        transaction: updatedTransaction,
+        refundProcessed,
+        refundAmount: refundAmount || transaction.depositAmount
+      });
     } catch (error) {
-      console.error("Error marking transaction as returned:", error);
-      res.status(500).json({ message: "Failed to update transaction" });
+      console.error("Error processing return:", error);
+      res.status(500).json({ message: "Failed to process return" });
     }
   });
 
