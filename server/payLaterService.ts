@@ -392,7 +392,9 @@ export class PayLaterService {
       return;
     }
 
-    if (transaction.payLaterStatus === 'CHARGE_REQUIRES_ACTION') {
+    const terminalStatuses = ['CHARGED', 'CHARGE_FAILED', 'DECLINED', 'CHARGE_REQUIRES_ACTION'];
+    if (terminalStatuses.includes(transaction.payLaterStatus || '')) {
+      console.log(`Skipping requires_action for transaction ${transaction.id} already in status: ${transaction.payLaterStatus}`);
       return;
     }
 
