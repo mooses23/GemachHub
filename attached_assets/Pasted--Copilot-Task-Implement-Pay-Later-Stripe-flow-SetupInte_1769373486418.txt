@@ -1,0 +1,187 @@
+# Copilot Task: Implement “Pay Later” Stripe flow (SetupIntent → off-session charge) WITHOUT changing existing architecture
+
+## Goal (do not redesign the app)
+We already have a basic flow for collecting payments. We are NOT building a new fintech product or adding user login.
+We are ONLY fine-tuning the payment layer to support:
+- Client submits request (no login)
+- Card is collected/verified now (NOT charged)
+- Operator later approves + charges the card (pay-later)
+- Admin oversight, locations, operators
+
+Use Stripe SetupIntent now, then PaymentIntent off_session later.
+
+---
+
+## Constraints
+- Client side: no login
+- Operator/admin dashboard: authenticated (existing auth system stays)
+- Do not store raw card data (PCI)
+- Must support multiple “locations” and operator role scoping
+- Must handle SCA (Strong Customer Authentication) edge case:
+  - Off-session charge can require customer action; provide a “complete payment” link
+
+---
+
+## Data model changes (minimal)
+Add fields to existing “requests” table/entity:
+- status ENUM:
+  - REQUEST_CREATED
+  - CARD_SETUP_PENDING
+  - CARD_SETUP_COMPLETE
+  - APPROVED
+  - CHARGE_ATTEMPTED
+  - CHARGED
+  - CHARGE_REQUIRES_ACTION
+  - CHARGE_FAILED
+  - DECLINED
+  - EXPIRED
+- stripe_customer_id (cus_*)
+- stripe_setup_intent_id (seti_*)
+- stripe_payment_method_id (pm_*)
+- stripe_payment_intent_id (pi_*) nullable
+- amount_planned (integer cents)
+- currency (default "usd")
+- magic_token (for no-login status page + SCA completion) (hashed in DB)
+- magic_token_expires_at
+
+Add audit_log table if not already present:
+- actor_user_id, action, before_json, after_json, created_at
+
+---
+
+## Stripe setup
+- Use STRIPE_SECRET_KEY
+- Use STRIPE_WEBHOOK_SECRET
+- Use Stripe.js on client with publishable key
+- Use Elements (CardElement or PaymentElement)
+
+---
+
+## API Endpoints to implement (keep naming consistent with existing app)
+
+### 1) POST /api/requests
+Creates a request record + Stripe Customer + SetupIntent, returns client_secret and request public link token.
+
+Server steps:
+1. Create request in DB with status CARD_SETUP_PENDING
+2. Create Stripe Customer:
+   - email/phone if provided
+   - metadata: request_id, location_id
+3. Create SetupIntent:
+   - customer=cus
+   - usage=off_session
+   - payment_method_types=['card']
+   - metadata: request_id
+4. Persist stripe ids (customer_id, setup_intent_id)
+5. Return:
+   - request_id
+   - setup_intent_client_secret
+   - public_status_url = /r/{request_id}?token=...
+
+### 2) GET /r/:requestId?token=...
+Public (no login) status page:
+- Shows status, location, amount
+- If status == CHARGE_REQUIRES_ACTION:
+  - fetch PaymentIntent client_secret (server)
+  - show “Complete Payment” button using stripe.confirmCardPayment
+
+### 3) POST /api/operator/requests/:requestId/approve
+Operator authenticated + authorized for location.
+Server steps:
+1. Validate request.status == CARD_SETUP_COMPLETE
+2. Set status APPROVED
+3. Create PaymentIntent off_session + confirm:
+   - amount=amount_planned
+   - currency
+   - customer
+   - payment_method=pm
+   - off_session=true
+   - confirm=true
+   - metadata: request_id, location_id
+   - idempotency key: {requestId}_charge_1
+4. If succeeded:
+   - status CHARGED, store pi id
+5. If requires_action / authentication_required:
+   - status CHARGE_REQUIRES_ACTION, store pi id
+   - trigger notification to client (email/sms) with the public link
+6. If failed:
+   - status CHARGE_FAILED, store error code/message
+
+### 4) POST /api/operator/requests/:requestId/decline
+- Set status DECLINED (do not charge)
+- Optional: expire magic link after N days
+
+### 5) POST /api/stripe/webhook
+Handle events reliably:
+- setup_intent.succeeded:
+  - extract request_id from metadata
+  - store payment_method_id (setup_intent.payment_method)
+  - set request.status = CARD_SETUP_COMPLETE
+  - set customer.invoice_settings.default_payment_method = pm (optional)
+- payment_intent.succeeded:
+  - set request.status = CHARGED
+- payment_intent.payment_failed:
+  - set request.status = CHARGE_FAILED
+- payment_intent.requires_action (optional):
+  - set request.status = CHARGE_REQUIRES_ACTION
+
+Important:
+- Verify webhook signature with STRIPE_WEBHOOK_SECRET
+- Webhook handler must be idempotent (event.id dedupe table recommended)
+
+---
+
+## Client flow implementation
+### Client page: “Submit Request”
+1. Call POST /api/requests to get setup_intent_client_secret
+2. Render Stripe Elements
+3. Confirm SetupIntent:
+   - stripe.confirmCardSetup(client_secret, {payment_method:{card,billing_details}})
+4. On success:
+   - show confirmation + link to status page
+
+### Client page: “Complete Payment” (same as status page when required)
+- Use stripe.confirmCardPayment(payment_intent_client_secret)
+
+---
+
+## Authorization rules
+- Operators can only view/approve requests belonging to their assigned location(s)
+- Admin can do everything (including edit location, operator assignments, override status/amount with audit log)
+
+---
+
+## Notifications (minimal)
+When CHARGE_REQUIRES_ACTION:
+- Send email/SMS containing status URL with token
+(Implement as a stub function notifyClient(request) if notification infra isn’t ready.)
+
+---
+
+## Testing checklist
+- SetupIntent success updates DB via webhook
+- Approve triggers off-session charge
+- SCA edge case returns requires_action:
+  - request becomes CHARGE_REQUIRES_ACTION
+  - status page shows “Complete Payment”
+  - completing payment fires payment_intent.succeeded webhook
+- Double-approve does not double-charge (idempotency key + status gating)
+- Operator cannot approve other location’s requests
+
+---
+
+## Deliverables
+- Code implementing endpoints + pages
+- DB migrations
+- Webhook verification
+- Minimal UI updates to support “pay later” and “complete payment” states
+- README section: env vars, Stripe CLI webhook testing
+
+---
+
+## Do not do
+- Do not add user login for clients
+- Do not store card numbers
+- Do not redesign the whole system
+- Do not implement refunds as the primary mechanism
+- Do not introduce “wallet balances” or escrow
