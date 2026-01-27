@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, isAfter, addDays } from "date-fns";
 import StripeCheckout from "@/components/payment/stripe-checkout";
+import StripeSetupCheckout from "@/components/payment/stripe-setup-checkout";
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -206,7 +207,7 @@ function LendWizard({
   const [borrowerEmail, setBorrowerEmail] = useState("");
   const [depositAmount, setDepositAmount] = useState(location.depositAmount?.toString() || "20");
   const [depositEdited, setDepositEdited] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "payLater">("cash");
   
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [stripePublishableKey, setStripePublishableKey] = useState<string | null>(null);
@@ -301,6 +302,40 @@ function LendWizard({
     }
   };
 
+  const initiatePayLater = async () => {
+    setIsInitiatingPayment(true);
+    try {
+      const emailToUse = borrowerEmail.trim() || `${borrowerPhone.replace(/\D/g, '')}@placeholder.local`;
+      const amountCents = Math.round(parseFloat(depositAmount) * 100);
+      
+      const res = await apiRequest("POST", "/api/deposits/setup-intent", {
+        locationId: location.id,
+        borrowerName,
+        borrowerEmail: emailToUse,
+        borrowerPhone,
+        amountCents,
+      });
+      
+      const data = await res.json();
+      
+      if (data.clientSecret && data.publishableKey) {
+        setStripeClientSecret(data.clientSecret);
+        setStripePublishableKey(data.publishableKey);
+        setStep(5);
+      } else {
+        throw new Error(data.message || "Failed to initialize Pay Later");
+      }
+    } catch (error: any) {
+      toast({ 
+        title: "Pay Later Error", 
+        description: error.message || "Failed to initialize Pay Later", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsInitiatingPayment(false);
+    }
+  };
+
   const handleStripeSuccess = async () => {
     try {
       await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
@@ -326,7 +361,7 @@ function LendWizard({
     });
   };
   
-  const totalSteps = paymentMethod === "card" ? 5 : 4;
+  const totalSteps = paymentMethod === "card" || paymentMethod === "payLater" ? 5 : 4;
   
   const canProceed = () => {
     switch (step) {
@@ -345,6 +380,8 @@ function LendWizard({
     } else if (step === 4) {
       if (paymentMethod === "card") {
         initiateStripePayment();
+      } else if (paymentMethod === "payLater") {
+        initiatePayLater();
       } else {
         createTransactionMutation.mutate();
       }
@@ -430,22 +467,30 @@ function LendWizard({
         <div>
           <h3 className="text-lg font-semibold mb-4">Deposit Payment</h3>
           <div className="space-y-6">
-            <div className="flex justify-center gap-4 mb-6">
+            <div className="flex justify-center gap-3 mb-6">
               <Button
                 variant={paymentMethod === "cash" ? "default" : "outline"}
                 size="lg"
                 onClick={() => setPaymentMethod("cash")}
-                className="flex-1 max-w-[150px]"
+                className="flex-1 max-w-[130px]"
               >
-                <DollarSign className="h-5 w-5 mr-2" /> Cash
+                <DollarSign className="h-5 w-5 mr-1" /> Cash
               </Button>
               <Button
                 variant={paymentMethod === "card" ? "default" : "outline"}
                 size="lg"
                 onClick={() => setPaymentMethod("card")}
-                className="flex-1 max-w-[150px]"
+                className="flex-1 max-w-[130px]"
               >
                 💳 Card
+              </Button>
+              <Button
+                variant={paymentMethod === "payLater" ? "default" : "outline"}
+                size="lg"
+                onClick={() => setPaymentMethod("payLater")}
+                className="flex-1 max-w-[130px]"
+              >
+                <Clock className="h-4 w-4 mr-1" /> Pay Later
               </Button>
             </div>
             
@@ -495,15 +540,27 @@ function LendWizard({
               </div>
             </div>
           )}
+          {paymentMethod === "payLater" && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-800 text-sm">
+                <Clock className="h-4 w-4" />
+                <span>Borrower will save their card for later payment. You can charge them when they return the headband.</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {step === 5 && stripeClientSecret && stripePublishableKey && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Card Payment</h3>
+          <h3 className="text-lg font-semibold mb-4">
+            {paymentMethod === "payLater" ? "Save Card for Pay Later" : "Card Payment"}
+          </h3>
           <div className="max-w-md mb-4 p-3 bg-muted/50 rounded-lg">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Amount to charge:</span>
+              <span className="text-muted-foreground">
+                {paymentMethod === "payLater" ? "Amount to authorize:" : "Amount to charge:"}
+              </span>
               <span className="font-bold">${depositAmount}</span>
             </div>
             <div className="flex justify-between items-center text-sm mt-1">
@@ -511,13 +568,34 @@ function LendWizard({
               <span>{borrowerName}</span>
             </div>
           </div>
-          <StripeCheckout
-            clientSecret={stripeClientSecret}
-            publishableKey={stripePublishableKey}
-            amount={Math.round(parseFloat(depositAmount) * 100)}
-            onSuccess={handleStripeSuccess}
-            onError={handleStripeError}
-          />
+          {paymentMethod === "payLater" ? (
+            <StripeSetupCheckout
+              clientSecret={stripeClientSecret}
+              publishableKey={stripePublishableKey}
+              onSuccess={async () => {
+                // For pay later, we need to assign the headband and update inventory
+                await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
+                  color: selectedColor,
+                  quantity: 1,
+                });
+                queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+                toast({ title: "Success!", description: "Card saved and headband lent successfully." });
+                onComplete();
+              }}
+              onError={handleStripeError}
+            />
+          ) : (
+            <StripeCheckout
+              clientSecret={stripeClientSecret}
+              publishableKey={stripePublishableKey}
+              amount={Math.round(parseFloat(depositAmount) * 100)}
+              onSuccess={handleStripeSuccess}
+              onError={handleStripeError}
+            />
+          )}
         </div>
       )}
       
@@ -568,6 +646,7 @@ function ReturnWizard({
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [refundAmount, setRefundAmount] = useState("");
   const [isPartialRefund, setIsPartialRefund] = useState(false);
+  const [payLaterAction, setPayLaterAction] = useState<"charge" | "release" | null>(null);
   
   const activeTransactions = transactions.filter(tx => !tx.isReturned);
   
@@ -582,6 +661,60 @@ function ReturnWizard({
     if (!tx.expectedReturnDate) return false;
     return isAfter(new Date(), new Date(tx.expectedReturnDate));
   };
+  
+  const chargePayLaterMutation = useMutation({
+    mutationFn: async (transactionId: number) => {
+      const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/charge`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Success!",
+          description: "Card charged successfully.",
+        });
+      } else if (data.requiresAction) {
+        toast({
+          title: "Action Required",
+          description: "Customer needs to complete additional authentication.",
+          variant: "default",
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to charge card",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const declinePayLaterMutation = useMutation({
+    mutationFn: async (transactionId: number) => {
+      const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/decline`, {
+        reason: "Released by operator",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Card released.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to release card",
+        variant: "destructive",
+      });
+    },
+  });
   
   const returnMutation = useMutation({
     mutationFn: async () => {
@@ -634,14 +767,40 @@ function ReturnWizard({
     if (step < 3) {
       setStep(step + 1);
     } else {
-      returnMutation.mutate();
+      // Check if this is a Pay Later transaction
+      if (selectedTransaction?.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED") {
+        if (payLaterAction === "charge") {
+          // First charge the card, then process return
+          chargePayLaterMutation.mutate(selectedTransaction.id, {
+            onSuccess: () => {
+              // After charging, process the return
+              returnMutation.mutate();
+            }
+          });
+        } else if (payLaterAction === "release") {
+          // Release the card, then process return
+          declinePayLaterMutation.mutate(selectedTransaction.id, {
+            onSuccess: () => {
+              // After releasing, process the return with no refund
+              returnMutation.mutate();
+            }
+          });
+        }
+      } else {
+        returnMutation.mutate();
+      }
     }
   };
   
   const canProceed = () => {
     switch (step) {
       case 1: return selectedTransaction !== null;
-      case 2: return parseFloat(refundAmount) >= 0;
+      case 2: 
+        // For Pay Later transactions, must select an action
+        if (selectedTransaction?.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED") {
+          return payLaterAction !== null;
+        }
+        return parseFloat(refundAmount) >= 0;
       case 3: return true;
       default: return false;
     }
@@ -705,6 +864,11 @@ function ReturnWizard({
                   </div>
                   <div className="text-right">
                     <div className="font-bold">${tx.depositAmount.toFixed(2)}</div>
+                    {tx.payLaterStatus && tx.payLaterStatus !== "CHARGED" && (
+                      <Badge variant="secondary" className="mt-1">
+                        <Clock className="h-3 w-3 mr-1" /> Pay Later
+                      </Badge>
+                    )}
                     {isOverdue(tx) && (
                       <Badge variant="destructive" className="mt-1">Overdue</Badge>
                     )}
@@ -718,7 +882,11 @@ function ReturnWizard({
       
       {step === 2 && selectedTransaction && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Refund Deposit</h3>
+          <h3 className="text-lg font-semibold mb-4">
+            {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" 
+              ? "Pay Later Payment" 
+              : "Refund Deposit"}
+          </h3>
           
           <div className="mb-6 p-4 bg-muted/50 rounded-xl">
             <div className="flex justify-between items-center">
@@ -727,53 +895,111 @@ function ReturnWizard({
             </div>
             <div className="text-sm text-muted-foreground mt-1">
               Paid via {selectedTransaction.depositPaymentMethod || "cash"}
+              {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" && (
+                <Badge variant="secondary" className="ml-2">
+                  <Clock className="h-3 w-3 mr-1" /> Pay Later
+                </Badge>
+              )}
             </div>
           </div>
           
-          {selectedTransaction.depositPaymentMethod === "stripe" && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-800 text-sm">
-                <CreditCard className="h-4 w-4" />
-                <span>This was a card payment. The refund will be processed automatically to the original card.</span>
-              </div>
-            </div>
-          )}
-          
-          <div className="mb-6">
-            <div className="flex gap-4 mb-4">
-              <Button
-                variant={!isPartialRefund ? "default" : "outline"}
-                onClick={() => {
-                  setIsPartialRefund(false);
-                  setRefundAmount(selectedTransaction.depositAmount.toString());
-                }}
-                className="flex-1"
-              >
-                Full Refund
-              </Button>
-              <Button
-                variant={isPartialRefund ? "default" : "outline"}
-                onClick={() => setIsPartialRefund(true)}
-                className="flex-1"
-              >
-                Partial Refund
-              </Button>
-            </div>
-            
-            {isPartialRefund && (
-              <>
-                <div className="text-center mb-4">
-                  <div className="text-4xl font-bold">${refundAmount || "0"}</div>
-                  <div className="text-sm text-muted-foreground">Refund Amount</div>
+          {/* Pay Later specific options */}
+          {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-start gap-2 text-amber-800 text-sm mb-3">
+                  <Clock className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>This borrower saved their card for Pay Later. You can now charge their card or release it without charging.</span>
                 </div>
-                <NumericKeypad 
-                  value={refundAmount} 
-                  onChange={setRefundAmount}
-                  maxValue={selectedTransaction.depositAmount}
-                />
-              </>
-            )}
-          </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <Button
+                  variant={payLaterAction === "charge" ? "default" : "outline"}
+                  size="lg"
+                  onClick={() => setPayLaterAction("charge")}
+                  className="flex-1"
+                >
+                  <CreditCard className="h-5 w-5 mr-2" />
+                  Charge Card
+                </Button>
+                <Button
+                  variant={payLaterAction === "release" ? "default" : "outline"}
+                  size="lg"
+                  onClick={() => setPayLaterAction("release")}
+                  className="flex-1"
+                >
+                  <XCircle className="h-5 w-5 mr-2" />
+                  Release Card
+                </Button>
+              </div>
+              
+              {payLaterAction === "charge" && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-800 text-sm">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>The card will be charged ${selectedTransaction.depositAmount.toFixed(2)} when you confirm.</span>
+                  </div>
+                </div>
+              )}
+              
+              {payLaterAction === "release" && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-gray-800 text-sm">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>The saved card will be released and no charge will be made.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {selectedTransaction.depositPaymentMethod === "stripe" && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-800 text-sm">
+                    <CreditCard className="h-4 w-4" />
+                    <span>This was a card payment. The refund will be processed automatically to the original card.</span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="mb-6">
+                <div className="flex gap-4 mb-4">
+                  <Button
+                    variant={!isPartialRefund ? "default" : "outline"}
+                    onClick={() => {
+                      setIsPartialRefund(false);
+                      setRefundAmount(selectedTransaction.depositAmount.toString());
+                    }}
+                    className="flex-1"
+                  >
+                    Full Refund
+                  </Button>
+                  <Button
+                    variant={isPartialRefund ? "default" : "outline"}
+                    onClick={() => setIsPartialRefund(true)}
+                    className="flex-1"
+                  >
+                    Partial Refund
+                  </Button>
+                </div>
+                
+                {isPartialRefund && (
+                  <>
+                    <div className="text-center mb-4">
+                      <div className="text-4xl font-bold">${refundAmount || "0"}</div>
+                      <div className="text-sm text-muted-foreground">Refund Amount</div>
+                    </div>
+                    <NumericKeypad 
+                      value={refundAmount} 
+                      onChange={setRefundAmount}
+                      maxValue={selectedTransaction.depositAmount}
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
       
@@ -798,19 +1024,46 @@ function ReturnWizard({
               <span className="text-muted-foreground">Original Deposit</span>
               <span className="font-medium">${selectedTransaction.depositAmount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted-foreground">Refund Amount</span>
-              <span className="font-bold text-lg text-green-600">
-                ${(isPartialRefund ? parseFloat(refundAmount) : selectedTransaction.depositAmount).toFixed(2)}
-              </span>
-            </div>
-            {isPartialRefund && parseFloat(refundAmount) < selectedTransaction.depositAmount && (
-              <div className="flex justify-between items-center py-2">
-                <span className="text-muted-foreground">Deduction</span>
-                <span className="text-red-500">
-                  -${(selectedTransaction.depositAmount - parseFloat(refundAmount)).toFixed(2)}
-                </span>
-              </div>
+            
+            {/* Show Pay Later action if applicable */}
+            {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
+              <>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">Action</span>
+                  <Badge variant={payLaterAction === "charge" ? "default" : "secondary"}>
+                    {payLaterAction === "charge" ? "Charge Card" : "Release Card"}
+                  </Badge>
+                </div>
+                {payLaterAction === "charge" ? (
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="text-muted-foreground">Charge Amount</span>
+                    <span className="font-bold text-lg text-green-600">
+                      ${selectedTransaction.depositAmount.toFixed(2)}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+                    No charge will be made. Card will be released.
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">Refund Amount</span>
+                  <span className="font-bold text-lg text-green-600">
+                    ${(isPartialRefund ? parseFloat(refundAmount) : selectedTransaction.depositAmount).toFixed(2)}
+                  </span>
+                </div>
+                {isPartialRefund && parseFloat(refundAmount) < selectedTransaction.depositAmount && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">Deduction</span>
+                    <span className="text-red-500">
+                      -${(selectedTransaction.depositAmount - parseFloat(refundAmount)).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -820,16 +1073,16 @@ function ReturnWizard({
         <Button
           variant="outline"
           onClick={() => step > 1 ? setStep(step - 1) : onCancel()}
-          disabled={returnMutation.isPending}
+          disabled={returnMutation.isPending || chargePayLaterMutation.isPending || declinePayLaterMutation.isPending}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           {step === 1 ? "Cancel" : "Back"}
         </Button>
         <Button 
           onClick={handleNext} 
-          disabled={!canProceed() || returnMutation.isPending}
+          disabled={!canProceed() || returnMutation.isPending || chargePayLaterMutation.isPending || declinePayLaterMutation.isPending}
         >
-          {returnMutation.isPending ? (
+          {(returnMutation.isPending || chargePayLaterMutation.isPending || declinePayLaterMutation.isPending) ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
           ) : step === 3 ? (
             <><Check className="h-4 w-4 mr-2" /> Confirm Return</>
@@ -1315,7 +1568,7 @@ export default function OperatorDashboard() {
   const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
   const [, setPath] = useLocation();
-  const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return" | "payLater">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return">("overview");
   const [showAddStock, setShowAddStock] = useState(false);
   const [editStockColor, setEditStockColor] = useState<string | null>(null);
   const [editStockQty, setEditStockQty] = useState(0);
@@ -1408,7 +1661,7 @@ export default function OperatorDashboard() {
               <h1 className="text-2xl font-bold">{operatorLocation.name}</h1>
               <p className="text-muted-foreground">Manage headband lending and returns</p>
             </div>
-            <TabsList className="grid grid-cols-4 w-full sm:w-auto">
+            <TabsList className="grid grid-cols-3 w-full sm:w-auto">
               <TabsTrigger value="overview" className="gap-2">
                 <Package className="h-4 w-4" /> Stock
               </TabsTrigger>
@@ -1417,9 +1670,6 @@ export default function OperatorDashboard() {
               </TabsTrigger>
               <TabsTrigger value="return" className="gap-2">
                 <RotateCcw className="h-4 w-4" /> Return
-              </TabsTrigger>
-              <TabsTrigger value="payLater" className="gap-2">
-                <Clock className="h-4 w-4" /> Pay Later
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1482,10 +1732,6 @@ export default function OperatorDashboard() {
                 />
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="payLater">
-            <PayLaterTransactions location={operatorLocation} />
           </TabsContent>
         </Tabs>
       </div>
