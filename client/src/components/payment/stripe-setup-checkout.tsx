@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, CreditCard, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const OPERATOR_DASHBOARD_URL = "/operator/dashboard";
+
 interface StripeSetupCheckoutFormProps {
   clientSecret: string;
   onSuccess: () => void;
@@ -32,7 +34,7 @@ function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSet
     const { error, setupIntent } = await stripe.confirmSetup({
       elements,
       confirmParams: {
-        return_url: window.location.origin + '/operator/dashboard',
+        return_url: window.location.origin + OPERATOR_DASHBOARD_URL,
       },
       redirect: 'if_required',
     });

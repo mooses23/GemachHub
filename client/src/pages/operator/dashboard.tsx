@@ -268,10 +268,12 @@ function LendWizard({
     },
   });
 
+  const PLACEHOLDER_EMAIL_DOMAIN = "@placeholder.local";
+  
   const initiateStripePayment = async () => {
     setIsInitiatingPayment(true);
     try {
-      const emailToUse = borrowerEmail.trim() || `${borrowerPhone.replace(/\D/g, '')}@placeholder.local`;
+      const emailToUse = borrowerEmail.trim() || `${borrowerPhone.replace(/\D/g, '')}${PLACEHOLDER_EMAIL_DOMAIN}`;
       
       const res = await apiRequest("POST", "/api/deposits/initiate", {
         locationId: location.id,
@@ -305,7 +307,7 @@ function LendWizard({
   const initiatePayLater = async () => {
     setIsInitiatingPayment(true);
     try {
-      const emailToUse = borrowerEmail.trim() || `${borrowerPhone.replace(/\D/g, '')}@placeholder.local`;
+      const emailToUse = borrowerEmail.trim() || `${borrowerPhone.replace(/\D/g, '')}${PLACEHOLDER_EMAIL_DOMAIN}`;
       const amountCents = Math.round(parseFloat(depositAmount) * 100);
       
       const res = await apiRequest("POST", "/api/deposits/setup-intent", {
@@ -573,17 +575,27 @@ function LendWizard({
               clientSecret={stripeClientSecret}
               publishableKey={stripePublishableKey}
               onSuccess={async () => {
-                // For pay later, we need to assign the headband and update inventory
-                await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
-                  color: selectedColor,
-                  quantity: 1,
-                });
-                queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
-                toast({ title: "Success!", description: "Card saved and headband lent successfully." });
-                onComplete();
+                try {
+                  // For pay later, we need to assign the headband and update inventory
+                  await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
+                    color: selectedColor,
+                    quantity: 1,
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+                  toast({ title: "Success!", description: "Card saved and headband lent successfully." });
+                  onComplete();
+                } catch (error: any) {
+                  toast({ 
+                    title: "Error updating inventory", 
+                    description: error.message || "Card was saved but failed to update inventory. Please check manually.", 
+                    variant: "destructive" 
+                  });
+                  // Still complete since the card was saved successfully
+                  onComplete();
+                }
               }}
               onError={handleStripeError}
             />
@@ -775,6 +787,13 @@ function ReturnWizard({
             onSuccess: () => {
               // After charging, process the return
               returnMutation.mutate();
+            },
+            onError: (error) => {
+              toast({
+                title: "Charge Failed",
+                description: error.message || "Failed to charge card. Return not processed.",
+                variant: "destructive",
+              });
             }
           });
         } else if (payLaterAction === "release") {
@@ -783,6 +802,13 @@ function ReturnWizard({
             onSuccess: () => {
               // After releasing, process the return with no refund
               returnMutation.mutate();
+            },
+            onError: (error) => {
+              toast({
+                title: "Release Failed",
+                description: error.message || "Failed to release card. Return not processed.",
+                variant: "destructive",
+              });
             }
           });
         }
