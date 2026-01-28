@@ -125,7 +125,7 @@ function RestockingInstructions() {
           <div>
             <h4 className="font-semibold mb-2">U.S. and Canada Orders:</h4>
             <ol className="list-decimal list-inside space-y-2 ml-2">
-              <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">usa.banzworld.com</a></li>
+              <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" aria-label="Visit Baby Banz USA and Canada website">usa.banzworld.com</a></li>
               <li>Click on "Account"</li>
               <li>Log in with:
                 <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
@@ -158,8 +158,8 @@ function RestockingInstructions() {
           
           <div className="border-t pt-4">
             <p className="text-xs text-muted-foreground italic">
-              Note: The sales platform has been making changes that have been affecting some of the pricing structures on the backend, 
-              so this is the easiest work around to ensure smooth sailing moving forward.
+              Note: The sales platform has been making changes that have affected some of the pricing structures on the backend, 
+              so this is the easiest workaround to ensure smooth sailing moving forward.
             </p>
           </div>
         </div>
