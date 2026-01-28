@@ -110,6 +110,64 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
   );
 }
 
+function RestockingInstructions() {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2">
+          <Package className="h-5 w-5" />
+          Baby Banz Restocking Instructions
+        </CardTitle>
+        <CardDescription>How to reorder Baby Banz inventory</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4 text-sm">
+          <div>
+            <h4 className="font-semibold mb-2">U.S. and Canada Orders:</h4>
+            <ol className="list-decimal list-inside space-y-2 ml-2">
+              <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">usa.banzworld.com</a></li>
+              <li>Click on "Account"</li>
+              <li>Log in with:
+                <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
+                  <li><strong>Email:</strong> earmuffsgemach@gmail.com</li>
+                  <li><strong>Password:</strong> Babybanz</li>
+                </ul>
+              </li>
+              <li>The 50% discount and free shipping should apply automatically</li>
+              <li>Enter your shipping and payment information (delete previous purchaser's information if needed)</li>
+            </ol>
+          </div>
+          
+          <div className="border-t pt-4">
+            <h4 className="font-semibold mb-2">If discounts don't auto-populate:</h4>
+            <p className="mb-2">Use these discount codes:</p>
+            <div className="space-y-2 ml-2">
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono">GEMACHSHIP</Badge>
+                <span>for free shipping</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">COMBINE WITH</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono">GEMACH</Badge>
+                <span>for 50% off</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="border-t pt-4">
+            <p className="text-xs text-muted-foreground italic">
+              Note: The sales platform has been making changes that have been affecting some of the pricing structures on the backend, 
+              so this is the easiest work around to ensure smooth sailing moving forward.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function RecentActivity({ transactions }: { transactions: Transaction[] }) {
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime())
@@ -1655,6 +1713,7 @@ export default function OperatorDashboard() {
               onAddStock={() => setShowAddStock(true)} 
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
+            <RestockingInstructions />
             <RecentActivity transactions={transactions} />
           </TabsContent>
 
