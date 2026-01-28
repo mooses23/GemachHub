@@ -599,7 +599,7 @@ function ReturnWizard({
     return isAfter(new Date(), new Date(tx.expectedReturnDate));
   };
   
-  const chargePayLaterMutation = useMutation({
+  const chargeCardMutation = useMutation({
     mutationFn: async (transactionId: number) => {
       const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/charge`);
       return res.json();
@@ -629,7 +629,7 @@ function ReturnWizard({
     },
   });
 
-  const declinePayLaterMutation = useMutation({
+  const releaseCardMutation = useMutation({
     mutationFn: async (transactionId: number) => {
       const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/decline`, {
         reason: "Released by operator",
@@ -704,11 +704,11 @@ function ReturnWizard({
     if (step < 3) {
       setStep(step + 1);
     } else {
-      // Check if this is a Pay Later transaction
+      // Check if this is a card deposit transaction
       if (selectedTransaction?.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED") {
         if (cardAction === "charge") {
           // First charge the card, then process return
-          chargePayLaterMutation.mutate(selectedTransaction.id, {
+          chargeCardMutation.mutate(selectedTransaction.id, {
             onSuccess: () => {
               // After charging, process the return
               returnMutation.mutate();
@@ -723,7 +723,7 @@ function ReturnWizard({
           });
         } else if (cardAction === "release") {
           // Release the card, then process return
-          declinePayLaterMutation.mutate(selectedTransaction.id, {
+          releaseCardMutation.mutate(selectedTransaction.id, {
             onSuccess: () => {
               // After releasing, process the return with no refund
               returnMutation.mutate();
@@ -747,7 +747,7 @@ function ReturnWizard({
     switch (step) {
       case 1: return selectedTransaction !== null;
       case 2: 
-        // For Pay Later transactions, must select an action
+        // For card deposit transactions, must select an action
         if (selectedTransaction?.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED") {
           return cardAction !== null;
         }
@@ -976,7 +976,7 @@ function ReturnWizard({
               <span className="font-medium">${selectedTransaction.depositAmount.toFixed(2)}</span>
             </div>
             
-            {/* Show Pay Later action if applicable */}
+            {/* Show card deposit action if applicable */}
             {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
               <>
                 <div className="flex justify-between items-center py-2 border-b">
@@ -1024,16 +1024,16 @@ function ReturnWizard({
         <Button
           variant="outline"
           onClick={() => step > 1 ? setStep(step - 1) : onCancel()}
-          disabled={returnMutation.isPending || chargePayLaterMutation.isPending || declinePayLaterMutation.isPending}
+          disabled={returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           {step === 1 ? "Cancel" : "Back"}
         </Button>
         <Button 
           onClick={handleNext} 
-          disabled={!canProceed() || returnMutation.isPending || chargePayLaterMutation.isPending || declinePayLaterMutation.isPending}
+          disabled={!canProceed() || returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending}
         >
-          {(returnMutation.isPending || chargePayLaterMutation.isPending || declinePayLaterMutation.isPending) ? (
+          {(returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending) ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
           ) : step === 3 ? (
             <><Check className="h-4 w-4 mr-2" /> Confirm Return</>
@@ -1457,7 +1457,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
             <DialogDescription>
               {selectedTransactionForDecline?.borrowerName && (
                 <span>
-                  Are you sure you want to decline this Pay Later request from {selectedTransactionForDecline.borrowerName}?
+                  Are you sure you want to decline this card deposit request from {selectedTransactionForDecline.borrowerName}?
                 </span>
               )}
             </DialogDescription>
