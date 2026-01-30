@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ export default function UniversalPaymentProcessor({
     totalAmount: number;
   } | null>(null);
   const [paymentComplete, setPaymentComplete] = useState(false);
+  const isInitiatingRef = useRef(false);
   
   const processingFeePercent = 300;
   const processingFee = paymentMethod === "cash" ? 0 : Math.ceil((depositAmount * processingFeePercent) / 10000);
@@ -109,7 +110,16 @@ export default function UniversalPaymentProcessor({
   };
 
   const handleStripeInitiate = () => {
-    initiateDepositMutation.mutate();
+    // Prevent double-clicks
+    if (isInitiatingRef.current || initiateDepositMutation.isPending) {
+      return;
+    }
+    isInitiatingRef.current = true;
+    initiateDepositMutation.mutate(undefined, {
+      onSettled: () => {
+        isInitiatingRef.current = false;
+      }
+    });
   };
 
   if (paymentComplete) {

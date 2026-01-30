@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getLocations, getRegions, updateLocation } from "@/lib/api";
+import { getLocations, getRegions, updateLocation, deleteLocation } from "@/lib/api";
 import { Region, Location } from "@shared/schema";
 import { LocationForm } from "@/components/admin/location-form";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +26,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,7 +55,13 @@ import {
   Phone,
   Mail,
   ArrowLeft,
-  Home
+  Home,
+  Trash2,
+  Filter,
+  Building2,
+  CheckCircle,
+  XCircle,
+  Loader2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -55,9 +69,13 @@ export default function AdminLocations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [regionFilter, setRegionFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [deletingLocation, setDeletingLocation] = useState<Location | null>(null);
 
   const { data: regions = [] } = useQuery<Region[]>({
     queryKey: ["/api/regions"],
@@ -86,6 +104,26 @@ export default function AdminLocations() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteLocation(id),
+    onSuccess: () => {
+      toast({
+        title: "Location Deleted",
+        description: "The location has been removed successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      setIsDeleteDialogOpen(false);
+      setDeletingLocation(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete location",
+        variant: "destructive",
+      });
+    },
+  });
+
   const toggleLocationStatus = (id: number, isActive: boolean) => {
     toggleStatusMutation.mutate({ id, isActive: !isActive });
   };
@@ -93,6 +131,17 @@ export default function AdminLocations() {
   const handleEditLocation = (location: Location) => {
     setEditingLocation(location);
     setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteLocation = (location: Location) => {
+    setDeletingLocation(location);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (deletingLocation) {
+      deleteMutation.mutate(deletingLocation.id);
+    }
   };
 
   const closeEditDialog = () => {
@@ -106,19 +155,36 @@ export default function AdminLocations() {
   };
 
   const filteredLocations = locations.filter(location => {
-    if (!searchTerm) return true;
+    // Search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        location.name.toLowerCase().includes(searchLower) ||
+        location.contactPerson.toLowerCase().includes(searchLower) ||
+        location.address.toLowerCase().includes(searchLower) ||
+        getRegionNameById(location.regionId).toLowerCase().includes(searchLower);
+      if (!matchesSearch) return false;
+    }
     
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      location.name.toLowerCase().includes(searchLower) ||
-      location.contactPerson.toLowerCase().includes(searchLower) ||
-      location.address.toLowerCase().includes(searchLower) ||
-      getRegionNameById(location.regionId).toLowerCase().includes(searchLower)
-    );
+    // Region filter
+    if (regionFilter !== "all" && location.regionId.toString() !== regionFilter) {
+      return false;
+    }
+    
+    // Status filter
+    if (statusFilter === "active" && !location.isActive) return false;
+    if (statusFilter === "inactive" && location.isActive) return false;
+    
+    return true;
   });
 
+  // Stats
+  const totalLocations = locations.length;
+  const activeLocations = locations.filter(l => l.isActive).length;
+  const inactiveLocations = totalLocations - activeLocations;
+
   return (
-    <div className="py-10">
+    <div className="py-6 md:py-10">
       <div className="container mx-auto px-4">
         {/* Navigation Breadcrumbs */}
         <div className="flex items-center gap-2 mb-6">
@@ -143,8 +209,8 @@ export default function AdminLocations() {
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Manage Locations</h1>
-            <p className="text-muted-foreground">View and manage all gemach locations</p>
+            <h1 className="text-2xl md:text-3xl font-bold">Manage Locations</h1>
+            <p className="text-muted-foreground text-sm md:text-base">View and manage all gemach locations</p>
           </div>
           
           <div className="mt-4 md:mt-0">
@@ -155,7 +221,7 @@ export default function AdminLocations() {
                   Add Location
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[550px]">
+              <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create New Location</DialogTitle>
                   <DialogDescription>
@@ -171,23 +237,124 @@ export default function AdminLocations() {
           </div>
         </div>
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 rounded-full bg-blue-100">
+                <Building2 className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{totalLocations}</p>
+                <p className="text-sm text-muted-foreground">Total Locations</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 rounded-full bg-green-100">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{activeLocations}</p>
+                <p className="text-sm text-muted-foreground">Active</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 rounded-full bg-gray-100">
+                <XCircle className="h-6 w-6 text-gray-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{inactiveLocations}</p>
+                <p className="text-sm text-muted-foreground">Inactive</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>Locations</CardTitle>
             <CardDescription>
               Manage gemach locations and their details
             </CardDescription>
-            <div className="mt-4 relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search locations..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            
+            {/* Filters */}
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search locations..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Select value={regionFilter} onValueChange={setRegionFilter}>
+                <SelectTrigger>
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Regions</SelectItem>
+                  {regions.map((region) => (
+                    <SelectItem key={region.id} value={region.id.toString()}>
+                      {region.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active Only</SelectItem>
+                  <SelectItem value="inactive">Inactive Only</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            
+            {/* Active filters display */}
+            {(regionFilter !== "all" || statusFilter !== "all" || searchTerm) && (
+              <div className="mt-3 flex flex-wrap gap-2 items-center">
+                <span className="text-sm text-muted-foreground">Active filters:</span>
+                {searchTerm && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    Search: {searchTerm}
+                    <button onClick={() => setSearchTerm("")} className="ml-1 hover:text-destructive">×</button>
+                  </Badge>
+                )}
+                {regionFilter !== "all" && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    Region: {getRegionNameById(parseInt(regionFilter))}
+                    <button onClick={() => setRegionFilter("all")} className="ml-1 hover:text-destructive">×</button>
+                  </Badge>
+                )}
+                {statusFilter !== "all" && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    Status: {statusFilter}
+                    <button onClick={() => setStatusFilter("all")} className="ml-1 hover:text-destructive">×</button>
+                  </Badge>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => { setSearchTerm(""); setRegionFilter("all"); setStatusFilter("all"); }}
+                  className="text-xs"
+                >
+                  Clear all
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
+            <div className="text-sm text-muted-foreground mb-3">
+              Showing {filteredLocations.length} of {totalLocations} locations
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -204,8 +371,13 @@ export default function AdminLocations() {
                     filteredLocations.map((location) => (
                       <TableRow key={location.id}>
                         <TableCell className="font-medium">
-                          <div>{location.name}</div>
-                          <div className="text-xs text-muted-foreground flex items-center">
+                          <div className="flex items-center gap-2">
+                            <span>{location.name}</span>
+                            {location.locationCode && (
+                              <Badge variant="outline" className="text-xs">{location.locationCode}</Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center mt-1">
                             <MapPin className="h-3 w-3 mr-1" />
                             {location.address}
                           </div>
@@ -222,7 +394,7 @@ export default function AdminLocations() {
                           </div>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          {getRegionNameById(location.regionId)}
+                          <Badge variant="outline">{getRegionNameById(location.regionId)}</Badge>
                         </TableCell>
                         <TableCell>
                           <Switch
@@ -245,6 +417,13 @@ export default function AdminLocations() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit Location
                               </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteLocation(location)}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Location
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -253,10 +432,17 @@ export default function AdminLocations() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8">
-                        {searchTerm ? (
+                        {searchTerm || regionFilter !== "all" || statusFilter !== "all" ? (
                           <div className="space-y-2">
-                            <p className="text-muted-foreground">No locations found matching your search.</p>
-                            <p className="text-sm text-gray-500">Try adjusting your search terms.</p>
+                            <p className="text-muted-foreground">No locations found matching your filters.</p>
+                            <p className="text-sm text-gray-500">Try adjusting your filters or search terms.</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => { setSearchTerm(""); setRegionFilter("all"); setStatusFilter("all"); }}
+                            >
+                              Clear all filters
+                            </Button>
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -291,6 +477,49 @@ export default function AdminLocations() {
                 onSuccess={closeEditDialog}
               />
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="text-red-600">Delete Location</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete "{deletingLocation?.name}"? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 my-4">
+              <p className="text-sm text-red-800">
+                <strong>Warning:</strong> Deleting a location will remove all associated data. 
+                Locations with active transactions cannot be deleted.
+              </p>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Location
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

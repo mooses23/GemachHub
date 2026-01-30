@@ -51,17 +51,17 @@ export function SelfDeposit() {
 
   if (showPayment && selectedLocationData) {
     return (
-      <section className="bg-white py-16">
-        <div className="container mx-auto px-4">
+      <section className="bg-white py-12 sm:py-16">
+        <div className="container mx-auto px-3 sm:px-4 md:px-6">
           <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-neutral-800 mb-4">Complete Your Deposit</h2>
-              <p className="text-lg text-neutral-600">
+            <div className="text-center mb-6 sm:mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-2 sm:mb-4">Complete Your Deposit</h2>
+              <p className="text-sm sm:text-base md:text-lg text-neutral-600">
                 {borrowerName}, complete your ${selectedLocationData.depositAmount} deposit for {selectedLocationData.name}
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -142,21 +142,21 @@ export function SelfDeposit() {
   }
 
   return (
-    <section id="self-deposit" className="bg-white py-16">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-neutral-800 mb-4">Self Deposit</h2>
-          <p className="text-lg text-neutral-600 max-w-3xl mx-auto">
+    <section id="self-deposit" className="bg-white py-12 sm:py-16">
+      <div className="container mx-auto px-3 sm:px-4 md:px-6">
+        <div className="text-center mb-8 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-2 sm:mb-4">Self Deposit</h2>
+          <p className="text-sm sm:text-base md:text-lg text-neutral-600 max-w-3xl mx-auto">
             Select your location and record your $20 deposit for Baby Banz Earmuffs borrowing.
           </p>
         </div>
         
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto px-3 sm:px-0">
           <Card>
-            <CardHeader>
-              <CardTitle>Record Your Deposit</CardTitle>
+            <CardHeader className="pb-4 sm:pb-6">
+              <CardTitle className="text-xl sm:text-2xl">Record Your Deposit</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-5 sm:space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Location
@@ -257,7 +257,7 @@ export function SelfDeposit() {
               <Button 
                 onClick={handleProceedToPayment}
                 disabled={!canProceedToPayment}
-                className="w-full"
+                className="w-full h-11 sm:h-12"
                 size="lg"
               >
                 {selectedPaymentMethod === 'cash' ? 'Record Cash Deposit Request' : 'Proceed to Card Payment'}

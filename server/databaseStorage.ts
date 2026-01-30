@@ -243,6 +243,13 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async deleteLocation(id: number): Promise<void> {
+    const result = await db.delete(locations).where(eq(locations.id, id)).returning();
+    if (result.length === 0) {
+      throw new Error(`Location with id ${id} not found`);
+    }
+  }
+
   // Inventory operations
   async getInventoryByLocation(locationId: number): Promise<Inventory[]> {
     return db.select().from(inventory).where(eq(inventory.locationId, locationId));

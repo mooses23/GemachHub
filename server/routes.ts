@@ -216,6 +216,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/locations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const location = await storage.getLocation(id);
+      
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+      
+      // Check if location has active transactions
+      const transactions = await storage.getTransactionsByLocation(id);
+      const activeTransactions = transactions.filter(t => !t.isReturned);
+      
+      if (activeTransactions.length > 0) {
+        return res.status(400).json({ 
+          message: `Cannot delete location with ${activeTransactions.length} active transactions. Please complete or transfer them first.` 
+        });
+      }
+      
+      await storage.deleteLocation(id);
+      res.json({ message: "Location deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting location:", error);
+      res.status(500).json({ message: "Failed to delete location" });
+    }
+  });
+
   app.get("/api/locations/:locationId/transactions", async (req, res) => {
     try {
       const locationId = parseInt(req.params.locationId, 10);

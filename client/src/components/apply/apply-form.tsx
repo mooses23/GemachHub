@@ -122,13 +122,13 @@ export function ApplyForm() {
 
   return (
     <Card className="bg-neutral-100 rounded-xl">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Apply to Open a Gemach</CardTitle>
-        <CardDescription>
+      <CardHeader className="pb-4 sm:pb-6">
+        <CardTitle className="text-lg sm:text-xl font-semibold">Apply to Open a Gemach</CardTitle>
+        <CardDescription className="text-xs sm:text-sm md:text-base">
           Fill out this form to start the process of opening a Baby Banz Earmuffs Gemach in your community.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6">
         {isSuccess ? (
           <Alert className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
             <div className="flex items-center">
@@ -388,7 +388,7 @@ export function ApplyForm() {
                 )}
               />
 
-              <Button type="submit" className="w-full" disabled={isPending}>
+              <Button type="submit" className="w-full h-11 sm:h-12 text-base" disabled={isPending}>
                 {isPending ? (
                   <>
                     <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />

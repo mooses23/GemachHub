@@ -13,25 +13,25 @@ export default function Contact() {
 
   return (
     <>
-      <section className="py-16 bg-primary/10">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold text-neutral-800 mb-4">{t("contactUs")}</h1>
-            <p className="text-lg text-neutral-600 max-w-3xl mx-auto">
+      <section className="py-12 sm:py-16 bg-primary/10">
+        <div className="container mx-auto px-3 sm:px-4 md:px-6">
+          <div className="text-center mb-8 sm:mb-12">
+            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3 sm:mb-4">{t("contactUs")}</h1>
+            <p className="text-sm sm:text-base md:text-lg text-neutral-600 max-w-3xl mx-auto">
               {t("contactDescription")}
             </p>
           </div>
           
-          <div className="max-w-3xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="max-w-3xl mx-auto px-3 sm:px-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
               {/* Email */}
               <Card className="text-center hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="mb-4 text-primary text-3xl">
+                <CardContent className="pt-4 sm:pt-6">
+                  <div className="mb-3 sm:mb-4 text-primary text-2xl sm:text-3xl">
                     <Mail className="h-8 w-8 mx-auto" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">{t("emailUs")}</h3>
-                  <p className="text-neutral-600">
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold mb-2">{t("emailUs")}</h3>
+                  <p className="text-xs sm:text-sm md:text-base text-neutral-600">
                     <a href="mailto:earmuffsgemach@gmail.com" className="hover:text-primary transition-colors">earmuffsgemach@gmail.com</a>
                   </p>
                 </CardContent>
@@ -39,11 +39,11 @@ export default function Contact() {
               
               {/* Follow */}
               <Card className="text-center hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="mb-4 text-primary text-3xl">
+                <CardContent className="pt-4 sm:pt-6">
+                  <div className="mb-3 sm:mb-4 text-primary text-2xl sm:text-3xl">
                     <Share2 className="h-8 w-8 mx-auto" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">{t("followUs")}</h3>
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold mb-2">{t("followUs")}</h3>
                   <div className="flex justify-center space-x-4">
                     <a href="https://instagram.com" className="text-2xl text-neutral-600 hover:text-primary transition-colors" aria-label="Instagram">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
@@ -66,12 +66,12 @@ export default function Contact() {
               
               {/* Hours */}
               <Card className="text-center hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="mb-4 text-primary text-3xl">
+                <CardContent className="pt-4 sm:pt-6">
+                  <div className="mb-3 sm:mb-4 text-primary text-2xl sm:text-3xl">
                     <Clock className="h-8 w-8 mx-auto" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">{t("responseHours")}</h3>
-                  <p className="text-neutral-600">
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold mb-2">{t("responseHours")}</h3>
+                  <p className="text-xs sm:text-sm md:text-base text-neutral-600">
                     {t("responseHoursDescription")}
                   </p>
                 </CardContent>
@@ -79,8 +79,8 @@ export default function Contact() {
             </div>
             
             <Card>
-              <CardContent className="pt-6">
-                <h3 className="text-xl font-semibold mb-6">{t("sendUsMessage")}</h3>
+              <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
+                <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">{t("sendUsMessage")}</h3>
                 <ContactForm />
               </CardContent>
             </Card>
