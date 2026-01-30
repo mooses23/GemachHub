@@ -110,7 +110,7 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
   );
 }
 
-function RecentActivity({ transactions }: { transactions: Transaction[] }) {
+function RecentActivity({ transactions, locationCode }: { transactions: Transaction[]; locationCode?: string }) {
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime())
     .slice(0, 5);
@@ -118,8 +118,17 @@ function RecentActivity({ transactions }: { transactions: Transaction[] }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Last 5 transactions</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Last 5 transactions</CardDescription>
+          </div>
+          {locationCode && (
+            <Badge variant="outline" className="text-sm">
+              Gemach {locationCode}
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {recentTransactions.length === 0 ? (
@@ -127,19 +136,27 @@ function RecentActivity({ transactions }: { transactions: Transaction[] }) {
         ) : (
           <div className="space-y-3">
             {recentTransactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between p-2 border rounded-lg">
+              <div key={tx.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-3">
                   {tx.headbandColor && <ColorSwatch color={tx.headbandColor} size="sm" />}
                   <div>
-                    <div className="font-medium">{tx.borrowerName}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{tx.borrowerName}</span>
+                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        TX#{tx.id}
+                      </span>
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {format(new Date(tx.borrowDate), "MMM d, h:mm a")}
                     </div>
                   </div>
                 </div>
-                <Badge variant={tx.isReturned ? "outline" : "default"}>
-                  {tx.isReturned ? "Returned" : "Active"}
-                </Badge>
+                <div className="text-right">
+                  <Badge variant={tx.isReturned ? "outline" : "default"} className="mb-1">
+                    {tx.isReturned ? "Returned" : "Active"}
+                  </Badge>
+                  <div className="text-xs font-medium">${tx.depositAmount.toFixed(2)}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -666,7 +683,14 @@ function ReturnWizard({
       
       {step === 1 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Select Borrower</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Select Borrower</h3>
+            {location.locationCode && (
+              <Badge variant="outline" className="text-sm">
+                Gemach {location.locationCode}
+              </Badge>
+            )}
+          </div>
           
           <div className="relative mb-4">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -1178,11 +1202,20 @@ function PayLaterTransactions({ location }: { location: Location }) {
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Pending Pay Later Transactions ({pendingTransactions.length})
-          </CardTitle>
-          <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Pending Pay Later Transactions ({pendingTransactions.length})
+              </CardTitle>
+              <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
+            </div>
+            {location.locationCode && (
+              <Badge variant="outline" className="text-sm">
+                Gemach {location.locationCode}
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -1454,7 +1487,7 @@ export default function OperatorDashboard() {
               onAddStock={() => setShowAddStock(true)} 
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
-            <RecentActivity transactions={transactions} />
+            <RecentActivity transactions={transactions} locationCode={operatorLocation.locationCode} />
           </TabsContent>
 
           <TabsContent value="lend">
