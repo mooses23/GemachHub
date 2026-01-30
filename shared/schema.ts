@@ -49,6 +49,13 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+// Session table for connect-pg-simple (preserve during migrations)
+export const userSessions = pgTable("user_sessions", {
+  sid: text("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire", { withTimezone: true }).notNull(),
+});
+
 // Operator login schema (PIN-based access)
 export const operatorLoginSchema = z.object({
   locationCode: z.string().min(1, "Location code is required"),
