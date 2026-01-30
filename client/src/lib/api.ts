@@ -39,6 +39,10 @@ export const updateLocation = async (id: number, data: Partial<InsertLocation>) 
   return apiRequest("PATCH", `/api/locations/${id}`, data);
 };
 
+export const deleteLocation = async (id: number) => {
+  return apiRequest("DELETE", `/api/locations/${id}`, {});
+};
+
 // Regions API
 export const getRegions = async () => {
   const response = await fetch("/api/regions", { credentials: "include" });

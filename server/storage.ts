@@ -54,6 +54,7 @@ export interface IStorage {
   getNextLocationCode(): Promise<string>;
   createLocation(location: InsertLocation): Promise<Location>;
   updateLocation(id: number, data: Partial<InsertLocation>): Promise<Location>;
+  deleteLocation(id: number): Promise<void>;
 
   // GemachApplication operations
   getAllApplications(): Promise<GemachApplication[]>;
@@ -2412,6 +2413,14 @@ export class MemStorage implements IStorage {
     const updatedLocation = { ...location, ...data };
     this.locations.set(id, updatedLocation);
     return updatedLocation;
+  }
+
+  async deleteLocation(id: number): Promise<void> {
+    const location = this.locations.get(id);
+    if (!location) {
+      throw new Error(`Location with id ${id} not found`);
+    }
+    this.locations.delete(id);
   }
 
   // Inventory methods (using inventory table)
