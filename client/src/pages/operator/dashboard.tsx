@@ -1089,266 +1089,11 @@ function EditStockDialog({
   );
 }
 
-function PayLaterTransactions({ location }: { location: Location }) {
-  const { toast } = useToast();
-  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
-  const [declineReason, setDeclineReason] = useState("");
-  const [selectedTransactionForDecline, setSelectedTransactionForDecline] = useState<Transaction | null>(null);
-
-  const { 
-    data: pendingTransactions = [], 
-    isLoading,
-    refetch
-  } = useQuery<Transaction[]>({
-    queryKey: ["/api/operator/transactions/pending"],
-    queryFn: async () => {
-      const res = await fetch("/api/operator/transactions/pending", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch pending transactions");
-      return res.json();
-    },
-  });
-
-  const chargeMutation = useMutation({
-    mutationFn: async (transactionId: number) => {
-      const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/charge`);
-      return res.json();
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        toast({
-          title: "Success!",
-          description: "Transaction charged successfully.",
-        });
-      } else if (data.requiresAction) {
-        toast({
-          title: "Action Required",
-          description: "Customer needs to complete additional authentication.",
-          variant: "default",
-        });
-      }
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to charge transaction",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const declineMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedTransactionForDecline) throw new Error("No transaction selected");
-      const res = await apiRequest("POST", `/api/operator/transactions/${selectedTransactionForDecline.id}/decline`, {
-        reason: declineReason,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success!",
-        description: "Transaction declined.",
-      });
-      setDeclineDialogOpen(false);
-      setDeclineReason("");
-      setSelectedTransactionForDecline(null);
-      refetch();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to decline transaction",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleDeclineClick = (transaction: Transaction) => {
-    setSelectedTransactionForDecline(transaction);
-    setDeclineDialogOpen(true);
-  };
-
-  const handleDeclineConfirm = () => {
-    declineMutation.mutate();
-  };
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="pt-6 flex items-center justify-center min-h-[200px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (pendingTransactions.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center py-8 text-muted-foreground">
-            <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-            <p>No pending Pay Later transactions</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Pending Pay Later Transactions ({pendingTransactions.length})
-              </CardTitle>
-              <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
-            </div>
-            {location.locationCode && (
-              <Badge variant="outline" className="text-sm">
-                Gemach {location.locationCode}
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <div className="space-y-3">
-              {pendingTransactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-4"
-                >
-                  <div className="flex-1">
-                    <div className="font-medium">{tx.borrowerName}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {tx.borrowerPhone && <span>{tx.borrowerPhone}</span>}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Created: {format(new Date(tx.borrowDate), "MMM d, yyyy h:mm a")}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-lg font-bold">${tx.depositAmount.toFixed(2)}</div>
-                      <Badge variant="secondary" className="mt-1">
-                        {tx.payLaterStatus || "SETUP_COMPLETE"}
-                      </Badge>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => chargeMutation.mutate(tx.id)}
-                        disabled={chargeMutation.isPending}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {chargeMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Approve & Charge
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeclineClick(tx)}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        Decline
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Dialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-destructive" />
-              Decline Transaction
-            </DialogTitle>
-            <DialogDescription>
-              {selectedTransactionForDecline?.borrowerName && (
-                <span>
-                  Are you sure you want to decline this Pay Later request from {selectedTransactionForDecline.borrowerName}?
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {selectedTransactionForDecline && (
-              <div className="p-3 bg-muted/50 rounded-lg">
-                <div className="flex justify-between items-center text-sm mb-2">
-                  <span className="text-muted-foreground">Amount:</span>
-                  <span className="font-bold">${selectedTransactionForDecline.depositAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Borrower:</span>
-                  <span>{selectedTransactionForDecline.borrowerName}</span>
-                </div>
-              </div>
-            )}
-            <div>
-              <label className="text-sm font-medium mb-2 block">Decline Reason (optional)</label>
-              <Input
-                placeholder="E.g., Unable to verify borrower"
-                value={declineReason}
-                onChange={(e) => setDeclineReason(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeclineDialogOpen(false);
-                setDeclineReason("");
-                setSelectedTransactionForDecline(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeclineConfirm}
-              disabled={declineMutation.isPending}
-            >
-              {declineMutation.isPending ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Declining...</>
-              ) : (
-                <>Decline Request</>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
 export default function OperatorDashboard() {
   const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
   const [, setPath] = useLocation();
-  const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return" | "payLater">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return">("overview");
   const [showAddStock, setShowAddStock] = useState(false);
   const [editStockColor, setEditStockColor] = useState<string | null>(null);
   const [editStockQty, setEditStockQty] = useState(0);
@@ -1441,7 +1186,7 @@ export default function OperatorDashboard() {
               <h1 className="text-2xl font-bold">{operatorLocation.name}</h1>
               <p className="text-muted-foreground">Manage headband lending and returns</p>
             </div>
-            <TabsList className="grid grid-cols-4 w-full sm:w-auto">
+            <TabsList className="grid grid-cols-3 w-full sm:w-auto">
               <TabsTrigger value="overview" className="gap-2">
                 <Package className="h-4 w-4" /> Stock
               </TabsTrigger>
@@ -1450,9 +1195,6 @@ export default function OperatorDashboard() {
               </TabsTrigger>
               <TabsTrigger value="return" className="gap-2">
                 <RotateCcw className="h-4 w-4" /> Return
-              </TabsTrigger>
-              <TabsTrigger value="payLater" className="gap-2">
-                <Clock className="h-4 w-4" /> Pay Later
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1517,9 +1259,6 @@ export default function OperatorDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="payLater">
-            <PayLaterTransactions location={operatorLocation} />
-          </TabsContent>
         </Tabs>
       </div>
 
