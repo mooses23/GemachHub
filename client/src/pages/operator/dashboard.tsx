@@ -168,8 +168,9 @@ function RestockingInstructions() {
   );
 }
 
-function RecentActivity({ transactions, locationCode }: { transactions: Transaction[]; locationCode?: string }) {
+function RecentActivity({ transactions, locationId, locationCode }: { transactions: Transaction[]; locationId: number; locationCode?: string }) {
   const recentTransactions = [...transactions]
+    .filter(tx => tx.locationId === locationId)
     .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime())
     .slice(0, 5);
   
@@ -1800,7 +1801,7 @@ export default function OperatorDashboard() {
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
             <RestockingInstructions />
-            <RecentActivity transactions={transactions} locationCode={operatorLocation.locationCode} />
+            <RecentActivity transactions={transactions} locationId={operatorLocation.id} locationCode={operatorLocation.locationCode} />
           </TabsContent>
 
           <TabsContent value="lend">
