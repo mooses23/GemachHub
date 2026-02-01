@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { HierarchicalLocationSearch } from "@/components/locations/hierarchical-location-search";
 import { useLanguage } from "@/hooks/use-language";
-import logoImage from "@assets/BabyBanz_Gemach_1769321439923.jpg";
+import heroImage from "@assets/41X4OQqi8XL._AC_SY350__1769928073148.jpg";
 import { MapPin, Phone, RotateCcw } from "lucide-react";
 
 export default function Home() {
@@ -34,8 +34,8 @@ export default function Home() {
                 <div className="relative inline-block">
                   <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full scale-150"></div>
                   <img 
-                    src={logoImage} 
-                    alt="BabyBanz Gemach" 
+                    src={heroImage} 
+                    alt="Baby with earmuffs" 
                     className="relative w-36 h-36 md:w-48 md:h-48 mx-auto object-contain rounded-2xl glass-panel-elevated p-2"
                   />
                 </div>

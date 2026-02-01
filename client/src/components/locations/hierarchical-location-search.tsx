@@ -492,17 +492,17 @@ function LocationCard({ location, region }: LocationCardProps) {
         
         <div className="space-y-3">
           <div className="flex items-start">
-            <MapPin className="h-4 w-4 text-slate-500 mt-1 mr-2 flex-shrink-0" />
-            <p className="text-sm text-slate-400">{location.address}</p>
+            <MapPin className="h-4 w-4 text-slate-400 mt-1 mr-2 flex-shrink-0" />
+            <p className="text-sm text-slate-300">{location.address}</p>
           </div>
           
           <div className="flex items-center">
-            <Phone className="h-4 w-4 text-slate-500 mr-2 flex-shrink-0" />
-            <p className="text-sm text-slate-400">{location.phone}</p>
+            <Phone className="h-4 w-4 text-slate-400 mr-2 flex-shrink-0" />
+            <p className="text-sm text-slate-300">{location.phone}</p>
           </div>
           
           <div className="flex items-center">
-            <Package className="h-4 w-4 text-slate-500 mr-2 flex-shrink-0" />
+            <Package className="h-4 w-4 text-slate-400 mr-2 flex-shrink-0" />
             {inventory.length > 0 ? (
               <div className="flex items-center gap-1 flex-wrap">
                 {inventory.map(item => (
@@ -510,7 +510,7 @@ function LocationCard({ location, region }: LocationCardProps) {
                 ))}
               </div>
             ) : (
-              <span className="text-sm text-slate-500">{t("noStockInfo")}</span>
+              <span className="text-sm text-slate-400">{t("noStockInfo")}</span>
             )}
           </div>
         </div>
@@ -518,7 +518,7 @@ function LocationCard({ location, region }: LocationCardProps) {
         <div className="mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center justify-between">
             <div className="text-sm">
-              <span className="text-slate-500">{t("contactLabel")}</span>
+              <span className="text-slate-400">{t("contactLabel")}</span>
               <span className="font-medium text-slate-300 ml-1">{location.contactPerson}</span>
             </div>
             <span className={`px-2 py-1 text-xs rounded-full ${
@@ -531,7 +531,7 @@ function LocationCard({ location, region }: LocationCardProps) {
           </div>
           
           <div className="mt-2 text-sm">
-            <span className="text-slate-500">{t("depositLabel")}</span>
+            <span className="text-slate-400">{t("depositLabel")}</span>
             <span className="font-medium text-white ml-1">${location.depositAmount}</span>
           </div>
         </div>
