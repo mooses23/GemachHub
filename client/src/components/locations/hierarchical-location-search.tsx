@@ -256,7 +256,7 @@ export function HierarchicalLocationSearch() {
                             </span>
                           ))}
                           {regionCities.length > 3 && (
-                            <span className="px-2 py-1 text-xs rounded-full bg-white/5 text-slate-300 border border-white/10">
+                            <span className="px-2 py-1 text-xs rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                               +{regionCities.length - 3} {t("more")}
                             </span>
                           )}

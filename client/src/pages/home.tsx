@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { HierarchicalLocationSearch } from "@/components/locations/hierarchical-location-search";
 import { useLanguage } from "@/hooks/use-language";
-import heroImage from "@assets/41X4OQqi8XL._AC_SY350__1769928073148.jpg";
+import heroImage from "@assets/baby_1769929839890.jpg";
 import { MapPin, Phone, RotateCcw } from "lucide-react";
 
 export default function Home() {
