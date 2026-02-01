@@ -132,6 +132,8 @@ export class MemStorage implements IStorage {
   private locationPaymentMethods: Map<number, LocationPaymentMethod>;
   private cityCategories: Map<number, CityCategory>;
   private inventoryItems: Map<number, Inventory>;
+  private auditLogsMap: Map<number, AuditLog>;
+  private webhookEventsMap: Map<number, WebhookEvent>;
   private validInviteCodes: Set<string>;
 
   private userCounter: number;
@@ -146,6 +148,8 @@ export class MemStorage implements IStorage {
   private locationPaymentMethodCounter: number;
   private cityCategoryCounter: number;
   private inventoryCounter: number;
+  private auditLogCounter: number;
+  private webhookEventCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -160,6 +164,8 @@ export class MemStorage implements IStorage {
     this.locationPaymentMethods = new Map();
     this.cityCategories = new Map();
     this.inventoryItems = new Map();
+    this.auditLogsMap = new Map();
+    this.webhookEventsMap = new Map();
     this.validInviteCodes = new Set();
 
     this.userCounter = 1;
@@ -174,6 +180,8 @@ export class MemStorage implements IStorage {
     this.locationPaymentMethodCounter = 1;
     this.cityCategoryCounter = 1;
     this.inventoryCounter = 1;
+    this.auditLogCounter = 1;
+    this.webhookEventCounter = 1;
 
     // Initialize with default regions
     this.initializeDefaultData();
@@ -2850,11 +2858,10 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  // Audit Log operations - stub implementations
+  // Audit Log operations
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
-    // For in-memory storage, we just return a mock audit log
-    return {
-      id: Date.now(),
+    const auditLog: AuditLog = {
+      id: this.auditLogCounter++,
       entityType: log.entityType,
       entityId: log.entityId,
       action: log.action,
@@ -2866,27 +2873,30 @@ export class MemStorage implements IStorage {
       ipAddress: log.ipAddress || null,
       createdAt: new Date()
     };
+    this.auditLogsMap.set(auditLog.id, auditLog);
+    return auditLog;
   }
 
   async getAuditLogsForEntity(entityType: string, entityId: number): Promise<AuditLog[]> {
-    // For in-memory storage, return empty array
-    return [];
+    return Array.from(this.auditLogsMap.values()).filter(
+      log => log.entityType === entityType && log.entityId === entityId
+    );
   }
 
-  // Webhook Event operations - stub implementations
+  // Webhook Event operations
   async getWebhookEvent(eventId: string): Promise<WebhookEvent | undefined> {
-    // For in-memory storage, return undefined
-    return undefined;
+    return Array.from(this.webhookEventsMap.values()).find(event => event.eventId === eventId);
   }
 
   async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
-    // For in-memory storage, return a mock webhook event
-    return {
-      id: Date.now(),
+    const webhookEvent: WebhookEvent = {
+      id: this.webhookEventCounter++,
       eventId: event.eventId,
       eventType: event.eventType,
       processedAt: new Date()
     };
+    this.webhookEventsMap.set(webhookEvent.id, webhookEvent);
+    return webhookEvent;
   }
 
   async deleteCityCategory(id: number): Promise<void> {
