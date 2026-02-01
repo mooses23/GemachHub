@@ -46,7 +46,8 @@ Preferred communication style: Simple, everyday language.
 ### Operator Dashboard Features
 - **Inventory Management**: Color-based tracking, low stock alerts, add stock functionality.
 - **Lend Wizard**: Guided process for lending, including color selection, borrower info, and deposit handling.
-- **Return Wizard**: Guided process for returns, including borrower selection and refund options (full/partial, damage deductions).
+- **Self-Deposit Acceptance**: Operators can accept self-deposits from customers who added their own card details. "Accept & Lend" button confirms lending without charging; status transitions from CARD_SETUP_COMPLETE to APPROVED.
+- **Return Wizard**: Guided process for returns, including borrower selection and refund options (full/partial, damage deductions). Charge Card option is disabled if card setup was not completed (CARD_SETUP_PENDING status).
 
 ### Internationalization (i18n)
 - **Languages**: English and Hebrew support.
