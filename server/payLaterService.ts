@@ -166,7 +166,8 @@ export class PayLaterService {
       return { success: false, status: 'CHARGE_FAILED', errorMessage: 'Unauthorized: wrong location' };
     }
 
-    if (transaction.payLaterStatus !== 'CARD_SETUP_COMPLETE') {
+    const chargeableStatuses = ['CARD_SETUP_COMPLETE', 'APPROVED'];
+    if (!chargeableStatuses.includes(transaction.payLaterStatus || '')) {
       return { 
         success: false, 
         status: transaction.payLaterStatus as PayLaterStatus || 'CHARGE_FAILED', 
@@ -282,6 +283,43 @@ export class PayLaterService {
         errorMessage 
       };
     }
+  }
+
+  static async acceptTransaction(
+    transactionId: number,
+    operatorUserId?: number,
+    operatorLocationId?: number
+  ): Promise<{ success: boolean; errorMessage?: string }> {
+    const transaction = await storage.getTransaction(transactionId);
+    if (!transaction) {
+      return { success: false, errorMessage: 'Transaction not found' };
+    }
+
+    if (operatorLocationId && transaction.locationId !== operatorLocationId) {
+      return { success: false, errorMessage: 'Unauthorized: wrong location' };
+    }
+
+    if (transaction.payLaterStatus !== 'CARD_SETUP_COMPLETE') {
+      return { success: false, errorMessage: `Cannot accept transaction in status: ${transaction.payLaterStatus}. Card setup must be complete.` };
+    }
+
+    const beforeJson = JSON.stringify(transaction);
+
+    await storage.updateTransactionPayLaterStatus(transaction.id, 'APPROVED', {
+      notes: 'Self-deposit accepted by operator - item lent',
+    });
+
+    await storage.createAuditLog({
+      actorUserId: operatorUserId,
+      actorType: operatorUserId ? 'operator' : 'system',
+      action: 'accepted',
+      entityType: 'transaction',
+      entityId: transaction.id,
+      beforeJson,
+      afterJson: JSON.stringify({ status: 'APPROVED' }),
+    });
+
+    return { success: true };
   }
 
   static async declineTransaction(

@@ -942,12 +942,24 @@ function ReturnWizard({
           {/* Card deposit specific options */}
           {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
             <div className="space-y-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-2 text-blue-800 text-sm mb-3">
-                  <CreditCard className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <span>This borrower saved their card for the deposit. You can now charge their card or release it without charging.</span>
+              {selectedTransaction.payLaterStatus === "CARD_SETUP_PENDING" ? (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2 text-amber-800 text-sm">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <strong>Card setup incomplete.</strong> The customer hasn't finished setting up their card. 
+                      You can only release this transaction (no charge possible).
+                    </span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2 text-blue-800 text-sm mb-3">
+                    <CreditCard className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>This borrower saved their card for the deposit. You can now charge their card or release it without charging.</span>
+                  </div>
+                </div>
+              )}
               
               <div className="flex gap-4">
                 <Button
@@ -955,6 +967,7 @@ function ReturnWizard({
                   size="lg"
                   onClick={() => setCardAction("charge")}
                   className="flex-1"
+                  disabled={!["CARD_SETUP_COMPLETE", "APPROVED"].includes(selectedTransaction.payLaterStatus || "")}
                 >
                   <CreditCard className="h-5 w-5 mr-2" />
                   Charge Card
@@ -1376,6 +1389,30 @@ function PayLaterTransactions({ location }: { location: Location }) {
     },
   });
 
+  const acceptMutation = useMutation({
+    mutationFn: async (transactionId: number) => {
+      const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/accept`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Success!",
+          description: "Self-deposit accepted. Item has been lent.",
+        });
+      }
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to accept self-deposit",
+        variant: "destructive",
+      });
+    },
+  });
+
   const chargeMutation = useMutation({
     mutationFn: async (transactionId: number) => {
       const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/charge`);
@@ -1468,18 +1505,13 @@ function PayLaterTransactions({ location }: { location: Location }) {
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Pending Card Deposits ({pendingTransactions.length})
-          </CardTitle>
-          <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                Pending Card Deposits ({pendingTransactions.length})
+                Pending Self-Deposits ({pendingTransactions.length})
               </CardTitle>
-              <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
+              <CardDescription>Accept self-deposits to confirm lending (card saved but not charged)</CardDescription>
             </div>
             {location.locationCode && (
               <Badge variant="outline" className="text-sm">
@@ -1515,21 +1547,32 @@ function PayLaterTransactions({ location }: { location: Location }) {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => chargeMutation.mutate(tx.id)}
-                        disabled={chargeMutation.isPending}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {chargeMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Approve & Charge
-                          </>
-                        )}
-                      </Button>
+                      {tx.payLaterStatus === 'CARD_SETUP_COMPLETE' ? (
+                        <Button
+                          size="sm"
+                          onClick={() => acceptMutation.mutate(tx.id)}
+                          disabled={acceptMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {acceptMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Accept & Lend
+                            </>
+                          )}
+                        </Button>
+                      ) : tx.payLaterStatus === 'CARD_SETUP_PENDING' ? (
+                        <Button
+                          size="sm"
+                          disabled
+                          variant="secondary"
+                        >
+                          <Clock className="h-4 w-4 mr-1" />
+                          Awaiting Card Setup
+                        </Button>
+                      ) : null}
                       <Button
                         size="sm"
                         variant="destructive"

@@ -2042,6 +2042,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Operator accepts a self-deposit (confirms lending, card on file but NOT charged)
+  app.post("/api/operator/transactions/:id/accept", async (req, res) => {
+    try {
+      const transactionId = parseInt(req.params.id);
+      const operatorLocationId = (req.session as any).operatorLocationId;
+      
+      if (!req.isAuthenticated() && !operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const userId = req.isAuthenticated() ? (req.user as any).id : undefined;
+      const locationId = operatorLocationId || (req.user as any)?.locationId;
+
+      const result = await PayLaterService.acceptTransaction(transactionId, userId, locationId);
+
+      if (result.success) {
+        res.json({ success: true, status: 'APPROVED' });
+      } else {
+        res.status(400).json({ success: false, message: result.errorMessage });
+      }
+    } catch (error: any) {
+      console.error("Accept transaction error:", error);
+      res.status(500).json({ message: error.message || "Failed to accept transaction" });
+    }
+  });
+
   // Operator approves and charges a transaction
   app.post("/api/operator/transactions/:id/charge", async (req, res) => {
     try {
