@@ -339,6 +339,7 @@ function LendWizard({
         borrowerEmail: emailToUse,
         borrowerPhone,
         amountCents,
+        headbandColor: selectedColor,
       });
       
       const data = await res.json();
