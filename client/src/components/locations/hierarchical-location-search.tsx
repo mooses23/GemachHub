@@ -56,6 +56,9 @@ const AU_STATE_NAMES: Record<string, string> = {
   NSW: "New South Wales"
 };
 
+// Threshold for when a state is considered "high-density" and shows community view
+const HIGH_DENSITY_THRESHOLD = 3;
+
 export function HierarchicalLocationSearch() {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,6 +66,8 @@ export function HierarchicalLocationSearch() {
   const [selectedCity, setSelectedCity] = useState<CityCategory | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedSubRegion, setSelectedSubRegion] = useState<string | null>(null);
+  const [selectedCommunity, setSelectedCommunity] = useState<CityCategory | null>(null);
+  const [showCommunityView, setShowCommunityView] = useState(false);
 
   const { data: locations = [] } = useQuery({
     queryKey: ["/api/locations"],
@@ -136,6 +141,29 @@ export function HierarchicalLocationSearch() {
     });
   }, [selectedRegion, cityCategories]);
 
+  // Get communities (cityCategories) within selected state with location counts
+  const stateCommunitiesWithCounts = useMemo(() => {
+    if (!selectedState || !selectedRegion) return [];
+    
+    const communitiesInState = cityCategories.filter(
+      (city: CityCategory) => city.regionId === selectedRegion.id && city.stateCode === selectedState
+    );
+    
+    // Add location counts for each community
+    return communitiesInState.map(community => {
+      const locationCount = locations.filter(
+        (loc: Location) => loc.cityCategoryId === community.id
+      ).length;
+      return { ...community, locationCount };
+    }).filter(c => c.locationCount > 0) // Only show communities with locations
+      .sort((a, b) => b.locationCount - a.locationCount); // Sort by location count desc
+  }, [selectedState, selectedRegion, cityCategories, locations]);
+
+  // Determine if current state is high-density (should show community bubbles)
+  const isHighDensityState = useMemo(() => {
+    return stateCommunitiesWithCounts.length >= HIGH_DENSITY_THRESHOLD;
+  }, [stateCommunitiesWithCounts]);
+
   const subRegions = useMemo(() => {
     if (!selectedRegion) return { codes: [], names: {} as Record<string, string>, labelType: "" };
     
@@ -159,6 +187,11 @@ export function HierarchicalLocationSearch() {
     
     if (selectedRegion.slug === "united-states" && selectedState) {
       citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.stateCode === selectedState);
+      
+      // If community is selected, filter to just that community
+      if (selectedCommunity) {
+        citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.id === selectedCommunity.id);
+      }
     }
     
     if (selectedRegion.slug !== "united-states" && selectedSubRegion) {
@@ -178,7 +211,7 @@ export function HierarchicalLocationSearch() {
     });
 
     return result;
-  }, [selectedRegion, cityCategories, filteredLocations, selectedState, selectedSubRegion]);
+  }, [selectedRegion, cityCategories, filteredLocations, selectedState, selectedSubRegion, selectedCommunity]);
 
   if (!selectedRegion) {
     return (
@@ -278,7 +311,13 @@ export function HierarchicalLocationSearch() {
       <div className="mb-6 px-4 md:px-0">
         <div className="flex items-center gap-2 mb-4">
           <button 
-            onClick={() => { setSelectedRegion(null); setSelectedState(null); setSelectedSubRegion(null); }}
+            onClick={() => { 
+              setSelectedRegion(null); 
+              setSelectedState(null); 
+              setSelectedSubRegion(null);
+              setSelectedCommunity(null);
+              setShowCommunityView(false);
+            }}
             className="btn-glass-outline px-4 py-2 rounded-xl flex items-center gap-2 text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -316,30 +355,102 @@ export function HierarchicalLocationSearch() {
 
       {selectedRegion.slug === "united-states" && usStates.length > 0 && (
         <div className="mb-8 px-4 md:px-0">
-          <div className="flex flex-wrap justify-center gap-2">
-            <button
-              onClick={() => setSelectedState(null)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                selectedState === null
-                  ? "btn-glass-amber"
-                  : "btn-glass-outline"
-              }`}
-            >
-              {t("allStates")}
-            </button>
-            {usStates.map((stateCode) => (
-              <button
-                key={stateCode}
-                onClick={() => setSelectedState(stateCode)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  selectedState === stateCode
-                    ? "btn-glass-amber"
-                    : "btn-glass-outline"
-                }`}
-              >
-                {US_STATE_NAMES[stateCode] || stateCode}
-              </button>
-            ))}
+          <div className="flex flex-wrap justify-center gap-2 transition-all duration-300">
+            {/* When community view is active for high-density state, show community bubbles */}
+            {showCommunityView && selectedState && isHighDensityState ? (
+              <>
+                {/* Back to States button */}
+                <button
+                  onClick={() => {
+                    setShowCommunityView(false);
+                    setSelectedCommunity(null);
+                  }}
+                  className="px-4 py-2 rounded-full text-sm font-medium btn-glass-outline flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  {US_STATE_NAMES[selectedState] || selectedState}
+                </button>
+                
+                {/* All Communities in this state button */}
+                <button
+                  onClick={() => setSelectedCommunity(null)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    selectedCommunity === null
+                      ? "btn-glass-amber"
+                      : "btn-glass-outline"
+                  }`}
+                >
+                  {t("all")} {t("communities")}
+                </button>
+                
+                {/* Community bubbles */}
+                {stateCommunitiesWithCounts.map((community) => (
+                  <button
+                    key={community.id}
+                    onClick={() => setSelectedCommunity(community)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      selectedCommunity?.id === community.id
+                        ? "btn-glass-amber"
+                        : "btn-glass-outline"
+                    }`}
+                  >
+                    {community.name}
+                    <span className="ml-1 text-xs opacity-75">({community.locationCount})</span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              <>
+                {/* Normal state view */}
+                <button
+                  onClick={() => {
+                    setSelectedState(null);
+                    setShowCommunityView(false);
+                    setSelectedCommunity(null);
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    selectedState === null
+                      ? "btn-glass-amber"
+                      : "btn-glass-outline"
+                  }`}
+                >
+                  {t("allStates")}
+                </button>
+                {usStates.map((stateCode) => {
+                  // Check if this state is high-density
+                  const communitiesInThisState = cityCategories.filter(
+                    (c: CityCategory) => c.regionId === selectedRegion.id && c.stateCode === stateCode
+                  );
+                  const communitiesWithLocations = communitiesInThisState.filter(c => 
+                    locations.some((loc: Location) => loc.cityCategoryId === c.id)
+                  );
+                  const isThisStateHighDensity = communitiesWithLocations.length >= HIGH_DENSITY_THRESHOLD;
+                  
+                  return (
+                    <button
+                      key={stateCode}
+                      onClick={() => {
+                        setSelectedState(stateCode);
+                        setSelectedCommunity(null);
+                        // Auto-show community view for high-density states
+                        if (isThisStateHighDensity) {
+                          setShowCommunityView(true);
+                        } else {
+                          setShowCommunityView(false);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                        selectedState === stateCode && !showCommunityView
+                          ? "btn-glass-amber"
+                          : "btn-glass-outline"
+                      }`}
+                    >
+                      {US_STATE_NAMES[stateCode] || stateCode}
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
       )}
