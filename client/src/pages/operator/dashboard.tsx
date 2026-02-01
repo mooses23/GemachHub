@@ -642,6 +642,10 @@ function ReturnWizard({
   const [refundAmount, setRefundAmount] = useState("");
   const [isPartialRefund, setIsPartialRefund] = useState(false);
   const [cardAction, setCardAction] = useState<"charge" | "release" | null>(null);
+
+  useEffect(() => {
+    setCardAction(null);
+  }, [selectedTransaction]);
   
   const activeTransactions = transactions.filter(tx => !tx.isReturned);
   
