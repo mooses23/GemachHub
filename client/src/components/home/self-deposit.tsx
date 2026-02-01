@@ -230,19 +230,13 @@ export function SelfDeposit() {
                       <SelectItem value="stripe">
                         <div className="flex items-center gap-2">
                           <CreditCard className="w-4 h-4" />
-                          Credit/Debit Card
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="paypal">
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="w-4 h-4" />
-                          PayPal
+                          Card (Credit/Debit)
                         </div>
                       </SelectItem>
                       <SelectItem value="cash">
                         <div className="flex items-center gap-2">
                           <DollarSign className="w-4 h-4" />
-                          Cash (No Processing Fee)
+                          Cash (Pay at Location)
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -266,7 +260,7 @@ export function SelfDeposit() {
                 className="w-full h-11 sm:h-12"
                 size="lg"
               >
-                {selectedPaymentMethod === 'cash' ? 'Record Cash Deposit' : 'Proceed to Payment'}
+                {selectedPaymentMethod === 'cash' ? 'Record Cash Deposit Request' : 'Proceed to Card Payment'}
               </Button>
             </CardContent>
           </Card>

@@ -132,6 +132,8 @@ export class MemStorage implements IStorage {
   private locationPaymentMethods: Map<number, LocationPaymentMethod>;
   private cityCategories: Map<number, CityCategory>;
   private inventoryItems: Map<number, Inventory>;
+  private auditLogsMap: Map<number, AuditLog>;
+  private webhookEventsMap: Map<number, WebhookEvent>;
   private validInviteCodes: Set<string>;
 
   private userCounter: number;
@@ -146,6 +148,8 @@ export class MemStorage implements IStorage {
   private locationPaymentMethodCounter: number;
   private cityCategoryCounter: number;
   private inventoryCounter: number;
+  private auditLogCounter: number;
+  private webhookEventCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -160,6 +164,8 @@ export class MemStorage implements IStorage {
     this.locationPaymentMethods = new Map();
     this.cityCategories = new Map();
     this.inventoryItems = new Map();
+    this.auditLogsMap = new Map();
+    this.webhookEventsMap = new Map();
     this.validInviteCodes = new Set();
 
     this.userCounter = 1;
@@ -174,6 +180,8 @@ export class MemStorage implements IStorage {
     this.locationPaymentMethodCounter = 1;
     this.cityCategoryCounter = 1;
     this.inventoryCounter = 1;
+    this.auditLogCounter = 1;
+    this.webhookEventCounter = 1;
 
     // Initialize with default regions
     this.initializeDefaultData();
@@ -2817,6 +2825,78 @@ export class MemStorage implements IStorage {
     const updatedCategory: CityCategory = { ...category, ...data };
     this.cityCategories.set(id, updatedCategory);
     return updatedCategory;
+  }
+
+  // Pay Later operations
+  async getTransactionByMagicToken(magicToken: string): Promise<Transaction | undefined> {
+    return Array.from(this.transactions.values()).find(t => t.magicToken === magicToken);
+  }
+
+  async getTransactionBySetupIntentId(setupIntentId: string): Promise<Transaction | undefined> {
+    return Array.from(this.transactions.values()).find(t => t.stripeSetupIntentId === setupIntentId);
+  }
+
+  async getTransactionByPaymentIntentId(paymentIntentId: string): Promise<Transaction | undefined> {
+    return Array.from(this.transactions.values()).find(t => t.stripePaymentIntentId === paymentIntentId);
+  }
+
+  async getPendingPayLaterTransactions(locationId?: number): Promise<Transaction[]> {
+    const allTransactions = Array.from(this.transactions.values());
+    return allTransactions.filter(t => {
+      const isPending = t.payLaterStatus === 'CARD_SETUP_COMPLETE' || t.payLaterStatus === 'APPROVED';
+      return isPending && (locationId === undefined || t.locationId === locationId);
+    });
+  }
+
+  async updateTransactionPayLaterStatus(id: number, status: PayLaterStatus, additionalData?: Partial<Transaction>): Promise<Transaction> {
+    const transaction = this.transactions.get(id);
+    if (!transaction) {
+      throw new Error(`Transaction ${id} not found`);
+    }
+    const updated = { ...transaction, payLaterStatus: status, ...additionalData };
+    this.transactions.set(id, updated);
+    return updated;
+  }
+
+  // Audit Log operations
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const auditLog: AuditLog = {
+      id: this.auditLogCounter++,
+      entityType: log.entityType,
+      entityId: log.entityId,
+      action: log.action,
+      actorUserId: log.actorUserId || null,
+      actorType: log.actorType || "system",
+      beforeJson: log.beforeJson || null,
+      afterJson: log.afterJson || null,
+      metadata: log.metadata || null,
+      ipAddress: log.ipAddress || null,
+      createdAt: new Date()
+    };
+    this.auditLogsMap.set(auditLog.id, auditLog);
+    return auditLog;
+  }
+
+  async getAuditLogsForEntity(entityType: string, entityId: number): Promise<AuditLog[]> {
+    return Array.from(this.auditLogsMap.values()).filter(
+      log => log.entityType === entityType && log.entityId === entityId
+    );
+  }
+
+  // Webhook Event operations
+  async getWebhookEvent(eventId: string): Promise<WebhookEvent | undefined> {
+    return Array.from(this.webhookEventsMap.values()).find(event => event.eventId === eventId);
+  }
+
+  async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
+    const webhookEvent: WebhookEvent = {
+      id: this.webhookEventCounter++,
+      eventId: event.eventId,
+      eventType: event.eventType,
+      processedAt: new Date()
+    };
+    this.webhookEventsMap.set(webhookEvent.id, webhookEvent);
+    return webhookEvent;
   }
 
   async deleteCityCategory(id: number): Promise<void> {
