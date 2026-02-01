@@ -4,6 +4,11 @@
   "outputDirectory": "dist/public",
   "installCommand": "npm ci --legacy-peer-deps --include=dev || npm install --legacy-peer-deps --include=dev",
   "framework": null,
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/(.*)", "destination": "/index.html" }
