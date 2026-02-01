@@ -167,7 +167,6 @@ function RestockingInstructions() {
   );
 }
 
-function RecentActivity({ transactions }: { transactions: Transaction[] }) {
 function RecentActivity({ transactions, locationCode }: { transactions: Transaction[]; locationCode?: string }) {
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime())
@@ -734,10 +733,13 @@ function ReturnWizard({
   });
   
   const returnMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (overrideRefund?: { refundAmount: number }) => {
       if (!selectedTransaction) throw new Error("No transaction selected");
       
-      const refund = isPartialRefund ? parseFloat(refundAmount) : selectedTransaction.depositAmount;
+      // Use override if provided, otherwise calculate from state
+      const refund = overrideRefund !== undefined 
+        ? overrideRefund.refundAmount 
+        : (isPartialRefund ? parseFloat(refundAmount) : selectedTransaction.depositAmount);
       
       const res = await apiRequest("PATCH", `/api/transactions/${selectedTransaction.id}/return`, {
         refundAmount: refund,
