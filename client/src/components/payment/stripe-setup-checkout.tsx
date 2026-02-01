@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, CreditCard, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 const OPERATOR_DASHBOARD_URL = "/operator/dashboard";
 
@@ -49,6 +50,17 @@ function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSet
       onError(error.message || "Card setup failed");
       setIsProcessing(false);
     } else if (setupIntent && setupIntent.status === 'succeeded') {
+      // Confirm the setup with backend (updates status immediately without waiting for webhook)
+      if (setupIntent.id) {
+        try {
+          await apiRequest("POST", "/api/deposits/confirm-setup", {
+            setupIntentId: setupIntent.id,
+          });
+        } catch (confirmError) {
+          console.warn("Backend confirmation failed, webhook will handle status update:", confirmError);
+        }
+      }
+      
       setSetupStatus('success');
       toast({
         title: "Card Setup Successful",

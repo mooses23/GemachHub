@@ -10,7 +10,7 @@ import { PaymentAnalyticsEngine } from "./analytics-engine.js";
 import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
-import { getStripePublishableKey } from "./stripeClient.js";
+import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, getEmail, markAsRead, sendReply, getGmailConfigStatus } from "./gmail-client.js";
 import { generateEmailResponse } from "./openai-client.js";
 import { z } from "zod";
@@ -1983,6 +1983,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("SetupIntent creation error:", error);
       res.status(500).json({ message: error.message || "Failed to create setup intent" });
+    }
+  });
+
+  // Confirm SetupIntent completion (called by client after successful Stripe confirmation)
+  // This provides immediate status update without waiting for webhooks
+  app.post("/api/deposits/confirm-setup", async (req, res) => {
+    try {
+      const { setupIntentId, transactionId } = req.body;
+
+      if (!setupIntentId) {
+        return res.status(400).json({ message: "SetupIntent ID is required" });
+      }
+
+      const stripe = getStripeClient();
+      
+      // Retrieve the SetupIntent from Stripe to verify it succeeded
+      const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+      
+      if (setupIntent.status !== 'succeeded') {
+        return res.status(400).json({ 
+          message: `SetupIntent is not in succeeded status. Current status: ${setupIntent.status}` 
+        });
+      }
+
+      const paymentMethodId = setupIntent.payment_method as string;
+      if (!paymentMethodId) {
+        return res.status(400).json({ message: "No payment method attached to SetupIntent" });
+      }
+
+      // Update the transaction status to CARD_SETUP_COMPLETE
+      await PayLaterService.handleSetupIntentSucceeded(setupIntentId, paymentMethodId);
+
+      console.log(`SetupIntent ${setupIntentId} confirmed via client callback`);
+      
+      res.json({ 
+        success: true, 
+        message: "Card setup confirmed successfully",
+        status: 'CARD_SETUP_COMPLETE'
+      });
+    } catch (error: any) {
+      console.error("SetupIntent confirmation error:", error);
+      res.status(500).json({ message: error.message || "Failed to confirm setup intent" });
     }
   });
 

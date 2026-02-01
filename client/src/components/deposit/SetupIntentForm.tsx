@@ -156,7 +156,18 @@ function SetupIntentFormInner({
         return;
       }
 
-      // Step 3: Success - show success state and prepare redirect
+      // Step 3: Confirm the setup with backend (updates status immediately without waiting for webhook)
+      if (result.setupIntent?.id) {
+        try {
+          await apiRequest("POST", "/api/deposits/confirm-setup", {
+            setupIntentId: result.setupIntent.id,
+          });
+        } catch (confirmError) {
+          console.warn("Backend confirmation failed, webhook will handle status update:", confirmError);
+        }
+      }
+
+      // Step 4: Success - show success state and prepare redirect
       setSuccessUrl(publicStatusUrl);
       setShowSuccess(true);
       toast({
