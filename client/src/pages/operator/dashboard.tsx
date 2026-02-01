@@ -48,35 +48,35 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
   const lowStockColors = Object.entries(inventoryByColor).filter(([_, qty]) => (qty || 0) <= lowStockThreshold && (qty || 0) > 0);
   
   return (
-    <Card>
+    <Card className="glass-card">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-center">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-white">
               <Package className="h-5 w-5" />
               Stock Overview
             </CardTitle>
-            <CardDescription>Current headband inventory by color (tap to edit)</CardDescription>
+            <CardDescription className="text-slate-400">Current headband inventory by color (tap to edit)</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={onAddStock}>
+          <Button variant="outline" size="sm" onClick={onAddStock} className="border-white/20 hover:bg-white/10">
             <Plus className="h-4 w-4 mr-1" /> Add Stock
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         <div className="mb-4">
-          <div className="text-3xl font-bold">{totalStock}</div>
-          <div className="text-sm text-muted-foreground">Total headbands in stock</div>
+          <div className="text-3xl font-bold text-white">{totalStock}</div>
+          <div className="text-sm text-slate-400">Total headbands in stock</div>
         </div>
         
         {lowStockColors.length > 0 && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center gap-2 text-yellow-800 font-medium mb-2">
+          <div className="mb-4 p-3 bg-amber-500/20 border border-amber-500/30 rounded-lg">
+            <div className="flex items-center gap-2 text-amber-300 font-medium mb-2">
               <AlertTriangle className="h-4 w-4" /> Low Stock Alert
             </div>
             <div className="flex flex-wrap gap-2">
               {lowStockColors.map(([color, qty]) => (
-                <Badge key={color} variant="outline" className="bg-yellow-100 border-yellow-300">
+                <Badge key={color} variant="outline" className="bg-amber-500/20 border-amber-500/30 text-amber-300">
                   <ColorSwatch color={color} size="sm" />
                   <span className="ml-1 capitalize">{color}: {qty}</span>
                 </Badge>
@@ -90,17 +90,17 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
             <button
               key={color}
               onClick={() => onEditStock(color, qty || 0)}
-              className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/50 hover:border-primary/50 transition-colors cursor-pointer text-left"
+              className="flex items-center gap-2 p-2 border border-white/10 rounded-lg hover:bg-white/10 hover:border-primary/50 transition-colors cursor-pointer text-left"
             >
               <ColorSwatch color={color} />
               <div>
-                <div className="text-sm capitalize font-medium">{color}</div>
-                <div className="text-lg font-bold">{qty}</div>
+                <div className="text-sm capitalize font-medium text-white">{color}</div>
+                <div className="text-lg font-bold text-white">{qty}</div>
               </div>
             </button>
           ))}
           {inventory.length === 0 && (
-            <div className="col-span-full text-center py-4 text-muted-foreground">
+            <div className="col-span-full text-center py-4 text-slate-400">
               No inventory data. Add stock to get started.
             </div>
           )}
@@ -112,25 +112,25 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
 
 function RestockingInstructions() {
   return (
-    <Card>
+    <Card className="glass-card">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-white">
           <Package className="h-5 w-5" />
           Baby Banz Restocking Instructions
         </CardTitle>
-        <CardDescription>How to reorder Baby Banz inventory</CardDescription>
+        <CardDescription className="text-slate-400">How to reorder Baby Banz inventory</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4 text-sm">
+        <div className="space-y-4 text-sm text-slate-300">
           <div>
-            <h4 className="font-semibold mb-2">U.S. and Canada Orders:</h4>
+            <h4 className="font-semibold mb-2 text-white">U.S. and Canada Orders:</h4>
             <ol className="list-decimal list-inside space-y-2 ml-2">
-              <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" aria-label="Visit Baby Banz USA and Canada website">usa.banzworld.com</a></li>
+              <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" aria-label="Visit Baby Banz USA and Canada website">usa.banzworld.com</a></li>
               <li>Click on "Account"</li>
-5              <li>Log in with:
+              <li>Log in with:
                 <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
-                  <li><strong>Email:</strong> earmuffsgemach@gmail.com</li>
-                  <li><strong>Password:</strong> Babybanz</li>
+                  <li><strong className="text-white">Email:</strong> earmuffsgemach@gmail.com</li>
+                  <li><strong className="text-white">Password:</strong> Babybanz</li>
                 </ul>
               </li>
               <li>The 50% discount and free shipping should apply automatically</li>
@@ -138,26 +138,26 @@ function RestockingInstructions() {
             </ol>
           </div>
           
-          <div className="border-t pt-4">
-            <h4 className="font-semibold mb-2">If discounts don't auto-populate:</h4>
+          <div className="border-t border-white/10 pt-4">
+            <h4 className="font-semibold mb-2 text-white">If discounts don't auto-populate:</h4>
             <p className="mb-2">Use these discount codes:</p>
             <div className="space-y-2 ml-2">
               <div className="flex items-start gap-2">
-                <Badge variant="outline" className="font-mono">GEMACHSHIP</Badge>
+                <Badge variant="outline" className="font-mono border-white/20 text-slate-300">GEMACHSHIP</Badge>
                 <span>for free shipping</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">COMBINE WITH</span>
+                <span className="text-sm font-medium text-white">COMBINE WITH</span>
               </div>
               <div className="flex items-start gap-2">
-                <Badge variant="outline" className="font-mono">GEMACH</Badge>
+                <Badge variant="outline" className="font-mono border-white/20 text-slate-300">GEMACH</Badge>
                 <span>for 50% off</span>
               </div>
             </div>
           </div>
           
-          <div className="border-t pt-4">
-            <p className="text-xs text-muted-foreground italic">
+          <div className="border-t border-white/10 pt-4">
+            <p className="text-xs text-slate-400 italic">
               Note: The sales platform has been making changes that have affected some of the pricing structures on the backend, 
               so this is the easiest workaround to ensure smooth sailing moving forward.
             </p>
@@ -174,15 +174,15 @@ function RecentActivity({ transactions, locationCode }: { transactions: Transact
     .slice(0, 5);
   
   return (
-    <Card>
+    <Card className="glass-card">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Last 5 transactions</CardDescription>
+            <CardTitle className="text-white">Recent Activity</CardTitle>
+            <CardDescription className="text-slate-400">Last 5 transactions</CardDescription>
           </div>
           {locationCode && (
-            <Badge variant="outline" className="text-sm">
+            <Badge variant="outline" className="text-sm border-white/20 text-slate-300">
               Gemach {locationCode}
             </Badge>
           )}
@@ -190,30 +190,30 @@ function RecentActivity({ transactions, locationCode }: { transactions: Transact
       </CardHeader>
       <CardContent>
         {recentTransactions.length === 0 ? (
-          <div className="text-center py-4 text-muted-foreground">No recent activity</div>
+          <div className="text-center py-4 text-slate-400">No recent activity</div>
         ) : (
           <div className="space-y-3">
             {recentTransactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+              <div key={tx.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors">
                 <div className="flex items-center gap-3">
                   {tx.headbandColor && <ColorSwatch color={tx.headbandColor} size="sm" />}
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{tx.borrowerName}</span>
-                      <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      <span className="font-medium text-white">{tx.borrowerName}</span>
+                      <span className="text-xs text-slate-400 bg-white/10 px-1.5 py-0.5 rounded">
                         TX#{tx.id}
                       </span>
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-slate-400">
                       {format(new Date(tx.borrowDate), "MMM d, h:mm a")}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <Badge variant={tx.isReturned ? "outline" : "default"} className="mb-1">
+                  <Badge variant={tx.isReturned ? "outline" : "default"} className={tx.isReturned ? "mb-1 border-white/20 text-slate-300" : "mb-1"}>
                     {tx.isReturned ? "Returned" : "Active"}
                   </Badge>
-                  <div className="text-xs font-medium">${tx.depositAmount.toFixed(2)}</div>
+                  <div className="text-xs font-medium text-white">${tx.depositAmount.toFixed(2)}</div>
                 </div>
               </div>
             ))}
@@ -419,20 +419,20 @@ function LendWizard({
             <div
               key={s}
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                ${s === step ? "bg-primary text-primary-foreground" : s < step ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"}`}
+                ${s === step ? "bg-primary text-primary-foreground" : s < step ? "bg-green-500 text-white" : "bg-white/10 text-slate-400"}`}
             >
               {s < step ? <Check className="h-4 w-4" /> : s}
             </div>
           ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={step === 5}>Cancel</Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={step === 5} className="hover:bg-white/10 text-slate-300">Cancel</Button>
       </div>
       
       {step === 1 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Select Headband Color</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Select Headband Color</h3>
           {availableColors.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-slate-400">
               No headbands available. Please add stock first.
             </div>
           ) : (
@@ -456,14 +456,14 @@ function LendWizard({
       
       {step === 2 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Borrower Information</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Borrower Information</h3>
           <div className="space-y-4 max-w-md">
             <div>
-              <label className="text-sm font-medium mb-1 block">Full Name</label>
+              <label className="text-sm font-medium mb-1 block text-slate-300">Full Name</label>
               <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
-                  className="pl-9"
+                  className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
                   placeholder="Enter borrower's name"
                   value={borrowerName}
                   onChange={(e) => setBorrowerName(e.target.value)}
@@ -471,11 +471,11 @@ function LendWizard({
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">Phone Number</label>
+              <label className="text-sm font-medium mb-1 block text-slate-300">Phone Number</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
-                  className="pl-9"
+                  className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
                   placeholder="Enter phone number"
                   value={borrowerPhone}
                   onChange={(e) => setBorrowerPhone(e.target.value)}
@@ -488,7 +488,7 @@ function LendWizard({
       
       {step === 3 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Deposit Payment</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">Deposit Payment</h3>
           <div className="space-y-6">
             <div className="flex justify-center gap-3 mb-6">
               <Button
@@ -510,8 +510,8 @@ function LendWizard({
             </div>
             
             {paymentMethod === "card" && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center gap-2 text-blue-800 text-sm">
+              <div className="p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                <div className="flex items-center gap-2 text-blue-300 text-sm">
                   <CreditCard className="h-4 w-4" />
                   <span>Borrower will save their card. You can charge it when they return the item.</span>
                 </div>
@@ -519,8 +519,8 @@ function LendWizard({
             )}
             
             <div className="text-center mb-4">
-              <div className="text-4xl font-bold">${depositAmount || "0"}</div>
-              <div className="text-sm text-muted-foreground">Deposit Amount</div>
+              <div className="text-4xl font-bold text-white">${depositAmount || "0"}</div>
+              <div className="text-sm text-slate-400">Deposit Amount</div>
             </div>
             
             <NumericKeypad value={depositAmount} onChange={handleDepositChange} />
@@ -530,35 +530,35 @@ function LendWizard({
       
       {step === 4 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Confirm Details</h3>
-          <div className="max-w-md space-y-4 p-4 bg-muted/50 rounded-xl">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted-foreground">Headband Color</span>
+          <h3 className="text-lg font-semibold mb-4 text-white">Confirm Details</h3>
+          <div className="max-w-md space-y-4 p-4 bg-white/5 rounded-xl border border-white/10">
+            <div className="flex justify-between items-center py-2 border-b border-white/10">
+              <span className="text-slate-400">Headband Color</span>
               <div className="flex items-center gap-2">
                 <ColorSwatch color={selectedColor} size="sm" />
-                <span className="capitalize font-medium">{selectedColor}</span>
+                <span className="capitalize font-medium text-white">{selectedColor}</span>
               </div>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted-foreground">Borrower</span>
-              <span className="font-medium">{borrowerName}</span>
+            <div className="flex justify-between items-center py-2 border-b border-white/10">
+              <span className="text-slate-400">Borrower</span>
+              <span className="font-medium text-white">{borrowerName}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted-foreground">Phone</span>
-              <span className="font-medium">{borrowerPhone}</span>
+            <div className="flex justify-between items-center py-2 border-b border-white/10">
+              <span className="text-slate-400">Phone</span>
+              <span className="font-medium text-white">{borrowerPhone}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted-foreground">Deposit</span>
-              <span className="font-bold text-lg">${depositAmount}</span>
+            <div className="flex justify-between items-center py-2 border-b border-white/10">
+              <span className="text-slate-400">Deposit</span>
+              <span className="font-bold text-lg text-white">${depositAmount}</span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-muted-foreground">Payment Method</span>
-              <Badge variant="outline" className="capitalize">{paymentMethod}</Badge>
+              <span className="text-slate-400">Payment Method</span>
+              <Badge variant="outline" className="capitalize border-white/20 text-slate-300">{paymentMethod}</Badge>
             </div>
           </div>
           {paymentMethod === "card" && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-800 text-sm">
+            <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-300 text-sm">
                 <CreditCard className="h-4 w-4" />
                 <span>Borrower will save their card. You can charge it when they return the item.</span>
               </div>
@@ -569,15 +569,15 @@ function LendWizard({
 
       {step === 5 && stripeClientSecret && stripePublishableKey && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Save Card for Deposit</h3>
-          <div className="max-w-md mb-4 p-3 bg-muted/50 rounded-lg">
+          <h3 className="text-lg font-semibold mb-4 text-white">Save Card for Deposit</h3>
+          <div className="max-w-md mb-4 p-3 bg-white/5 border border-white/10 rounded-lg">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Amount to authorize:</span>
-              <span className="font-bold">${depositAmount}</span>
+              <span className="text-slate-400">Amount to authorize:</span>
+              <span className="font-bold text-white">${depositAmount}</span>
             </div>
             <div className="flex justify-between items-center text-sm mt-1">
-              <span className="text-muted-foreground">Borrower:</span>
-              <span>{borrowerName}</span>
+              <span className="text-slate-400">Borrower:</span>
+              <span className="text-white">{borrowerName}</span>
             </div>
           </div>
           <StripeSetupCheckout
@@ -843,30 +843,30 @@ function ReturnWizard({
             <div
               key={s}
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                ${s === step ? "bg-primary text-primary-foreground" : s < step ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"}`}
+                ${s === step ? "bg-primary text-primary-foreground" : s < step ? "bg-green-500 text-white" : "bg-white/10 text-slate-400"}`}
             >
               {s < step ? <Check className="h-4 w-4" /> : s}
             </div>
           ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} className="hover:bg-white/10 text-slate-300">Cancel</Button>
       </div>
       
       {step === 1 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Select Borrower</h3>
+            <h3 className="text-lg font-semibold text-white">Select Borrower</h3>
             {location.locationCode && (
-              <Badge variant="outline" className="text-sm">
+              <Badge variant="outline" className="text-sm border-white/20 text-slate-300">
                 Gemach {location.locationCode}
               </Badge>
             )}
           </div>
           
           <div className="relative mb-4">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
             <Input
-              className="pl-9"
+              className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
               placeholder="Search by phone or name..."
               value={searchPhone}
               onChange={(e) => setSearchPhone(e.target.value)}
@@ -874,7 +874,7 @@ function ReturnWizard({
           </div>
           
           {filteredTransactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-slate-400">
               {activeTransactions.length === 0 
                 ? "No active borrowers" 
                 : "No borrowers match your search"}
@@ -886,20 +886,20 @@ function ReturnWizard({
                   key={tx.id}
                   onClick={() => setSelectedTransaction(tx)}
                   className={`w-full p-4 border-2 rounded-xl flex items-center justify-between transition-all text-left
-                    ${selectedTransaction?.id === tx.id ? "border-primary bg-primary/5" : "border-muted hover:border-primary/50"}`}
+                    ${selectedTransaction?.id === tx.id ? "border-primary bg-primary/10" : "border-white/10 hover:border-primary/50 hover:bg-white/5"}`}
                 >
                   <div className="flex items-center gap-3">
                     {tx.headbandColor && <ColorSwatch color={tx.headbandColor} />}
                     <div>
-                      <div className="font-medium">{tx.borrowerName}</div>
-                      <div className="text-sm text-muted-foreground">{tx.borrowerPhone}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="font-medium text-white">{tx.borrowerName}</div>
+                      <div className="text-sm text-slate-400">{tx.borrowerPhone}</div>
+                      <div className="text-xs text-slate-400">
                         Borrowed: {format(new Date(tx.borrowDate), "MMM d, yyyy")}
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold">${tx.depositAmount.toFixed(2)}</div>
+                    <div className="font-bold text-white">${tx.depositAmount.toFixed(2)}</div>
                     {tx.payLaterStatus && tx.payLaterStatus !== "CHARGED" && (
                       <Badge variant="secondary" className="mt-1">
                         <CreditCard className="h-3 w-3 mr-1" /> Card
@@ -918,18 +918,18 @@ function ReturnWizard({
       
       {step === 2 && selectedTransaction && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">
+          <h3 className="text-lg font-semibold mb-4 text-white">
             {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" 
               ? "Process Card Deposit" 
               : "Refund Deposit"}
           </h3>
           
-          <div className="mb-6 p-4 bg-muted/50 rounded-xl">
+          <div className="mb-6 p-4 bg-white/5 border border-white/10 rounded-xl">
             <div className="flex justify-between items-center">
-              <span>Original Deposit</span>
-              <span className="font-bold text-lg">${selectedTransaction.depositAmount.toFixed(2)}</span>
+              <span className="text-slate-300">Original Deposit</span>
+              <span className="font-bold text-lg text-white">${selectedTransaction.depositAmount.toFixed(2)}</span>
             </div>
-            <div className="text-sm text-muted-foreground mt-1">
+            <div className="text-sm text-slate-400 mt-1">
               Paid via {selectedTransaction.depositPaymentMethod || "cash"}
               {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" && (
                 <Badge variant="secondary" className="ml-2">
@@ -943,18 +943,18 @@ function ReturnWizard({
           {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
             <div className="space-y-4">
               {selectedTransaction.payLaterStatus === "CARD_SETUP_PENDING" ? (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-2 text-amber-800 text-sm">
+                <div className="p-4 bg-amber-500/20 border border-amber-500/30 rounded-lg">
+                  <div className="flex items-start gap-2 text-amber-300 text-sm">
                     <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                     <span>
-                      <strong>Card setup incomplete.</strong> The customer hasn't finished setting up their card. 
+                      <strong className="text-amber-200">Card setup incomplete.</strong> The customer hasn't finished setting up their card. 
                       You can only release this transaction (no charge possible).
                     </span>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-start gap-2 text-blue-800 text-sm mb-3">
+                <div className="p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-start gap-2 text-blue-300 text-sm mb-3">
                     <CreditCard className="h-4 w-4 mt-0.5 flex-shrink-0" />
                     <span>This borrower saved their card for the deposit. You can now charge their card or release it without charging.</span>
                   </div>
@@ -966,7 +966,7 @@ function ReturnWizard({
                   variant={cardAction === "charge" ? "default" : "outline"}
                   size="lg"
                   onClick={() => setCardAction("charge")}
-                  className="flex-1"
+                  className={`flex-1 ${cardAction !== "charge" ? "border-white/20 hover:bg-white/10" : ""}`}
                   disabled={!["CARD_SETUP_COMPLETE", "APPROVED"].includes(selectedTransaction.payLaterStatus || "")}
                 >
                   <CreditCard className="h-5 w-5 mr-2" />
@@ -976,7 +976,7 @@ function ReturnWizard({
                   variant={cardAction === "release" ? "default" : "outline"}
                   size="lg"
                   onClick={() => setCardAction("release")}
-                  className="flex-1"
+                  className={`flex-1 ${cardAction !== "release" ? "border-white/20 hover:bg-white/10" : ""}`}
                 >
                   <XCircle className="h-5 w-5 mr-2" />
                   Release Card
@@ -984,8 +984,8 @@ function ReturnWizard({
               </div>
               
               {cardAction === "charge" && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-green-800 text-sm">
+                <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-300 text-sm">
                     <CheckCircle className="h-4 w-4" />
                     <span>The card will be charged ${selectedTransaction.depositAmount.toFixed(2)} when you confirm.</span>
                   </div>
@@ -993,8 +993,8 @@ function ReturnWizard({
               )}
               
               {cardAction === "release" && (
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-gray-800 text-sm">
+                <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-300 text-sm">
                     <AlertTriangle className="h-4 w-4" />
                     <span>The saved card will be released and no charge will be made.</span>
                   </div>
@@ -1004,8 +1004,8 @@ function ReturnWizard({
           ) : (
             <>
               {selectedTransaction.depositPaymentMethod === "stripe" && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-blue-800 text-sm">
+                <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-300 text-sm">
                     <CreditCard className="h-4 w-4" />
                     <span>This was a card payment. The refund will be processed automatically to the original card.</span>
                   </div>
@@ -1020,14 +1020,14 @@ function ReturnWizard({
                       setIsPartialRefund(false);
                       setRefundAmount(selectedTransaction.depositAmount.toString());
                     }}
-                    className="flex-1"
+                    className={`flex-1 ${isPartialRefund ? "border-white/20 hover:bg-white/10" : ""}`}
                   >
                     Full Refund
                   </Button>
                   <Button
                     variant={isPartialRefund ? "default" : "outline"}
                     onClick={() => setIsPartialRefund(true)}
-                    className="flex-1"
+                    className={`flex-1 ${!isPartialRefund ? "border-white/20 hover:bg-white/10" : ""}`}
                   >
                     Partial Refund
                   </Button>
@@ -1036,8 +1036,8 @@ function ReturnWizard({
                 {isPartialRefund && (
                   <>
                     <div className="text-center mb-4">
-                      <div className="text-4xl font-bold">${refundAmount || "0"}</div>
-                      <div className="text-sm text-muted-foreground">Refund Amount</div>
+                      <div className="text-4xl font-bold text-white">${refundAmount || "0"}</div>
+                      <div className="text-sm text-slate-400">Refund Amount</div>
                     </div>
                     <NumericKeypad 
                       value={refundAmount} 
@@ -1054,60 +1054,60 @@ function ReturnWizard({
       
       {step === 3 && selectedTransaction && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Confirm Return</h3>
-          <div className="max-w-md space-y-4 p-4 bg-muted/50 rounded-xl">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted-foreground">Borrower</span>
-              <span className="font-medium">{selectedTransaction.borrowerName}</span>
+          <h3 className="text-lg font-semibold mb-4 text-white">Confirm Return</h3>
+          <div className="max-w-md space-y-4 p-4 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex justify-between items-center py-2 border-b border-white/10">
+              <span className="text-slate-400">Borrower</span>
+              <span className="font-medium text-white">{selectedTransaction.borrowerName}</span>
             </div>
             {selectedTransaction.headbandColor && (
-              <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-muted-foreground">Headband Color</span>
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-slate-400">Headband Color</span>
                 <div className="flex items-center gap-2">
                   <ColorSwatch color={selectedTransaction.headbandColor} size="sm" />
-                  <span className="capitalize font-medium">{selectedTransaction.headbandColor}</span>
+                  <span className="capitalize font-medium text-white">{selectedTransaction.headbandColor}</span>
                 </div>
               </div>
             )}
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted-foreground">Original Deposit</span>
-              <span className="font-medium">${selectedTransaction.depositAmount.toFixed(2)}</span>
+            <div className="flex justify-between items-center py-2 border-b border-white/10">
+              <span className="text-slate-400">Original Deposit</span>
+              <span className="font-medium text-white">${selectedTransaction.depositAmount.toFixed(2)}</span>
             </div>
             
             {/* Show card deposit action if applicable */}
             {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
               <>
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-muted-foreground">Action</span>
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
+                  <span className="text-slate-400">Action</span>
                   <Badge variant={cardAction === "charge" ? "default" : "secondary"}>
                     {cardAction === "charge" ? "Charge Card" : "Release Card"}
                   </Badge>
                 </div>
                 {cardAction === "charge" ? (
-                  <div className="flex justify-between items-center py-2 border-b">
-                    <span className="text-muted-foreground">Charge Amount</span>
-                    <span className="font-bold text-lg text-green-600">
+                  <div className="flex justify-between items-center py-2 border-b border-white/10">
+                    <span className="text-slate-400">Charge Amount</span>
+                    <span className="font-bold text-lg text-green-400">
                       ${selectedTransaction.depositAmount.toFixed(2)}
                     </span>
                   </div>
                 ) : (
-                  <div className="py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+                  <div className="py-2 px-3 bg-white/5 border border-white/10 rounded-lg text-sm text-slate-300">
                     No charge will be made. Card will be released.
                   </div>
                 )}
               </>
             ) : (
               <>
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-muted-foreground">Refund Amount</span>
-                  <span className="font-bold text-lg text-green-600">
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
+                  <span className="text-slate-400">Refund Amount</span>
+                  <span className="font-bold text-lg text-green-400">
                     ${(isPartialRefund ? parseFloat(refundAmount) : selectedTransaction.depositAmount).toFixed(2)}
                   </span>
                 </div>
                 {isPartialRefund && parseFloat(refundAmount) < selectedTransaction.depositAmount && (
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-muted-foreground">Deduction</span>
-                    <span className="text-red-500">
+                    <span className="text-slate-400">Deduction</span>
+                    <span className="text-red-400">
                       -${(selectedTransaction.depositAmount - parseFloat(refundAmount)).toFixed(2)}
                     </span>
                   </div>
@@ -1490,10 +1490,10 @@ function PayLaterTransactions({ location }: { location: Location }) {
 
   if (pendingTransactions.length === 0) {
     return (
-      <Card>
+      <Card className="glass-card">
         <CardContent className="pt-6">
-          <div className="text-center py-8 text-muted-foreground">
-            <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+          <div className="text-center py-8 text-slate-400">
+            <CreditCard className="h-12 w-12 mx-auto mb-4 text-slate-500" />
             <p>No pending card deposit transactions</p>
           </div>
         </CardContent>
@@ -1503,18 +1503,18 @@ function PayLaterTransactions({ location }: { location: Location }) {
 
   return (
     <>
-      <Card>
+      <Card className="glass-card">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-white">
                 <CreditCard className="h-5 w-5" />
                 Pending Self-Deposits ({pendingTransactions.length})
               </CardTitle>
-              <CardDescription>Accept self-deposits to confirm lending (card saved but not charged)</CardDescription>
+              <CardDescription className="text-slate-400">Accept self-deposits to confirm lending (card saved but not charged)</CardDescription>
             </div>
             {location.locationCode && (
-              <Badge variant="outline" className="text-sm">
+              <Badge variant="outline" className="text-sm border-white/20 text-slate-300">
                 Gemach {location.locationCode}
               </Badge>
             )}
@@ -1526,14 +1526,14 @@ function PayLaterTransactions({ location }: { location: Location }) {
               {pendingTransactions.map((tx) => (
                 <div
                   key={tx.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-4"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors gap-4"
                 >
                   <div className="flex-1">
-                    <div className="font-medium">{tx.borrowerName}</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="font-medium text-white">{tx.borrowerName}</div>
+                    <div className="text-sm text-slate-400">
                       {tx.borrowerPhone && <span>{tx.borrowerPhone}</span>}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">
+                    <div className="text-xs text-slate-400 mt-1">
                       Created: {format(new Date(tx.borrowDate), "MMM d, yyyy h:mm a")}
                     </div>
                   </div>
@@ -1608,14 +1608,14 @@ function PayLaterTransactions({ location }: { location: Location }) {
 
           <div className="space-y-4">
             {selectedTransactionForDecline && (
-              <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
                 <div className="flex justify-between items-center text-sm mb-2">
-                  <span className="text-muted-foreground">Amount:</span>
-                  <span className="font-bold">${selectedTransactionForDecline.depositAmount.toFixed(2)}</span>
+                  <span className="text-slate-400">Amount:</span>
+                  <span className="font-bold text-white">${selectedTransactionForDecline.depositAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Borrower:</span>
-                  <span>{selectedTransactionForDecline.borrowerName}</span>
+                  <span className="text-slate-400">Borrower:</span>
+                  <span className="text-white">{selectedTransactionForDecline.borrowerName}</span>
                 </div>
               </div>
             )}
@@ -1714,7 +1714,7 @@ export default function OperatorDashboard() {
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="text-center space-y-4 max-w-md">
           <h2 className="text-2xl font-bold text-destructive">Error Loading Dashboard</h2>
-          <p className="text-muted-foreground">{error?.message || "Failed to load operator data"}</p>
+          <p className="text-slate-400">{error?.message || "Failed to load operator data"}</p>
           <Button 
             variant="outline" 
             onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] })}
@@ -1729,20 +1729,20 @@ export default function OperatorDashboard() {
   const activeLoans = transactions.filter(tx => !tx.isReturned).length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b sticky top-0 z-10">
+    <div className="min-h-screen bg-background">
+      <div className="glass-panel border-b border-white/10 sticky top-0 z-10">
         <div className="container py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Link href="/">
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" className="hover:bg-white/10 text-slate-300">
                   <Home className="h-4 w-4 mr-1" /> Home
                 </Button>
               </Link>
-              <span className="text-muted-foreground">/</span>
-              <span className="font-semibold">{operatorLocation.name}</span>
+              <span className="text-slate-500">/</span>
+              <span className="font-semibold text-white">{operatorLocation.name}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => logout()}>
+            <Button variant="ghost" size="sm" onClick={() => logout()} className="hover:bg-white/10 text-slate-300">
               <LogOut className="h-4 w-4 mr-1" /> Logout
             </Button>
           </div>
@@ -1753,41 +1753,41 @@ export default function OperatorDashboard() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold">{operatorLocation.name}</h1>
-              <p className="text-muted-foreground">Manage headband lending and returns</p>
+              <h1 className="text-2xl font-bold text-white">{operatorLocation.name}</h1>
+              <p className="text-slate-400">Manage headband lending and returns</p>
             </div>
-            <TabsList className="grid grid-cols-3 w-full sm:w-auto">
-              <TabsTrigger value="overview" className="gap-2">
+            <TabsList className="grid grid-cols-3 w-full sm:w-auto glass-panel border-white/10">
+              <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
                 <Package className="h-4 w-4" /> Stock
               </TabsTrigger>
-              <TabsTrigger value="lend" className="gap-2">
+              <TabsTrigger value="lend" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
                 <ArrowRight className="h-4 w-4" /> Lend
               </TabsTrigger>
-              <TabsTrigger value="return" className="gap-2">
+              <TabsTrigger value="return" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
                 <RotateCcw className="h-4 w-4" /> Return
               </TabsTrigger>
             </TabsList>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3 mb-6">
-            <Card>
+            <Card className="glass-card">
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{inventoryData?.total || 0}</div>
-                <p className="text-sm text-muted-foreground">Total in Stock</p>
+                <div className="text-2xl font-bold text-white">{inventoryData?.total || 0}</div>
+                <p className="text-sm text-slate-400">Total in Stock</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="glass-card">
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{activeLoans}</div>
-                <p className="text-sm text-muted-foreground">Active Loans</p>
+                <div className="text-2xl font-bold text-white">{activeLoans}</div>
+                <p className="text-sm text-slate-400">Active Loans</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="glass-card">
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-white">
                   ${transactions.filter(tx => !tx.isReturned).reduce((sum, tx) => sum + tx.depositAmount, 0).toFixed(0)}
                 </div>
-                <p className="text-sm text-muted-foreground">Deposits Held</p>
+                <p className="text-sm text-slate-400">Deposits Held</p>
               </CardContent>
             </Card>
           </div>
@@ -1800,12 +1800,11 @@ export default function OperatorDashboard() {
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
             <RestockingInstructions />
-            <RecentActivity transactions={transactions} />
             <RecentActivity transactions={transactions} locationCode={operatorLocation.locationCode} />
           </TabsContent>
 
           <TabsContent value="lend">
-            <Card>
+            <Card className="glass-card">
               <CardContent className="pt-6">
                 <LendWizard
                   location={operatorLocation}
@@ -1819,7 +1818,7 @@ export default function OperatorDashboard() {
           </TabsContent>
 
           <TabsContent value="return">
-            <Card>
+            <Card className="glass-card">
               <CardContent className="pt-6">
                 <ReturnWizard
                   location={operatorLocation}
