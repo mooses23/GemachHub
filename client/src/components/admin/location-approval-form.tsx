@@ -59,7 +59,7 @@ export function LocationApprovalForm({ application, locations }: LocationApprova
       name: `${application.city} - ${application.firstName} ${application.lastName}`,
       locationCode,
       contactPerson: `${application.firstName} ${application.lastName}`,
-      address: application.address,
+      address: application.streetAddress,
       zipCode: application.zipCode || "",
       phone: application.phone,
       email: application.email,
@@ -163,7 +163,7 @@ For questions, contact us at earmuffsgemach@gmail.com
                 <option value="">Default Settings</option>
                 {locations.slice(0, 5).map((location) => (
                   <option key={location.id} value={location.id}>
-                    {location.name} (${location.depositAmount}, {location.processingFeePercent/100}% fee)
+                    {location.name} (${location.depositAmount}, {(location.processingFeePercent || 300)/100}% fee)
                   </option>
                 ))}
               </select>

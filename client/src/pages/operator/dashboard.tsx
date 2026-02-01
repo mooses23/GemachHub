@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard, Clock, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard, CheckCircle, XCircle, Trash2, Clock } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, isAfter, addDays } from "date-fns";
-import StripeCheckout from "@/components/payment/stripe-checkout";
+import StripeSetupCheckout from "@/components/payment/stripe-setup-checkout";
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -104,6 +104,64 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
               No inventory data. Add stock to get started.
             </div>
           )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RestockingInstructions() {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2">
+          <Package className="h-5 w-5" />
+          Baby Banz Restocking Instructions
+        </CardTitle>
+        <CardDescription>How to reorder Baby Banz inventory</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4 text-sm">
+          <div>
+            <h4 className="font-semibold mb-2">U.S. and Canada Orders:</h4>
+            <ol className="list-decimal list-inside space-y-2 ml-2">
+              <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" aria-label="Visit Baby Banz USA and Canada website">usa.banzworld.com</a></li>
+              <li>Click on "Account"</li>
+5              <li>Log in with:
+                <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
+                  <li><strong>Email:</strong> earmuffsgemach@gmail.com</li>
+                  <li><strong>Password:</strong> Babybanz</li>
+                </ul>
+              </li>
+              <li>The 50% discount and free shipping should apply automatically</li>
+              <li>Enter your shipping and payment information (delete previous purchaser's information if needed)</li>
+            </ol>
+          </div>
+          
+          <div className="border-t pt-4">
+            <h4 className="font-semibold mb-2">If discounts don't auto-populate:</h4>
+            <p className="mb-2">Use these discount codes:</p>
+            <div className="space-y-2 ml-2">
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono">GEMACHSHIP</Badge>
+                <span>for free shipping</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">COMBINE WITH</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="font-mono">GEMACH</Badge>
+                <span>for 50% off</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="border-t pt-4">
+            <p className="text-xs text-muted-foreground italic">
+              Note: The sales platform has been making changes that have affected some of the pricing structures on the backend, 
+              so this is the easiest workaround to ensure smooth sailing moving forward.
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -284,18 +342,20 @@ function LendWizard({
     },
   });
 
-  const initiateStripePayment = async () => {
+  const PLACEHOLDER_EMAIL_DOMAIN = "@placeholder.local";
+
+  const initiateCardSetup = async () => {
     setIsInitiatingPayment(true);
     try {
-      const emailToUse = borrowerEmail.trim() || `${borrowerPhone.replace(/\D/g, '')}@placeholder.local`;
+      const emailToUse = borrowerEmail.trim() || `${borrowerPhone.replace(/\D/g, '')}${PLACEHOLDER_EMAIL_DOMAIN}`;
+      const amountCents = Math.round(parseFloat(depositAmount) * 100);
       
-      const res = await apiRequest("POST", "/api/deposits/initiate", {
+      const res = await apiRequest("POST", "/api/deposits/setup-intent", {
         locationId: location.id,
         borrowerName,
         borrowerEmail: emailToUse,
         borrowerPhone,
-        headbandColor: selectedColor,
-        paymentMethod: 'stripe',
+        amountCents,
       });
       
       const data = await res.json();
@@ -305,33 +365,16 @@ function LendWizard({
         setStripePublishableKey(data.publishableKey);
         setStep(5);
       } else {
-        throw new Error(data.message || "Failed to initialize payment");
+        throw new Error(data.message || "Failed to initialize card setup");
       }
     } catch (error: any) {
       toast({ 
-        title: "Payment Error", 
-        description: error.message || "Failed to initialize card payment", 
+        title: "Card Setup Error", 
+        description: error.message || "Failed to initialize card setup", 
         variant: "destructive" 
       });
     } finally {
       setIsInitiatingPayment(false);
-    }
-  };
-
-  const handleStripeSuccess = async () => {
-    try {
-      await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
-        color: selectedColor,
-        quantity: 1,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
-      toast({ title: "Success!", description: "Payment processed and headband lent successfully." });
-      onComplete();
-    } catch (error: any) {
-      toast({ title: "Error updating inventory", description: error.message, variant: "destructive" });
-      onComplete();
     }
   };
 
@@ -361,7 +404,7 @@ function LendWizard({
       setStep(step + 1);
     } else if (step === 4) {
       if (paymentMethod === "card") {
-        initiateStripePayment();
+        initiateCardSetup();
       } else {
         createTransactionMutation.mutate();
       }
@@ -447,24 +490,33 @@ function LendWizard({
         <div>
           <h3 className="text-lg font-semibold mb-4">Deposit Payment</h3>
           <div className="space-y-6">
-            <div className="flex justify-center gap-4 mb-6">
+            <div className="flex justify-center gap-3 mb-6">
               <Button
                 variant={paymentMethod === "cash" ? "default" : "outline"}
                 size="lg"
                 onClick={() => setPaymentMethod("cash")}
-                className="flex-1 max-w-[150px]"
+                className="flex-1 max-w-[160px]"
               >
-                <DollarSign className="h-5 w-5 mr-2" /> Cash
+                <DollarSign className="h-5 w-5 mr-1" /> Cash
               </Button>
               <Button
                 variant={paymentMethod === "card" ? "default" : "outline"}
                 size="lg"
                 onClick={() => setPaymentMethod("card")}
-                className="flex-1 max-w-[150px]"
+                className="flex-1 max-w-[160px]"
               >
-                💳 Card
+                <CreditCard className="h-5 w-5 mr-1" /> Card
               </Button>
             </div>
+            
+            {paymentMethod === "card" && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2 text-blue-800 text-sm">
+                  <CreditCard className="h-4 w-4" />
+                  <span>Borrower will save their card. You can charge it when they return the item.</span>
+                </div>
+              </div>
+            )}
             
             <div className="text-center mb-4">
               <div className="text-4xl font-bold">${depositAmount || "0"}</div>
@@ -508,7 +560,7 @@ function LendWizard({
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 text-blue-800 text-sm">
                 <CreditCard className="h-4 w-4" />
-                <span>Clicking "Process Payment" will open the card payment form</span>
+                <span>Borrower will save their card. You can charge it when they return the item.</span>
               </div>
             </div>
           )}
@@ -517,10 +569,10 @@ function LendWizard({
 
       {step === 5 && stripeClientSecret && stripePublishableKey && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Card Payment</h3>
+          <h3 className="text-lg font-semibold mb-4">Save Card for Deposit</h3>
           <div className="max-w-md mb-4 p-3 bg-muted/50 rounded-lg">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Amount to charge:</span>
+              <span className="text-muted-foreground">Amount to authorize:</span>
               <span className="font-bold">${depositAmount}</span>
             </div>
             <div className="flex justify-between items-center text-sm mt-1">
@@ -528,13 +580,34 @@ function LendWizard({
               <span>{borrowerName}</span>
             </div>
           </div>
-          <StripeCheckout
+          <StripeSetupCheckout
             clientSecret={stripeClientSecret}
             publishableKey={stripePublishableKey}
-            amount={Math.round(parseFloat(depositAmount) * 100)}
-            onSuccess={handleStripeSuccess}
-            onError={handleStripeError}
-          />
+            onSuccess={async () => {
+              try {
+                // For card deposit, we need to assign the headband and update inventory
+                await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
+                  color: selectedColor,
+                    quantity: 1,
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+                  toast({ title: "Success!", description: "Card saved and headband lent successfully." });
+                  onComplete();
+                } catch (error: any) {
+                  toast({ 
+                    title: "Error updating inventory", 
+                    description: error.message || "Card was saved but failed to update inventory. Please check manually.", 
+                    variant: "destructive" 
+                  });
+                  // Still complete since the card was saved successfully
+                  onComplete();
+                }
+              }}
+              onError={handleStripeError}
+            />
         </div>
       )}
       
@@ -555,7 +628,7 @@ function LendWizard({
             {createTransactionMutation.isPending || isInitiatingPayment ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
             ) : step === 4 && paymentMethod === "card" ? (
-              <><CreditCard className="h-4 w-4 mr-2" /> Process Payment</>
+              <><CreditCard className="h-4 w-4 mr-2" /> Save Card</>
             ) : step === 4 ? (
               <><Check className="h-4 w-4 mr-2" /> Confirm Lend</>
             ) : (
@@ -585,6 +658,7 @@ function ReturnWizard({
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [refundAmount, setRefundAmount] = useState("");
   const [isPartialRefund, setIsPartialRefund] = useState(false);
+  const [cardAction, setCardAction] = useState<"charge" | "release" | null>(null);
   
   const activeTransactions = transactions.filter(tx => !tx.isReturned);
   
@@ -599,6 +673,60 @@ function ReturnWizard({
     if (!tx.expectedReturnDate) return false;
     return isAfter(new Date(), new Date(tx.expectedReturnDate));
   };
+  
+  const chargeCardMutation = useMutation({
+    mutationFn: async (transactionId: number) => {
+      const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/charge`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Success!",
+          description: "Card charged successfully.",
+        });
+      } else if (data.requiresAction) {
+        toast({
+          title: "Action Required",
+          description: "Customer needs to complete additional authentication.",
+          variant: "default",
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to charge card",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const releaseCardMutation = useMutation({
+    mutationFn: async (transactionId: number) => {
+      const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/decline`, {
+        reason: "Released by operator",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Card released.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to release card",
+        variant: "destructive",
+      });
+    },
+  });
   
   const returnMutation = useMutation({
     mutationFn: async () => {
@@ -651,14 +779,54 @@ function ReturnWizard({
     if (step < 3) {
       setStep(step + 1);
     } else {
-      returnMutation.mutate();
+      // Check if this is a card deposit transaction
+      if (selectedTransaction?.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED") {
+        if (cardAction === "charge") {
+          // First charge the card, then process return
+          chargeCardMutation.mutate(selectedTransaction.id, {
+            onSuccess: () => {
+              // After charging, process the return
+              returnMutation.mutate();
+            },
+            onError: (error) => {
+              toast({
+                title: "Charge Failed",
+                description: error.message || "Failed to charge card. Return not processed.",
+                variant: "destructive",
+              });
+            }
+          });
+        } else if (cardAction === "release") {
+          // Release the card, then process return
+          releaseCardMutation.mutate(selectedTransaction.id, {
+            onSuccess: () => {
+              // After releasing, process the return with no refund
+              returnMutation.mutate();
+            },
+            onError: (error) => {
+              toast({
+                title: "Release Failed",
+                description: error.message || "Failed to release card. Return not processed.",
+                variant: "destructive",
+              });
+            }
+          });
+        }
+      } else {
+        returnMutation.mutate();
+      }
     }
   };
   
   const canProceed = () => {
     switch (step) {
       case 1: return selectedTransaction !== null;
-      case 2: return parseFloat(refundAmount) >= 0;
+      case 2: 
+        // For card deposit transactions, must select an action
+        if (selectedTransaction?.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED") {
+          return cardAction !== null;
+        }
+        return parseFloat(refundAmount) >= 0;
       case 3: return true;
       default: return false;
     }
@@ -729,6 +897,11 @@ function ReturnWizard({
                   </div>
                   <div className="text-right">
                     <div className="font-bold">${tx.depositAmount.toFixed(2)}</div>
+                    {tx.payLaterStatus && tx.payLaterStatus !== "CHARGED" && (
+                      <Badge variant="secondary" className="mt-1">
+                        <CreditCard className="h-3 w-3 mr-1" /> Card
+                      </Badge>
+                    )}
                     {isOverdue(tx) && (
                       <Badge variant="destructive" className="mt-1">Overdue</Badge>
                     )}
@@ -742,7 +915,11 @@ function ReturnWizard({
       
       {step === 2 && selectedTransaction && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Refund Deposit</h3>
+          <h3 className="text-lg font-semibold mb-4">
+            {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" 
+              ? "Process Card Deposit" 
+              : "Refund Deposit"}
+          </h3>
           
           <div className="mb-6 p-4 bg-muted/50 rounded-xl">
             <div className="flex justify-between items-center">
@@ -751,53 +928,111 @@ function ReturnWizard({
             </div>
             <div className="text-sm text-muted-foreground mt-1">
               Paid via {selectedTransaction.depositPaymentMethod || "cash"}
+              {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" && (
+                <Badge variant="secondary" className="ml-2">
+                  <CreditCard className="h-3 w-3 mr-1" /> Card Deposit
+                </Badge>
+              )}
             </div>
           </div>
           
-          {selectedTransaction.depositPaymentMethod === "stripe" && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-800 text-sm">
-                <CreditCard className="h-4 w-4" />
-                <span>This was a card payment. The refund will be processed automatically to the original card.</span>
-              </div>
-            </div>
-          )}
-          
-          <div className="mb-6">
-            <div className="flex gap-4 mb-4">
-              <Button
-                variant={!isPartialRefund ? "default" : "outline"}
-                onClick={() => {
-                  setIsPartialRefund(false);
-                  setRefundAmount(selectedTransaction.depositAmount.toString());
-                }}
-                className="flex-1"
-              >
-                Full Refund
-              </Button>
-              <Button
-                variant={isPartialRefund ? "default" : "outline"}
-                onClick={() => setIsPartialRefund(true)}
-                className="flex-1"
-              >
-                Partial Refund
-              </Button>
-            </div>
-            
-            {isPartialRefund && (
-              <>
-                <div className="text-center mb-4">
-                  <div className="text-4xl font-bold">${refundAmount || "0"}</div>
-                  <div className="text-sm text-muted-foreground">Refund Amount</div>
+          {/* Card deposit specific options */}
+          {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-2 text-blue-800 text-sm mb-3">
+                  <CreditCard className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>This borrower saved their card for the deposit. You can now charge their card or release it without charging.</span>
                 </div>
-                <NumericKeypad 
-                  value={refundAmount} 
-                  onChange={setRefundAmount}
-                  maxValue={selectedTransaction.depositAmount}
-                />
-              </>
-            )}
-          </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <Button
+                  variant={cardAction === "charge" ? "default" : "outline"}
+                  size="lg"
+                  onClick={() => setCardAction("charge")}
+                  className="flex-1"
+                >
+                  <CreditCard className="h-5 w-5 mr-2" />
+                  Charge Card
+                </Button>
+                <Button
+                  variant={cardAction === "release" ? "default" : "outline"}
+                  size="lg"
+                  onClick={() => setCardAction("release")}
+                  className="flex-1"
+                >
+                  <XCircle className="h-5 w-5 mr-2" />
+                  Release Card
+                </Button>
+              </div>
+              
+              {cardAction === "charge" && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-800 text-sm">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>The card will be charged ${selectedTransaction.depositAmount.toFixed(2)} when you confirm.</span>
+                  </div>
+                </div>
+              )}
+              
+              {cardAction === "release" && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-gray-800 text-sm">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>The saved card will be released and no charge will be made.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {selectedTransaction.depositPaymentMethod === "stripe" && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-800 text-sm">
+                    <CreditCard className="h-4 w-4" />
+                    <span>This was a card payment. The refund will be processed automatically to the original card.</span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="mb-6">
+                <div className="flex gap-4 mb-4">
+                  <Button
+                    variant={!isPartialRefund ? "default" : "outline"}
+                    onClick={() => {
+                      setIsPartialRefund(false);
+                      setRefundAmount(selectedTransaction.depositAmount.toString());
+                    }}
+                    className="flex-1"
+                  >
+                    Full Refund
+                  </Button>
+                  <Button
+                    variant={isPartialRefund ? "default" : "outline"}
+                    onClick={() => setIsPartialRefund(true)}
+                    className="flex-1"
+                  >
+                    Partial Refund
+                  </Button>
+                </div>
+                
+                {isPartialRefund && (
+                  <>
+                    <div className="text-center mb-4">
+                      <div className="text-4xl font-bold">${refundAmount || "0"}</div>
+                      <div className="text-sm text-muted-foreground">Refund Amount</div>
+                    </div>
+                    <NumericKeypad 
+                      value={refundAmount} 
+                      onChange={setRefundAmount}
+                      maxValue={selectedTransaction.depositAmount}
+                    />
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
       
@@ -822,19 +1057,46 @@ function ReturnWizard({
               <span className="text-muted-foreground">Original Deposit</span>
               <span className="font-medium">${selectedTransaction.depositAmount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted-foreground">Refund Amount</span>
-              <span className="font-bold text-lg text-green-600">
-                ${(isPartialRefund ? parseFloat(refundAmount) : selectedTransaction.depositAmount).toFixed(2)}
-              </span>
-            </div>
-            {isPartialRefund && parseFloat(refundAmount) < selectedTransaction.depositAmount && (
-              <div className="flex justify-between items-center py-2">
-                <span className="text-muted-foreground">Deduction</span>
-                <span className="text-red-500">
-                  -${(selectedTransaction.depositAmount - parseFloat(refundAmount)).toFixed(2)}
-                </span>
-              </div>
+            
+            {/* Show card deposit action if applicable */}
+            {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
+              <>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">Action</span>
+                  <Badge variant={cardAction === "charge" ? "default" : "secondary"}>
+                    {cardAction === "charge" ? "Charge Card" : "Release Card"}
+                  </Badge>
+                </div>
+                {cardAction === "charge" ? (
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="text-muted-foreground">Charge Amount</span>
+                    <span className="font-bold text-lg text-green-600">
+                      ${selectedTransaction.depositAmount.toFixed(2)}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+                    No charge will be made. Card will be released.
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">Refund Amount</span>
+                  <span className="font-bold text-lg text-green-600">
+                    ${(isPartialRefund ? parseFloat(refundAmount) : selectedTransaction.depositAmount).toFixed(2)}
+                  </span>
+                </div>
+                {isPartialRefund && parseFloat(refundAmount) < selectedTransaction.depositAmount && (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">Deduction</span>
+                    <span className="text-red-500">
+                      -${(selectedTransaction.depositAmount - parseFloat(refundAmount)).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -844,16 +1106,16 @@ function ReturnWizard({
         <Button
           variant="outline"
           onClick={() => step > 1 ? setStep(step - 1) : onCancel()}
-          disabled={returnMutation.isPending}
+          disabled={returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           {step === 1 ? "Cancel" : "Back"}
         </Button>
         <Button 
           onClick={handleNext} 
-          disabled={!canProceed() || returnMutation.isPending}
+          disabled={!canProceed() || returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending}
         >
-          {returnMutation.isPending ? (
+          {(returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending) ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
           ) : step === 3 ? (
             <><Check className="h-4 w-4 mr-2" /> Confirm Return</>
@@ -1190,8 +1452,8 @@ function PayLaterTransactions({ location }: { location: Location }) {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center py-8 text-muted-foreground">
-            <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-            <p>No pending Pay Later transactions</p>
+            <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+            <p>No pending card deposit transactions</p>
           </div>
         </CardContent>
       </Card>
@@ -1202,11 +1464,16 @@ function PayLaterTransactions({ location }: { location: Location }) {
     <>
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Pending Card Deposits ({pendingTransactions.length})
+          </CardTitle>
+          <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Pending Pay Later Transactions ({pendingTransactions.length})
+                <CreditCard className="h-5 w-5" />
+                Pending Card Deposits ({pendingTransactions.length})
               </CardTitle>
               <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
             </div>
@@ -1286,7 +1553,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
             <DialogDescription>
               {selectedTransactionForDecline?.borrowerName && (
                 <span>
-                  Are you sure you want to decline this Pay Later request from {selectedTransactionForDecline.borrowerName}?
+                  Are you sure you want to decline this card deposit request from {selectedTransactionForDecline.borrowerName}?
                 </span>
               )}
             </DialogDescription>
@@ -1348,7 +1615,7 @@ export default function OperatorDashboard() {
   const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
   const [, setPath] = useLocation();
-  const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return" | "payLater">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return">("overview");
   const [showAddStock, setShowAddStock] = useState(false);
   const [editStockColor, setEditStockColor] = useState<string | null>(null);
   const [editStockQty, setEditStockQty] = useState(0);
@@ -1441,7 +1708,7 @@ export default function OperatorDashboard() {
               <h1 className="text-2xl font-bold">{operatorLocation.name}</h1>
               <p className="text-muted-foreground">Manage headband lending and returns</p>
             </div>
-            <TabsList className="grid grid-cols-4 w-full sm:w-auto">
+            <TabsList className="grid grid-cols-3 w-full sm:w-auto">
               <TabsTrigger value="overview" className="gap-2">
                 <Package className="h-4 w-4" /> Stock
               </TabsTrigger>
@@ -1450,9 +1717,6 @@ export default function OperatorDashboard() {
               </TabsTrigger>
               <TabsTrigger value="return" className="gap-2">
                 <RotateCcw className="h-4 w-4" /> Return
-              </TabsTrigger>
-              <TabsTrigger value="payLater" className="gap-2">
-                <Clock className="h-4 w-4" /> Pay Later
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1487,6 +1751,8 @@ export default function OperatorDashboard() {
               onAddStock={() => setShowAddStock(true)} 
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
+            <RestockingInstructions />
+            <RecentActivity transactions={transactions} />
             <RecentActivity transactions={transactions} locationCode={operatorLocation.locationCode} />
           </TabsContent>
 
@@ -1515,10 +1781,6 @@ export default function OperatorDashboard() {
                 />
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="payLater">
-            <PayLaterTransactions location={operatorLocation} />
           </TabsContent>
         </Tabs>
       </div>
