@@ -55,6 +55,16 @@ Preferred communication style: Simple, everyday language.
 - **RTL Support**: Automatic document direction switching.
 - **Persistence**: Language preference saved in localStorage.
 
+### Visual Design System (Glassmorphism Theme)
+- **Theme**: Dark glassmorphism with translucent panels and blur effects
+- **Background**: Slate gradient (#0F172A to #1E293B)
+- **Primary Color**: Ocean Blue (#3B82F6)
+- **Accent Color**: Coral Orange (#F97316) for CTAs
+- **Glass Effects**: Utility classes in `index.css` - `.glass-panel`, `.glass-card`, `.btn-glass-primary`, etc.
+- **Ambient Effects**: Floating glow orbs (`.glow-orb-blue`, `.glow-orb-teal`, `.glow-orb-accent`)
+- **Typography**: White (#F8FAFC) for headings, slate-300/400 for body text on dark backgrounds
+- **Key Components Styled**: Header, homepage hero, location search, how-it-works cards, CTA section, dedication banner
+
 ## External Dependencies
 
 ### Payment Integrations
