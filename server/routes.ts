@@ -1251,6 +1251,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           'stripe_webhook'
         );
+      } else if (type === 'setup_intent.succeeded') {
+        // Handle card setup completion for pay-later flow
+        const setupIntentId = data.object.id;
+        const paymentMethodId = data.object.payment_method;
+        if (setupIntentId && paymentMethodId) {
+          await PayLaterService.handleSetupIntentSucceeded(setupIntentId, paymentMethodId);
+        }
       }
 
       res.json({ received: true });
