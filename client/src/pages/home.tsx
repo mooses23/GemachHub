@@ -32,11 +32,11 @@ export default function Home() {
             <div className="text-center max-w-4xl mx-auto mb-10 md:mb-14">
               <div className="mb-8">
                 <div className="relative inline-block">
-                  <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full scale-150"></div>
+                  <div className="absolute inset-0 bg-slate-800/80 blur-2xl rounded-full scale-150"></div>
                   <img 
                     src={heroImage} 
                     alt="Baby with earmuffs" 
-                    className="relative w-36 h-36 md:w-48 md:h-48 mx-auto object-contain rounded-2xl glass-panel-elevated p-2"
+                    className="relative w-36 h-36 md:w-48 md:h-48 mx-auto object-contain rounded-2xl glass-panel-elevated bg-slate-800 p-2"
                   />
                 </div>
               </div>

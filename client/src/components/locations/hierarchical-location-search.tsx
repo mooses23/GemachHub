@@ -241,22 +241,22 @@ export function HierarchicalLocationSearch() {
                       <h3 className="text-xl font-semibold text-white">
                         {region.name}
                       </h3>
-                      <ChevronRight className="h-5 w-5 text-slate-400" />
+                      <ChevronRight className="h-5 w-5 text-slate-300" />
                     </div>
                     
                     <div className="space-y-2">
-                      <p className="text-sm text-slate-400">
+                      <p className="text-sm text-slate-200">
                         {regionLocations.length} {t("locationsAvailable")}
                       </p>
                       {regionCities.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {regionCities.slice(0, 3).map(city => (
-                            <span key={city.id} className="px-2 py-1 text-xs rounded-full bg-white/10 text-slate-300 border border-white/10">
+                            <span key={city.id} className="px-2 py-1 text-xs rounded-full bg-white/10 text-white border border-white/10">
                               {city.name}
                             </span>
                           ))}
                           {regionCities.length > 3 && (
-                            <span className="px-2 py-1 text-xs rounded-full bg-white/5 text-slate-400 border border-white/10">
+                            <span className="px-2 py-1 text-xs rounded-full bg-white/5 text-slate-300 border border-white/10">
                               +{regionCities.length - 3} {t("more")}
                             </span>
                           )}
@@ -321,7 +321,7 @@ export function HierarchicalLocationSearch() {
               onClick={() => setSelectedState(null)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 selectedState === null
-                  ? "btn-glass-primary"
+                  ? "btn-glass-amber"
                   : "btn-glass-outline"
               }`}
             >
@@ -333,7 +333,7 @@ export function HierarchicalLocationSearch() {
                 onClick={() => setSelectedState(stateCode)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   selectedState === stateCode
-                    ? "btn-glass-primary"
+                    ? "btn-glass-amber"
                     : "btn-glass-outline"
                 }`}
               >

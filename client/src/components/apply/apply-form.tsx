@@ -121,10 +121,10 @@ export function ApplyForm() {
   };
 
   return (
-    <Card className="bg-neutral-100 rounded-xl">
+    <Card className="glass-panel-elevated rounded-xl">
       <CardHeader className="pb-4 sm:pb-6">
-        <CardTitle className="text-lg sm:text-xl font-semibold">Apply to Open a Gemach</CardTitle>
-        <CardDescription className="text-xs sm:text-sm md:text-base">
+        <CardTitle className="text-lg sm:text-xl font-semibold text-white">Apply to Open a Gemach</CardTitle>
+        <CardDescription className="text-xs sm:text-sm md:text-base text-slate-300">
           Fill out this form to start the process of opening a Baby Banz Earmuffs Gemach in your community.
         </CardDescription>
       </CardHeader>
@@ -147,7 +147,7 @@ export function ApplyForm() {
                   name="firstName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name</FormLabel>
+                      <FormLabel className="text-slate-200">First Name</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -160,7 +160,7 @@ export function ApplyForm() {
                   name="lastName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel className="text-slate-200">Last Name</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -175,7 +175,7 @@ export function ApplyForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email Address</FormLabel>
+                    <FormLabel className="text-slate-200">Email Address</FormLabel>
                     <FormControl>
                       <Input type="email" {...field} />
                     </FormControl>
@@ -189,7 +189,7 @@ export function ApplyForm() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
+                    <FormLabel className="text-slate-200">Phone Number</FormLabel>
                     <FormControl>
                       <Input type="tel" {...field} />
                     </FormControl>
@@ -203,7 +203,7 @@ export function ApplyForm() {
                 name="streetAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Street Address</FormLabel>
+                    <FormLabel className="text-slate-200">Street Address</FormLabel>
                     <FormControl>
                       <Input placeholder="123 Main Street" {...field} />
                     </FormControl>
@@ -218,7 +218,7 @@ export function ApplyForm() {
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City</FormLabel>
+                      <FormLabel className="text-slate-200">City</FormLabel>
                       <FormControl>
                         <Input placeholder="Brooklyn" {...field} />
                       </FormControl>
@@ -231,7 +231,7 @@ export function ApplyForm() {
                   name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>State / Province</FormLabel>
+                      <FormLabel className="text-slate-200">State / Province</FormLabel>
                       <FormControl>
                         <Input placeholder="New York" {...field} />
                       </FormControl>
@@ -247,7 +247,7 @@ export function ApplyForm() {
                   name="zipCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>ZIP / Postal Code</FormLabel>
+                      <FormLabel className="text-slate-200">ZIP / Postal Code</FormLabel>
                       <FormControl>
                         <Input placeholder="11201" {...field} />
                       </FormControl>
@@ -260,7 +260,7 @@ export function ApplyForm() {
                   name="country"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Country</FormLabel>
+                      <FormLabel className="text-slate-200">Country</FormLabel>
                       <FormControl>
                         <Input placeholder="United States" {...field} />
                       </FormControl>
@@ -275,7 +275,7 @@ export function ApplyForm() {
                 name="community"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Community / Neighborhood (Optional)</FormLabel>
+                    <FormLabel className="text-slate-200">Community / Neighborhood (Optional)</FormLabel>
                     {!showNewCommunity ? (
                       <div className="space-y-2">
                         <Select
@@ -353,7 +353,7 @@ export function ApplyForm() {
                 name="message"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Why would you like to open a gemach?</FormLabel>
+                    <FormLabel className="text-slate-200">Why would you like to open a gemach?</FormLabel>
                     <FormControl>
                       <Textarea 
                         rows={4} 
@@ -379,7 +379,7 @@ export function ApplyForm() {
                       />
                     </FormControl>
                     <div className="space-y-1 leading-none">
-                      <FormLabel>
+                      <FormLabel className="text-slate-200">
                         I agree to follow the guidelines for managing a Baby Banz Earmuffs Gemach location.
                       </FormLabel>
                       <FormMessage />
