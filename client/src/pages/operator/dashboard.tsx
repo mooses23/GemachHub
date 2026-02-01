@@ -127,11 +127,10 @@ function RestockingInstructions() {
             <ol className="list-decimal list-inside space-y-2 ml-2">
               <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" aria-label="Visit Baby Banz USA and Canada website">usa.banzworld.com</a></li>
               <li>Click on "Account"</li>
-              <li>Log in with:
-                <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
-                  <li><strong>Email:</strong> earmuffsgemach@gmail.com</li>
-                  <li><strong>Password:</strong> Babybanz</li>
-                </ul>
+              <li>
+                Log in using the shared Baby Banz account.
+                If you do not have access to the login details, please contact an administrator
+                or refer to the internal credentials documentation.
               </li>
               <li>The 50% discount and free shipping should apply automatically</li>
               <li>Enter your shipping and payment information (delete previous purchaser's information if needed)</li>
