@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard, CheckCircle, XCircle, Trash2, Clock } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -127,10 +127,11 @@ function RestockingInstructions() {
             <ol className="list-decimal list-inside space-y-2 ml-2">
               <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" aria-label="Visit Baby Banz USA and Canada website">usa.banzworld.com</a></li>
               <li>Click on "Account"</li>
-              <li>
-                Log in using the shared Baby Banz account.
-                If you do not have access to the login details, please contact an administrator
-                or refer to the internal credentials documentation.
+5              <li>Log in with:
+                <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
+                  <li><strong>Email:</strong> earmuffsgemach@gmail.com</li>
+                  <li><strong>Password:</strong> Babybanz</li>
+                </ul>
               </li>
               <li>The 50% discount and free shipping should apply automatically</li>
               <li>Enter your shipping and payment information (delete previous purchaser's information if needed)</li>
@@ -167,7 +168,6 @@ function RestockingInstructions() {
   );
 }
 
-function RecentActivity({ transactions }: { transactions: Transaction[] }) {
 function RecentActivity({ transactions, locationCode }: { transactions: Transaction[]; locationCode?: string }) {
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime())
@@ -356,7 +356,6 @@ function LendWizard({
         borrowerEmail: emailToUse,
         borrowerPhone,
         amountCents,
-        headbandColor: selectedColor,
       });
       
       const data = await res.json();
@@ -589,26 +588,26 @@ function LendWizard({
                 // For card deposit, we need to assign the headband and update inventory
                 await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
                   color: selectedColor,
-                  quantity: 1,
-                });
-                queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
-                toast({ title: "Success!", description: "Card saved and headband lent successfully." });
-                onComplete();
-              } catch (error: any) {
-                toast({ 
-                  title: "Error updating inventory", 
-                  description: error.message || "Card was saved but failed to update inventory. Please check manually.", 
-                  variant: "destructive" 
-                });
-                // Still complete since the card was saved successfully
-                onComplete();
-              }
-            }}
-            onError={handleStripeError}
-          />
+                    quantity: 1,
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+                  toast({ title: "Success!", description: "Card saved and headband lent successfully." });
+                  onComplete();
+                } catch (error: any) {
+                  toast({ 
+                    title: "Error updating inventory", 
+                    description: error.message || "Card was saved but failed to update inventory. Please check manually.", 
+                    variant: "destructive" 
+                  });
+                  // Still complete since the card was saved successfully
+                  onComplete();
+                }
+              }}
+              onError={handleStripeError}
+            />
         </div>
       )}
       
@@ -660,10 +659,6 @@ function ReturnWizard({
   const [refundAmount, setRefundAmount] = useState("");
   const [isPartialRefund, setIsPartialRefund] = useState(false);
   const [cardAction, setCardAction] = useState<"charge" | "release" | null>(null);
-
-  useEffect(() => {
-    setCardAction(null);
-  }, [selectedTransaction]);
   
   const activeTransactions = transactions.filter(tx => !tx.isReturned);
   
@@ -806,7 +801,7 @@ function ReturnWizard({
           releaseCardMutation.mutate(selectedTransaction.id, {
             onSuccess: () => {
               // After releasing, process the return with no refund
-              returnMutation.mutate({ refundAmount: 0 });
+              returnMutation.mutate();
             },
             onError: (error) => {
               toast({
@@ -1477,8 +1472,8 @@ function PayLaterTransactions({ location }: { location: Location }) {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Pending Pay Later Transactions ({pendingTransactions.length})
+                <CreditCard className="h-5 w-5" />
+                Pending Card Deposits ({pendingTransactions.length})
               </CardTitle>
               <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
             </div>
