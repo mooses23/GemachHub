@@ -789,7 +789,7 @@ function ReturnWizard({
           releaseCardMutation.mutate(selectedTransaction.id, {
             onSuccess: () => {
               // After releasing, process the return with no refund
-              returnMutation.mutate();
+              returnMutation.mutate({ refundAmount: 0 });
             },
             onError: (error) => {
               toast({
