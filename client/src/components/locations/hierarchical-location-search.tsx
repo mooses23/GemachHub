@@ -251,7 +251,7 @@ export function HierarchicalLocationSearch() {
                       {regionCities.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {regionCities.slice(0, 3).map(city => (
-                            <span key={city.id} className="px-2 py-1 text-xs rounded-full bg-white/10 text-white border border-white/10">
+                            <span key={city.id} className="px-2 py-1 text-xs rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
                               {city.name}
                             </span>
                           ))}

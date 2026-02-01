@@ -32,12 +32,15 @@ export default function Home() {
             <div className="text-center max-w-4xl mx-auto mb-10 md:mb-14">
               <div className="mb-8">
                 <div className="relative inline-block">
-                  <div className="absolute inset-0 bg-slate-800/80 blur-2xl rounded-full scale-150"></div>
-                  <img 
-                    src={heroImage} 
-                    alt="Baby with earmuffs" 
-                    className="relative w-36 h-36 md:w-48 md:h-48 mx-auto object-contain rounded-2xl glass-panel-elevated bg-slate-800 p-2"
-                  />
+                  <div className="absolute inset-0 bg-slate-800 blur-2xl rounded-full scale-150"></div>
+                  <div className="relative w-36 h-36 md:w-48 md:h-48 mx-auto rounded-2xl overflow-hidden" style={{ backgroundColor: '#1e293b' }}>
+                    <img 
+                      src={heroImage} 
+                      alt="Baby with earmuffs" 
+                      className="w-full h-full object-contain mix-blend-multiply"
+                      style={{ filter: 'brightness(1.1) contrast(1.05)' }}
+                    />
+                  </div>
                 </div>
               </div>
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-5 md:mb-7 leading-tight text-glow">
