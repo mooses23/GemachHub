@@ -571,26 +571,26 @@ function LendWizard({
                 // For card deposit, we need to assign the headband and update inventory
                 await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
                   color: selectedColor,
-                    quantity: 1,
-                  });
-                  queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
-                  queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
-                  queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
-                  queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
-                  toast({ title: "Success!", description: "Card saved and headband lent successfully." });
-                  onComplete();
-                } catch (error: any) {
-                  toast({ 
-                    title: "Error updating inventory", 
-                    description: error.message || "Card was saved but failed to update inventory. Please check manually.", 
-                    variant: "destructive" 
-                  });
-                  // Still complete since the card was saved successfully
-                  onComplete();
-                }
-              }}
-              onError={handleStripeError}
-            />
+                  quantity: 1,
+                });
+                queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
+                toast({ title: "Success!", description: "Card saved and headband lent successfully." });
+                onComplete();
+              } catch (error: any) {
+                toast({ 
+                  title: "Error updating inventory", 
+                  description: error.message || "Card was saved but failed to update inventory. Please check manually.", 
+                  variant: "destructive" 
+                });
+                // Still complete since the card was saved successfully
+                onComplete();
+              }
+            }}
+            onError={handleStripeError}
+          />
         </div>
       )}
       
