@@ -34,13 +34,11 @@ const US_STATE_NAMES: Record<string, string> = {
   PA: "Pennsylvania"
 };
 
-// Canadian provinces
 const CA_PROVINCE_NAMES: Record<string, string> = {
   ON: "Ontario",
   QC: "Quebec"
 };
 
-// Israeli regions
 const IL_REGION_NAMES: Record<string, string> = {
   JER: "Jerusalem",
   TEL: "Tel Aviv Area",
@@ -48,13 +46,11 @@ const IL_REGION_NAMES: Record<string, string> = {
   SHA: "Shomron"
 };
 
-// UK regions
 const UK_REGION_NAMES: Record<string, string> = {
   LON: "London",
   MAN: "Manchester"
 };
 
-// Australian states
 const AU_STATE_NAMES: Record<string, string> = {
   VIC: "Victoria",
   NSW: "New South Wales"
@@ -99,7 +95,6 @@ export function HierarchicalLocationSearch() {
   const filteredLocations = useMemo(() => {
     let filtered = locations;
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((location: Location) => {
@@ -115,7 +110,6 @@ export function HierarchicalLocationSearch() {
       });
     }
 
-    // Filter by selected region
     if (selectedRegion) {
       filtered = filtered.filter((location: Location) => location.regionId === selectedRegion.id);
     }
@@ -123,7 +117,6 @@ export function HierarchicalLocationSearch() {
     return filtered;
   }, [locations, searchQuery, regionsMap, selectedRegion]);
 
-  // Get unique states for US region
   const usStates = useMemo(() => {
     if (!selectedRegion || selectedRegion.slug !== "united-states") return [];
     
@@ -143,14 +136,11 @@ export function HierarchicalLocationSearch() {
     });
   }, [selectedRegion, cityCategories]);
 
-  // Get sub-regions for other continents (cities as the grouping)
   const subRegions = useMemo(() => {
     if (!selectedRegion) return { codes: [], names: {} as Record<string, string>, labelType: "" };
     
     const citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
     
-    // For non-US regions, use city names as sub-regions
-    // Show glass selector for all regions except United States (which uses state selector)
     if (selectedRegion.slug !== "united-states" && citiesInRegion.length > 0) {
       return {
         codes: citiesInRegion.map(c => c.slug),
@@ -167,12 +157,10 @@ export function HierarchicalLocationSearch() {
     
     let citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
     
-    // Filter by selected state if in US
     if (selectedRegion.slug === "united-states" && selectedState) {
       citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.stateCode === selectedState);
     }
     
-    // Filter by selected sub-region for other continents
     if (selectedRegion.slug !== "united-states" && selectedSubRegion) {
       citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.slug === selectedSubRegion);
     }
@@ -195,26 +183,24 @@ export function HierarchicalLocationSearch() {
   if (!selectedRegion) {
     return (
       <div className="max-w-6xl mx-auto">
-        {/* Search Bar */}
         <div className="mb-6 md:mb-8 px-4 md:px-0">
           <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <Input
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
+            <input
               type="text"
               placeholder={t("searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 pr-4 py-4 md:py-6 text-base md:text-lg rounded-full border-2 border-gray-200 focus:border-blue-500 shadow-lg w-full"
+              className="w-full pl-12 pr-4 py-4 md:py-5 text-base md:text-lg rounded-full input-glass placeholder:text-slate-500"
             />
           </div>
         </div>
 
         {searchQuery ? (
-          // Show search results
           <div className="space-y-8">
             <div className="text-center">
-              <p className="text-gray-600">
-                {t("showing")} <span className="font-semibold">{filteredLocations.length}</span> {t("locations")}
+              <p className="text-slate-400">
+                {t("showing")} <span className="font-semibold text-white">{filteredLocations.length}</span> {t("locations")}
               </p>
             </div>
             
@@ -229,13 +215,12 @@ export function HierarchicalLocationSearch() {
             </div>
           </div>
         ) : (
-          // Show continent selection
           <div className="space-y-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
                 {t("chooseYourContinent")}
               </h2>
-              <p className="text-gray-600">
+              <p className="text-slate-400">
                 {t("selectContinentBrowse")}
               </p>
             </div>
@@ -246,41 +231,39 @@ export function HierarchicalLocationSearch() {
                 const regionCities = cityCategories.filter((c: CityCategory) => c.regionId === region.id);
                 
                 return (
-                  <Card 
+                  <div 
                     key={region.id} 
-                    className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-blue-200"
+                    className="glass-card glass-card-hover glass-highlight rounded-2xl cursor-pointer p-6"
                     onClick={() => setSelectedRegion(region)}
                     data-region={region.slug}
                   >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-semibold text-gray-900">
-                          {region.name}
-                        </h3>
-                        <ChevronRight className="h-5 w-5 text-gray-400" />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <p className="text-sm text-gray-600">
-                          {regionLocations.length} {t("locationsAvailable")}
-                        </p>
-                        {regionCities.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {regionCities.slice(0, 3).map(city => (
-                              <Badge key={city.id} variant="secondary" className="text-xs">
-                                {city.name}
-                              </Badge>
-                            ))}
-                            {regionCities.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{regionCities.length - 3} {t("more")}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold text-white">
+                        {region.name}
+                      </h3>
+                      <ChevronRight className="h-5 w-5 text-slate-400" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <p className="text-sm text-slate-400">
+                        {regionLocations.length} {t("locationsAvailable")}
+                      </p>
+                      {regionCities.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {regionCities.slice(0, 3).map(city => (
+                            <span key={city.id} className="px-2 py-1 text-xs rounded-full bg-white/10 text-slate-300 border border-white/10">
+                              {city.name}
+                            </span>
+                          ))}
+                          {regionCities.length > 3 && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-white/5 text-slate-400 border border-white/10">
+                              +{regionCities.length - 3} {t("more")}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -290,63 +273,56 @@ export function HierarchicalLocationSearch() {
     );
   }
 
-  // Show cities within selected region
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Breadcrumb */}
       <div className="mb-6 px-4 md:px-0">
         <div className="flex items-center gap-2 mb-4">
-          <Button 
-            variant="ghost" 
+          <button 
             onClick={() => { setSelectedRegion(null); setSelectedState(null); setSelectedSubRegion(null); }}
-            className="flex items-center gap-2"
+            className="btn-glass-outline px-4 py-2 rounded-xl flex items-center gap-2 text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             {t("backToContinents")}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
+          </button>
+          <button 
             onClick={() => window.location.href = '/'}
-            className="flex items-center gap-2"
+            className="btn-glass-outline px-4 py-2 rounded-xl flex items-center gap-2 text-sm"
           >
             <Home className="h-4 w-4" />
             {t("home")}
-          </Button>
+          </button>
         </div>
         
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
           {selectedRegion.name}
         </h2>
-        <p className="text-gray-600">
+        <p className="text-slate-400">
           {t("choosePopularCity")}
         </p>
       </div>
 
-      {/* Search within region */}
       <div className="mb-6 px-4 md:px-0">
         <div className="relative max-w-2xl mx-auto">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <Input
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
+          <input
             type="text"
             placeholder={`${t("searchLocationsIn")} ${selectedRegion.name}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 pr-4 py-4 text-base rounded-full border-2 border-gray-200 focus:border-blue-500 shadow-lg w-full"
+            className="w-full pl-12 pr-4 py-4 text-base rounded-full input-glass placeholder:text-slate-500"
           />
         </div>
       </div>
 
-      {/* State selector for United States - glass-like floating design */}
       {selectedRegion.slug === "united-states" && usStates.length > 0 && (
         <div className="mb-8 px-4 md:px-0">
           <div className="flex flex-wrap justify-center gap-2">
             <button
               onClick={() => setSelectedState(null)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-sm border ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 selectedState === null
-                  ? "bg-blue-500/90 text-white border-blue-400 shadow-lg shadow-blue-500/25"
-                  : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
+                  ? "btn-glass-primary"
+                  : "btn-glass-outline"
               }`}
             >
               {t("allStates")}
@@ -355,10 +331,10 @@ export function HierarchicalLocationSearch() {
               <button
                 key={stateCode}
                 onClick={() => setSelectedState(stateCode)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-sm border ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   selectedState === stateCode
-                    ? "bg-blue-500/90 text-white border-blue-400 shadow-lg shadow-blue-500/25"
-                    : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
+                    ? "btn-glass-primary"
+                    : "btn-glass-outline"
                 }`}
               >
                 {US_STATE_NAMES[stateCode] || stateCode}
@@ -368,16 +344,15 @@ export function HierarchicalLocationSearch() {
         </div>
       )}
 
-      {/* City selector for other continents - glass-like floating design */}
       {selectedRegion.slug !== "united-states" && subRegions.codes.length > 1 && (
         <div className="mb-8 px-4 md:px-0">
           <div className="flex flex-wrap justify-center gap-2">
             <button
               onClick={() => setSelectedSubRegion(null)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-sm border ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 selectedSubRegion === null
-                  ? "bg-blue-500/90 text-white border-blue-400 shadow-lg shadow-blue-500/25"
-                  : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
+                  ? "btn-glass-primary"
+                  : "btn-glass-outline"
               }`}
             >
               {t("all")} {subRegions.labelType}
@@ -386,10 +361,10 @@ export function HierarchicalLocationSearch() {
               <button
                 key={code}
                 onClick={() => setSelectedSubRegion(code)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 backdrop-blur-sm border ${
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   selectedSubRegion === code
-                    ? "bg-blue-500/90 text-white border-blue-400 shadow-lg shadow-blue-500/25"
-                    : "bg-white/70 text-gray-700 border-gray-200/50 hover:bg-white/90 hover:border-gray-300"
+                    ? "btn-glass-primary"
+                    : "btn-glass-outline"
                 }`}
               >
                 {subRegions.names[code] || code}
@@ -399,22 +374,21 @@ export function HierarchicalLocationSearch() {
         </div>
       )}
 
-      {/* Cities in region */}
       <div className="space-y-8">
         {Object.entries(groupedByCity).map(([citySlug, { city, locations: cityLocations }]) => (
           <div key={citySlug}>
             <div className="flex items-center justify-between mb-6 px-4 md:px-0">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">
+                <h3 className="text-xl font-semibold text-white">
                   {city.name}
                 </h3>
                 {city.description && (
-                  <p className="text-sm text-gray-600">{city.description}</p>
+                  <p className="text-sm text-slate-400">{city.description}</p>
                 )}
               </div>
-              <Badge variant="secondary">
+              <span className="px-3 py-1 text-sm rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
                 {cityLocations.length} {t("locations")}
-              </Badge>
+              </span>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 px-4 md:px-0">
@@ -432,13 +406,13 @@ export function HierarchicalLocationSearch() {
 
       {Object.keys(groupedByCity).length === 0 && (
         <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
+          <div className="text-slate-500 mb-4">
             <Search className="h-16 w-16 mx-auto" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-600 mb-2">
+          <h3 className="text-xl font-semibold text-slate-300 mb-2">
             {t("noLocationsFound")}
           </h3>
-          <p className="text-gray-500">
+          <p className="text-slate-500">
             {t("tryAdjustingSearch")}
           </p>
         </div>
@@ -504,62 +478,64 @@ function LocationCard({ location, region }: LocationCardProps) {
 
   return (
     <Link href={`/self-deposit?locationId=${location.id}`}>
-      <Card className="hover:shadow-lg transition-shadow duration-200 border-2 hover:border-blue-200 cursor-pointer">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <Badge variant="default" className="mb-2 font-mono text-sm">
-                {location.locationCode}
-              </Badge>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {location.name}
-              </h3>
-            </div>
+      <div className="glass-card glass-card-hover glass-highlight rounded-2xl cursor-pointer p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <span className="inline-block px-2 py-1 mb-2 text-xs font-mono rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              {location.locationCode}
+            </span>
+            <h3 className="text-lg font-semibold text-white">
+              {location.name}
+            </h3>
+          </div>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex items-start">
+            <MapPin className="h-4 w-4 text-slate-500 mt-1 mr-2 flex-shrink-0" />
+            <p className="text-sm text-slate-400">{location.address}</p>
           </div>
           
-          <div className="space-y-3">
-            <div className="flex items-start">
-              <MapPin className="h-4 w-4 text-gray-400 mt-1 mr-2 flex-shrink-0" />
-              <p className="text-sm text-gray-600">{location.address}</p>
-            </div>
-            
-            <div className="flex items-center">
-              <Phone className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-              <p className="text-sm text-gray-600">{location.phone}</p>
-            </div>
-            
-            <div className="flex items-center">
-              <Package className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-              {inventory.length > 0 ? (
-                <div className="flex items-center gap-1 flex-wrap">
-                  {inventory.map(item => (
-                    <InventoryCircle key={item.color} color={item.color} quantity={item.quantity} />
-                  ))}
-                </div>
-              ) : (
-                <span className="text-sm text-gray-400">{t("noStockInfo")}</span>
-              )}
-            </div>
+          <div className="flex items-center">
+            <Phone className="h-4 w-4 text-slate-500 mr-2 flex-shrink-0" />
+            <p className="text-sm text-slate-400">{location.phone}</p>
           </div>
           
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="text-sm">
-                <span className="text-gray-500">{t("contactLabel")}</span>
-                <span className="font-medium text-gray-900 ml-1">{location.contactPerson}</span>
+          <div className="flex items-center">
+            <Package className="h-4 w-4 text-slate-500 mr-2 flex-shrink-0" />
+            {inventory.length > 0 ? (
+              <div className="flex items-center gap-1 flex-wrap">
+                {inventory.map(item => (
+                  <InventoryCircle key={item.color} color={item.color} quantity={item.quantity} />
+                ))}
               </div>
-              <Badge variant={location.isActive ? "default" : "secondary"}>
-                {location.isActive ? t("active") : t("inactive")}
-              </Badge>
-            </div>
-            
-            <div className="mt-2 text-sm">
-              <span className="text-gray-500">{t("depositLabel")}</span>
-              <span className="font-medium text-gray-900 ml-1">${location.depositAmount}</span>
-            </div>
+            ) : (
+              <span className="text-sm text-slate-500">{t("noStockInfo")}</span>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <span className="text-slate-500">{t("contactLabel")}</span>
+              <span className="font-medium text-slate-300 ml-1">{location.contactPerson}</span>
+            </div>
+            <span className={`px-2 py-1 text-xs rounded-full ${
+              location.isActive 
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" 
+                : "bg-slate-500/20 text-slate-400 border border-slate-500/30"
+            }`}>
+              {location.isActive ? t("active") : t("inactive")}
+            </span>
+          </div>
+          
+          <div className="mt-2 text-sm">
+            <span className="text-slate-500">{t("depositLabel")}</span>
+            <span className="font-medium text-white ml-1">${location.depositAmount}</span>
+          </div>
+        </div>
+      </div>
     </Link>
   );
 }

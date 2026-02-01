@@ -1,6 +1,6 @@
 import React, { useState, createContext, useContext } from "react";
 import { Link, useLocation } from "wouter";
-import { Headphones, ChevronDown, User, LogOut, LayoutDashboard, Languages } from "lucide-react";
+import { Headphones, ChevronDown, User, LogOut, LayoutDashboard, Languages, Menu, X } from "lucide-react";
 import { MobileMenu } from "./mobile-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,120 +30,106 @@ export function Header() {
   };
 
   return (
-    <header className="bg-white shadow-sm">
+    <header className="glass-panel sticky top-0 z-50 border-b border-white/10">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          {/* Logo and Title - Left */}
           <div className="flex items-center space-x-2 md:space-x-3 ml-2 md:ml-8">
             <Link href="/" className="flex items-center space-x-2 md:space-x-3">
-              <div className="text-blue-600 bg-blue-50 rounded-full p-1.5 md:p-2">
-                <Headphones className="h-5 w-5 md:h-6 md:w-6" />
+              <div className="glass-icon-blue rounded-full p-1.5 md:p-2">
+                <Headphones className="h-5 w-5 md:h-6 md:w-6 text-blue-400" />
               </div>
-              <h1 className="text-lg md:text-2xl font-bold text-blue-600 hidden sm:block">
+              <h1 className="text-lg md:text-2xl font-bold text-white hidden sm:block">
                 {t("babyBanzGemach")}
               </h1>
-              <h1 className="text-sm font-bold text-blue-600 sm:hidden">
+              <h1 className="text-sm font-bold text-white sm:hidden">
                 {t("babyBanz")}
               </h1>
             </Link>
           </div>
 
-          {/* Navigation - Right */}
           <div className="flex justify-end items-center">
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden text-neutral-700 focus:outline-none"
+              className="md:hidden text-slate-300 hover:text-white focus:outline-none p-2 rounded-lg glass-panel"
               aria-label="Toggle mobile menu"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
+              {isMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
 
-            {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-6 items-center">
               <Link
                 href="/"
-                className={`font-medium ${
+                className={`font-medium transition-colors ${
                   isActiveLink("/")
-                    ? "text-primary"
-                    : "text-neutral-700 hover:text-primary"
-                } transition-colors`}
+                    ? "text-blue-400"
+                    : "text-slate-300 hover:text-white"
+                }`}
               >
                 {t("home")}
               </Link>
               
               <Link
                 href="/self-deposit"
-                className={`font-medium ${
+                className={`font-medium transition-colors ${
                   isActiveLink("/self-deposit")
-                    ? "text-primary"
-                    : "text-neutral-700 hover:text-primary"
-                } transition-colors`}
+                    ? "text-blue-400"
+                    : "text-slate-300 hover:text-white"
+                }`}
               >
                 {t("selfDeposit")}
               </Link>
               
               <Link
                 href="/rules"
-                className={`font-medium ${
+                className={`font-medium transition-colors ${
                   isActiveLink("/rules")
-                    ? "text-primary"
-                    : "text-neutral-700 hover:text-primary"
-                } transition-colors`}
+                    ? "text-blue-400"
+                    : "text-slate-300 hover:text-white"
+                }`}
               >
                 {t("ourRules")}
               </Link>
               
               <Link
                 href="/apply"
-                className={`font-medium ${
+                className={`font-medium transition-colors ${
                   isActiveLink("/apply")
-                    ? "text-primary"
-                    : "text-neutral-700 hover:text-primary"
-                } transition-colors`}
+                    ? "text-blue-400"
+                    : "text-slate-300 hover:text-white"
+                }`}
               >
                 {t("openLocation")}
               </Link>
               
               <Link
                 href="/contact"
-                className={`font-medium ${
+                className={`font-medium transition-colors ${
                   isActiveLink("/contact")
-                    ? "text-primary"
-                    : "text-neutral-700 hover:text-primary"
-                } transition-colors`}
+                    ? "text-blue-400"
+                    : "text-slate-300 hover:text-white"
+                }`}
               >
                 {t("contact")}
               </Link>
 
-              {/* Language Toggle Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="flex items-center gap-2 px-3 py-1.5">
+                  <button className="btn-glass-outline px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm">
                     <Languages className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      {isHebrew ? "עברית" : "English"}
+                    <span className="font-medium">
+                      {isHebrew ? "עברית" : "EN"}
                     </span>
                     <ChevronDown className="h-3 w-3" />
-                  </Button>
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="glass-panel border-white/20">
                   <DropdownMenuItem 
                     onClick={toggleLanguage}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 text-slate-200 hover:text-white focus:text-white"
                   >
                     <Languages className="h-4 w-4" />
                     {isHebrew ? "English" : "עברית"}
@@ -151,21 +137,20 @@ export function Header() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Auth Buttons */}
               {isLoading ? (
                 <div className="w-8 h-8" />
               ) : user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="flex items-center gap-2">
+                      <button className="btn-glass-outline px-4 py-2 rounded-lg flex items-center gap-2">
                         <User className="h-4 w-4" />
                         {user.firstName}
-                      </Button>
+                      </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="glass-panel border-white/20">
                       {isOperator && (
                         <DropdownMenuItem asChild>
-                          <Link href="/operator/dashboard" className="flex items-center gap-2 w-full">
+                          <Link href="/operator/dashboard" className="flex items-center gap-2 w-full text-slate-200 hover:text-white">
                             <LayoutDashboard className="h-4 w-4" />
                             {t("operatorDashboard")}
                           </Link>
@@ -173,29 +158,30 @@ export function Header() {
                       )}
                       {isAdmin && (
                         <DropdownMenuItem asChild>
-                          <Link href="/admin/dashboard" className="flex items-center gap-2 w-full">
+                          <Link href="/admin/dashboard" className="flex items-center gap-2 w-full text-slate-200 hover:text-white">
                             <LayoutDashboard className="h-4 w-4" />
                             {t("adminDashboard")}
                           </Link>
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
+                      <DropdownMenuSeparator className="bg-white/10" />
+                      <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-400 hover:text-red-300">
                         <LogOut className="h-4 w-4" />
                         {t("logOut")}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
-                  <Button asChild>
-                    <Link href="/auth">{t("operatorPin")} / {t("adminLogin")}</Link>
-                  </Button>
+                  <Link href="/auth">
+                    <button className="btn-glass-primary px-4 py-2 rounded-lg text-sm font-medium">
+                      {t("operatorPin")} / {t("adminLogin")}
+                    </button>
+                  </Link>
                 )}
             </nav>
           </div>
         </div>
 
-        {/* Mobile Menu */}
         <MobileMenu isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
       </div>
     </header>

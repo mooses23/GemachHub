@@ -22,12 +22,12 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="md:hidden mt-4 pb-4 border-t border-gray-200">
+    <div className="md:hidden mt-4 pb-4 border-t border-white/10">
       <nav className="flex flex-col space-y-2 pt-4">
         <Link
           href="/"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
+          className="font-medium text-slate-300 hover:text-white transition-colors py-3 px-3 rounded-xl hover:bg-white/5"
         >
           {t("home")}
         </Link>
@@ -35,7 +35,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <Link
           href="/self-deposit"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
+          className="font-medium text-slate-300 hover:text-white transition-colors py-3 px-3 rounded-xl hover:bg-white/5"
         >
           {t("selfDeposit")}
         </Link>
@@ -43,7 +43,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <Link
           href="/rules"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
+          className="font-medium text-slate-300 hover:text-white transition-colors py-3 px-3 rounded-xl hover:bg-white/5"
         >
           {t("ourRules")}
         </Link>
@@ -51,7 +51,7 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <Link
           href="/apply"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
+          className="font-medium text-slate-300 hover:text-white transition-colors py-3 px-3 rounded-xl hover:bg-white/5"
         >
           {t("openLocation")}
         </Link>
@@ -59,101 +59,61 @@ export function MobileMenu({ isOpen, setIsOpen }: MobileMenuProps) {
         <Link
           href="/contact"
           onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50"
+          className="font-medium text-slate-300 hover:text-white transition-colors py-3 px-3 rounded-xl hover:bg-white/5"
         >
           {t("contact")}
         </Link>
         
-        {/* Language Toggle */}
         <button
           onClick={toggleLanguage}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors py-3 px-2 rounded-md hover:bg-gray-50 flex items-center gap-2 text-left w-full"
+          className="font-medium text-slate-300 hover:text-white transition-colors py-3 px-3 rounded-xl hover:bg-white/5 flex items-center gap-2 text-left w-full"
         >
           <Languages className="h-4 w-4" />
           {isHebrew ? t("switchToEnglishMobile") : t("switchToHebrewMobile")}
         </button>
         
-        <Link
-          href="/auth"
-          onClick={() => setIsOpen(false)}
-          className="font-medium text-neutral-700 hover:text-primary transition-colors"
-        >
-          {t("login")}
-        </Link>
-        
-        {/* Auth Buttons */}
         {user ? (
-          <>
+          <div className="pt-4 space-y-2 border-t border-white/10 mt-2">
             {isOperator && (
-              <>
-                <Link
-                  href="/operator/dashboard"
-                  onClick={() => setIsOpen(false)}
-                  className="font-medium text-neutral-700 hover:text-primary transition-colors"
-                >
-                  {t("operatorDashboard")}
-                </Link>
-                <Link
-                  href="/operator/deposits"
-                  onClick={() => setIsOpen(false)}
-                  className="font-medium text-neutral-700 hover:text-primary transition-colors"
-                >
-                  {t("depositManagement")}
-                </Link>
-              </>
-            )}
-            {isOperator && (
-              <Button
-                variant="outline"
-                asChild
-                className="text-center flex items-center justify-center"
+              <Link
+                href="/operator/dashboard"
+                onClick={() => setIsOpen(false)}
+                className="btn-glass-outline w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2"
               >
-                <Link 
-                  href="/operator/dashboard" 
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-2"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  {t("operatorDashboard")}
-                </Link>
-              </Button>
+                <LayoutDashboard className="h-4 w-4" />
+                {t("operatorDashboard")}
+              </Link>
             )}
             
             {isAdmin && (
-              <Button
-                variant="outline"
-                asChild
-                className="text-center flex items-center justify-center"
+              <Link
+                href="/admin/dashboard"
+                onClick={() => setIsOpen(false)}
+                className="btn-glass-outline w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2"
               >
-                <Link 
-                  href="/admin/dashboard" 
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-2"
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                  {t("adminDashboard")}
-                </Link>
-              </Button>
+                <LayoutDashboard className="h-4 w-4" />
+                {t("adminDashboard")}
+              </Link>
             )}
             
-            <Button
-              variant="destructive"
+            <button
               onClick={handleLogout}
-              className="text-center flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors"
             >
               <LogOut className="h-4 w-4" />
               {t("logOut")}
-            </Button>
-          </>
+            </button>
+          </div>
         ) : (
-          <Button
-            asChild
-            className="text-center"
-          >
-            <Link href="/auth" onClick={() => setIsOpen(false)}>
+          <div className="pt-4 border-t border-white/10 mt-2">
+            <Link 
+              href="/auth" 
+              onClick={() => setIsOpen(false)}
+              className="btn-glass-primary w-full py-3 px-4 rounded-xl flex items-center justify-center"
+            >
               {t("login")}
             </Link>
-          </Button>
+          </div>
         )}
       </nav>
     </div>
