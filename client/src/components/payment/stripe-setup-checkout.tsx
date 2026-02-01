@@ -74,6 +74,7 @@ function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSet
           <h3 className="text-xl font-bold text-green-800 mb-2">Card Saved Successfully!</h3>
           <p className="text-green-700">
             The card has been saved securely and the headband has been lent.
+            The card has been saved securely.
           </p>
         </CardContent>
       </Card>

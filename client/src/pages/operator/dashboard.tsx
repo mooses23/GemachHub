@@ -127,7 +127,7 @@ function RestockingInstructions() {
             <ol className="list-decimal list-inside space-y-2 ml-2">
               <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" aria-label="Visit Baby Banz USA and Canada website">usa.banzworld.com</a></li>
               <li>Click on "Account"</li>
-              <li>Log in with:
+5              <li>Log in with:
                 <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
                   <li><strong>Email:</strong> earmuffsgemach@gmail.com</li>
                   <li><strong>Password:</strong> Babybanz</li>
@@ -1464,6 +1464,11 @@ function PayLaterTransactions({ location }: { location: Location }) {
     <>
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Pending Card Deposits ({pendingTransactions.length})
+          </CardTitle>
+          <CardDescription>Approve and charge customer cards or decline requests</CardDescription>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
@@ -1747,6 +1752,7 @@ export default function OperatorDashboard() {
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
             <RestockingInstructions />
+            <RecentActivity transactions={transactions} />
             <RecentActivity transactions={transactions} locationCode={operatorLocation.locationCode} />
           </TabsContent>
 
