@@ -5,6 +5,7 @@ import { Link, useLocation } from "wouter";
 import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { Transaction, Location, HEADBAND_COLORS, InventoryByColor } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, isAfter, addDays } from "date-fns";
 import StripeSetupCheckout from "@/components/payment/stripe-setup-checkout";
+
+function formatLocalizedDate(date: Date, language: 'en' | 'he', includeTime: boolean = true): string {
+  const locale = language === 'he' ? 'he-IL' : 'en-US';
+  const options: Intl.DateTimeFormatOptions = includeTime 
+    ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: language === 'en' }
+    : { month: 'short', day: 'numeric', year: 'numeric' };
+  return new Intl.DateTimeFormat(locale, options).format(date);
+}
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -42,6 +51,7 @@ function ColorSwatch({ color, size = "md" }: { color: string; size?: "sm" | "md"
 }
 
 function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inventory: { color: string; quantity: number }[]; totalStock: number; onAddStock: () => void; onEditStock: (color: string, currentQty: number) => void }) {
+  const { t } = useLanguage();
   const inventoryByColor = inventory.reduce((acc, item) => ({ ...acc, [item.color]: item.quantity }), {} as InventoryByColor);
   
   const lowStockThreshold = 3;
@@ -54,25 +64,25 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
           <div>
             <CardTitle className="flex items-center gap-2 text-white">
               <Package className="h-5 w-5" />
-              Stock Overview
+              {t('stockOverview')}
             </CardTitle>
-            <CardDescription className="text-slate-400">Current headband inventory by color (tap to edit)</CardDescription>
+            <CardDescription className="text-slate-400">{t('currentHeadbandInventory')}</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={onAddStock} className="border-white/20 hover:bg-white/10">
-            <Plus className="h-4 w-4 mr-1" /> Add Stock
+            <Plus className="h-4 w-4 mr-1" /> {t('addStock')}
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         <div className="mb-4">
           <div className="text-3xl font-bold text-white">{totalStock}</div>
-          <div className="text-sm text-slate-400">Total headbands in stock</div>
+          <div className="text-sm text-slate-400">{t('totalHeadbandsInStock')}</div>
         </div>
         
         {lowStockColors.length > 0 && (
           <div className="mb-4 p-3 bg-amber-500/20 border border-amber-500/30 rounded-lg">
             <div className="flex items-center gap-2 text-amber-300 font-medium mb-2">
-              <AlertTriangle className="h-4 w-4" /> Low Stock Alert
+              <AlertTriangle className="h-4 w-4" /> {t('lowStockAlert')}
             </div>
             <div className="flex flex-wrap gap-2">
               {lowStockColors.map(([color, qty]) => (
@@ -101,7 +111,7 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
           ))}
           {inventory.length === 0 && (
             <div className="col-span-full text-center py-4 text-slate-400">
-              No inventory data. Add stock to get started.
+              {t('noInventoryData')}
             </div>
           )}
         </div>
@@ -111,55 +121,55 @@ function StockOverview({ inventory, totalStock, onAddStock, onEditStock }: { inv
 }
 
 function RestockingInstructions() {
+  const { t } = useLanguage();
   return (
     <Card className="glass-card">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-white">
           <Package className="h-5 w-5" />
-          Baby Banz Restocking Instructions
+          {t('restockingInstructions')}
         </CardTitle>
-        <CardDescription className="text-slate-400">How to reorder Baby Banz inventory</CardDescription>
+        <CardDescription className="text-slate-400">{t('howToReorder')}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4 text-sm text-slate-300">
           <div>
-            <h4 className="font-semibold mb-2 text-white">U.S. and Canada Orders:</h4>
+            <h4 className="font-semibold mb-2 text-white">{t('usCanadaOrders')}</h4>
             <ol className="list-decimal list-inside space-y-2 ml-2">
-              <li>Go to <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" aria-label="Visit Baby Banz USA and Canada website">usa.banzworld.com</a></li>
-              <li>Click on "Account"</li>
-              <li>Log in with:
+              <li>{t('goTo')} <a href="https://usa.banzworld.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" aria-label={t('visitBabyBanzWebsite')}>usa.banzworld.com</a></li>
+              <li>{t('clickOnAccount')}</li>
+              <li>{t('logInWith')}
                 <ul className="list-disc list-inside ml-6 mt-1 space-y-1">
-                  <li><strong className="text-white">Email:</strong> earmuffsgemach@gmail.com</li>
-                  <li><strong className="text-white">Password:</strong> Babybanz</li>
+                  <li><strong className="text-white">{t('emailLabel')}</strong> earmuffsgemach@gmail.com</li>
+                  <li><strong className="text-white">{t('passwordLabel')}</strong> Babybanz</li>
                 </ul>
               </li>
-              <li>The 50% discount and free shipping should apply automatically</li>
-              <li>Enter your shipping and payment information (delete previous purchaser's information if needed)</li>
+              <li>{t('discountAutoApply')}</li>
+              <li>{t('enterShippingPayment')}</li>
             </ol>
           </div>
           
           <div className="border-t border-white/10 pt-4">
-            <h4 className="font-semibold mb-2 text-white">If discounts don't auto-populate:</h4>
-            <p className="mb-2">Use these discount codes:</p>
+            <h4 className="font-semibold mb-2 text-white">{t('ifDiscountsNoPopulate')}</h4>
+            <p className="mb-2">{t('useDiscountCodes')}</p>
             <div className="space-y-2 ml-2">
               <div className="flex items-start gap-2">
                 <Badge variant="outline" className="font-mono border-white/20 text-slate-300">GEMACHSHIP</Badge>
-                <span>for free shipping</span>
+                <span>{t('forFreeShipping')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-white">COMBINE WITH</span>
+                <span className="text-sm font-medium text-white">{t('combineWith')}</span>
               </div>
               <div className="flex items-start gap-2">
                 <Badge variant="outline" className="font-mono border-white/20 text-slate-300">GEMACH</Badge>
-                <span>for 50% off</span>
+                <span>{t('for50Off')}</span>
               </div>
             </div>
           </div>
           
           <div className="border-t border-white/10 pt-4">
             <p className="text-xs text-slate-400 italic">
-              Note: The sales platform has been making changes that have affected some of the pricing structures on the backend, 
-              so this is the easiest workaround to ensure smooth sailing moving forward.
+              {t('restockingNote')}
             </p>
           </div>
         </div>
@@ -169,6 +179,7 @@ function RestockingInstructions() {
 }
 
 function RecentActivity({ transactions, locationId, locationCode }: { transactions: Transaction[]; locationId: number; locationCode?: string }) {
+  const { t, language } = useLanguage();
   const recentTransactions = [...transactions]
     .filter(tx => tx.locationId === locationId)
     .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime())
@@ -179,19 +190,19 @@ function RecentActivity({ transactions, locationId, locationCode }: { transactio
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-white">Recent Activity</CardTitle>
-            <CardDescription className="text-slate-400">Last 5 transactions</CardDescription>
+            <CardTitle className="text-white">{t('recentActivityLabel')}</CardTitle>
+            <CardDescription className="text-slate-400">{t('last5Transactions')}</CardDescription>
           </div>
           {locationCode && (
             <Badge variant="outline" className="text-sm border-white/20 text-slate-300">
-              Gemach {locationCode}
+              {t('gemach')} {locationCode}
             </Badge>
           )}
         </div>
       </CardHeader>
       <CardContent>
         {recentTransactions.length === 0 ? (
-          <div className="text-center py-4 text-slate-400">No recent activity</div>
+          <div className="text-center py-4 text-slate-400">{t('noRecentActivityOperator')}</div>
         ) : (
           <div className="space-y-3">
             {recentTransactions.map((tx) => (
@@ -202,17 +213,17 @@ function RecentActivity({ transactions, locationId, locationCode }: { transactio
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-white">{tx.borrowerName}</span>
                       <span className="text-xs text-slate-400 bg-white/10 px-1.5 py-0.5 rounded">
-                        TX#{tx.id}
+                        {t('txNumber')}{tx.id}
                       </span>
                     </div>
                     <div className="text-xs text-slate-400">
-                      {format(new Date(tx.borrowDate), "MMM d, h:mm a")}
+                      {formatLocalizedDate(new Date(tx.borrowDate), language)}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <Badge variant={tx.isReturned ? "outline" : "default"} className={tx.isReturned ? "mb-1 border-white/20 text-slate-300" : "mb-1"}>
-                    {tx.isReturned ? "Returned" : "Active"}
+                    {tx.isReturned ? t('returned') : t('activeBorrow')}
                   </Badge>
                   <div className="text-xs font-medium text-white">${tx.depositAmount.toFixed(2)}</div>
                 </div>
@@ -275,6 +286,7 @@ function LendWizard({
   transactions?: Transaction[];
 }) {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [step, setStep] = useState(1);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [borrowerName, setBorrowerName] = useState("");
@@ -335,11 +347,11 @@ function LendWizard({
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
-      toast({ title: "Success!", description: "Headband lent successfully." });
+      toast({ title: t('success'), description: t('earmuffsLentSuccessfully') });
       onComplete();
     },
     onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
 
@@ -370,8 +382,8 @@ function LendWizard({
       }
     } catch (error: any) {
       toast({ 
-        title: "Card Setup Error", 
-        description: error.message || "Failed to initialize card setup", 
+        title: t('error'), 
+        description: error.message || t('error'), 
         variant: "destructive" 
       });
     } finally {
@@ -381,7 +393,7 @@ function LendWizard({
 
   const handleStripeError = (error: string) => {
     toast({ 
-      title: "Payment Failed", 
+      title: t('error'), 
       description: error, 
       variant: "destructive" 
     });
@@ -426,15 +438,15 @@ function LendWizard({
             </div>
           ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel} disabled={step === 5} className="hover:bg-white/10 text-slate-300">Cancel</Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={step === 5} className="hover:bg-white/10 text-slate-300">{t('cancel')}</Button>
       </div>
       
       {step === 1 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4 text-white">Select Headband Color</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">{t('selectColor')}</h3>
           {availableColors.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
-              No headbands available. Please add stock first.
+              {t('noInventoryData')}
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -447,7 +459,7 @@ function LendWizard({
                 >
                   <ColorSwatch color={color} size="lg" />
                   <span className="capitalize font-medium">{color}</span>
-                  <Badge variant="secondary">{qty} available</Badge>
+                  <Badge variant="secondary">{qty} {t('available')}</Badge>
                 </button>
               ))}
             </div>
@@ -457,27 +469,27 @@ function LendWizard({
       
       {step === 2 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4 text-white">Borrower Information</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">{t('borrowerDetails')}</h3>
           <div className="space-y-4 max-w-md">
             <div>
-              <label className="text-sm font-medium mb-1 block text-slate-300">Full Name</label>
+              <label className="text-sm font-medium mb-1 block text-slate-300">{t('fullName')}</label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
                   className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-                  placeholder="Enter borrower's name"
+                  placeholder={t('enterBorrowerNamePlaceholder')}
                   value={borrowerName}
                   onChange={(e) => setBorrowerName(e.target.value)}
                 />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block text-slate-300">Phone Number</label>
+              <label className="text-sm font-medium mb-1 block text-slate-300">{t('phoneNumber')}</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
                   className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-                  placeholder="Enter phone number"
+                  placeholder={t('enterPhoneNumberPlaceholder')}
                   value={borrowerPhone}
                   onChange={(e) => setBorrowerPhone(e.target.value)}
                 />
@@ -489,7 +501,7 @@ function LendWizard({
       
       {step === 3 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4 text-white">Deposit Payment</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">{t('depositDetails')}</h3>
           <div className="space-y-6">
             <div className="flex justify-center gap-3 mb-6">
               <Button
@@ -498,7 +510,7 @@ function LendWizard({
                 onClick={() => setPaymentMethod("cash")}
                 className="flex-1 max-w-[160px]"
               >
-                <DollarSign className="h-5 w-5 mr-1" /> Cash
+                <DollarSign className="h-5 w-5 mr-1" /> {t('cashPayment')}
               </Button>
               <Button
                 variant={paymentMethod === "card" ? "default" : "outline"}
@@ -506,7 +518,7 @@ function LendWizard({
                 onClick={() => setPaymentMethod("card")}
                 className="flex-1 max-w-[160px]"
               >
-                <CreditCard className="h-5 w-5 mr-1" /> Card
+                <CreditCard className="h-5 w-5 mr-1" /> {t('cardPayment')}
               </Button>
             </div>
             
@@ -514,14 +526,14 @@ function LendWizard({
               <div className="p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
                 <div className="flex items-center gap-2 text-blue-300 text-sm">
                   <CreditCard className="h-4 w-4" />
-                  <span>Borrower will save their card. You can charge it when they return the item.</span>
+                  <span>{t('cardSaveMessage')}</span>
                 </div>
               </div>
             )}
             
             <div className="text-center mb-4">
               <div className="text-4xl font-bold text-white">${depositAmount || "0"}</div>
-              <div className="text-sm text-slate-400">Deposit Amount</div>
+              <div className="text-sm text-slate-400">{t('depositAmount')}</div>
             </div>
             
             <NumericKeypad value={depositAmount} onChange={handleDepositChange} />
@@ -531,29 +543,29 @@ function LendWizard({
       
       {step === 4 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4 text-white">Confirm Details</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">{t('confirmTransaction')}</h3>
           <div className="max-w-md space-y-4 p-4 bg-white/5 rounded-xl border border-white/10">
             <div className="flex justify-between items-center py-2 border-b border-white/10">
-              <span className="text-slate-400">Headband Color</span>
+              <span className="text-slate-400">{t('selectColor')}</span>
               <div className="flex items-center gap-2">
                 <ColorSwatch color={selectedColor} size="sm" />
                 <span className="capitalize font-medium text-white">{selectedColor}</span>
               </div>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-white/10">
-              <span className="text-slate-400">Borrower</span>
+              <span className="text-slate-400">{t('borrower')}</span>
               <span className="font-medium text-white">{borrowerName}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-white/10">
-              <span className="text-slate-400">Phone</span>
+              <span className="text-slate-400">{t('phoneNumber')}</span>
               <span className="font-medium text-white">{borrowerPhone}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-white/10">
-              <span className="text-slate-400">Deposit</span>
+              <span className="text-slate-400">{t('depositAmount')}</span>
               <span className="font-bold text-lg text-white">${depositAmount}</span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-slate-400">Payment Method</span>
+              <span className="text-slate-400">{t('paymentMethod')}</span>
               <Badge variant="outline" className="capitalize border-white/20 text-slate-300">{paymentMethod}</Badge>
             </div>
           </div>
@@ -561,7 +573,7 @@ function LendWizard({
             <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
               <div className="flex items-center gap-2 text-blue-300 text-sm">
                 <CreditCard className="h-4 w-4" />
-                <span>Borrower will save their card. You can charge it when they return the item.</span>
+                <span>{t('cardSaveMessage')}</span>
               </div>
             </div>
           )}
@@ -570,14 +582,14 @@ function LendWizard({
 
       {step === 5 && stripeClientSecret && stripePublishableKey && (
         <div>
-          <h3 className="text-lg font-semibold mb-4 text-white">Save Card for Deposit</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">{t('saveCardForDeposit')}</h3>
           <div className="max-w-md mb-4 p-3 bg-white/5 border border-white/10 rounded-lg">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Amount to authorize:</span>
+              <span className="text-slate-400">{t('amountToAuthorize')}</span>
               <span className="font-bold text-white">${depositAmount}</span>
             </div>
             <div className="flex justify-between items-center text-sm mt-1">
-              <span className="text-slate-400">Borrower:</span>
+              <span className="text-slate-400">{t('borrower')}:</span>
               <span className="text-white">{borrowerName}</span>
             </div>
           </div>
@@ -595,12 +607,12 @@ function LendWizard({
                   queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
                   queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
                   queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
-                  toast({ title: "Success!", description: "Card saved and headband lent successfully." });
+                  toast({ title: t('success'), description: t('earmuffsLentSuccessfully') });
                   onComplete();
                 } catch (error: any) {
                   toast({ 
-                    title: "Error updating inventory", 
-                    description: error.message || "Card was saved but failed to update inventory. Please check manually.", 
+                    title: t('error'), 
+                    description: error.message || t('error'), 
                     variant: "destructive" 
                   });
                   // Still complete since the card was saved successfully
@@ -620,20 +632,20 @@ function LendWizard({
             disabled={createTransactionMutation.isPending || isInitiatingPayment}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {step === 1 ? "Cancel" : "Back"}
+            {step === 1 ? t('cancel') : t('back')}
           </Button>
           <Button 
             onClick={handleNext} 
             disabled={!canProceed() || createTransactionMutation.isPending || isInitiatingPayment}
           >
             {createTransactionMutation.isPending || isInitiatingPayment ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('loading')}...</>
             ) : step === 4 && paymentMethod === "card" ? (
-              <><CreditCard className="h-4 w-4 mr-2" /> Save Card</>
+              <><CreditCard className="h-4 w-4 mr-2" /> {t('save')}</>
             ) : step === 4 ? (
-              <><Check className="h-4 w-4 mr-2" /> Confirm Lend</>
+              <><Check className="h-4 w-4 mr-2" /> {t('confirmLend')}</>
             ) : (
-              <>Next <ArrowRight className="h-4 w-4 ml-2" /></>
+              <>{t('confirm')} <ArrowRight className="h-4 w-4 ml-2" /></>
             )}
           </Button>
         </div>
@@ -654,6 +666,7 @@ function ReturnWizard({
   onCancel: () => void;
 }) {
   const { toast } = useToast();
+  const { t, language } = useLanguage();
   const [step, setStep] = useState(1);
   const [searchPhone, setSearchPhone] = useState("");
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -683,13 +696,13 @@ function ReturnWizard({
     onSuccess: (data) => {
       if (data.success) {
         toast({
-          title: "Success!",
-          description: "Card charged successfully.",
+          title: t('success'),
+          description: t('success'),
         });
       } else if (data.requiresAction) {
         toast({
-          title: "Action Required",
-          description: "Customer needs to complete additional authentication.",
+          title: t('pending'),
+          description: t('pending'),
           variant: "default",
         });
       }
@@ -698,8 +711,8 @@ function ReturnWizard({
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to charge card",
+        title: t('error'),
+        description: error.message || t('error'),
         variant: "destructive",
       });
     },
@@ -714,16 +727,16 @@ function ReturnWizard({
     },
     onSuccess: () => {
       toast({
-        title: "Success!",
-        description: "Card released.",
+        title: t('success'),
+        description: t('success'),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/transactions/pending"] });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to release card",
+        title: t('error'),
+        description: error.message || t('error'),
         variant: "destructive",
       });
     },
@@ -758,13 +771,13 @@ function ReturnWizard({
       
       const refundAmt = data?.refundAmount ?? selectedTransaction?.depositAmount ?? 0;
       const refundMsg = data?.refundProcessed 
-        ? `Stripe refund of $${refundAmt.toFixed(2)} has been processed.`
-        : "Return processed successfully.";
-      toast({ title: "Success!", description: refundMsg });
+        ? t('stripeRefundProcessed').replace('${amount}', refundAmt.toFixed(2))
+        : t('returnProcessedSuccessfully');
+      toast({ title: t('success'), description: refundMsg });
       onComplete();
     },
     onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
   
@@ -794,8 +807,8 @@ function ReturnWizard({
             },
             onError: (error) => {
               toast({
-                title: "Charge Failed",
-                description: error.message || "Failed to charge card. Return not processed.",
+                title: t('chargeFailed'),
+                description: error.message || t('chargeFailedMessage'),
                 variant: "destructive",
               });
             }
@@ -809,8 +822,8 @@ function ReturnWizard({
             },
             onError: (error) => {
               toast({
-                title: "Release Failed",
-                description: error.message || "Failed to release card. Return not processed.",
+                title: t('releaseFailed'),
+                description: error.message || t('releaseFailedMessage'),
                 variant: "destructive",
               });
             }
@@ -850,16 +863,16 @@ function ReturnWizard({
             </div>
           ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel} className="hover:bg-white/10 text-slate-300">Cancel</Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} className="hover:bg-white/10 text-slate-300">{t('cancel')}</Button>
       </div>
       
       {step === 1 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">Select Borrower</h3>
+            <h3 className="text-lg font-semibold text-white">{t('borrowerDetails')}</h3>
             {location.locationCode && (
               <Badge variant="outline" className="text-sm border-white/20 text-slate-300">
-                Gemach {location.locationCode}
+                {t('gemach')} {location.locationCode}
               </Badge>
             )}
           </div>
@@ -868,7 +881,7 @@ function ReturnWizard({
             <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
             <Input
               className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-              placeholder="Search by phone or name..."
+              placeholder={t('searchByPhoneOrName')}
               value={searchPhone}
               onChange={(e) => setSearchPhone(e.target.value)}
             />
@@ -877,8 +890,8 @@ function ReturnWizard({
           {filteredTransactions.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               {activeTransactions.length === 0 
-                ? "No active borrowers" 
-                : "No borrowers match your search"}
+                ? t('noActiveBorrowers') 
+                : t('noBorrowersMatchSearch')}
             </div>
           ) : (
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
@@ -895,7 +908,7 @@ function ReturnWizard({
                       <div className="font-medium text-white">{tx.borrowerName}</div>
                       <div className="text-sm text-slate-400">{tx.borrowerPhone}</div>
                       <div className="text-xs text-slate-400">
-                        Borrowed: {format(new Date(tx.borrowDate), "MMM d, yyyy")}
+                        {t('borrowed')} {formatLocalizedDate(new Date(tx.borrowDate), language, false)}
                       </div>
                     </div>
                   </div>
@@ -903,11 +916,11 @@ function ReturnWizard({
                     <div className="font-bold text-white">${tx.depositAmount.toFixed(2)}</div>
                     {tx.payLaterStatus && tx.payLaterStatus !== "CHARGED" && (
                       <Badge variant="secondary" className="mt-1">
-                        <CreditCard className="h-3 w-3 mr-1" /> Card
+                        <CreditCard className="h-3 w-3 mr-1" /> {t('card')}
                       </Badge>
                     )}
                     {isOverdue(tx) && (
-                      <Badge variant="destructive" className="mt-1">Overdue</Badge>
+                      <Badge variant="destructive" className="mt-1">{t('overdue')}</Badge>
                     )}
                   </div>
                 </button>
@@ -921,20 +934,20 @@ function ReturnWizard({
         <div>
           <h3 className="text-lg font-semibold mb-4 text-white">
             {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" 
-              ? "Process Card Deposit" 
-              : "Refund Deposit"}
+              ? t('processCardDeposit') 
+              : t('refundDeposit')}
           </h3>
           
           <div className="mb-6 p-4 bg-white/5 border border-white/10 rounded-xl">
             <div className="flex justify-between items-center">
-              <span className="text-slate-300">Original Deposit</span>
+              <span className="text-slate-300">{t('originalDeposit')}</span>
               <span className="font-bold text-lg text-white">${selectedTransaction.depositAmount.toFixed(2)}</span>
             </div>
             <div className="text-sm text-slate-400 mt-1">
-              Paid via {selectedTransaction.depositPaymentMethod || "cash"}
+              {t('paidVia')} {selectedTransaction.depositPaymentMethod || t('cashPayment').toLowerCase()}
               {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" && (
                 <Badge variant="secondary" className="ml-2">
-                  <CreditCard className="h-3 w-3 mr-1" /> Card Deposit
+                  <CreditCard className="h-3 w-3 mr-1" /> {t('cardDeposit')}
                 </Badge>
               )}
             </div>
@@ -948,8 +961,7 @@ function ReturnWizard({
                   <div className="flex items-start gap-2 text-amber-300 text-sm">
                     <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                     <span>
-                      <strong className="text-amber-200">Card setup incomplete.</strong> The customer hasn't finished setting up their card. 
-                      You can only release this transaction (no charge possible).
+                      <strong className="text-amber-200">{t('cardSetupIncomplete')}</strong> {t('cardSetupIncompleteMessage')}
                     </span>
                   </div>
                 </div>
@@ -957,7 +969,7 @@ function ReturnWizard({
                 <div className="p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
                   <div className="flex items-start gap-2 text-blue-300 text-sm mb-3">
                     <CreditCard className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>This borrower saved their card for the deposit. You can now charge their card or release it without charging.</span>
+                    <span>{t('borrowerSavedCardMessage')}</span>
                   </div>
                 </div>
               )}
@@ -971,7 +983,7 @@ function ReturnWizard({
                   disabled={!["CARD_SETUP_COMPLETE", "APPROVED"].includes(selectedTransaction.payLaterStatus || "")}
                 >
                   <CreditCard className="h-5 w-5 mr-2" />
-                  Charge Card
+                  {t('chargeCard')}
                 </Button>
                 <Button
                   variant={cardAction === "release" ? "default" : "outline"}
@@ -980,7 +992,7 @@ function ReturnWizard({
                   className={`flex-1 ${cardAction !== "release" ? "border-white/20 hover:bg-white/10" : ""}`}
                 >
                   <XCircle className="h-5 w-5 mr-2" />
-                  Release Card
+                  {t('releaseCard')}
                 </Button>
               </div>
               
@@ -988,7 +1000,7 @@ function ReturnWizard({
                 <div className="p-3 bg-green-500/20 border border-green-500/30 rounded-lg">
                   <div className="flex items-center gap-2 text-green-300 text-sm">
                     <CheckCircle className="h-4 w-4" />
-                    <span>The card will be charged ${selectedTransaction.depositAmount.toFixed(2)} when you confirm.</span>
+                    <span>{t('cardWillBeCharged').replace('${amount}', selectedTransaction.depositAmount.toFixed(2))}</span>
                   </div>
                 </div>
               )}
@@ -997,7 +1009,7 @@ function ReturnWizard({
                 <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
                   <div className="flex items-center gap-2 text-slate-300 text-sm">
                     <AlertTriangle className="h-4 w-4" />
-                    <span>The saved card will be released and no charge will be made.</span>
+                    <span>{t('cardWillBeReleased')}</span>
                   </div>
                 </div>
               )}
@@ -1008,7 +1020,7 @@ function ReturnWizard({
                 <div className="mb-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
                   <div className="flex items-center gap-2 text-blue-300 text-sm">
                     <CreditCard className="h-4 w-4" />
-                    <span>This was a card payment. The refund will be processed automatically to the original card.</span>
+                    <span>{t('cardPaymentRefundMessage')}</span>
                   </div>
                 </div>
               )}
@@ -1023,14 +1035,14 @@ function ReturnWizard({
                     }}
                     className={`flex-1 ${isPartialRefund ? "border-white/20 hover:bg-white/10" : ""}`}
                   >
-                    Full Refund
+                    {t('fullRefund')}
                   </Button>
                   <Button
                     variant={isPartialRefund ? "default" : "outline"}
                     onClick={() => setIsPartialRefund(true)}
                     className={`flex-1 ${!isPartialRefund ? "border-white/20 hover:bg-white/10" : ""}`}
                   >
-                    Partial Refund
+                    {t('partialRefund')}
                   </Button>
                 </div>
                 
@@ -1038,7 +1050,7 @@ function ReturnWizard({
                   <>
                     <div className="text-center mb-4">
                       <div className="text-4xl font-bold text-white">${refundAmount || "0"}</div>
-                      <div className="text-sm text-slate-400">Refund Amount</div>
+                      <div className="text-sm text-slate-400">{t('refundAmountLabel')}</div>
                     </div>
                     <NumericKeypad 
                       value={refundAmount} 
@@ -1055,15 +1067,15 @@ function ReturnWizard({
       
       {step === 3 && selectedTransaction && (
         <div>
-          <h3 className="text-lg font-semibold mb-4 text-white">Confirm Return</h3>
+          <h3 className="text-lg font-semibold mb-4 text-white">{t('confirmReturn')}</h3>
           <div className="max-w-md space-y-4 p-4 bg-white/5 border border-white/10 rounded-xl">
             <div className="flex justify-between items-center py-2 border-b border-white/10">
-              <span className="text-slate-400">Borrower</span>
+              <span className="text-slate-400">{t('borrower')}</span>
               <span className="font-medium text-white">{selectedTransaction.borrowerName}</span>
             </div>
             {selectedTransaction.headbandColor && (
               <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-slate-400">Headband Color</span>
+                <span className="text-slate-400">{t('headbandColor')}</span>
                 <div className="flex items-center gap-2">
                   <ColorSwatch color={selectedTransaction.headbandColor} size="sm" />
                   <span className="capitalize font-medium text-white">{selectedTransaction.headbandColor}</span>
@@ -1071,7 +1083,7 @@ function ReturnWizard({
               </div>
             )}
             <div className="flex justify-between items-center py-2 border-b border-white/10">
-              <span className="text-slate-400">Original Deposit</span>
+              <span className="text-slate-400">{t('originalDeposit')}</span>
               <span className="font-medium text-white">${selectedTransaction.depositAmount.toFixed(2)}</span>
             </div>
             
@@ -1079,35 +1091,35 @@ function ReturnWizard({
             {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
               <>
                 <div className="flex justify-between items-center py-2 border-b border-white/10">
-                  <span className="text-slate-400">Action</span>
+                  <span className="text-slate-400">{t('action')}</span>
                   <Badge variant={cardAction === "charge" ? "default" : "secondary"}>
-                    {cardAction === "charge" ? "Charge Card" : "Release Card"}
+                    {cardAction === "charge" ? t('chargeCard') : t('releaseCard')}
                   </Badge>
                 </div>
                 {cardAction === "charge" ? (
                   <div className="flex justify-between items-center py-2 border-b border-white/10">
-                    <span className="text-slate-400">Charge Amount</span>
+                    <span className="text-slate-400">{t('chargeAmount')}</span>
                     <span className="font-bold text-lg text-green-400">
                       ${selectedTransaction.depositAmount.toFixed(2)}
                     </span>
                   </div>
                 ) : (
                   <div className="py-2 px-3 bg-white/5 border border-white/10 rounded-lg text-sm text-slate-300">
-                    No charge will be made. Card will be released.
+                    {t('noChargeCardReleased')}
                   </div>
                 )}
               </>
             ) : (
               <>
                 <div className="flex justify-between items-center py-2 border-b border-white/10">
-                  <span className="text-slate-400">Refund Amount</span>
+                  <span className="text-slate-400">{t('refundAmountLabel')}</span>
                   <span className="font-bold text-lg text-green-400">
                     ${(isPartialRefund ? parseFloat(refundAmount) : selectedTransaction.depositAmount).toFixed(2)}
                   </span>
                 </div>
                 {isPartialRefund && parseFloat(refundAmount) < selectedTransaction.depositAmount && (
                   <div className="flex justify-between items-center py-2">
-                    <span className="text-slate-400">Deduction</span>
+                    <span className="text-slate-400">{t('deduction')}</span>
                     <span className="text-red-400">
                       -${(selectedTransaction.depositAmount - parseFloat(refundAmount)).toFixed(2)}
                     </span>
@@ -1126,18 +1138,18 @@ function ReturnWizard({
           disabled={returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          {step === 1 ? "Cancel" : "Back"}
+          {step === 1 ? t('cancel') : t('back')}
         </Button>
         <Button 
           onClick={handleNext} 
           disabled={!canProceed() || returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending}
         >
           {(returnMutation.isPending || chargeCardMutation.isPending || releaseCardMutation.isPending) ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('loading')}...</>
           ) : step === 3 ? (
-            <><Check className="h-4 w-4 mr-2" /> Confirm Return</>
+            <><Check className="h-4 w-4 mr-2" /> {t('confirm')}</>
           ) : (
-            <>Next <ArrowRight className="h-4 w-4 ml-2" /></>
+            <>{t('next')} <ArrowRight className="h-4 w-4 ml-2" /></>
           )}
         </Button>
       </div>
@@ -1155,6 +1167,7 @@ function AddStockDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [quantity, setQuantity] = useState("1");
   
@@ -1169,13 +1182,13 @@ function AddStockDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
-      toast({ title: "Success!", description: `Added ${quantity} ${selectedColor} headband(s) to stock.` });
+      toast({ title: t('success'), description: t('success') });
       onOpenChange(false);
       setSelectedColor("");
       setQuantity("1");
     },
     onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
   
@@ -1183,13 +1196,13 @@ function AddStockDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Stock</DialogTitle>
-          <DialogDescription>Add new headbands to your inventory</DialogDescription>
+          <DialogTitle>{t('addStock')}</DialogTitle>
+          <DialogDescription>{t('currentHeadbandInventory')}</DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
           <div>
-            <label className="text-sm font-medium mb-2 block">Select Color</label>
+            <label className="text-sm font-medium mb-2 block">{t('selectColor')}</label>
             <div className="grid grid-cols-5 gap-2">
               {HEADBAND_COLORS.map((color) => (
                 <button
@@ -1206,7 +1219,7 @@ function AddStockDialog({
           </div>
           
           <div>
-            <label className="text-sm font-medium mb-2 block">Quantity</label>
+            <label className="text-sm font-medium mb-2 block">{t('quantity')}</label>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -1235,16 +1248,16 @@ function AddStockDialog({
         
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button 
             onClick={() => addStockMutation.mutate()}
             disabled={!selectedColor || !quantity || addStockMutation.isPending}
           >
             {addStockMutation.isPending ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Adding...</>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('loading')}...</>
             ) : (
-              <>Add {quantity} {selectedColor}</>
+              <>{t('add')} {quantity} {selectedColor}</>
             )}
           </Button>
         </DialogFooter>
@@ -1267,6 +1280,7 @@ function EditStockDialog({
   currentQty: number;
 }) {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [quantity, setQuantity] = useState(currentQty.toString());
   
   useEffect(() => {
@@ -1294,11 +1308,11 @@ function EditStockDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
-      toast({ title: "Success!", description: `Updated ${color} stock to ${quantity}.` });
+      toast({ title: t('success'), description: t('success') });
       onOpenChange(false);
     },
     onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: t('error'), description: error.message, variant: "destructive" });
     },
   });
   
@@ -1311,13 +1325,13 @@ function EditStockDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ColorSwatch color={color} />
-            <span className="capitalize">Edit {color} Stock</span>
+            <span className="capitalize">{t('editColorStock').replace('{color}', color)}</span>
           </DialogTitle>
-          <DialogDescription>Adjust the quantity for this color</DialogDescription>
+          <DialogDescription>{t('adjustQuantityForColor')}</DialogDescription>
         </DialogHeader>
         
         <div className="py-4">
-          <label className="text-sm font-medium mb-2 block">Quantity</label>
+          <label className="text-sm font-medium mb-2 block">{t('quantity')}</label>
           <div className="flex items-center gap-2 justify-center">
             <Button
               variant="outline"
@@ -1343,23 +1357,23 @@ function EditStockDialog({
           </div>
           {diff !== 0 && (
             <p className={`text-center mt-2 text-sm ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {diff > 0 ? `+${diff}` : diff} from current stock
+              {diff > 0 ? `+${diff}` : diff} {t('fromCurrentStock')}
             </p>
           )}
         </div>
         
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button 
             onClick={() => updateStockMutation.mutate()}
             disabled={diff === 0 || updateStockMutation.isPending}
           >
             {updateStockMutation.isPending ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Updating...</>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('updating')}...</>
             ) : (
-              <>Update Stock</>
+              <>{t('save')}</>
             )}
           </Button>
         </DialogFooter>
@@ -1371,6 +1385,7 @@ function EditStockDialog({
 
 function PayLaterTransactions({ location }: { location: Location }) {
   const { toast } = useToast();
+  const { t, language } = useLanguage();
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [selectedTransactionForDecline, setSelectedTransactionForDecline] = useState<Transaction | null>(null);
@@ -1398,8 +1413,8 @@ function PayLaterTransactions({ location }: { location: Location }) {
     onSuccess: (data) => {
       if (data.success) {
         toast({
-          title: "Success!",
-          description: "Self-deposit accepted. Item has been lent.",
+          title: t('success'),
+          description: t('earmuffsLentSuccessfully'),
         });
       }
       refetch();
@@ -1407,8 +1422,8 @@ function PayLaterTransactions({ location }: { location: Location }) {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to accept self-deposit",
+        title: t('error'),
+        description: error.message || t('error'),
         variant: "destructive",
       });
     },
@@ -1422,13 +1437,13 @@ function PayLaterTransactions({ location }: { location: Location }) {
     onSuccess: (data) => {
       if (data.success) {
         toast({
-          title: "Success!",
-          description: "Transaction charged successfully.",
+          title: t('success'),
+          description: t('success'),
         });
       } else if (data.requiresAction) {
         toast({
-          title: "Action Required",
-          description: "Customer needs to complete additional authentication.",
+          title: t('pending'),
+          description: t('pending'),
           variant: "default",
         });
       }
@@ -1436,8 +1451,8 @@ function PayLaterTransactions({ location }: { location: Location }) {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to charge transaction",
+        title: t('error'),
+        description: error.message || t('error'),
         variant: "destructive",
       });
     },
@@ -1453,8 +1468,8 @@ function PayLaterTransactions({ location }: { location: Location }) {
     },
     onSuccess: () => {
       toast({
-        title: "Success!",
-        description: "Transaction declined.",
+        title: t('success'),
+        description: t('success'),
       });
       setDeclineDialogOpen(false);
       setDeclineReason("");
@@ -1463,8 +1478,8 @@ function PayLaterTransactions({ location }: { location: Location }) {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to decline transaction",
+        title: t('error'),
+        description: error.message || t('error'),
         variant: "destructive",
       });
     },
@@ -1495,7 +1510,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
         <CardContent className="pt-6">
           <div className="text-center py-8 text-slate-400">
             <CreditCard className="h-12 w-12 mx-auto mb-4 text-slate-500" />
-            <p>No pending card deposit transactions</p>
+            <p>{t('noPendingCardDeposits')}</p>
           </div>
         </CardContent>
       </Card>
@@ -1510,13 +1525,13 @@ function PayLaterTransactions({ location }: { location: Location }) {
             <div>
               <CardTitle className="flex items-center gap-2 text-white">
                 <CreditCard className="h-5 w-5" />
-                Pending Self-Deposits ({pendingTransactions.length})
+                {t('pendingSelfDeposits')} ({pendingTransactions.length})
               </CardTitle>
-              <CardDescription className="text-slate-400">Accept self-deposits to confirm lending (card saved but not charged)</CardDescription>
+              <CardDescription className="text-slate-400">{t('acceptSelfDepositsDescription')}</CardDescription>
             </div>
             {location.locationCode && (
               <Badge variant="outline" className="text-sm border-white/20 text-slate-300">
-                Gemach {location.locationCode}
+                {t('gemach')} {location.locationCode}
               </Badge>
             )}
           </div>
@@ -1535,7 +1550,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
                       {tx.borrowerPhone && <span>{tx.borrowerPhone}</span>}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                      Created: {format(new Date(tx.borrowDate), "MMM d, yyyy h:mm a")}
+                      {t('created')} {formatLocalizedDate(new Date(tx.borrowDate), language)}
                     </div>
                   </div>
                   
@@ -1560,7 +1575,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
                           ) : (
                             <>
                               <CheckCircle className="h-4 w-4 mr-1" />
-                              Accept & Lend
+                              {t('acceptAndLend')}
                             </>
                           )}
                         </Button>
@@ -1571,7 +1586,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
                           variant="secondary"
                         >
                           <Clock className="h-4 w-4 mr-1" />
-                          Awaiting Card Setup
+                          {t('awaitingCardSetup')}
                         </Button>
                       ) : null}
                       <Button
@@ -1580,7 +1595,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
                         onClick={() => handleDeclineClick(tx)}
                       >
                         <XCircle className="h-4 w-4 mr-1" />
-                        Decline
+                        {t('decline')}
                       </Button>
                     </div>
                   </div>
@@ -1596,12 +1611,12 @@ function PayLaterTransactions({ location }: { location: Location }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trash2 className="h-5 w-5 text-destructive" />
-              Decline Transaction
+              {t('declineTransaction')}
             </DialogTitle>
             <DialogDescription>
               {selectedTransactionForDecline?.borrowerName && (
                 <span>
-                  Are you sure you want to decline this card deposit request from {selectedTransactionForDecline.borrowerName}?
+                  {t('declineConfirmMessage').replace('{name}', selectedTransactionForDecline.borrowerName)}
                 </span>
               )}
             </DialogDescription>
@@ -1611,19 +1626,19 @@ function PayLaterTransactions({ location }: { location: Location }) {
             {selectedTransactionForDecline && (
               <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
                 <div className="flex justify-between items-center text-sm mb-2">
-                  <span className="text-slate-400">Amount:</span>
+                  <span className="text-slate-400">{t('amountLabel')}</span>
                   <span className="font-bold text-white">${selectedTransactionForDecline.depositAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400">Borrower:</span>
+                  <span className="text-slate-400">{t('borrowerLabel')}</span>
                   <span className="text-white">{selectedTransactionForDecline.borrowerName}</span>
                 </div>
               </div>
             )}
             <div>
-              <label className="text-sm font-medium mb-2 block">Decline Reason (optional)</label>
+              <label className="text-sm font-medium mb-2 block">{t('declineReasonOptional')}</label>
               <Input
-                placeholder="E.g., Unable to verify borrower"
+                placeholder={t('declineReasonPlaceholder')}
                 value={declineReason}
                 onChange={(e) => setDeclineReason(e.target.value)}
               />
@@ -1639,7 +1654,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
                 setSelectedTransactionForDecline(null);
               }}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -1647,9 +1662,9 @@ function PayLaterTransactions({ location }: { location: Location }) {
               disabled={declineMutation.isPending}
             >
               {declineMutation.isPending ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Declining...</>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('declining')}</>
               ) : (
-                <>Decline Request</>
+                <>{t('declineRequest')}</>
               )}
             </Button>
           </DialogFooter>
@@ -1663,6 +1678,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
 export default function OperatorDashboard() {
   const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [, setPath] = useLocation();
   const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return">("overview");
   const [showAddStock, setShowAddStock] = useState(false);
@@ -1714,13 +1730,13 @@ export default function OperatorDashboard() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="text-center space-y-4 max-w-md">
-          <h2 className="text-2xl font-bold text-destructive">Error Loading Dashboard</h2>
-          <p className="text-slate-400">{error?.message || "Failed to load operator data"}</p>
+          <h2 className="text-2xl font-bold text-destructive">{t('errorLoadingDashboard')}</h2>
+          <p className="text-slate-400">{error?.message || t('failedToLoadOperatorData')}</p>
           <Button 
             variant="outline" 
             onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] })}
           >
-            <RotateCcw className="mr-2 h-4 w-4" /> Try Again
+            <RotateCcw className="mr-2 h-4 w-4" /> {t('tryAgain')}
           </Button>
         </div>
       </div>
@@ -1737,14 +1753,14 @@ export default function OperatorDashboard() {
             <div className="flex items-center gap-2">
               <Link href="/">
                 <Button variant="ghost" size="sm" className="hover:bg-white/10 text-slate-300">
-                  <Home className="h-4 w-4 mr-1" /> Home
+                  <Home className="h-4 w-4 mr-1" /> {t('home')}
                 </Button>
               </Link>
               <span className="text-slate-500">/</span>
               <span className="font-semibold text-white">{operatorLocation.name}</span>
             </div>
             <Button variant="ghost" size="sm" onClick={() => logout()} className="hover:bg-white/10 text-slate-300">
-              <LogOut className="h-4 w-4 mr-1" /> Logout
+              <LogOut className="h-4 w-4 mr-1" /> {t('logOut')}
             </Button>
           </div>
         </div>
@@ -1755,17 +1771,17 @@ export default function OperatorDashboard() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-white">{operatorLocation.name}</h1>
-              <p className="text-slate-400">Manage headband lending and returns</p>
+              <p className="text-slate-400">{t('manageHeadbandLendingAndReturns')}</p>
             </div>
             <TabsList className="grid grid-cols-3 w-full sm:w-auto glass-panel border-white/10">
               <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
-                <Package className="h-4 w-4" /> Stock
+                <Package className="h-4 w-4" /> {t('stockOverview')}
               </TabsTrigger>
               <TabsTrigger value="lend" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
-                <ArrowRight className="h-4 w-4" /> Lend
+                <ArrowRight className="h-4 w-4" /> {t('lendEarmuffs')}
               </TabsTrigger>
               <TabsTrigger value="return" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
-                <RotateCcw className="h-4 w-4" /> Return
+                <RotateCcw className="h-4 w-4" /> {t('returnEarmuffs')}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1774,13 +1790,13 @@ export default function OperatorDashboard() {
             <Card className="glass-card">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-white">{inventoryData?.total || 0}</div>
-                <p className="text-sm text-slate-400">Total in Stock</p>
+                <p className="text-sm text-slate-400">{t('totalHeadbandsInStock')}</p>
               </CardContent>
             </Card>
             <Card className="glass-card">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-white">{activeLoans}</div>
-                <p className="text-sm text-slate-400">Active Loans</p>
+                <p className="text-sm text-slate-400">{t('activeBorrow')}</p>
               </CardContent>
             </Card>
             <Card className="glass-card">
@@ -1788,7 +1804,7 @@ export default function OperatorDashboard() {
                 <div className="text-2xl font-bold text-white">
                   ${transactions.filter(tx => !tx.isReturned).reduce((sum, tx) => sum + tx.depositAmount, 0).toFixed(0)}
                 </div>
-                <p className="text-sm text-slate-400">Deposits Held</p>
+                <p className="text-sm text-slate-400">{t('depositsHeld')}</p>
               </CardContent>
             </Card>
           </div>

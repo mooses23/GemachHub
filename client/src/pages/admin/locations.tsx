@@ -4,6 +4,7 @@ import { getLocations, getRegions, updateLocation, deleteLocation } from "@/lib/
 import { Region, Location } from "@shared/schema";
 import { LocationForm } from "@/components/admin/location-form";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import {
   Card,
   CardContent,
@@ -67,6 +68,7 @@ import { Badge } from "@/components/ui/badge";
 
 export default function AdminLocations() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [regionFilter, setRegionFilter] = useState<string>("all");
@@ -90,15 +92,15 @@ export default function AdminLocations() {
       updateLocation(id, { isActive }),
     onSuccess: () => {
       toast({
-        title: "Status Updated",
-        description: "Location status has been updated successfully.",
+        title: t('statusUpdated'),
+        description: t('statusUpdateSuccess'),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to update status: ${error.message}`,
+        title: t('error'),
+        description: `${t('failedToUpdateStatus')} ${error.message}`,
         variant: "destructive",
       });
     },
@@ -108,8 +110,8 @@ export default function AdminLocations() {
     mutationFn: (id: number) => deleteLocation(id),
     onSuccess: () => {
       toast({
-        title: "Location Deleted",
-        description: "The location has been removed successfully.",
+        title: t('locationDeleted'),
+        description: t('locationDeletedSuccess'),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
       setIsDeleteDialogOpen(false);
@@ -117,8 +119,8 @@ export default function AdminLocations() {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete location",
+        title: t('error'),
+        description: error.message || t('failedToDelete'),
         variant: "destructive",
       });
     },
@@ -194,7 +196,7 @@ export default function AdminLocations() {
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            {t('backToDashboard')}
           </Button>
           <Button 
             variant="outline" 
@@ -203,14 +205,14 @@ export default function AdminLocations() {
             className="flex items-center gap-2"
           >
             <Home className="h-4 w-4" />
-            Home
+            {t('home')}
           </Button>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Manage Locations</h1>
-            <p className="text-muted-foreground text-sm md:text-base">View and manage all gemach locations</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('locationManagementTitle')}</h1>
+            <p className="text-muted-foreground text-sm md:text-base">{t('manageAllGemachLocations')}</p>
           </div>
           
           <div className="mt-4 md:mt-0">
@@ -218,14 +220,14 @@ export default function AdminLocations() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Location
+                  {t('addNewLocation')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Create New Location</DialogTitle>
+                  <DialogTitle>{t('createNewLocation')}</DialogTitle>
                   <DialogDescription>
-                    Add a new gemach location to the system. Fill out all required information.
+                    {t('addNewLocationDescription')}
                   </DialogDescription>
                 </DialogHeader>
                 <LocationForm 
@@ -246,7 +248,7 @@ export default function AdminLocations() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{totalLocations}</p>
-                <p className="text-sm text-muted-foreground">Total Locations</p>
+                <p className="text-sm text-muted-foreground">{t('totalLocations')}</p>
               </div>
             </CardContent>
           </Card>
@@ -257,7 +259,7 @@ export default function AdminLocations() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{activeLocations}</p>
-                <p className="text-sm text-muted-foreground">Active</p>
+                <p className="text-sm text-muted-foreground">{t('active')}</p>
               </div>
             </CardContent>
           </Card>
@@ -268,7 +270,7 @@ export default function AdminLocations() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{inactiveLocations}</p>
-                <p className="text-sm text-muted-foreground">Inactive</p>
+                <p className="text-sm text-muted-foreground">{t('inactive')}</p>
               </div>
             </CardContent>
           </Card>
@@ -276,9 +278,9 @@ export default function AdminLocations() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Locations</CardTitle>
+            <CardTitle>{t('locations')}</CardTitle>
             <CardDescription>
-              Manage gemach locations and their details
+              {t('manageAllGemachLocations')}
             </CardDescription>
             
             {/* Filters */}
@@ -286,7 +288,7 @@ export default function AdminLocations() {
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search locations..."
+                  placeholder={t('search')}
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -295,10 +297,10 @@ export default function AdminLocations() {
               <Select value={regionFilter} onValueChange={setRegionFilter}>
                 <SelectTrigger>
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by region" />
+                  <SelectValue placeholder={t('filterByRegion')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Regions</SelectItem>
+                  <SelectItem value="all">{t('allRegions')}</SelectItem>
                   {regions.map((region) => (
                     <SelectItem key={region.id} value={region.id.toString()}>
                       {region.name}
@@ -308,12 +310,12 @@ export default function AdminLocations() {
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder={t('filterByStatus')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active Only</SelectItem>
-                  <SelectItem value="inactive">Inactive Only</SelectItem>
+                  <SelectItem value="all">{t('allStatuses')}</SelectItem>
+                  <SelectItem value="active">{t('activeOnly')}</SelectItem>
+                  <SelectItem value="inactive">{t('inactiveOnly')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -321,22 +323,22 @@ export default function AdminLocations() {
             {/* Active filters display */}
             {(regionFilter !== "all" || statusFilter !== "all" || searchTerm) && (
               <div className="mt-3 flex flex-wrap gap-2 items-center">
-                <span className="text-sm text-muted-foreground">Active filters:</span>
+                <span className="text-sm text-muted-foreground">{t('activeFilters')}:</span>
                 {searchTerm && (
                   <Badge variant="secondary" className="flex items-center gap-1">
-                    Search: {searchTerm}
+                    {t('search')}: {searchTerm}
                     <button onClick={() => setSearchTerm("")} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 )}
                 {regionFilter !== "all" && (
                   <Badge variant="secondary" className="flex items-center gap-1">
-                    Region: {getRegionNameById(parseInt(regionFilter))}
+                    {t('region')}: {getRegionNameById(parseInt(regionFilter))}
                     <button onClick={() => setRegionFilter("all")} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 )}
                 {statusFilter !== "all" && (
                   <Badge variant="secondary" className="flex items-center gap-1">
-                    Status: {statusFilter}
+                    {t('status')}: {statusFilter}
                     <button onClick={() => setStatusFilter("all")} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 )}
@@ -346,24 +348,24 @@ export default function AdminLocations() {
                   onClick={() => { setSearchTerm(""); setRegionFilter("all"); setStatusFilter("all"); }}
                   className="text-xs"
                 >
-                  Clear all
+                  {t('clearAll')}
                 </Button>
               </div>
             )}
           </CardHeader>
           <CardContent>
             <div className="text-sm text-muted-foreground mb-3">
-              Showing {filteredLocations.length} of {totalLocations} locations
+              {t('showing')} {filteredLocations.length} / {totalLocations} {t('locations')}
             </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[200px]">Name</TableHead>
-                    <TableHead className="min-w-[180px] hidden md:table-cell">Contact Person</TableHead>
-                    <TableHead className="min-w-[120px] hidden lg:table-cell">Region</TableHead>
-                    <TableHead className="min-w-[80px]">Status</TableHead>
-                    <TableHead className="min-w-[80px]">Actions</TableHead>
+                    <TableHead className="min-w-[200px]">{t('name')}</TableHead>
+                    <TableHead className="min-w-[180px] hidden md:table-cell">{t('coordinatorName')}</TableHead>
+                    <TableHead className="min-w-[120px] hidden lg:table-cell">{t('region')}</TableHead>
+                    <TableHead className="min-w-[80px]">{t('status')}</TableHead>
+                    <TableHead className="min-w-[80px]">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -411,18 +413,18 @@ export default function AdminLocations() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuLabel>{t('actions')}</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleEditLocation(location)}>
                                 <Edit className="mr-2 h-4 w-4" />
-                                Edit Location
+                                {t('editLocation')}
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleDeleteLocation(location)}
                                 className="text-red-600 focus:text-red-600"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Location
+                                {t('deleteLocationConfirm')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -434,21 +436,21 @@ export default function AdminLocations() {
                       <TableCell colSpan={5} className="text-center py-8">
                         {searchTerm || regionFilter !== "all" || statusFilter !== "all" ? (
                           <div className="space-y-2">
-                            <p className="text-muted-foreground">No locations found matching your filters.</p>
-                            <p className="text-sm text-gray-500">Try adjusting your filters or search terms.</p>
+                            <p className="text-muted-foreground">{t('noLocationsMatch')}</p>
+                            <p className="text-sm text-gray-500">{t('tryAdjustingSearch')}</p>
                             <Button 
                               variant="outline" 
                               size="sm"
                               onClick={() => { setSearchTerm(""); setRegionFilter("all"); setStatusFilter("all"); }}
                             >
-                              Clear all filters
+                              {t('clearAll')}
                             </Button>
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            <p className="text-muted-foreground">No locations available. Add your first location.</p>
+                            <p className="text-muted-foreground">{t('noLocationsFound')}</p>
                             <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
-                              Add Location
+                              {t('addNewLocation')}
                             </Button>
                           </div>
                         )}
@@ -465,9 +467,9 @@ export default function AdminLocations() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Location</DialogTitle>
+              <DialogTitle>{t('editLocation')}</DialogTitle>
               <DialogDescription>
-                Update the details for this gemach location.
+                {t('editLocationDescription')}
               </DialogDescription>
             </DialogHeader>
             {editingLocation && (
@@ -484,15 +486,14 @@ export default function AdminLocations() {
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle className="text-red-600">Delete Location</DialogTitle>
+              <DialogTitle className="text-red-600">{t('deleteLocationConfirm')}</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete "{deletingLocation?.name}"? This action cannot be undone.
+                {t('areYouSureDeleteLocation')} "{deletingLocation?.name}"
               </DialogDescription>
             </DialogHeader>
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 my-4">
               <p className="text-sm text-red-800">
-                <strong>Warning:</strong> Deleting a location will remove all associated data. 
-                Locations with active transactions cannot be deleted.
+                <strong>{t('warning')}:</strong> {t('deleteLocationWarning')}
               </p>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
@@ -500,7 +501,7 @@ export default function AdminLocations() {
                 variant="outline" 
                 onClick={() => setIsDeleteDialogOpen(false)}
               >
-                Cancel
+                {t('cancel')}
               </Button>
               <Button 
                 variant="destructive" 
@@ -510,12 +511,12 @@ export default function AdminLocations() {
                 {deleteMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
+                    {t('deleting')}
                   </>
                 ) : (
                   <>
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Location
+                    {t('deleteLocationConfirm')}
                   </>
                 )}
               </Button>

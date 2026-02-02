@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getGemachApplications, updateGemachApplicationStatus, approveApplicationWithLocation } from "@/lib/api";
 import { GemachApplication, Region, InsertLocation, insertLocationSchema, CityCategory } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import {
   Card,
   CardContent,
@@ -88,6 +89,7 @@ type LocationFormData = z.infer<typeof locationFormSchema>;
 
 export default function AdminApplications() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("all");
@@ -141,16 +143,16 @@ export default function AdminApplications() {
       updateGemachApplicationStatus(id, status),
     onSuccess: () => {
       toast({
-        title: "Status Updated",
-        description: "Application status has been updated successfully.",
+        title: t('statusUpdated'),
+        description: t('statusUpdateSuccess'),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
       setIsViewDialogOpen(false);
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to update status: ${error.message}`,
+        title: t('error'),
+        description: `${t('failedToUpdateStatus')} ${error.message}`,
         variant: "destructive",
       });
     },
@@ -172,15 +174,15 @@ export default function AdminApplications() {
         setIsInviteCodeDialogOpen(true);
       } else {
         toast({
-          title: "Application Approved",
-          description: "Application has been approved and new location has been created successfully.",
+          title: t('applicationApproved'),
+          description: t('applicationApprovedSuccess'),
         });
       }
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to approve application: ${error.message}`,
+        title: t('error'),
+        description: `${t('failedToApprove')} ${error.message}`,
         variant: "destructive",
       });
     },
@@ -247,13 +249,13 @@ export default function AdminApplications() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>;
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">{t('pending')}</Badge>;
       case "approved":
-        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Approved</Badge>;
+        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">{t('approved')}</Badge>;
       case "rejected":
-        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Rejected</Badge>;
+        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">{t('rejected')}</Badge>;
       default:
-        return <Badge variant="outline">Unknown</Badge>;
+        return <Badge variant="outline">{t('unknown')}</Badge>;
     }
   };
 
@@ -283,7 +285,7 @@ export default function AdminApplications() {
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            {t('backToDashboard')}
           </Button>
           <Button 
             variant="outline" 
@@ -292,28 +294,28 @@ export default function AdminApplications() {
             className="flex items-center gap-2"
           >
             <Home className="h-4 w-4" />
-            Home
+            {t('home')}
           </Button>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Gemach Applications</h1>
-            <p className="text-muted-foreground">Review and manage applications to open new gemach locations</p>
+            <h1 className="text-3xl font-bold">{t('gemachApplications')}</h1>
+            <p className="text-muted-foreground">{t('reviewManageApplicationsDescription')}</p>
           </div>
         </div>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Applications</CardTitle>
+            <CardTitle>{t('applications')}</CardTitle>
             <CardDescription>
-              Review and manage applications from volunteers wanting to open new gemach locations
+              {t('reviewManageApplicationsFromVolunteers')}
             </CardDescription>
             <div className="mt-4 flex flex-col sm:flex-row gap-4">
               <div className="relative flex-grow">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search applications..."
+                  placeholder={t('searchApplications')}
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -325,28 +327,28 @@ export default function AdminApplications() {
                   size="sm"
                   onClick={() => setFilterStatus("all")}
                 >
-                  All
+                  {t('all')}
                 </Button>
                 <Button 
                   variant={filterStatus === "pending" ? "default" : "outline"} 
                   size="sm"
                   onClick={() => setFilterStatus("pending")}
                 >
-                  Pending
+                  {t('pending')}
                 </Button>
                 <Button 
                   variant={filterStatus === "approved" ? "default" : "outline"} 
                   size="sm"
                   onClick={() => setFilterStatus("approved")}
                 >
-                  Approved
+                  {t('approved')}
                 </Button>
                 <Button 
                   variant={filterStatus === "rejected" ? "default" : "outline"} 
                   size="sm"
                   onClick={() => setFilterStatus("rejected")}
                 >
-                  Rejected
+                  {t('rejected')}
                 </Button>
               </div>
             </div>
@@ -356,11 +358,11 @@ export default function AdminApplications() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Applicant</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Date Submitted</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{t('applicant')}</TableHead>
+                    <TableHead>{t('location')}</TableHead>
+                    <TableHead>{t('dateSubmitted')}</TableHead>
+                    <TableHead>{t('status')}</TableHead>
+                    <TableHead>{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -408,26 +410,26 @@ export default function AdminApplications() {
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
+                                <span className="sr-only">{t('openMenu')}</span>
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuLabel>{t('actions')}</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleViewApplication(application)}>
                                 <Eye className="mr-2 h-4 w-4" />
-                                View Details
+                                {t('viewDetails')}
                               </DropdownMenuItem>
                               {application.status === "pending" && (
                                 <>
                                   <DropdownMenuItem onClick={() => handleStartApproval(application)}>
                                     <Plus className="mr-2 h-4 w-4 text-green-600" />
-                                    Approve & Create Location
+                                    {t('approveCreateLocation')}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleReject(application.id)}>
                                     <X className="mr-2 h-4 w-4 text-red-600" />
-                                    Reject
+                                    {t('rejectApplication')}
                                   </DropdownMenuItem>
                                 </>
                               )}
@@ -440,9 +442,9 @@ export default function AdminApplications() {
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8">
                         {searchTerm || filterStatus !== "all" ? (
-                          <p className="text-muted-foreground">No applications found matching your criteria.</p>
+                          <p className="text-muted-foreground">{t('noApplicationsFoundCriteria')}</p>
                         ) : (
-                          <p className="text-muted-foreground">No applications submitted yet.</p>
+                          <p className="text-muted-foreground">{t('noApplicationsSubmittedYet')}</p>
                         )}
                       </TableCell>
                     </TableRow>
@@ -457,55 +459,55 @@ export default function AdminApplications() {
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
           <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
-              <DialogTitle>Application Details</DialogTitle>
+              <DialogTitle>{t('applicationDetails')}</DialogTitle>
               <DialogDescription>
-                Review the complete application information
+                {t('reviewCompleteApplication')}
               </DialogDescription>
             </DialogHeader>
             {viewApplication && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">First Name</h3>
+                    <h3 className="text-sm font-medium text-muted-foreground">{t('firstName')}</h3>
                     <p>{viewApplication.firstName}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Last Name</h3>
+                    <h3 className="text-sm font-medium text-muted-foreground">{t('lastName')}</h3>
                     <p>{viewApplication.lastName}</p>
                   </div>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('email')}</h3>
                   <p>{viewApplication.email}</p>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Phone</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('phoneNumber')}</h3>
                   <p>{viewApplication.phone}</p>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Address</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('address')}</h3>
                   <p>{viewApplication.streetAddress}</p>
                   <p>{viewApplication.city}, {viewApplication.state} {viewApplication.zipCode}</p>
                   <p>{viewApplication.country}</p>
                   {viewApplication.community && (
-                    <p className="text-muted-foreground text-sm mt-1">Community: {viewApplication.community}</p>
+                    <p className="text-muted-foreground text-sm mt-1">{t('community')}: {viewApplication.community}</p>
                   )}
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Message</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('message')}</h3>
                   <Textarea 
-                    value={viewApplication.message || "No message provided"} 
+                    value={viewApplication.message || t('noMessageProvided')} 
                     readOnly 
                     className="h-24 mt-1"
                   />
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('status')}</h3>
                   <div className="mt-1">{getStatusBadge(viewApplication.status)}</div>
                 </div>
                 
@@ -517,7 +519,7 @@ export default function AdminApplications() {
                         onClick={() => handleReject(viewApplication.id)}
                       >
                         <X className="mr-2 h-4 w-4" />
-                        Reject
+                        {t('rejectApplication')}
                       </Button>
                       <Button 
                         onClick={() => {
@@ -526,13 +528,13 @@ export default function AdminApplications() {
                         }}
                       >
                         <Plus className="mr-2 h-4 w-4" />
-                        Approve & Create Location
+                        {t('approveCreateLocation')}
                       </Button>
                     </>
                   )}
                   {viewApplication.status !== "pending" && (
                     <Button onClick={() => setIsViewDialogOpen(false)}>
-                      Close
+                      {t('close')}
                     </Button>
                   )}
                 </div>
@@ -545,30 +547,30 @@ export default function AdminApplications() {
         <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
           <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Approve Application & Create Location</DialogTitle>
+              <DialogTitle>{t('approveApplicationCreateLocation')}</DialogTitle>
               <DialogDescription>
-                Fill in the location details to approve this application and create a new gemach location.
+                {t('fillLocationDetailsApprove')}
               </DialogDescription>
             </DialogHeader>
             {approveApplication && (
               <div className="space-y-4">
                 <div className="bg-muted p-4 rounded-lg">
-                  <h4 className="font-medium mb-2">Applicant Information</h4>
+                  <h4 className="font-medium mb-2">{t('applicantInformation')}</h4>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Name:</span>{" "}
+                      <span className="text-muted-foreground">{t('name')}:</span>{" "}
                       {approveApplication.firstName} {approveApplication.lastName}
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Email:</span>{" "}
+                      <span className="text-muted-foreground">{t('email')}:</span>{" "}
                       {approveApplication.email}
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Phone:</span>{" "}
+                      <span className="text-muted-foreground">{t('phoneNumber')}:</span>{" "}
                       {approveApplication.phone}
                     </div>
                     <div className="col-span-2">
-                      <span className="text-muted-foreground">Address:</span>{" "}
+                      <span className="text-muted-foreground">{t('address')}:</span>{" "}
                       {approveApplication.streetAddress}, {approveApplication.city}, {approveApplication.state} {approveApplication.zipCode}, {approveApplication.country}
                       {approveApplication.community && ` (${approveApplication.community})`}
                     </div>
@@ -582,7 +584,7 @@ export default function AdminApplications() {
                       name="name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Location Name</FormLabel>
+                          <FormLabel>{t('locationName')}</FormLabel>
                           <FormControl>
                             <Input {...field} placeholder="e.g., Brooklyn Baby Banz Gemach" />
                           </FormControl>
@@ -597,7 +599,7 @@ export default function AdminApplications() {
                         name="contactPerson"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Contact Person</FormLabel>
+                            <FormLabel>{t('contactPerson')}</FormLabel>
                             <FormControl>
                               <Input {...field} />
                             </FormControl>
@@ -611,7 +613,7 @@ export default function AdminApplications() {
                         name="regionId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Region</FormLabel>
+                            <FormLabel>{t('region')}</FormLabel>
                             <Select 
                               onValueChange={(value) => {
                                 field.onChange(parseInt(value));
@@ -621,7 +623,7 @@ export default function AdminApplications() {
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select region" />
+                                  <SelectValue placeholder={t('selectRegion')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
@@ -645,10 +647,10 @@ export default function AdminApplications() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>
-                              Community Category
+                              {t('communityCategory')}
                               {approveApplication?.community && (
                                 <span className="ml-2 text-xs text-muted-foreground">
-                                  (Applicant selected: {approveApplication.community})
+                                  ({t('applicantSelected')}: {approveApplication.community})
                                 </span>
                               )}
                             </FormLabel>
@@ -658,11 +660,11 @@ export default function AdminApplications() {
                             >
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select community category" />
+                                  <SelectValue placeholder={t('selectCommunityCategory')} />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="none">No category (will appear at end of region)</SelectItem>
+                                <SelectItem value="none">{t('noCategoryOption')}</SelectItem>
                                 {filteredCityCategories.map((category) => (
                                   <SelectItem key={category.id} value={category.id.toString()}>
                                     {category.name}
@@ -680,11 +682,11 @@ export default function AdminApplications() {
                         name="operatorPin"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Operator PIN</FormLabel>
+                            <FormLabel>{t('operatorPIN')}</FormLabel>
                             <FormControl>
                               <Input 
                                 {...field}
-                                placeholder="4-6 digit PIN"
+                                placeholder={t('pinPlaceholder')}
                                 value={field.value ?? ""}
                                 maxLength={6}
                                 inputMode="numeric"
@@ -702,9 +704,9 @@ export default function AdminApplications() {
                       name="address"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Full Address</FormLabel>
+                          <FormLabel>{t('fullAddress')}</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Street, City, State, Country" />
+                            <Input {...field} placeholder={t('addressPlaceholder')} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -717,7 +719,7 @@ export default function AdminApplications() {
                         name="zipCode"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Zip Code</FormLabel>
+                            <FormLabel>{t('zipCode')}</FormLabel>
                             <FormControl>
                               <Input {...field} value={field.value ?? ""} />
                             </FormControl>
@@ -731,7 +733,7 @@ export default function AdminApplications() {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Phone</FormLabel>
+                            <FormLabel>{t('phoneNumber')}</FormLabel>
                             <FormControl>
                               <Input {...field} type="tel" />
                             </FormControl>
@@ -746,7 +748,7 @@ export default function AdminApplications() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email</FormLabel>
+                          <FormLabel>{t('email')}</FormLabel>
                           <FormControl>
                             <Input {...field} type="email" />
                           </FormControl>
@@ -761,7 +763,7 @@ export default function AdminApplications() {
                         name="depositAmount"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Deposit Amount ($)</FormLabel>
+                            <FormLabel>{t('depositAmount')} ($)</FormLabel>
                             <FormControl>
                               <Input 
                                 {...field} 
@@ -786,7 +788,7 @@ export default function AdminApplications() {
                           form.reset();
                         }}
                       >
-                        Cancel
+                        {t('cancel')}
                       </Button>
                       <Button 
                         type="submit"
@@ -795,12 +797,12 @@ export default function AdminApplications() {
                         {approveWithLocationMutation.isPending ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creating Location...
+                            {t('creatingLocation')}
                           </>
                         ) : (
                           <>
                             <Check className="mr-2 h-4 w-4" />
-                            Approve & Create Location
+                            {t('approveCreateLocation')}
                           </>
                         )}
                       </Button>
@@ -818,21 +820,19 @@ export default function AdminApplications() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Check className="h-5 w-5 text-green-500" />
-                Application Approved
+                {t('applicationApproved')}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                The application has been approved and a new location has been created. 
-                Share this invite code with the new operator so they can create their account:
+                {t('applicationApprovedSuccessWithCode')} {t('shareInviteCodeDescription')}
               </p>
               <div className="bg-muted p-4 rounded-lg text-center">
-                <p className="text-xs text-muted-foreground mb-2">Invite Code</p>
+                <p className="text-xs text-muted-foreground mb-2">{t('inviteCode')}</p>
                 <p className="text-2xl font-mono font-bold tracking-wider">{generatedInviteCode}</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                This code can only be used once. The new operator will use this code when registering 
-                to automatically be assigned to their location.
+                {t('inviteCodeOnceUse')}
               </p>
               <div className="flex justify-end">
                 <Button 
@@ -840,18 +840,18 @@ export default function AdminApplications() {
                     if (generatedInviteCode) {
                       navigator.clipboard.writeText(generatedInviteCode);
                       toast({
-                        title: "Copied!",
-                        description: "Invite code copied to clipboard.",
+                        title: t('copied'),
+                        description: t('inviteCodeCopied'),
                       });
                     }
                   }}
                   variant="outline"
                   className="mr-2"
                 >
-                  Copy Code
+                  {t('copyCode')}
                 </Button>
                 <Button onClick={() => setIsInviteCodeDialogOpen(false)}>
-                  Done
+                  {t('done')}
                 </Button>
               </div>
             </div>

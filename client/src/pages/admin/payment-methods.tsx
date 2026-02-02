@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertPaymentMethodSchema } from "@shared/schema";
 
@@ -45,6 +46,7 @@ export default function PaymentMethodsAdmin() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const { data: paymentMethods = [], isLoading } = useQuery<PaymentMethod[]>({
     queryKey: ["/api/payment-methods"],
@@ -76,11 +78,11 @@ export default function PaymentMethodsAdmin() {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
       setIsCreating(false);
       form.reset();
-      toast({ title: "Payment method created successfully" });
+      toast({ title: t('paymentMethodCreated') });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to create payment method",
+        title: t('failedToCreatePaymentMethod'),
         description: error.message,
         variant: "destructive",
       });
@@ -95,11 +97,11 @@ export default function PaymentMethodsAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
       setEditingId(null);
-      toast({ title: "Payment method updated successfully" });
+      toast({ title: t('paymentMethodUpdated') });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to update payment method",
+        title: t('failedToUpdatePaymentMethod'),
         description: error.message,
         variant: "destructive",
       });
@@ -112,11 +114,11 @@ export default function PaymentMethodsAdmin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
-      toast({ title: "Payment method deleted successfully" });
+      toast({ title: t('paymentMethodDeleted') });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to delete payment method",
+        title: t('failedToDeletePaymentMethod'),
         description: error.message,
         variant: "destructive",
       });
@@ -131,13 +133,13 @@ export default function PaymentMethodsAdmin() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
       toast({ 
-        title: "Payment method configured successfully",
-        description: `${data.method?.displayName} is now active and available across all locations`
+        title: t('paymentMethodConfigured'),
+        description: `${data.method?.displayName} ${t('isNowActiveAcrossAllLocations')}`
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Failed to configure payment method",
+        title: t('failedToConfigurePaymentMethod'),
         description: error.message,
         variant: "destructive",
       });
@@ -179,7 +181,7 @@ export default function PaymentMethodsAdmin() {
   };
 
   const formatFee = (percent: number, fixed: number) => {
-    if (percent === 0 && fixed === 0) return "No fees";
+    if (percent === 0 && fixed === 0) return t('noFees');
     const parts = [];
     if (percent > 0) parts.push(`${(percent / 100).toFixed(2)}%`);
     if (fixed > 0) parts.push(`$${(fixed / 100).toFixed(2)}`);
@@ -204,7 +206,7 @@ export default function PaymentMethodsAdmin() {
           className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          {t('backToDashboard')}
         </Button>
         <Button 
           variant="outline" 
@@ -213,18 +215,18 @@ export default function PaymentMethodsAdmin() {
           className="flex items-center gap-2"
         >
           <Home className="h-4 w-4" />
-          Home
+          {t('home')}
         </Button>
       </div>
 
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Payment Methods Management</h1>
+        <h1 className="text-3xl font-bold">{t('paymentMethodsManagement')}</h1>
         <Button
           onClick={() => setIsCreating(true)}
           className="flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
-          Add Payment Method
+          {t('addPaymentMethod')}
         </Button>
       </div>
 
@@ -236,23 +238,22 @@ export default function PaymentMethodsAdmin() {
               <Plus className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold mb-2">Global Payment System</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('globalPaymentSystem')}</h3>
               <p className="text-gray-600 mb-3">
-                Changes made here automatically synchronize across all locations. When you configure API credentials 
-                or modify payment methods, the system instantly updates all location payment options.
+                {t('globalPaymentSystemDescription')}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Real-time synchronization</span>
+                  <span>{t('realTimeSynchronization')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>Automatic API configuration</span>
+                  <span>{t('automaticApiConfiguration')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span>Global availability control</span>
+                  <span>{t('globalAvailabilityControl')}</span>
                 </div>
               </div>
             </div>
@@ -264,52 +265,52 @@ export default function PaymentMethodsAdmin() {
       {isCreating && (
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Create New Payment Method</CardTitle>
+            <CardTitle>{t('createNewPaymentMethod')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="name">Method Name</Label>
+                  <Label htmlFor="name">{t('methodName')}</Label>
                   <Input
                     id="name"
                     {...form.register("name")}
-                    placeholder="e.g., stripe, paypal, cash"
+                    placeholder={t('methodNamePlaceholder')}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="displayName">Display Name</Label>
+                  <Label htmlFor="displayName">{t('displayName')}</Label>
                   <Input
                     id="displayName"
                     {...form.register("displayName")}
-                    placeholder="e.g., Credit/Debit Card, PayPal"
+                    placeholder={t('displayNamePlaceholder')}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="provider">Provider</Label>
+                  <Label htmlFor="provider">{t('provider')}</Label>
                   <Input
                     id="provider"
                     {...form.register("provider")}
-                    placeholder="e.g., stripe, paypal (optional)"
+                    placeholder={t('providerPlaceholder')}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="processingFeePercent">Processing Fee (%)</Label>
+                  <Label htmlFor="processingFeePercent">{t('processingFeePercent')}</Label>
                   <Input
                     id="processingFeePercent"
                     type="number"
                     step="0.01"
                     {...form.register("processingFeePercent", { valueAsNumber: true })}
-                    placeholder="e.g., 2.9 for 2.9%"
+                    placeholder={t('processingFeePlaceholder')}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="fixedFee">Fixed Fee (cents)</Label>
+                  <Label htmlFor="fixedFee">{t('fixedFeeCents')}</Label>
                   <Input
                     id="fixedFee"
                     type="number"
                     {...form.register("fixedFee", { valueAsNumber: true })}
-                    placeholder="e.g., 30 for $0.30"
+                    placeholder={t('fixedFeePlaceholder')}
                   />
                 </div>
               </div>
@@ -320,65 +321,65 @@ export default function PaymentMethodsAdmin() {
                     id="isActive"
                     {...form.register("isActive")}
                   />
-                  <Label htmlFor="isActive">Active</Label>
+                  <Label htmlFor="isActive">{t('active')}</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="isAvailableToLocations"
                     {...form.register("isAvailableToLocations")}
                   />
-                  <Label htmlFor="isAvailableToLocations">Available to Locations</Label>
+                  <Label htmlFor="isAvailableToLocations">{t('availableToLocations')}</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="requiresApi"
                     {...form.register("requiresApi")}
                   />
-                  <Label htmlFor="requiresApi">Requires API</Label>
+                  <Label htmlFor="requiresApi">{t('requiresApi')}</Label>
                 </div>
               </div>
 
               {/* API Credentials Section */}
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium mb-3">API Configuration (Optional)</h4>
+                <h4 className="text-sm font-medium mb-3">{t('apiConfigurationOptional')}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="apiKey">API Key</Label>
+                    <Label htmlFor="apiKey">{t('apiKey')}</Label>
                     <Input
                       id="apiKey"
                       type="password"
                       {...form.register("apiKey")}
-                      placeholder="Enter API key for this payment provider"
+                      placeholder={t('apiKeyPlaceholder')}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="apiSecret">API Secret</Label>
+                    <Label htmlFor="apiSecret">{t('apiSecret')}</Label>
                     <Input
                       id="apiSecret"
                       type="password"
                       {...form.register("apiSecret")}
-                      placeholder="Enter API secret"
+                      placeholder={t('apiSecretPlaceholder')}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="webhookSecret">Webhook Secret (Optional)</Label>
+                    <Label htmlFor="webhookSecret">{t('webhookSecretOptional')}</Label>
                     <Input
                       id="webhookSecret"
                       type="password"
                       {...form.register("webhookSecret")}
-                      placeholder="Enter webhook secret if required"
+                      placeholder={t('webhookSecretPlaceholder')}
                     />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Adding API credentials will automatically configure and activate this payment method across all locations.
+                  {t('apiCredentialsAutoActivate')}
                 </p>
               </div>
 
               <div className="flex gap-2">
                 <Button type="submit" disabled={createMutation.isPending}>
                   <Save className="h-4 w-4 mr-2" />
-                  Create Method
+                  {t('createMethod')}
                 </Button>
                 <Button
                   type="button"
@@ -389,7 +390,7 @@ export default function PaymentMethodsAdmin() {
                   }}
                 >
                   <X className="h-4 w-4 mr-2" />
-                  Cancel
+                  {t('cancel')}
                 </Button>
               </div>
             </form>
@@ -406,28 +407,28 @@ export default function PaymentMethodsAdmin() {
                 <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor={`name-${method.id}`}>Method Name</Label>
+                      <Label htmlFor={`name-${method.id}`}>{t('methodName')}</Label>
                       <Input
                         id={`name-${method.id}`}
                         {...form.register("name")}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`displayName-${method.id}`}>Display Name</Label>
+                      <Label htmlFor={`displayName-${method.id}`}>{t('displayName')}</Label>
                       <Input
                         id={`displayName-${method.id}`}
                         {...form.register("displayName")}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`provider-${method.id}`}>Provider</Label>
+                      <Label htmlFor={`provider-${method.id}`}>{t('provider')}</Label>
                       <Input
                         id={`provider-${method.id}`}
                         {...form.register("provider")}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`processingFeePercent-${method.id}`}>Processing Fee (%)</Label>
+                      <Label htmlFor={`processingFeePercent-${method.id}`}>{t('processingFeePercent')}</Label>
                       <Input
                         id={`processingFeePercent-${method.id}`}
                         type="number"
@@ -436,7 +437,7 @@ export default function PaymentMethodsAdmin() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`fixedFee-${method.id}`}>Fixed Fee (cents)</Label>
+                      <Label htmlFor={`fixedFee-${method.id}`}>{t('fixedFeeCents')}</Label>
                       <Input
                         id={`fixedFee-${method.id}`}
                         type="number"
@@ -451,28 +452,28 @@ export default function PaymentMethodsAdmin() {
                         id={`isActive-${method.id}`}
                         {...form.register("isActive")}
                       />
-                      <Label htmlFor={`isActive-${method.id}`}>Active</Label>
+                      <Label htmlFor={`isActive-${method.id}`}>{t('active')}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Switch
                         id={`isAvailableToLocations-${method.id}`}
                         {...form.register("isAvailableToLocations")}
                       />
-                      <Label htmlFor={`isAvailableToLocations-${method.id}`}>Available to Locations</Label>
+                      <Label htmlFor={`isAvailableToLocations-${method.id}`}>{t('availableToLocations')}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Switch
                         id={`requiresApi-${method.id}`}
                         {...form.register("requiresApi")}
                       />
-                      <Label htmlFor={`requiresApi-${method.id}`}>Requires API</Label>
+                      <Label htmlFor={`requiresApi-${method.id}`}>{t('requiresApi')}</Label>
                     </div>
                   </div>
 
                   <div className="flex gap-2">
                     <Button type="submit" disabled={updateMutation.isPending}>
                       <Save className="h-4 w-4 mr-2" />
-                      Save Changes
+                      {t('saveChanges')}
                     </Button>
                     <Button
                       type="button"
@@ -480,7 +481,7 @@ export default function PaymentMethodsAdmin() {
                       onClick={() => setEditingId(null)}
                     >
                       <X className="h-4 w-4 mr-2" />
-                      Cancel
+                      {t('cancel')}
                     </Button>
                   </div>
                 </form>
@@ -490,43 +491,42 @@ export default function PaymentMethodsAdmin() {
                     <div className="flex items-center gap-4 mb-2">
                       <h3 className="text-xl font-semibold">{method.displayName}</h3>
                       <Badge variant={method.isActive ? "default" : "secondary"}>
-                        {method.isActive ? "Active" : "Inactive"}
+                        {method.isActive ? t('active') : t('inactive')}
                       </Badge>
                       <Badge variant={method.isAvailableToLocations ? "default" : "outline"}>
-                        {method.isAvailableToLocations ? "Available to Locations" : "Not Available"}
+                        {method.isAvailableToLocations ? t('availableToLocations') : t('notAvailable')}
                       </Badge>
                       {method.requiresApi && (
-                        <Badge variant="outline">Requires API</Badge>
+                        <Badge variant="outline">{t('requiresApi')}</Badge>
                       )}
                       {method.requiresApi && (
                         <Badge variant={method.isConfigured ? "default" : "destructive"}>
-                          {method.isConfigured ? "API Configured" : "API Not Configured"}
+                          {method.isConfigured ? t('apiConfigured') : t('apiNotConfigured')}
                         </Badge>
                       )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 mb-3">
                       <div>
-                        <strong>Method:</strong> {method.name}
+                        <strong>{t('method')}:</strong> {method.name}
                       </div>
                       <div>
-                        <strong>Provider:</strong> {method.provider || "Manual"}
+                        <strong>{t('provider')}:</strong> {method.provider || t('manual')}
                       </div>
                       <div>
-                        <strong>Fees:</strong> {formatFee(method.processingFeePercent, method.fixedFee)}
+                        <strong>{t('fees')}:</strong> {formatFee(method.processingFeePercent, method.fixedFee)}
                       </div>
                     </div>
                     {method.requiresApi && !method.isConfigured && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
                         <p className="text-sm text-yellow-800">
-                          <strong>API Configuration Required:</strong> This payment method requires API credentials to function properly. 
-                          Add your API keys to automatically activate this method across all locations.
+                          <strong>{t('apiConfigurationRequired')}:</strong> {t('apiConfigurationRequiredDescription')}
                         </p>
                       </div>
                     )}
                     {method.isConfigured && method.isAvailableToLocations && (
                       <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-3">
                         <p className="text-sm text-green-800">
-                          <strong>Synchronized:</strong> This payment method is configured and active across all locations.
+                          <strong>{t('synchronized')}:</strong> {t('synchronizedDescription')}
                         </p>
                       </div>
                     )}
@@ -538,7 +538,7 @@ export default function PaymentMethodsAdmin() {
                       onClick={() => toggleAvailability(method)}
                       disabled={updateMutation.isPending}
                     >
-                      {method.isAvailableToLocations ? "Hide from Locations" : "Make Available"}
+                      {method.isAvailableToLocations ? t('hideFromLocations') : t('makeAvailable')}
                     </Button>
                     <Button
                       variant="outline"
@@ -566,13 +566,13 @@ export default function PaymentMethodsAdmin() {
       {paymentMethods.length === 0 && (
         <Card>
           <CardContent className="p-8 text-center">
-            <p className="text-gray-500">No payment methods configured yet.</p>
+            <p className="text-gray-500">{t('noPaymentMethodsConfigured')}</p>
             <Button
               onClick={() => setIsCreating(true)}
               className="mt-4 flex items-center gap-2 mx-auto"
             >
               <Plus className="h-4 w-4" />
-              Add Your First Payment Method
+              {t('addFirstPaymentMethod')}
             </Button>
           </CardContent>
         </Card>

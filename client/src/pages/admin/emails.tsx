@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { apiRequest } from "@/lib/queryClient";
 import { 
   Mail, 
@@ -62,6 +63,7 @@ export default function AdminEmails() {
   const [replyText, setReplyText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
 
   const { data: emails = [], isLoading, refetch, isRefetching, error, isError } = useQuery<Email[]>({
@@ -85,14 +87,14 @@ export default function AdminEmails() {
     onSuccess: (data) => {
       setReplyText(data.response);
       toast({
-        title: "AI Response Generated",
-        description: "Review and edit the response before sending."
+        title: t('aiResponseGenerated'),
+        description: t('reviewEditBeforeSending')
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to generate response",
+        title: t('error'),
+        description: error.message || t('failedToGenerateResponse'),
         variant: "destructive"
       });
     }
@@ -104,8 +106,8 @@ export default function AdminEmails() {
     },
     onSuccess: () => {
       toast({
-        title: "Reply Sent",
-        description: "Your email has been sent successfully."
+        title: t('replySent'),
+        description: t('emailSentSuccessfully')
       });
       setReplyText("");
       setSelectedEmail(null);
@@ -113,8 +115,8 @@ export default function AdminEmails() {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to send reply",
+        title: t('error'),
+        description: error.message || t('failedToSendReply'),
         variant: "destructive"
       });
     }
@@ -152,7 +154,7 @@ export default function AdminEmails() {
           <div className="flex items-center gap-4 mb-6">
             <Button variant="ghost" size="sm" onClick={() => setSelectedEmail(null)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Inbox
+              {t('backToInbox')}
             </Button>
           </div>
 
@@ -160,7 +162,7 @@ export default function AdminEmails() {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                  <CardTitle className="text-xl">{selectedEmail.subject || "(No Subject)"}</CardTitle>
+                  <CardTitle className="text-xl">{selectedEmail.subject || t('noSubject')}</CardTitle>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <User className="h-4 w-4" />
                     <span>{selectedEmail.from}</span>
@@ -171,7 +173,7 @@ export default function AdminEmails() {
                   </div>
                 </div>
                 {!selectedEmail.isRead && (
-                  <Badge variant="secondary">Unread</Badge>
+                  <Badge variant="secondary">{t('unread')}</Badge>
                 )}
               </div>
             </CardHeader>
@@ -195,12 +197,12 @@ export default function AdminEmails() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Send className="h-5 w-5" />
-                Reply
+                {t('reply')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea
-                placeholder="Write your reply here..."
+                placeholder={t('writeYourReply')}
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 rows={8}
@@ -213,14 +215,14 @@ export default function AdminEmails() {
                   disabled={isGenerating || generateResponseMutation.isPending}
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
-                  {isGenerating ? "Generating..." : "Generate AI Response"}
+                  {isGenerating ? t('generating') : t('generateAIResponse')}
                 </Button>
                 <Button
                   onClick={handleSendReply}
                   disabled={!replyText.trim() || sendReplyMutation.isPending}
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {sendReplyMutation.isPending ? "Sending..." : "Send Reply"}
+                  {sendReplyMutation.isPending ? t('sending') : t('sendReply')}
                 </Button>
               </div>
             </CardContent>
@@ -243,17 +245,17 @@ export default function AdminEmails() {
             <div>
               <h1 className="text-3xl font-bold flex items-center gap-3">
                 <Inbox className="h-8 w-8" />
-                Email Inbox
+                {t('emailInbox')}
               </h1>
               <p className="text-muted-foreground">
-                Manage emails from earmuffsgemach@gmail.com
+                {t('manageEmailsFromGemach')}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
               <Badge variant="secondary" className="text-sm">
-                {unreadCount} unread
+                {unreadCount} {t('unread')}
               </Badge>
             )}
             <Button 
@@ -263,7 +265,7 @@ export default function AdminEmails() {
               disabled={isRefetching}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
-              Refresh
+              {t('refresh')}
             </Button>
           </div>
         </div>
@@ -286,20 +288,20 @@ export default function AdminEmails() {
             ) : isError ? (
               <div className="p-12 text-center">
                 <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
-                <h3 className="text-lg font-medium">Failed to load emails</h3>
+                <h3 className="text-lg font-medium">{t('failedToLoadEmails')}</h3>
                 <p className="text-muted-foreground mb-4">
-                  {(error as any)?.message || "Could not connect to Gmail. Please check your configuration."}
+                  {(error as any)?.message || t('couldNotConnectGmail')}
                 </p>
                 <Button variant="outline" onClick={() => refetch()}>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Try Again
+                  {t('tryAgain')}
                 </Button>
               </div>
             ) : emails.length === 0 ? (
               <div className="p-12 text-center">
                 <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium">No emails found</h3>
-                <p className="text-muted-foreground">Your inbox is empty or Gmail is not connected.</p>
+                <h3 className="text-lg font-medium">{t('noEmailsFound')}</h3>
+                <p className="text-muted-foreground">{t('inboxEmptyOrNotConnected')}</p>
               </div>
             ) : (
               <div className="divide-y">
@@ -326,7 +328,7 @@ export default function AdminEmails() {
                         </span>
                       </div>
                       <p className={`text-sm truncate ${!email.isRead ? 'font-medium' : ''}`}>
-                        {email.subject || "(No Subject)"}
+                        {email.subject || t('noSubject')}
                       </p>
                       <p className="text-xs text-muted-foreground truncate mt-1">
                         {email.snippet}

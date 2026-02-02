@@ -4,6 +4,7 @@ import { getLocations, getTransactions, markTransactionReturned } from "@/lib/ap
 import { Location, Transaction } from "@shared/schema";
 import { TransactionForm } from "@/components/admin/transaction-form";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import {
   Card,
   CardContent,
@@ -68,6 +69,7 @@ import {
 
 export default function AdminTransactions() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -95,16 +97,16 @@ export default function AdminTransactions() {
       markTransactionReturned(id, { refundAmount, notes }),
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Earmuffs have been marked as returned and refund processed.",
+        title: t('success'),
+        description: t('transactionUpdatedSuccess'),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       closeRefundDialog();
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to update status: ${error.message}`,
+        title: t('error'),
+        description: `${t('failedToUpdateStatus')} ${error.message}`,
         variant: "destructive",
       });
     },
@@ -191,7 +193,7 @@ export default function AdminTransactions() {
             className="flex items-center gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            {t('backToDashboard')}
           </Button>
           <Button 
             variant="outline" 
@@ -200,14 +202,14 @@ export default function AdminTransactions() {
             className="flex items-center gap-2"
           >
             <Home className="h-4 w-4" />
-            Home
+            {t('home')}
           </Button>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Manage Transactions</h1>
-            <p className="text-muted-foreground">Track deposits and earmuff borrowing</p>
+            <h1 className="text-3xl font-bold">{t('transactionManagement')}</h1>
+            <p className="text-muted-foreground">{t('trackDepositsAndBorrowing')}</p>
           </div>
           
           <div className="mt-4 md:mt-0">
@@ -215,14 +217,14 @@ export default function AdminTransactions() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  New Transaction
+                  {t('addNewTransaction')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[550px]">
                 <DialogHeader>
-                  <DialogTitle>Record New Transaction</DialogTitle>
+                  <DialogTitle>{t('addNewTransaction')}</DialogTitle>
                   <DialogDescription>
-                    Record a new deposit for borrowed earmuffs.
+                    {t('recordNewTransactionDescription')}
                   </DialogDescription>
                 </DialogHeader>
                 <TransactionForm 
@@ -236,15 +238,15 @@ export default function AdminTransactions() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Transactions</CardTitle>
+            <CardTitle>{t('transactions')}</CardTitle>
             <CardDescription>
-              Manage earmuff loans and track deposits
+              {t('trackDepositsAndBorrowing')}
             </CardDescription>
             <div className="mt-4 flex flex-col sm:flex-row gap-4">
               <div className="relative flex-grow">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search transactions..."
+                  placeholder={t('search')}
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -256,21 +258,21 @@ export default function AdminTransactions() {
                   size="sm"
                   onClick={() => setFilterStatus("all")}
                 >
-                  All
+                  {t('allTransactions')}
                 </Button>
                 <Button 
                   variant={filterStatus === "active" ? "default" : "outline"} 
                   size="sm"
                   onClick={() => setFilterStatus("active")}
                 >
-                  Active
+                  {t('activeOnly')}
                 </Button>
                 <Button 
                   variant={filterStatus === "returned" ? "default" : "outline"} 
                   size="sm"
                   onClick={() => setFilterStatus("returned")}
                 >
-                  Returned
+                  {t('returnedOnly')}
                 </Button>
               </div>
             </div>
@@ -280,13 +282,13 @@ export default function AdminTransactions() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Borrower</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Deposit</TableHead>
-                    <TableHead>Refund</TableHead>
-                    <TableHead>Dates</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{t('borrower')}</TableHead>
+                    <TableHead>{t('location')}</TableHead>
+                    <TableHead>{t('depositLabel')}</TableHead>
+                    <TableHead>{t('refund')}</TableHead>
+                    <TableHead>{t('dates')}</TableHead>
+                    <TableHead>{t('status')}</TableHead>
+                    <TableHead>{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -333,17 +335,17 @@ export default function AdminTransactions() {
                                 </div>
                                 {refundStatus === "full" && (
                                   <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                                    Full Refund
+                                    {t('fullRefund')}
                                   </Badge>
                                 )}
                                 {refundStatus === "partial" && (
                                   <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                                    Partial
+                                    {t('partialRefund')}
                                   </Badge>
                                 )}
                                 {refundStatus === "none" && (
                                   <Badge variant="outline" className="text-muted-foreground">
-                                    No Refund
+                                    {t('noRefund')}
                                   </Badge>
                                 )}
                               </div>
@@ -361,7 +363,7 @@ export default function AdminTransactions() {
                             {transaction.expectedReturnDate && (
                               <div className="flex items-center mt-1">
                                 <span className="text-xs text-muted-foreground">
-                                  Due: {format(new Date(transaction.expectedReturnDate), "MMM d, yyyy")}
+                                  {t('dueDate')}: {format(new Date(transaction.expectedReturnDate), "MMM d, yyyy")}
                                 </span>
                                 {isOverdue && (
                                   <TooltipProvider>
@@ -370,7 +372,7 @@ export default function AdminTransactions() {
                                         <AlertCircle className="h-3 w-3 ml-1 text-red-500" />
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>Past expected return date</p>
+                                        <p>{t('pastExpectedReturnDate')}</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
@@ -379,18 +381,18 @@ export default function AdminTransactions() {
                             )}
                             {transaction.actualReturnDate && (
                               <div className="text-xs text-muted-foreground mt-1">
-                                Returned: {format(new Date(transaction.actualReturnDate), "MMM d, yyyy")}
+                                {t('returned')}: {format(new Date(transaction.actualReturnDate), "MMM d, yyyy")}
                               </div>
                             )}
                           </TableCell>
                           <TableCell>
                             {transaction.isReturned ? (
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                                Returned
+                                {t('returned')}
                               </Badge>
                             ) : (
                               <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-                                Active
+                                {t('activeBorrow')}
                               </Badge>
                             )}
                           </TableCell>
@@ -398,21 +400,21 @@ export default function AdminTransactions() {
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
+                                  <span className="sr-only">{t('openMenu')}</span>
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuLabel>{t('actions')}</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleEditTransaction(transaction)}>
                                   <Edit className="mr-2 h-4 w-4" />
-                                  Edit Details
+                                  {t('edit')}
                                 </DropdownMenuItem>
                                 {!transaction.isReturned && (
                                   <DropdownMenuItem onClick={() => openRefundDialog(transaction)}>
                                     <RotateCw className="mr-2 h-4 w-4" />
-                                    Mark as Returned
+                                    {t('markAsReturned')}
                                   </DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
@@ -425,9 +427,9 @@ export default function AdminTransactions() {
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8">
                         {searchTerm || filterStatus !== "all" ? (
-                          <p className="text-muted-foreground">No transactions found matching your search criteria.</p>
+                          <p className="text-muted-foreground">{t('noTransactionsMatchSearch')}</p>
                         ) : (
-                          <p className="text-muted-foreground">No transactions recorded yet. Create your first transaction.</p>
+                          <p className="text-muted-foreground">{t('noTransactionsYet')}</p>
                         )}
                       </TableCell>
                     </TableRow>
@@ -441,9 +443,9 @@ export default function AdminTransactions() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
-              <DialogTitle>Edit Transaction</DialogTitle>
+              <DialogTitle>{t('editTransaction')}</DialogTitle>
               <DialogDescription>
-                Update the details for this transaction.
+                {t('editTransactionDescription')}
               </DialogDescription>
             </DialogHeader>
             {editingTransaction && (
@@ -461,10 +463,10 @@ export default function AdminTransactions() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <RefreshCw className="h-5 w-5" />
-                Process Refund
+                {t('processRefund')}
               </DialogTitle>
               <DialogDescription>
-                Mark earmuffs as returned and process the deposit refund.
+                {t('processRefundDescription')}
               </DialogDescription>
             </DialogHeader>
             
@@ -472,20 +474,20 @@ export default function AdminTransactions() {
               <div className="space-y-6 py-4">
                 <div className="p-4 bg-muted rounded-lg">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-muted-foreground">Borrower</span>
+                    <span className="text-sm text-muted-foreground">{t('borrower')}</span>
                     <span className="font-medium">{refundTransaction.borrowerName}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Original Deposit</span>
+                    <span className="text-sm text-muted-foreground">{t('originalDeposit')}</span>
                     <span className="font-bold text-lg">${refundTransaction.depositAmount}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <Label htmlFor="full-refund" className="flex flex-col gap-1">
-                    <span>Full Refund</span>
+                    <span>{t('fullRefund')}</span>
                     <span className="text-xs text-muted-foreground font-normal">
-                      Refund the entire deposit amount
+                      {t('refundEntireDeposit')}
                     </span>
                   </Label>
                   <Switch
@@ -502,7 +504,7 @@ export default function AdminTransactions() {
 
                 {!isFullRefund && (
                   <div className="space-y-2">
-                    <Label htmlFor="refund-amount">Refund Amount</Label>
+                    <Label htmlFor="refund-amount">{t('refundAmount')}</Label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -511,23 +513,23 @@ export default function AdminTransactions() {
                         step="0.01"
                         min="0"
                         max={refundTransaction.depositAmount || 0}
-                        placeholder="Enter refund amount"
+                        placeholder={t('enterRefundAmount')}
                         className="pl-9"
                         value={refundAmount}
                         onChange={(e) => setRefundAmount(e.target.value)}
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Max refund: ${refundTransaction.depositAmount}
+                      {t('maxRefund')}: ${refundTransaction.depositAmount}
                     </p>
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="refund-notes">Notes (Optional)</Label>
+                  <Label htmlFor="refund-notes">{t('refundNotes')}</Label>
                   <Textarea
                     id="refund-notes"
-                    placeholder="Reason for refund amount, condition of returned item, etc."
+                    placeholder={t('refundNotesPlaceholder')}
                     value={refundNotes}
                     onChange={(e) => setRefundNotes(e.target.value)}
                     rows={3}
@@ -539,24 +541,24 @@ export default function AdminTransactions() {
             {refundTransaction && confirmStep && (
               <div className="space-y-4 py-4">
                 <div className="p-4 bg-muted rounded-lg space-y-3">
-                  <h4 className="font-semibold">Confirm Refund Details</h4>
+                  <h4 className="font-semibold">{t('confirmRefundDetails')}</h4>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Borrower</span>
+                    <span className="text-sm text-muted-foreground">{t('borrower')}</span>
                     <span className="font-medium">{refundTransaction.borrowerName}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Original Deposit</span>
+                    <span className="text-sm text-muted-foreground">{t('originalDeposit')}</span>
                     <span>${refundTransaction.depositAmount}</span>
                   </div>
                   <div className="flex justify-between items-center border-t pt-2">
-                    <span className="text-sm font-medium">Refund Amount</span>
+                    <span className="text-sm font-medium">{t('refundAmount')}</span>
                     <span className="font-bold text-lg text-green-600">
                       ${isFullRefund ? refundTransaction.depositAmount : refundAmount}
                     </span>
                   </div>
                   {!isFullRefund && (
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Retained</span>
+                      <span className="text-sm text-muted-foreground">{t('retained')}</span>
                       <span className="text-amber-600">
                         ${((refundTransaction.depositAmount || 0) - parseFloat(refundAmount || "0")).toFixed(2)}
                       </span>
@@ -564,7 +566,7 @@ export default function AdminTransactions() {
                   )}
                   {refundNotes && (
                     <div className="border-t pt-2">
-                      <span className="text-sm text-muted-foreground">Notes:</span>
+                      <span className="text-sm text-muted-foreground">{t('notes')}:</span>
                       <p className="text-sm mt-1">{refundNotes}</p>
                     </div>
                   )}
@@ -576,26 +578,26 @@ export default function AdminTransactions() {
               {!confirmStep ? (
                 <>
                   <Button variant="outline" onClick={closeRefundDialog}>
-                    Cancel
+                    {t('cancel')}
                   </Button>
                   <Button 
                     onClick={() => setConfirmStep(true)}
                     disabled={!isFullRefund && (!refundAmount || parseFloat(refundAmount) < 0)}
                   >
-                    Review Refund
+                    {t('reviewRefund')}
                   </Button>
                 </>
               ) : (
                 <>
                   <Button variant="outline" onClick={() => setConfirmStep(false)}>
-                    Back
+                    {t('back')}
                   </Button>
                   <Button 
                     onClick={handleProcessRefund}
                     disabled={markReturnedMutation.isPending}
                     className="bg-green-600 hover:bg-green-700"
                   >
-                    {markReturnedMutation.isPending ? "Processing..." : "Confirm & Process Refund"}
+                    {markReturnedMutation.isPending ? t('processing') : t('confirmAndProcessRefund')}
                   </Button>
                 </>
               )}

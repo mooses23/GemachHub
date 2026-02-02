@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +14,11 @@ import {
   AlertTriangle,
   RefreshCw,
   TrendingUp,
-  TrendingDown,
   BarChart3
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 
 interface PaymentDetectionAnalytics {
   totalPayments: number;
@@ -36,6 +36,7 @@ interface PaymentDetectionAnalytics {
 
 export default function PaymentStatusMonitor() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -60,14 +61,14 @@ export default function PaymentStatusMonitor() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/deposit-detection"] });
       toast({
-        title: "Status Check Complete",
-        description: "Payment statuses have been updated",
+        title: t('statusCheckComplete'),
+        description: t('paymentStatusesUpdated'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Status Check Failed",
-        description: error.message || "Failed to check payment statuses",
+        title: t('statusCheckFailed'),
+        description: error.message || t('failedToCheckPaymentStatuses'),
         variant: "destructive",
       });
     }
@@ -96,7 +97,7 @@ export default function PaymentStatusMonitor() {
   if (analyticsLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Payment Status Monitor</h1>
+        <h1 className="text-2xl font-bold">{t('paymentStatusMonitor')}</h1>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
@@ -108,9 +109,9 @@ export default function PaymentStatusMonitor() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">Payment Status Monitor</h1>
+          <h1 className="text-2xl font-bold">{t('paymentStatusMonitor')}</h1>
           <p className="text-gray-600 mt-1">
-            Real-time monitoring of deposit acceptance and decline detection
+            {t('paymentStatusMonitorDescription')}
           </p>
         </div>
         
@@ -120,19 +121,19 @@ export default function PaymentStatusMonitor() {
           className="flex items-center gap-2"
         >
           <RefreshCw className={`w-4 h-4 ${statusCheckMutation.isPending ? 'animate-spin' : ''}`} />
-          Check Status
+          {t('checkStatus')}
         </Button>
       </div>
 
       {/* Date Range Filter */}
       <Card>
         <CardHeader>
-          <CardTitle>Filter Analytics</CardTitle>
+          <CardTitle>{t('filterAnalytics')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 items-end">
             <div>
-              <Label htmlFor="startDate">Start Date</Label>
+              <Label htmlFor="startDate">{t('startDate')}</Label>
               <Input
                 id="startDate"
                 type="date"
@@ -141,7 +142,7 @@ export default function PaymentStatusMonitor() {
               />
             </div>
             <div>
-              <Label htmlFor="endDate">End Date</Label>
+              <Label htmlFor="endDate">{t('endDate')}</Label>
               <Input
                 id="endDate"
                 type="date"
@@ -157,46 +158,46 @@ export default function PaymentStatusMonitor() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('totalPayments')}</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics?.totalPayments || 0}</div>
             <p className="text-xs text-muted-foreground">
-              All payment attempts
+              {t('allPaymentAttempts')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('pendingReview')}</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics?.pendingPayments || 0}</div>
             <p className="text-xs text-muted-foreground">
-              Awaiting confirmation
+              {t('awaitingConfirmation')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Retryable Failures</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('retryableFailures')}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics?.retryableFailures || 0}</div>
             <p className="text-xs text-muted-foreground">
-              Can be retried
+              {t('canBeRetried')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('successRate')}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -206,7 +207,7 @@ export default function PaymentStatusMonitor() {
                 : 0}%
             </div>
             <p className="text-xs text-muted-foreground">
-              Overall acceptance rate
+              {t('overallAcceptanceRate')}
             </p>
           </CardContent>
         </Card>
@@ -214,15 +215,15 @@ export default function PaymentStatusMonitor() {
 
       <Tabs defaultValue="status" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="status">Payment Status</TabsTrigger>
-          <TabsTrigger value="methods">Method Performance</TabsTrigger>
-          <TabsTrigger value="detection">Detection Timeline</TabsTrigger>
+          <TabsTrigger value="status">{t('paymentStatus')}</TabsTrigger>
+          <TabsTrigger value="methods">{t('methodPerformance')}</TabsTrigger>
+          <TabsTrigger value="detection">{t('detectionTimeline')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="status" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Payment Status Breakdown</CardTitle>
+              <CardTitle>{t('paymentStatusBreakdown')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -249,7 +250,7 @@ export default function PaymentStatusMonitor() {
         <TabsContent value="methods" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Payment Method Performance</CardTitle>
+              <CardTitle>{t('paymentMethodPerformance')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -261,21 +262,21 @@ export default function PaymentStatusMonitor() {
                         <h3 className="font-semibold capitalize">{method.method}</h3>
                       </div>
                       <Badge variant={method.successRate >= 95 ? "default" : method.successRate >= 80 ? "secondary" : "destructive"}>
-                        {method.successRate.toFixed(1)}% Success
+                        {method.successRate.toFixed(1)}% {t('success')}
                       </Badge>
                     </div>
                     
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
-                        <div className="text-gray-600">Total Attempts</div>
+                        <div className="text-gray-600">{t('totalAttempts')}</div>
                         <div className="font-semibold">{method.total}</div>
                       </div>
                       <div>
-                        <div className="text-gray-600">Successful</div>
+                        <div className="text-gray-600">{t('successful')}</div>
                         <div className="font-semibold text-green-600">{method.successful}</div>
                       </div>
                       <div>
-                        <div className="text-gray-600">Failed</div>
+                        <div className="text-gray-600">{t('failed')}</div>
                         <div className="font-semibold text-red-600">{method.failed}</div>
                       </div>
                     </div>
@@ -301,54 +302,50 @@ export default function PaymentStatusMonitor() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
-                Real-time Detection Insights
+                {t('realtimeDetectionInsights')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-blue-50 rounded-lg">
-                  <h3 className="font-semibold text-blue-900 mb-2">Webhook Processing</h3>
+                  <h3 className="font-semibold text-blue-900 mb-2">{t('webhookProcessing')}</h3>
                   <p className="text-sm text-blue-800">
-                    Real-time status updates from Stripe and PayPal webhooks ensure immediate 
-                    deposit confirmation or decline detection.
+                    {t('webhookProcessingDescription')}
                   </p>
                 </div>
                 
                 <div className="p-4 bg-green-50 rounded-lg">
-                  <h3 className="font-semibold text-green-900 mb-2">Automatic Retries</h3>
+                  <h3 className="font-semibold text-green-900 mb-2">{t('automaticRetries')}</h3>
                   <p className="text-sm text-green-800">
-                    Failed payments with retryable errors are automatically scheduled for 
-                    reprocessing with exponential backoff.
+                    {t('automaticRetriesDescription')}
                   </p>
                 </div>
                 
                 <div className="p-4 bg-orange-50 rounded-lg">
-                  <h3 className="font-semibold text-orange-900 mb-2">Status Monitoring</h3>
+                  <h3 className="font-semibold text-orange-900 mb-2">{t('statusMonitoring')}</h3>
                   <p className="text-sm text-orange-800">
-                    Pending payments are monitored every 10 minutes to detect status changes 
-                    and ensure no deposits are missed.
+                    {t('statusMonitoringDescription')}
                   </p>
                 </div>
                 
                 <div className="p-4 bg-purple-50 rounded-lg">
-                  <h3 className="font-semibold text-purple-900 mb-2">Audit Trail</h3>
+                  <h3 className="font-semibold text-purple-900 mb-2">{t('auditTrail')}</h3>
                   <p className="text-sm text-purple-800">
-                    All status changes are logged with timestamps, user information, and 
-                    detailed metadata for compliance tracking.
+                    {t('auditTrailDescription')}
                   </p>
                 </div>
               </div>
               
               <div className="border-t pt-4">
-                <h3 className="font-semibold mb-2">Detection Flow</h3>
+                <h3 className="font-semibold mb-2">{t('detectionFlow')}</h3>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span className="px-2 py-1 bg-blue-100 rounded">Payment Initiated</span>
+                  <span className="px-2 py-1 bg-blue-100 rounded">{t('paymentInitiated')}</span>
                   <span>→</span>
-                  <span className="px-2 py-1 bg-yellow-100 rounded">Webhook Received</span>
+                  <span className="px-2 py-1 bg-yellow-100 rounded">{t('webhookReceived')}</span>
                   <span>→</span>
-                  <span className="px-2 py-1 bg-green-100 rounded">Status Updated</span>
+                  <span className="px-2 py-1 bg-green-100 rounded">{t('statusUpdated')}</span>
                   <span>→</span>
-                  <span className="px-2 py-1 bg-purple-100 rounded">System Synced</span>
+                  <span className="px-2 py-1 bg-purple-100 rounded">{t('systemSynced')}</span>
                 </div>
               </div>
             </CardContent>

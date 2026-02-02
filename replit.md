@@ -54,6 +54,7 @@ Preferred communication style: Simple, everyday language.
 - **Translation System**: Custom hook-based (React Context) with translations in `client/src/lib/translations.ts`.
 - **RTL Support**: Automatic document direction switching.
 - **Persistence**: Language preference saved in localStorage.
+- **Verification Tool**: `scripts/verify-translations.js` - Automated script to verify translation key parity between English and Hebrew sections. Run with `node scripts/verify-translations.js` to check for missing translations.
 
 ### Visual Design System (Glassmorphism Theme)
 - **Theme**: Dark glassmorphism with translucent panels and blur effects

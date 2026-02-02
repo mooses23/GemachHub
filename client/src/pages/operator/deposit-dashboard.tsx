@@ -10,6 +10,7 @@ import { DepositConfirmation } from "@/components/payment/deposit-confirmation";
 import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 
 interface Payment {
   id: number;
@@ -47,6 +48,7 @@ interface Location {
 export default function OperatorDepositDashboard() {
   const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [currentPath, setPath] = useLocation();
 
   useEffect(() => {
@@ -110,16 +112,16 @@ export default function OperatorDepositDashboard() {
     },
     onSuccess: () => {
       toast({
-        title: "Bulk Confirmation Complete",
-        description: `Successfully confirmed ${pendingConfirmations.length} deposits.`,
+        title: t("bulkConfirmationComplete"),
+        description: t("successfullyConfirmedDeposits"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "transactions"] });
     },
     onError: () => {
       toast({
-        title: "Bulk Confirmation Failed",
-        description: "Some confirmations may have failed. Please review individual deposits.",
+        title: t("bulkConfirmationFailed"),
+        description: t("someConfirmationsMayHaveFailed"),
         variant: "destructive",
       });
     },
@@ -135,7 +137,7 @@ export default function OperatorDepositDashboard() {
   if (paymentsLoading || transactionsLoading || isOperatorLoading) {
     return (
       <div className="container py-6 space-y-6">
-        <h1 className="text-2xl font-bold">Deposit Dashboard</h1>
+        <h1 className="text-2xl font-bold">{t("depositDashboard")}</h1>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
@@ -151,11 +153,11 @@ export default function OperatorDepositDashboard() {
           <Link href="/">
             <Button variant="ghost" size="sm" className="flex items-center gap-2">
               <Home className="h-4 w-4" />
-              Home
+              {t("home")}
             </Button>
           </Link>
           <span className="text-muted-foreground">/</span>
-          <span className="font-medium">{operatorLocation?.name || "My Location"}</span>
+          <span className="font-medium">{operatorLocation?.name || t("myLocation")}</span>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/operator/dashboard">
@@ -165,7 +167,7 @@ export default function OperatorDepositDashboard() {
               className="flex items-center gap-2"
             >
               <ClipboardList className="h-4 w-4" />
-              Transactions
+              {t("transactions")}
             </Button>
           </Link>
           <Link href="/operator/deposits">
@@ -175,7 +177,7 @@ export default function OperatorDepositDashboard() {
               className="flex items-center gap-2"
             >
               <DollarSign className="h-4 w-4" />
-              Deposits
+              {t("deposits")}
             </Button>
           </Link>
           <Button 
@@ -185,16 +187,16 @@ export default function OperatorDepositDashboard() {
             className="flex items-center gap-2 text-muted-foreground"
           >
             <LogOut className="h-4 w-4" />
-            Logout
+            {t("logOut")}
           </Button>
         </div>
       </div>
 
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">Deposit Dashboard</h1>
+          <h1 className="text-2xl font-bold">{t("depositDashboard")}</h1>
           <p className="text-gray-600 mt-1">
-            Manage and confirm deposits for your location
+            {t("manageAndConfirmDeposits")}
           </p>
         </div>
       </div>
@@ -203,74 +205,74 @@ export default function OperatorDepositDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Confirmations</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("pendingConfirmations")}</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{pendingConfirmations.length}</div>
             <p className="text-xs text-gray-600">
-              ${(pendingDepositValue / 100).toFixed(2)} total value
+              ${(pendingDepositValue / 100).toFixed(2)} {t("totalValue")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Deposits</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("todaysDeposits")}</CardTitle>
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{todayDeposits.length}</div>
             <p className="text-xs text-gray-600">
-              ${(todayDeposits.reduce((sum, p) => sum + p.totalAmount, 0) / 100).toFixed(2)} collected
+              ${(todayDeposits.reduce((sum, p) => sum + p.totalAmount, 0) / 100).toFixed(2)} {t("collected")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Confirmed</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("totalConfirmed")}</CardTitle>
             <CheckCircle className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{completedDeposits.length}</div>
             <p className="text-xs text-gray-600">
-              ${(totalDepositValue / 100).toFixed(2)} total value
+              ${(totalDepositValue / 100).toFixed(2)} {t("totalValue")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Borrowers</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("activeBorrowers")}</CardTitle>
             <Users className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">
               {relevantTransactions.filter(t => !t.isReturned).length}
             </div>
-            <p className="text-xs text-gray-600">Currently have earmuffs</p>
+            <p className="text-xs text-gray-600">{t("currentlyHaveEarmuffs")}</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="confirmations" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="confirmations">Pending Confirmations</TabsTrigger>
-          <TabsTrigger value="recent">Recent Activity</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="confirmations">{t("pendingConfirmations")}</TabsTrigger>
+          <TabsTrigger value="recent">{t("recentActivity")}</TabsTrigger>
+          <TabsTrigger value="analytics">{t("analytics")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="confirmations" className="space-y-4">
           {pendingConfirmations.length > 0 && (
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Deposits Requiring Confirmation</h2>
+              <h2 className="text-xl font-semibold">{t("depositsRequiringConfirmation")}</h2>
               <Button 
                 onClick={handleBulkConfirm}
                 disabled={bulkConfirmMutation.isPending || pendingConfirmations.filter(p => p.paymentMethod === "cash").length === 0}
                 variant="outline"
               >
-                {bulkConfirmMutation.isPending ? "Confirming..." : "Bulk Confirm Cash"}
+                {bulkConfirmMutation.isPending ? t("confirming") : t("bulkConfirmCash")}
               </Button>
             </div>
           )}
@@ -292,20 +294,20 @@ export default function OperatorDepositDashboard() {
             <Card>
               <CardContent className="py-12 text-center">
                 <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">All Deposits Confirmed!</h3>
-                <p className="text-gray-600">No deposits require confirmation at this time.</p>
+                <h3 className="text-lg font-semibold mb-2">{t("allDepositsConfirmed")}</h3>
+                <p className="text-gray-600">{t("noDepositsRequireConfirmation")}</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="recent" className="space-y-4">
-          <h2 className="text-xl font-semibold">Recent Deposit Activity</h2>
+          <h2 className="text-xl font-semibold">{t("recentDepositActivity")}</h2>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Recently Confirmed</CardTitle>
+                <CardTitle>{t("recentlyConfirmed")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {completedDeposits.slice(0, 5).map((payment) => {
@@ -335,7 +337,7 @@ export default function OperatorDepositDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Failed Deposits</CardTitle>
+                <CardTitle>{t("failedDeposits")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {failedDeposits.slice(0, 5).map((payment) => {
@@ -366,12 +368,12 @@ export default function OperatorDepositDashboard() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
-          <h2 className="text-xl font-semibold">Deposit Analytics</h2>
+          <h2 className="text-xl font-semibold">{t("depositAnalytics")}</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Payment Method Breakdown</CardTitle>
+                <CardTitle className="text-lg">{t("paymentMethodBreakdown")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -399,28 +401,28 @@ export default function OperatorDepositDashboard() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Average Processing Time</CardTitle>
+                <CardTitle className="text-lg">{t("averageProcessingTime")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-blue-600">
-                  ~24 hours
+                  {t("approximately24Hours")}
                 </div>
                 <p className="text-sm text-gray-600 mt-2">
-                  Average time from deposit initiation to confirmation
+                  {t("averageTimeFromDepositToConfirmation")}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Success Rate</CardTitle>
+                <CardTitle className="text-lg">{t("successRate")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
                   {((completedDeposits.length / (completedDeposits.length + failedDeposits.length)) * 100).toFixed(1)}%
                 </div>
                 <p className="text-sm text-gray-600 mt-2">
-                  Deposit confirmation success rate
+                  {t("depositConfirmationSuccessRate")}
                 </p>
               </CardContent>
             </Card>

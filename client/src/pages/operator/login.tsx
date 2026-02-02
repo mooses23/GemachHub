@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { Loader2, MapPin, Lock } from "lucide-react";
 import { Link } from "wouter";
 
 export default function OperatorLogin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [locationCode, setLocationCode] = useState("");
   const [pin, setPin] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -20,8 +22,8 @@ export default function OperatorLogin() {
     
     if (!locationCode.trim() || !pin.trim()) {
       toast({
-        title: "Missing information",
-        description: "Please enter both location code and PIN",
+        title: t("missingInformation"),
+        description: t("enterLocationCodeAndPIN"),
         variant: "destructive",
       });
       return;
@@ -47,16 +49,16 @@ export default function OperatorLogin() {
       localStorage.setItem("operatorLocation", JSON.stringify(data.location));
       
       toast({
-        title: "Welcome!",
-        description: `Logged in to ${data.location.name}`,
+        title: t("welcome"),
+        description: `${t("loggedInTo")} ${data.location.name}`,
       });
 
       // Redirect to operator dashboard
       setLocation("/operator/dashboard");
     } catch (error) {
       toast({
-        title: "Login failed",
-        description: error instanceof Error ? error.message : "Invalid location code or PIN",
+        title: t("loginFailed"),
+        description: error instanceof Error ? error.message : t("invalidLocationCodeOrPIN"),
         variant: "destructive",
       });
     } finally {
@@ -68,20 +70,20 @@ export default function OperatorLogin() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Operator Login</CardTitle>
+          <CardTitle className="text-2xl">{t("operatorLogin")}</CardTitle>
           <CardDescription>
-            Enter your location code and PIN to access the operator dashboard
+            {t("operatorLoginDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="locationCode">Location Code</Label>
+              <Label htmlFor="locationCode">{t("locationCode")}</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="locationCode"
-                  placeholder="e.g., LA-PICO"
+                  placeholder={t("locationCodePlaceholder")}
                   value={locationCode}
                   onChange={(e) => setLocationCode(e.target.value.toUpperCase())}
                   className="pl-10"
@@ -91,13 +93,13 @@ export default function OperatorLogin() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="pin">PIN</Label>
+              <Label htmlFor="pin">{t("pin")}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="pin"
                   type="password"
-                  placeholder="Enter your PIN"
+                  placeholder={t("enterYourPIN")}
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   className="pl-10"
@@ -112,26 +114,26 @@ export default function OperatorLogin() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Logging in...
+                  {t("loggingIn")}
                 </>
               ) : (
-                "Login"
+                t("login")
               )}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Need a location code?</p>
+            <p>{t("needLocationCode")}</p>
             <p className="mt-1">
               <Link href="/apply" className="text-primary hover:underline">
-                Apply to become a gemach operator
+                {t("applyToBecomeOperator")}
               </Link>
             </p>
           </div>
           
           <div className="mt-4 pt-4 border-t text-center text-sm text-muted-foreground">
             <Link href="/auth" className="text-primary hover:underline">
-              Admin login
+              {t("adminLogin")}
             </Link>
           </div>
         </CardContent>
