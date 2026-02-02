@@ -50,11 +50,14 @@ Preferred communication style: Simple, everyday language.
 - **Return Wizard**: Guided process for returns, including borrower selection and refund options (full/partial, damage deductions). Charge Card option is disabled if card setup was not completed (CARD_SETUP_PENDING status).
 
 ### Internationalization (i18n)
-- **Languages**: English and Hebrew support.
+- **Languages**: English and Hebrew support (704 translation keys in both languages).
 - **Translation System**: Custom hook-based (React Context) with translations in `client/src/lib/translations.ts`.
-- **RTL Support**: Automatic document direction switching.
+- **Usage**: Import `useLanguage` from `@/hooks/use-language` and use the `t()` function: `const { t, language, isHebrew } = useLanguage();`
+- **RTL Support**: Automatic document direction switching when toggling to Hebrew.
+- **Date Localization**: Use `formatLocalizedDate(date, language)` helper in operator dashboard for locale-aware date formatting.
 - **Persistence**: Language preference saved in localStorage.
 - **Verification Tool**: `scripts/verify-translations.js` - Automated script to verify translation key parity between English and Hebrew sections. Run with `node scripts/verify-translations.js` to check for missing translations.
+- **All Pages Covered**: Homepage, Rules, Contact, Apply, Self-Deposit, Admin Dashboard, Admin Locations, Admin Transactions, Admin Applications, Admin Emails, Admin Payment Methods, Admin Payment Confirmations, Admin Payment Status Monitor, Operator Dashboard, Operator Login, Operator Deposit Dashboard.
 
 ### Visual Design System (Glassmorphism Theme)
 - **Theme**: Dark glassmorphism with translucent panels and blur effects
