@@ -1,24 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { LocationFinder } from "@/components/locations/location-finder";
-import { useLocation } from "wouter";
+import { HierarchicalLocationSearch } from "@/components/locations/hierarchical-location-search";
 
 export default function Locations() {
-  const [location] = useLocation();
-  const [region, setRegion] = useState<string>("united-states");
-  
-  useEffect(() => {
-    // Parse region from URL query parameter
-    const params = new URLSearchParams(window.location.search);
-    const regionParam = params.get("region");
-    
-    if (regionParam) {
-      setRegion(regionParam);
-    }
-  }, [location]);
-
   return (
-    <div className="transition-all duration-300 ease-in-out">
-      <LocationFinder initialRegion={region} />
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+      <div className="glow-orb-blue top-20 -left-40 animate-float opacity-40"></div>
+      <div className="glow-orb-teal top-1/3 -right-32 animate-float-delayed opacity-30"></div>
+      
+      <div className="container mx-auto px-4 py-12 relative z-10">
+        <HierarchicalLocationSearch />
+      </div>
     </div>
   );
 }

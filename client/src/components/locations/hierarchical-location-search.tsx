@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package } from "lucide-react";
@@ -68,6 +68,7 @@ export function HierarchicalLocationSearch() {
   const [selectedSubRegion, setSelectedSubRegion] = useState<string | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<CityCategory | null>(null);
   const [showCommunityView, setShowCommunityView] = useState(false);
+  const [initialRegionApplied, setInitialRegionApplied] = useState(false);
 
   const { data: locations = [] } = useQuery({
     queryKey: ["/api/locations"],
@@ -82,6 +83,21 @@ export function HierarchicalLocationSearch() {
   const { data: cityCategories = [] } = useQuery<CityCategory[]>({
     queryKey: ["/api/city-categories"],
   });
+
+  useEffect(() => {
+    if (regions.length > 0 && !initialRegionApplied) {
+      const params = new URLSearchParams(window.location.search);
+      const regionParam = params.get("region");
+      
+      if (regionParam) {
+        const matchingRegion = regions.find((r: Region) => r.slug === regionParam);
+        if (matchingRegion) {
+          setSelectedRegion(matchingRegion);
+        }
+      }
+      setInitialRegionApplied(true);
+    }
+  }, [regions, initialRegionApplied]);
 
   const cityCategoryMap = useMemo(() => {
     return cityCategories.reduce((acc: Record<number, CityCategory>, cat: CityCategory) => {
