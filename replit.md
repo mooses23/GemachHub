@@ -57,7 +57,7 @@ Preferred communication style: Simple, everyday language.
 - **Date Localization**: Use `formatLocalizedDate(date, language)` helper in operator dashboard for locale-aware date formatting.
 - **Persistence**: Language preference saved in localStorage.
 - **Verification Tool**: `scripts/verify-translations.js` - Automated script to verify translation key parity between English and Hebrew sections. Run with `node scripts/verify-translations.js` to check for missing translations.
-- **All Pages Covered**: Homepage, Rules, Contact, Apply, Self-Deposit, Admin Dashboard, Admin Locations, Admin Transactions, Admin Applications, Admin Emails, Admin Payment Methods, Admin Payment Confirmations, Admin Payment Status Monitor, Operator Dashboard, Operator Login, Operator Deposit Dashboard.
+- **All Pages Covered**: Homepage, Rules, Contact, Apply, Self-Deposit, Admin Dashboard, Admin Locations, Admin Transactions, Admin Applications, Admin Emails, Admin Messages, Admin Payment Methods, Admin Payment Confirmations, Admin Payment Status Monitor, Operator Dashboard, Operator Login, Operator Deposit Dashboard.
 
 ### Visual Design System (Glassmorphism Theme)
 - **Theme**: Dark glassmorphism with translucent panels and blur effects

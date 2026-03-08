@@ -458,6 +458,24 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async updateContact(id: number, data: Partial<Pick<Contact, 'subject' | 'message' | 'isRead'>>): Promise<Contact> {
+    const result = await db.update(contacts)
+      .set(data)
+      .where(eq(contacts.id, id))
+      .returning();
+    if (result.length === 0) {
+      throw new Error(`Contact with id ${id} not found`);
+    }
+    return result[0];
+  }
+
+  async deleteContact(id: number): Promise<void> {
+    const result = await db.delete(contacts).where(eq(contacts.id, id)).returning();
+    if (result.length === 0) {
+      throw new Error(`Contact with id ${id} not found`);
+    }
+  }
+
   // Payment operations
   async getAllPayments(): Promise<Payment[]> {
     return db.select().from(payments);

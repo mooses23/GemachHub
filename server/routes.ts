@@ -11,7 +11,7 @@ import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
-import { listEmails, getEmail, markAsRead, sendReply, getGmailConfigStatus } from "./gmail-client.js";
+import { listEmails, getEmail, markAsRead, sendReply, sendNewEmail, getGmailConfigStatus } from "./gmail-client.js";
 import { generateEmailResponse } from "./openai-client.js";
 import { z } from "zod";
 
@@ -828,6 +828,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CONTACT ROUTES
   app.get("/api/contact", async (req, res) => {
     try {
+      if (!req.isAuthenticated() || (req.user as any)?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
       const contacts = await storage.getAllContacts();
       res.json(contacts);
     } catch (error) {
@@ -852,6 +855,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/contact/:id/read", async (req, res) => {
     try {
+      if (!req.isAuthenticated() || (req.user as any)?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
       const id = parseInt(req.params.id, 10);
       const contact = await storage.getContact(id);
       
@@ -864,6 +870,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error marking contact as read:", error);
       res.status(500).json({ message: "Failed to update contact" });
+    }
+  });
+
+  app.patch("/api/contact/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || (req.user as any)?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const id = parseInt(req.params.id, 10);
+      const contact = await storage.getContact(id);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      const { subject, message, isRead } = req.body;
+      const updateData: any = {};
+      if (subject !== undefined) updateData.subject = subject;
+      if (message !== undefined) updateData.message = message;
+      if (isRead !== undefined) updateData.isRead = isRead;
+      const updatedContact = await storage.updateContact(id, updateData);
+      res.json(updatedContact);
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      res.status(500).json({ message: "Failed to update contact" });
+    }
+  });
+
+  app.delete("/api/contact/:id", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || (req.user as any)?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const id = parseInt(req.params.id, 10);
+      const contact = await storage.getContact(id);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      await storage.deleteContact(id);
+      res.json({ message: "Contact deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+      res.status(500).json({ message: "Failed to delete contact" });
+    }
+  });
+
+  app.post("/api/contact/:id/respond", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || (req.user as any)?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const id = parseInt(req.params.id, 10);
+      const contact = await storage.getContact(id);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      const { replyText } = req.body;
+      if (!replyText || typeof replyText !== 'string' || !replyText.trim()) {
+        return res.status(400).json({ message: "Reply text is required" });
+      }
+      const sanitize = (s: string) => s.replace(/[\r\n]/g, ' ');
+      const replySubject = contact.subject.startsWith('Re:') ? contact.subject : `Re: ${contact.subject}`;
+      await sendNewEmail(sanitize(contact.email), sanitize(replySubject), replyText.trim());
+      await storage.markContactRead(id);
+      res.json({ message: "Reply sent successfully" });
+    } catch (error) {
+      console.error("Error responding to contact:", error);
+      res.status(500).json({ message: "Failed to send reply" });
     }
   });
 

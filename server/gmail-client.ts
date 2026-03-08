@@ -255,6 +255,31 @@ export async function markAsRead(messageId: string): Promise<void> {
   });
 }
 
+export async function sendNewEmail(toEmail: string, subject: string, body: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  
+  const rawMessage = [
+    `To: ${toEmail}`,
+    `Subject: ${subject}`,
+    'Content-Type: text/plain; charset=utf-8',
+    '',
+    body
+  ].join('\r\n');
+
+  const encodedMessage = Buffer.from(rawMessage)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: {
+      raw: encodedMessage
+    }
+  });
+}
+
 export async function sendReply(messageId: string, threadId: string, replyText: string, toEmail: string, subject: string): Promise<void> {
   const gmail = await getUncachableGmailClient();
   
