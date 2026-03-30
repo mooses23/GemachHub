@@ -21,7 +21,7 @@ export default function Home() {
           </div>
           <div className="relative py-3 px-4 md:px-8 text-center">
             <p className="text-lg md:text-xl font-serif text-amber-200 tracking-wide drop-shadow-sm" dir="rtl">
-              לזכות רפואה שלימה לרבקה ברכה בת חנה שרה
+              לעילוי נשמת מרת רבקה בת ר׳ מרדכי דוד ע"ה
             </p>
           </div>
         </div>
