@@ -341,6 +341,21 @@
   }
 }
 
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide-in {
+  animation: fadeSlideIn 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
 @keyframes pulse-glow {
   0%, 100% {
     opacity: 0.6;

@@ -137,18 +137,8 @@ export default function Home() {
         </div>
         
         {/* Founder's Story Section — revealed on banner click */}
-        <div
-          style={{
-            opacity: showStory ? 1 : 0,
-            transform: showStory ? 'translateY(0)' : 'translateY(-16px)',
-            maxHeight: showStory ? '800px' : '0px',
-            overflow: 'hidden',
-            transition: 'opacity 0.8s ease, transform 0.8s ease, max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
-            pointerEvents: showStory ? 'auto' : 'none',
-          }}
-          aria-hidden={!showStory}
-        >
-          <div className="relative z-10 py-16 md:py-24">
+        {showStory && (
+          <div className="relative z-10 py-16 md:py-24 animate-fade-slide-in">
             <div className="container mx-auto px-4">
               <div className="max-w-3xl mx-auto">
                 {/* Decorative top line */}
@@ -216,7 +206,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Call to Action */}
         <div className="relative z-10 py-16 md:py-24">
