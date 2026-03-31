@@ -1788,23 +1788,31 @@ export default function OperatorDashboard() {
 
       <div className="container py-6">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex flex-col gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-white">{operatorLocation.name}</h1>
               <p className="text-slate-400">{t('manageHeadbandLendingAndReturns')}</p>
             </div>
-            <TabsList className="grid grid-cols-4 w-full sm:w-auto glass-panel border-white/10">
-              <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
-                <Package className="h-4 w-4" /> {t('stockOverview')}
+            <TabsList className="grid grid-cols-4 w-full glass-panel border-white/10">
+              <TabsTrigger value="overview" className="gap-1.5 data-[state=active]:bg-white/15 data-[state=active]:text-white">
+                <Package className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline truncate">{t('stockOverview')}</span>
+                <span className="sm:hidden text-xs">Stock</span>
               </TabsTrigger>
-              <TabsTrigger value="lend" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
-                <ArrowRight className="h-4 w-4" /> {t('lendEarmuffs')}
+              <TabsTrigger value="lend" className="gap-1.5 data-[state=active]:bg-white/15 data-[state=active]:text-white">
+                <ArrowRight className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline truncate">{t('lendEarmuffs')}</span>
+                <span className="sm:hidden text-xs">Lend</span>
               </TabsTrigger>
-              <TabsTrigger value="return" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
-                <RotateCcw className="h-4 w-4" /> {t('returnEarmuffs')}
+              <TabsTrigger value="return" className="gap-1.5 data-[state=active]:bg-white/15 data-[state=active]:text-white">
+                <RotateCcw className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline truncate">{t('returnEarmuffs')}</span>
+                <span className="sm:hidden text-xs">Return</span>
               </TabsTrigger>
-              <TabsTrigger value="security" className="gap-2 data-[state=active]:bg-white/15 data-[state=active]:text-white">
-                <KeyRound className="h-4 w-4" /> Security
+              <TabsTrigger value="security" className="gap-1.5 data-[state=active]:bg-white/15 data-[state=active]:text-white">
+                <KeyRound className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Security</span>
+                <span className="sm:hidden text-xs">PIN</span>
               </TabsTrigger>
             </TabsList>
           </div>
