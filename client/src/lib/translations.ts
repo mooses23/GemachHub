@@ -794,15 +794,6 @@ export const translations = {
     failedToLoadOperatorData: "Failed to load operator data",
     manageHeadbandLendingAndReturns: "Manage headband lending and returns",
     quantity: "Quantity",
-    editColorStock: "Edit {color} Stock",
-    adjustQuantityForColor: "Adjust the quantity for this color",
-    fromCurrentStock: "from current stock",
-    noPendingCardDeposits: "No pending card deposit transactions",
-    pendingSelfDeposits: "Pending Self-Deposits",
-    acceptSelfDepositsDescription: "Accept self-deposits to confirm lending (card saved but not charged)",
-    created: "Created:",
-    acceptAndLend: "Accept & Lend",
-    awaitingCardSetup: "Awaiting Card Setup",
   },
   he: {
     // Header/Navigation
