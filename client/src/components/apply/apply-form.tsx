@@ -8,6 +8,7 @@ import { CityCategory, Region } from "@shared/schema";
 import { submitGemachApplication } from "@/lib/api";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import {
   Form,
   FormControl,
@@ -38,7 +39,6 @@ import { Button } from "@/components/ui/button";
 import { LoaderCircle, CheckCircle2, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-// Extend the schema with additional validation
 const formSchema = insertGemachApplicationSchema.extend({
   terms: z.boolean().refine((val) => val === true, {
     message: "You must agree to the terms to submit an application.",
@@ -49,6 +49,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function ApplyForm() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [showNewCommunity, setShowNewCommunity] = useState(false);
   const [selectedCommunity, setSelectedCommunity] = useState<string>("");
 
@@ -96,26 +97,24 @@ export function ApplyForm() {
     mutationFn: (data: InsertGemachApplication) => submitGemachApplication(data),
     onSuccess: () => {
       toast({
-        title: "Application Submitted",
-        description: "We've received your application and will contact you soon.",
+        title: t("applicationSubmitted"),
+        description: t("applicationSubmittedDesc"),
       });
       form.reset();
-      // Reset form after showing success for 5 seconds
       setTimeout(() => {
         reset();
       }, 5000);
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to submit application: ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToSubmitApplication")}: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const onSubmit = (data: FormValues) => {
-    // Remove terms field which is not part of the backend schema
     const { terms, ...applicationData } = data;
     mutate(applicationData);
   };
@@ -123,9 +122,9 @@ export function ApplyForm() {
   return (
     <Card className="glass-panel-elevated rounded-xl">
       <CardHeader className="pb-4 sm:pb-6">
-        <CardTitle className="text-lg sm:text-xl font-semibold text-white">Apply to Open a Gemach</CardTitle>
+        <CardTitle className="text-lg sm:text-xl font-semibold text-white">{t("applyToOpenGemachTitle")}</CardTitle>
         <CardDescription className="text-xs sm:text-sm md:text-base text-slate-300">
-          Fill out this form to start the process of opening a Baby Banz Earmuffs Gemach in your community.
+          {t("applyFormDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent className="px-3 sm:px-6">
@@ -134,7 +133,7 @@ export function ApplyForm() {
             <div className="flex items-center">
               <CheckCircle2 className="h-5 w-5 mr-2" />
               <AlertDescription>
-                Your application has been submitted successfully! We'll contact you soon.
+                {t("applicationSubmittedAlert")}
               </AlertDescription>
             </div>
           </Alert>
@@ -147,7 +146,7 @@ export function ApplyForm() {
                   name="firstName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-200">First Name</FormLabel>
+                      <FormLabel className="text-slate-200">{t("firstName")}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -160,7 +159,7 @@ export function ApplyForm() {
                   name="lastName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-200">Last Name</FormLabel>
+                      <FormLabel className="text-slate-200">{t("lastName")}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -175,7 +174,7 @@ export function ApplyForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-200">Email Address</FormLabel>
+                    <FormLabel className="text-slate-200">{t("emailAddress")}</FormLabel>
                     <FormControl>
                       <Input type="email" {...field} />
                     </FormControl>
@@ -189,7 +188,7 @@ export function ApplyForm() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-200">Phone Number</FormLabel>
+                    <FormLabel className="text-slate-200">{t("phoneNumber")}</FormLabel>
                     <FormControl>
                       <Input type="tel" {...field} />
                     </FormControl>
@@ -203,9 +202,9 @@ export function ApplyForm() {
                 name="streetAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-200">Street Address</FormLabel>
+                    <FormLabel className="text-slate-200">{t("streetAddress")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="123 Main Street" {...field} />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -218,9 +217,9 @@ export function ApplyForm() {
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-200">City</FormLabel>
+                      <FormLabel className="text-slate-200">{t("city")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Brooklyn" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -231,9 +230,9 @@ export function ApplyForm() {
                   name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-200">State / Province</FormLabel>
+                      <FormLabel className="text-slate-200">{t("stateProvince")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="New York" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -247,9 +246,9 @@ export function ApplyForm() {
                   name="zipCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-200">ZIP / Postal Code</FormLabel>
+                      <FormLabel className="text-slate-200">{t("zipPostalCode")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="11201" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -260,9 +259,9 @@ export function ApplyForm() {
                   name="country"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-200">Country</FormLabel>
+                      <FormLabel className="text-slate-200">{t("country")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="United States" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -275,7 +274,7 @@ export function ApplyForm() {
                 name="community"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-200">Community / Neighborhood (Optional)</FormLabel>
+                    <FormLabel className="text-slate-200">{t("communityNeighborhoodOptional")}</FormLabel>
                     {!showNewCommunity ? (
                       <div className="space-y-2">
                         <Select
@@ -293,14 +292,14 @@ export function ApplyForm() {
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select an existing community or add new" />
+                              <SelectValue placeholder={t("selectExistingOrAddNew")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="__new__">
                               <span className="flex items-center gap-2">
                                 <Plus className="h-4 w-4" />
-                                Add New Community
+                                {t("addNewCommunity")}
                               </span>
                             </SelectItem>
                             {Object.entries(categoriesByRegion).map(([regionName, categories]) => (
@@ -321,10 +320,10 @@ export function ApplyForm() {
                     ) : (
                       <div className="space-y-2">
                         <FormControl>
-                          <Input 
-                            placeholder="Enter your community name (e.g., Flatbush, Crown Heights)" 
-                            {...field} 
-                            value={field.value ?? ""} 
+                          <Input
+                            placeholder={t("enterCommunityNamePlaceholder")}
+                            {...field}
+                            value={field.value ?? ""}
                           />
                         </FormControl>
                         <Button
@@ -336,12 +335,12 @@ export function ApplyForm() {
                             field.onChange("");
                           }}
                         >
-                          Back to existing communities
+                          {t("backToExistingCommunities")}
                         </Button>
                       </div>
                     )}
                     <FormDescription>
-                      Select an existing community or add a new one for easier discovery
+                      {t("selectExistingOrAddNewDesc")}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -353,10 +352,10 @@ export function ApplyForm() {
                 name="message"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-200">Why would you like to open a gemach?</FormLabel>
+                    <FormLabel className="text-slate-200">{t("whyOpenGemach")}</FormLabel>
                     <FormControl>
-                      <Textarea 
-                        rows={4} 
+                      <Textarea
+                        rows={4}
                         {...field}
                         value={field.value ?? ""}
                         onChange={(e) => field.onChange(e.target.value)}
@@ -380,7 +379,7 @@ export function ApplyForm() {
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel className="text-slate-200">
-                        I agree to follow the guidelines for managing a Baby Banz Earmuffs Gemach location.
+                        {t("agreeFollowGuidelines")}
                       </FormLabel>
                       <FormMessage />
                     </div>
@@ -392,10 +391,10 @@ export function ApplyForm() {
                 {isPending ? (
                   <>
                     <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
+                    {t("submitting")}
                   </>
                 ) : (
-                  "Submit Application"
+                  t("submitApplication")
                 )}
               </Button>
             </form>

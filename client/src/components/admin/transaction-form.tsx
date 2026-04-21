@@ -6,6 +6,7 @@ import { insertTransactionSchema } from "@/lib/types";
 import type { InsertTransaction, Transaction, Location } from "@/lib/types";
 import { createTransaction, updateTransaction } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import {
   Form,
   FormControl,
@@ -43,6 +44,7 @@ interface TransactionFormProps {
 
 export function TransactionForm({ transaction, locations, onSuccess }: TransactionFormProps) {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
 
   const form = useForm<InsertTransaction & { expectedReturnDate: Date | undefined }>({
@@ -70,8 +72,8 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
     mutationFn: (data: InsertTransaction) => createTransaction(data),
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Transaction has been recorded successfully.",
+        title: t("success"),
+        description: t("transactionCreatedSuccess"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       form.reset();
@@ -79,8 +81,8 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to record transaction: ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToRecordTransaction")}: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -90,23 +92,22 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
     mutationFn: (data: InsertTransaction) => updateTransaction(transaction!.id, data),
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Transaction has been updated successfully.",
+        title: t("success"),
+        description: t("transactionUpdatedSuccessful"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       if (onSuccess) onSuccess();
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to update transaction: ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToUpdateTransaction")}: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const onSubmit = (data: InsertTransaction & { expectedReturnDate: Date | undefined }) => {
-    // Convert the date to ISO string format if it exists and clean null values
     const formattedData: InsertTransaction = {
       ...data,
       expectedReturnDate: data.expectedReturnDate ? data.expectedReturnDate : undefined,
@@ -132,14 +133,14 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
           name="locationId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Gemach Location</FormLabel>
+              <FormLabel>{t("gemachLocation")}</FormLabel>
               <Select
                 onValueChange={(value) => field.onChange(parseInt(value, 10))}
                 defaultValue={field.value.toString()}
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a location" />
+                    <SelectValue placeholder={t("selectALocationPlaceholder")} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -160,7 +161,7 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
           name="borrowerName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Borrower Name</FormLabel>
+              <FormLabel>{t("borrowerNameLabel")}</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -175,10 +176,10 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
             name="borrowerEmail"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Borrower Email (Optional)</FormLabel>
+                <FormLabel>{t("borrowerEmailOptionalLabel")}</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="email" 
+                  <Input
+                    type="email"
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => field.onChange(e.target.value)}
@@ -194,9 +195,9 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
             name="borrowerPhone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Borrower Phone (Optional)</FormLabel>
+                <FormLabel>{t("borrowerPhoneOptionalLabel")}</FormLabel>
                 <FormControl>
-                  <Input 
+                  <Input
                     {...field}
                     value={field.value ?? ""}
                     onChange={(e) => field.onChange(e.target.value)}
@@ -213,9 +214,9 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
           name="depositAmount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Deposit Amount</FormLabel>
+              <FormLabel>{t("depositAmount")}</FormLabel>
               <FormControl>
-                <Input 
+                <Input
                   type="number"
                   min="0"
                   step="0.01"
@@ -233,7 +234,7 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
           name="expectedReturnDate"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Expected Return Date</FormLabel>
+              <FormLabel>{t("expectedReturnDate")}</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -247,7 +248,7 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
                       {field.value ? (
                         format(field.value, "PPP")
                       ) : (
-                        <span>Pick a date</span>
+                        <span>{t("pickADate")}</span>
                       )}
                       <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                     </Button>
@@ -258,9 +259,7 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date) =>
-                      date < new Date()
-                    }
+                    disabled={(date) => date < new Date()}
                     initialFocus
                   />
                 </PopoverContent>
@@ -275,10 +274,10 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
           name="notes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Notes (Optional)</FormLabel>
+              <FormLabel>{t("notes")}</FormLabel>
               <FormControl>
-                <Textarea 
-                  rows={3} 
+                <Textarea
+                  rows={3}
                   {...field}
                   value={field.value ?? ""}
                   onChange={(e) => field.onChange(e.target.value)}
@@ -293,9 +292,9 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
           {isPending ? (
             <>
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-              {transaction ? "Updating..." : "Recording..."}
+              {transaction ? t("updating") : t("recording")}
             </>
-          ) : transaction ? "Update Transaction" : "Record Transaction"}
+          ) : transaction ? t("updateTransaction") : t("recordTransaction")}
         </Button>
       </form>
     </Form>

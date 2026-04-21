@@ -6,6 +6,7 @@ import { insertContactSchema } from "@/lib/types";
 import type { InsertContact } from "@/lib/types";
 import { submitContactForm } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import {
   Form,
   FormControl,
@@ -21,6 +22,7 @@ import { LoaderCircle } from "lucide-react";
 
 export function ContactForm() {
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const form = useForm<InsertContact>({
     resolver: zodResolver(insertContactSchema),
@@ -36,15 +38,15 @@ export function ContactForm() {
     mutationFn: (data: InsertContact) => submitContactForm(data),
     onSuccess: () => {
       toast({
-        title: "Message Sent",
-        description: "We've received your message and will get back to you soon.",
+        title: t("messageSent"),
+        description: t("messageSentDesc"),
       });
       form.reset();
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to send message: ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToSendMessage")}: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -63,7 +65,7 @@ export function ContactForm() {
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Your Name</FormLabel>
+                <FormLabel>{t("yourName")}</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -76,7 +78,7 @@ export function ContactForm() {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Your Email</FormLabel>
+                <FormLabel>{t("yourEmail")}</FormLabel>
                 <FormControl>
                   <Input type="email" {...field} />
                 </FormControl>
@@ -91,7 +93,7 @@ export function ContactForm() {
           name="subject"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Subject</FormLabel>
+              <FormLabel>{t("subject")}</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -105,7 +107,7 @@ export function ContactForm() {
           name="message"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Message</FormLabel>
+              <FormLabel>{t("message")}</FormLabel>
               <FormControl>
                 <Textarea rows={5} className="min-h-32 sm:min-h-40" {...field} />
               </FormControl>
@@ -118,10 +120,10 @@ export function ContactForm() {
           {isPending ? (
             <>
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-              Sending...
+              {t("sending")}
             </>
           ) : (
-            "Send Message"
+            t("sendMessage")
           )}
         </Button>
       </form>

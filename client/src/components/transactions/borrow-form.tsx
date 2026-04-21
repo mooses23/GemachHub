@@ -29,10 +29,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { apiRequest } from "@/lib/queryClient";
 import { Location } from "@shared/schema";
 
-// Form validation schema
 const borrowFormSchema = z.object({
   locationId: z.string().min(1, "Please select a location"),
   borrowerName: z.string().min(1, "Name is required"),
@@ -46,14 +46,13 @@ type BorrowFormValues = z.infer<typeof borrowFormSchema>;
 
 export function BorrowForm() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Fetch locations for the dropdown
   const { data: locations = [], isLoading: locationsLoading } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
   });
 
-  // Form setup
   const form = useForm<BorrowFormValues>({
     resolver: zodResolver(borrowFormSchema),
     defaultValues: {
@@ -66,7 +65,6 @@ export function BorrowForm() {
     },
   });
 
-  // Transaction creation mutation
   const createTransactionMutation = useMutation({
     mutationFn: async (data: BorrowFormValues) => {
       const transactionData = {
@@ -74,32 +72,31 @@ export function BorrowForm() {
         borrowerName: data.borrowerName,
         borrowerEmail: data.borrowerEmail || undefined,
         borrowerPhone: data.borrowerPhone,
-        depositAmount: 20, // Standard $20 deposit
+        depositAmount: 20,
         expectedReturnDate: data.expectedReturnDate ? new Date(data.expectedReturnDate).toISOString() : undefined,
         notes: data.notes || undefined,
       };
-      
+
       const res = await apiRequest("POST", "/api/transactions", transactionData);
       return await res.json();
     },
     onSuccess: () => {
       setIsSuccess(true);
       toast({
-        title: "Deposit recorded successfully",
-        description: "Your $20 deposit has been recorded. Please return the earmuffs by the expected date to receive your refund.",
+        title: t("depositRecordedSuccess"),
+        description: t("depositRecordedSuccessLong"),
       });
       form.reset();
     },
     onError: (error: Error) => {
       toast({
-        title: "Error recording deposit",
+        title: t("errorRecordingDeposit"),
         description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  // Form submission handler
   function onSubmit(values: BorrowFormValues) {
     createTransactionMutation.mutate(values);
   }
@@ -111,13 +108,13 @@ export function BorrowForm() {
           <div className="text-center space-y-4">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
             <div>
-              <h3 className="text-xl font-semibold text-green-700">Deposit Recorded Successfully!</h3>
+              <h3 className="text-xl font-semibold text-green-700">{t("depositRecordedSuccess")}</h3>
               <p className="text-muted-foreground mt-2">
-                Your $20 deposit has been recorded. Please keep this confirmation and return the earmuffs by your expected return date.
+                {t("depositRecordedSuccessDesc")}
               </p>
             </div>
             <Button onClick={() => setIsSuccess(false)} variant="outline">
-              Record Another Deposit
+              {t("recordAnotherDeposit")}
             </Button>
           </div>
         </CardContent>
@@ -128,9 +125,9 @@ export function BorrowForm() {
   return (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Borrow Baby Banz Earmuffs</CardTitle>
+        <CardTitle>{t("borrowEarmuffsTitle")}</CardTitle>
         <CardDescription>
-          Please fill out this form to record your $20 deposit when picking up earmuffs from a gemach location.
+          {t("borrowFormDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -141,16 +138,16 @@ export function BorrowForm() {
               name="locationId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Gemach Location</FormLabel>
+                  <FormLabel>{t("gemachLocation")}</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select the location where you're borrowing from" />
+                        <SelectValue placeholder={t("selectLocationBorrowingFrom")} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {locationsLoading ? (
-                        <SelectItem value="loading" disabled>Loading locations...</SelectItem>
+                        <SelectItem value="loading" disabled>{t("loadingLocations")}</SelectItem>
                       ) : (
                         locations
                           .filter(location => location.isActive)
@@ -173,9 +170,9 @@ export function BorrowForm() {
                 name="borrowerName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your Full Name</FormLabel>
+                    <FormLabel>{t("yourFullName")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your full name" {...field} />
+                      <Input placeholder={t("yourFullName")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -187,9 +184,9 @@ export function BorrowForm() {
                 name="borrowerPhone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
+                    <FormLabel>{t("phoneNumber")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="(555) 123-4567" {...field} />
+                      <Input placeholder={t("phonePlaceholder")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -202,12 +199,12 @@ export function BorrowForm() {
               name="borrowerEmail"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address (Optional)</FormLabel>
+                  <FormLabel>{t("emailOptional")}</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="email" 
-                      placeholder="your.email@example.com (optional)" 
-                      {...field} 
+                    <Input
+                      type="email"
+                      placeholder={t("emailOptionalPlaceholder")}
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -220,10 +217,10 @@ export function BorrowForm() {
               name="expectedReturnDate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Expected Return Date</FormLabel>
+                  <FormLabel>{t("expectedReturnDate")}</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="date" 
+                    <Input
+                      type="date"
                       min={new Date().toISOString().split('T')[0]}
                       {...field}
                     />
@@ -238,11 +235,11 @@ export function BorrowForm() {
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
+                  <FormLabel>{t("notes")}</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Any additional information or special arrangements" 
-                      {...field} 
+                    <Input
+                      placeholder={t("notesPlaceholder")}
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -251,27 +248,27 @@ export function BorrowForm() {
             />
 
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-900 mb-2">Important Information</h4>
+              <h4 className="font-semibold text-blue-900 mb-2">{t("importantInformation")}</h4>
               <ul className="text-sm text-blue-800 space-y-1">
-                <li>• A $20 deposit is required for all earmuff borrowing</li>
-                <li>• Your deposit will be fully refunded when you return the earmuffs in good condition</li>
-                <li>• All earmuffs are sanitized between uses with medical-grade cleaning protocols</li>
-                <li>• Please return the earmuffs by your expected return date</li>
+                <li>• {t("deposit20Required")}</li>
+                <li>• {t("depositRefundedGoodCondition")}</li>
+                <li>• {t("earmuffsSanitized")}</li>
+                <li>• {t("pleaseReturnByDate")}</li>
               </ul>
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={createTransactionMutation.isPending}
             >
               {createTransactionMutation.isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                  Recording Deposit...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t("recordingDeposit")}
                 </>
               ) : (
-                "Record $20 Deposit"
+                t("recordDeposit20")
               )}
             </Button>
           </form>

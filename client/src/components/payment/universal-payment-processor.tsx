@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, DollarSign, Banknote, CheckCircle } from "lucide-react";
 import { SiPaypal } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import StripeCheckout from "./stripe-checkout";
@@ -29,6 +30,7 @@ export default function UniversalPaymentProcessor({
   onSuccess
 }: UniversalPaymentProcessorProps) {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   
   const [cashReceived, setCashReceived] = useState(false);
@@ -66,8 +68,8 @@ export default function UniversalPaymentProcessor({
         queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
         queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
         toast({
-          title: "Deposit Recorded",
-          description: `Cash deposit of $${totalAmount.toFixed(2)} recorded. Awaiting operator confirmation.`,
+          title: t("depositRecordedTitle"),
+          description: t("cashDepositRecorded").replace("{amount}", `$${totalAmount.toFixed(2)}`),
         });
         setPaymentComplete(true);
         onSuccess();
@@ -75,8 +77,8 @@ export default function UniversalPaymentProcessor({
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to initiate deposit",
+        title: t("error"),
+        description: error.message || t("failedToInitiateDeposit"),
         variant: "destructive",
       });
     }
@@ -91,7 +93,7 @@ export default function UniversalPaymentProcessor({
 
   const handleStripeError = (error: string) => {
     toast({
-      title: "Payment Error",
+      title: t("paymentError"),
       description: error,
       variant: "destructive",
     });
@@ -100,8 +102,8 @@ export default function UniversalPaymentProcessor({
   const handleCashPayment = () => {
     if (!cashReceived) {
       toast({
-        title: "Confirmation Required",
-        description: "Please confirm that you have given cash to the location coordinator",
+        title: t("confirmationRequired"),
+        description: t("pleaseConfirmCashGiven"),
         variant: "destructive",
       });
       return;
@@ -128,12 +130,12 @@ export default function UniversalPaymentProcessor({
         <CardContent className="py-8 text-center">
           <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-green-800 mb-2">
-            {paymentMethod === 'cash' ? 'Deposit Recorded!' : 'Payment Successful!'}
+            {paymentMethod === 'cash' ? t("depositRecordedExclaim") : t("paymentSuccessful")}
           </h3>
           <p className="text-green-700">
-            {paymentMethod === 'cash' 
-              ? 'Your cash deposit has been recorded and is awaiting confirmation.'
-              : `Your deposit of $${totalAmount.toFixed(2)} has been processed.`
+            {paymentMethod === 'cash'
+              ? t("cashDepositAwaitingConfirmation")
+              : t("yourDepositProcessed").replace("{amount}", `$${totalAmount.toFixed(2)}`)
             }
           </p>
         </CardContent>
@@ -147,22 +149,22 @@ export default function UniversalPaymentProcessor({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
-            Payment Summary
+            {t("paymentSummary")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-between">
-            <span>Deposit Amount:</span>
+            <span>{t("depositAmountLabel")}</span>
             <span className="font-semibold">${depositAmount.toFixed(2)}</span>
           </div>
           {processingFee > 0 && (
             <div className="flex justify-between text-sm text-gray-600">
-              <span>Processing Fee ({(processingFeePercent / 100).toFixed(1)}%):</span>
+              <span>{t("processingFeeLabel")} ({(processingFeePercent / 100).toFixed(1)}%):</span>
               <span>${processingFee.toFixed(2)}</span>
             </div>
           )}
           <div className="border-t pt-2 flex justify-between font-bold">
-            <span>Total Amount:</span>
+            <span>{t("totalAmountLabel")}</span>
             <span>${totalAmount.toFixed(2)}</span>
           </div>
         </CardContent>
@@ -178,10 +180,10 @@ export default function UniversalPaymentProcessor({
           {initiateDepositMutation.isPending ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Preparing Checkout...
+              {t("preparingCheckout")}
             </>
           ) : (
-            <>Proceed to Card Payment</>
+            <>{t("proceedToCardPayment")}</>
           )}
         </Button>
       )}
@@ -201,13 +203,13 @@ export default function UniversalPaymentProcessor({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <SiPaypal className="w-5 h-5 text-blue-600" />
-              PayPal Payment
+              {t("paypalPayment")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                PayPal integration coming soon. Please use credit card or cash for now.
+                {t("paypalComingSoon")}
               </p>
             </div>
           </CardContent>
@@ -219,20 +221,20 @@ export default function UniversalPaymentProcessor({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Banknote className="w-5 h-5" />
-              Cash Payment
+              {t("cashPayment")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h3 className="font-semibold text-green-900 mb-2">Cash Payment Instructions</h3>
+              <h3 className="font-semibold text-green-900 mb-2">{t("cashPaymentInstructions")}</h3>
               <ul className="text-sm text-green-800 space-y-1">
-                <li>Amount due: ${totalAmount.toFixed(2)} (no processing fees for cash)</li>
-                <li>Hand cash directly to the location coordinator</li>
-                <li>Get a receipt for your records</li>
-                <li>Payment will be confirmed by the operator</li>
+                <li>{t("amountDueNoFees").replace("{amount}", `$${totalAmount.toFixed(2)}`)}</li>
+                <li>{t("handCashDirectly")}</li>
+                <li>{t("getReceipt")}</li>
+                <li>{t("paymentConfirmedByOperator")}</li>
               </ul>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -242,11 +244,11 @@ export default function UniversalPaymentProcessor({
                 className="w-4 h-4"
               />
               <Label htmlFor="cashReceived" className="text-sm">
-                I confirm that I have given ${totalAmount.toFixed(2)} cash to the location coordinator
+                {t("iConfirmGivenCash").replace("{amount}", `$${totalAmount.toFixed(2)}`)}
               </Label>
             </div>
 
-            <Button 
+            <Button
               onClick={handleCashPayment}
               disabled={!cashReceived || initiateDepositMutation.isPending}
               className="w-full"
@@ -255,12 +257,12 @@ export default function UniversalPaymentProcessor({
               {initiateDepositMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Recording...
+                  {t("recording")}
                 </>
               ) : (
                 <>
                   <Banknote className="w-4 h-4 mr-2" />
-                  Record Cash Payment ${totalAmount.toFixed(2)}
+                  {t("recordCashPayment")} ${totalAmount.toFixed(2)}
                 </>
               )}
             </Button>

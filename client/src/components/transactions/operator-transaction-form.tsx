@@ -23,10 +23,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useOperatorAuth } from "@/hooks/use-operator-auth";
 
-// Form validation schema
 const transactionFormSchema = z.object({
   borrowerName: z.string().min(1, "Name is required"),
   borrowerEmail: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
@@ -40,10 +40,10 @@ type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 
 export function OperatorTransactionForm() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const { operatorLocation } = useOperatorAuth();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Form setup
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
     defaultValues: {
@@ -56,11 +56,10 @@ export function OperatorTransactionForm() {
     },
   });
 
-  // Transaction creation mutation
   const createTransactionMutation = useMutation({
     mutationFn: async (data: TransactionFormValues) => {
       if (!operatorLocation?.id) {
-        throw new Error("No location associated with your account");
+        throw new Error(t("noLocationAssociated"));
       }
 
       const transactionData = {
@@ -72,35 +71,32 @@ export function OperatorTransactionForm() {
         expectedReturnDate: data.expectedReturnDate ? new Date(data.expectedReturnDate).toISOString() : undefined,
         notes: data.notes || undefined,
       };
-      
+
       const res = await apiRequest("POST", "/api/transactions", transactionData);
       return await res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Transaction recorded successfully",
-        description: "The borrower's deposit has been recorded in the system.",
+        title: t("operatorTransactionRecorded"),
+        description: t("operatorTransactionRecordedDesc"),
       });
       form.reset();
       setIsOpen(false);
-      // Refresh the transactions list
       queryClient.invalidateQueries({ queryKey: ["/api/locations", operatorLocation?.id, "transactions"] });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error recording transaction",
+        title: t("errorRecordingTransaction"),
         description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  // Form submission handler
   function onSubmit(values: TransactionFormValues) {
     createTransactionMutation.mutate(values);
   }
 
-  // Get default return date (5 days from today)
   const getDefaultReturnDate = () => {
     const date = new Date();
     date.setDate(date.getDate() + 5);
@@ -112,17 +108,17 @@ export function OperatorTransactionForm() {
       <DialogTrigger asChild>
         <Button className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
-          Record New Deposit
+          {t("recordNewDepositBtn")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Record New Earmuff Deposit</DialogTitle>
+          <DialogTitle>{t("recordNewEarmuffDeposit")}</DialogTitle>
           <DialogDescription>
-            Record when a borrower pays their deposit and takes earmuffs from your location.
+            {t("recordWhenBorrowerPays")}
           </DialogDescription>
         </DialogHeader>
-        
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -130,9 +126,9 @@ export function OperatorTransactionForm() {
               name="borrowerName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Borrower's Full Name</FormLabel>
+                  <FormLabel>{t("borrowerFullNameLabel")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter borrower's full name" {...field} />
+                    <Input placeholder={t("enterBorrowerFullName")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -145,9 +141,9 @@ export function OperatorTransactionForm() {
                 name="borrowerPhone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
+                    <FormLabel>{t("phoneNumber")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="(555) 123-4567" {...field} />
+                      <Input placeholder={t("phonePlaceholder")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -159,10 +155,10 @@ export function OperatorTransactionForm() {
                 name="depositAmount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Deposit Amount ($)</FormLabel>
+                    <FormLabel>{t("depositAmountDollar")}</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="number" 
+                      <Input
+                        type="number"
                         min="1"
                         step="0.01"
                         placeholder="20.00"
@@ -181,12 +177,12 @@ export function OperatorTransactionForm() {
               name="borrowerEmail"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address (Optional)</FormLabel>
+                  <FormLabel>{t("emailOptional")}</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="email" 
-                      placeholder="borrower@example.com (optional)" 
-                      {...field} 
+                    <Input
+                      type="email"
+                      placeholder={t("borrowerEmailPlaceholder")}
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -199,10 +195,10 @@ export function OperatorTransactionForm() {
               name="expectedReturnDate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Expected Return Date</FormLabel>
+                  <FormLabel>{t("expectedReturnDate")}</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="date" 
+                    <Input
+                      type="date"
                       min={new Date().toISOString().split('T')[0]}
                       {...field}
                       placeholder={getDefaultReturnDate()}
@@ -218,11 +214,11 @@ export function OperatorTransactionForm() {
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
+                  <FormLabel>{t("notes")}</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Any special arrangements or notes" 
-                      {...field} 
+                    <Input
+                      placeholder={t("notesAnyArrangements")}
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -231,24 +227,24 @@ export function OperatorTransactionForm() {
             />
 
             <div className="flex justify-end space-x-2 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setIsOpen(false)}
               >
-                Cancel
+                {t("cancel")}
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={createTransactionMutation.isPending}
               >
                 {createTransactionMutation.isPending ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                    Recording...
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("recording")}
                   </>
                 ) : (
-                  "Record Deposit"
+                  t("recordDepositBtn")
                 )}
               </Button>
             </div>

@@ -6,6 +6,7 @@ import { insertLocationSchema } from "@/lib/types";
 import type { InsertLocation, Location } from "@/lib/types";
 import { createLocation, updateLocation } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/hooks/use-language";
 import {
   Form,
   FormControl,
@@ -36,6 +37,7 @@ interface LocationFormProps {
 
 export function LocationForm({ location, regions, onSuccess }: LocationFormProps) {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
 
   const form = useForm<InsertLocation>({
@@ -70,8 +72,8 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
     mutationFn: (data: InsertLocation) => createLocation(data),
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Location has been created successfully.",
+        title: t("success"),
+        description: t("locationCreatedSuccess"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
       form.reset();
@@ -79,8 +81,8 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to create location: ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToCreateLocation")}: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -90,16 +92,16 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
     mutationFn: (data: InsertLocation) => updateLocation(location!.id, data),
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Location has been updated successfully.",
+        title: t("success"),
+        description: t("locationUpdatedSuccess"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
       if (onSuccess) onSuccess();
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to update location: ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToUpdateLocation")}: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -115,6 +117,13 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
+  const paymentMethodLabels: Record<string, string> = {
+    cash: t("cashLabel"),
+    stripe: t("stripeCardsLabel"),
+    paypal: t("paypalLabel"),
+    square: t("squareLabel"),
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -123,10 +132,10 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Gemach Name</FormLabel>
+              <FormLabel>{t("gemachName")}</FormLabel>
               <FormControl>
-                <Input 
-                  {...field} 
+                <Input
+                  {...field}
                   className="w-full"
                   value={field.value || ""}
                   onChange={(e) => field.onChange(e.target.value)}
@@ -142,10 +151,10 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           name="contactPerson"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Contact Person</FormLabel>
+              <FormLabel>{t("contactPersonLabel")}</FormLabel>
               <FormControl>
-                <Input 
-                  {...field} 
+                <Input
+                  {...field}
                   className="w-full"
                   value={field.value || ""}
                   onChange={(e) => field.onChange(e.target.value)}
@@ -161,10 +170,10 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           name="address"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Address</FormLabel>
+              <FormLabel>{t("addressLabel")}</FormLabel>
               <FormControl>
-                <Input 
-                  {...field} 
+                <Input
+                  {...field}
                   className="w-full"
                   value={field.value || ""}
                   onChange={(e) => field.onChange(e.target.value)}
@@ -180,10 +189,10 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           name="zipCode"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Zip Code (Optional)</FormLabel>
+              <FormLabel>{t("zipCodeOptional")}</FormLabel>
               <FormControl>
-                <Input 
-                  {...field} 
+                <Input
+                  {...field}
                   className="w-full"
                   value={field.value || ""}
                   onChange={(e) => field.onChange(e.target.value)}
@@ -200,10 +209,10 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
             name="phone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Phone</FormLabel>
+                <FormLabel>{t("phoneLabel")}</FormLabel>
                 <FormControl>
-                  <Input 
-                    {...field} 
+                  <Input
+                    {...field}
                     className="w-full"
                     value={field.value || ""}
                     onChange={(e) => field.onChange(e.target.value)}
@@ -219,11 +228,11 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>{t("emailLabel2")}</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="email" 
-                    {...field} 
+                  <Input
+                    type="email"
+                    {...field}
                     className="w-full"
                     value={field.value || ""}
                     onChange={(e) => field.onChange(e.target.value)}
@@ -240,14 +249,14 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           name="regionId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Region</FormLabel>
+              <FormLabel>{t("region")}</FormLabel>
               <Select
                 onValueChange={(value) => field.onChange(parseInt(value, 10))}
                 value={field.value?.toString() || ""}
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a region" />
+                    <SelectValue placeholder={t("selectARegion")} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -269,9 +278,9 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <FormLabel className="text-base">Active Status</FormLabel>
+                <FormLabel className="text-base">{t("activeStatus")}</FormLabel>
                 <p className="text-sm text-muted-foreground">
-                  Set whether this gemach location is currently active and visible to users.
+                  {t("activeStatusDesc")}
                 </p>
               </div>
               <FormControl>
@@ -289,40 +298,39 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           name="depositAmount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Deposit Amount ($)</FormLabel>
+              <FormLabel>{t("depositAmountDollar")}</FormLabel>
               <FormControl>
-                <Input 
-                  type="number" 
-                  min="1" 
+                <Input
+                  type="number"
+                  min="1"
                   step="1"
                   value={field.value || 20}
-                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 20)} 
+                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 20)}
                 />
               </FormControl>
               <FormDescription>
-                Set the deposit amount required for borrowing earmuffs at this location.
+                {t("depositAmountDesc")}
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
-
         <FormField
           control={form.control}
           name="paymentMethods"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-base">Payment Methods</FormLabel>
+              <FormLabel className="text-base">{t("paymentMethodsLabel")}</FormLabel>
               <FormDescription>
-                Select which payment methods are available at this location.
+                {t("paymentMethodsDesc")}
               </FormDescription>
               <div className="grid grid-cols-2 gap-4 pt-2">
                 {[
-                  { id: "cash", label: "Cash" },
-                  { id: "stripe", label: "Stripe (Credit/Debit Cards)" },
-                  { id: "paypal", label: "PayPal" },
-                  { id: "square", label: "Square" }
+                  { id: "cash" },
+                  { id: "stripe" },
+                  { id: "paypal" },
+                  { id: "square" }
                 ].map((method) => (
                   <FormItem key={method.id} className="flex flex-row items-start space-x-3 space-y-0">
                     <FormControl>
@@ -339,7 +347,7 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
                       />
                     </FormControl>
                     <FormLabel className="text-sm font-normal">
-                      {method.label}
+                      {paymentMethodLabels[method.id]}
                     </FormLabel>
                   </FormItem>
                 ))}
@@ -355,9 +363,9 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <FormLabel className="text-base">Cash Only (Legacy)</FormLabel>
+                <FormLabel className="text-base">{t("cashOnlyLegacy")}</FormLabel>
                 <p className="text-sm text-muted-foreground">
-                  This setting is maintained for compatibility. Use Payment Methods above instead.
+                  {t("cashOnlyLegacyDesc")}
                 </p>
               </div>
               <FormControl>
@@ -374,9 +382,9 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           {isPending ? (
             <>
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-              {location ? "Updating..." : "Creating..."}
+              {location ? t("updating") : t("creating")}
             </>
-          ) : location ? "Update Location" : "Create Location"}
+          ) : location ? t("updateLocation") : t("createLocation")}
         </Button>
       </form>
     </Form>

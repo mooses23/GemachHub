@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useLayoutEffect } from "react";
 import { translations, TranslationKey } from "@/lib/translations";
 
 type Language = 'en' | 'he';
@@ -22,10 +22,18 @@ function getInitialLanguage(): Language {
   return 'en';
 }
 
+if (typeof document !== 'undefined') {
+  const initial = getInitialLanguage();
+  document.documentElement.lang = initial;
+  document.documentElement.dir = initial === 'he' ? 'rtl' : 'ltr';
+}
+
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>(getInitialLanguage);
 
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'he' ? 'rtl' : 'ltr';
     localStorage.setItem('language', language);

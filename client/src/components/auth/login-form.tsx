@@ -1,4 +1,3 @@
-import * as z from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -14,11 +13,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuth, LoginData } from "@/hooks/use-auth";
 import { loginSchema } from "@shared/schema";
+import { useLanguage } from "@/hooks/use-language";
 
 export function LoginForm() {
   const { loginMutation } = useAuth();
+  const { t } = useLanguage();
 
-  // Form validation
   const form = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -27,7 +27,6 @@ export function LoginForm() {
     },
   });
 
-  // Form submission handler
   function onSubmit(values: LoginData) {
     loginMutation.mutate(values);
   }
@@ -35,9 +34,9 @@ export function LoginForm() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-2xl font-bold">Login</h3>
+        <h3 className="text-2xl font-bold">{t("login")}</h3>
         <p className="text-sm text-muted-foreground">
-          Enter your credentials to access your account
+          {t("enterCredentialsToLogin")}
         </p>
       </div>
 
@@ -48,9 +47,9 @@ export function LoginForm() {
             name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Username</FormLabel>
+                <FormLabel>{t("username")}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter your username" {...field} />
+                  <Input placeholder={t("enterUsernamePlaceholder")} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -62,12 +61,12 @@ export function LoginForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel>{t("password")}</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="password" 
-                    placeholder="Enter your password" 
-                    {...field} 
+                  <Input
+                    type="password"
+                    placeholder={t("enterPasswordPlaceholder")}
+                    {...field}
                   />
                 </FormControl>
                 <FormMessage />
@@ -75,18 +74,18 @@ export function LoginForm() {
             )}
           />
 
-          <Button 
-            type="submit" 
-            className="w-full" 
+          <Button
+            type="submit"
+            className="w-full"
             disabled={loginMutation.isPending}
           >
             {loginMutation.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                Logging in...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {t("loggingIn")}
               </>
             ) : (
-              "Login"
+              t("login")
             )}
           </Button>
         </form>

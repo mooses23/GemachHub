@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLanguage } from "@/hooks/use-language";
 import {
   CheckCircle,
   AlertCircle,
@@ -54,101 +55,47 @@ type PayLaterStatus =
   | "DECLINED"
   | "EXPIRED";
 
-function getStatusInfo(status: PayLaterStatus): {
-  badge: string;
-  icon: React.ReactNode;
-  color: "default" | "secondary" | "destructive" | "outline";
-  message: string;
-} {
-  const iconProps = { className: "w-5 h-5" };
+function useStatusInfo() {
+  const { t } = useLanguage();
+  return (status: PayLaterStatus): {
+    badge: string;
+    icon: React.ReactNode;
+    color: "default" | "secondary" | "destructive" | "outline";
+    message: string;
+  } => {
+    const iconProps = { className: "w-5 h-5" };
 
-  switch (status) {
-    case "REQUEST_CREATED":
-      return {
-        badge: "Request Created",
-        icon: <Clock {...iconProps} />,
-        color: "secondary",
-        message: "Your transaction request has been created. Please complete the card setup.",
-      };
-    case "CARD_SETUP_PENDING":
-      return {
-        badge: "Setup Pending",
-        icon: <Clock {...iconProps} />,
-        color: "secondary",
-        message: "Please verify your card to complete the setup process.",
-      };
-    case "CARD_SETUP_COMPLETE":
-      return {
-        badge: "Setup Complete",
-        icon: <CheckCircle {...iconProps} />,
-        color: "default",
-        message: "Your card has been verified and saved.",
-      };
-    case "APPROVED":
-      return {
-        badge: "Approved",
-        icon: <CheckCircle {...iconProps} />,
-        color: "default",
-        message: "Your payment has been approved and is pending charge.",
-      };
-    case "CHARGE_ATTEMPTED":
-      return {
-        badge: "Charge Pending",
-        icon: <Clock {...iconProps} />,
-        color: "secondary",
-        message: "The charge is being processed. Please wait...",
-      };
-    case "CHARGED":
-      return {
-        badge: "Charged",
-        icon: <CheckCircle {...iconProps} />,
-        color: "default",
-        message: "The payment has been successfully charged.",
-      };
-    case "CHARGE_REQUIRES_ACTION":
-      return {
-        badge: "Action Required",
-        icon: <AlertCircle {...iconProps} />,
-        color: "destructive",
-        message: "Your payment requires additional authentication. Please complete the verification below.",
-      };
-    case "CHARGE_FAILED":
-      return {
-        badge: "Charge Failed",
-        icon: <XCircle {...iconProps} />,
-        color: "destructive",
-        message: "The charge failed. Please try again or contact support.",
-      };
-    case "DECLINED":
-      return {
-        badge: "Declined",
-        icon: <XCircle {...iconProps} />,
-        color: "destructive",
-        message: "The payment was declined by your bank.",
-      };
-    case "EXPIRED":
-      return {
-        badge: "Expired",
-        icon: <XCircle {...iconProps} />,
-        color: "destructive",
-        message: "This transaction link has expired.",
-      };
-    default:
-      return {
-        badge: "Unknown",
-        icon: <AlertCircle {...iconProps} />,
-        color: "outline",
-        message: "Unable to determine transaction status.",
-      };
-  }
+    switch (status) {
+      case "REQUEST_CREATED":
+        return { badge: t("statusRequestCreated"), icon: <Clock {...iconProps} />, color: "secondary", message: t("statusRequestCreatedMsg") };
+      case "CARD_SETUP_PENDING":
+        return { badge: t("statusSetupPending"), icon: <Clock {...iconProps} />, color: "secondary", message: t("statusSetupPendingMsg") };
+      case "CARD_SETUP_COMPLETE":
+        return { badge: t("statusSetupComplete"), icon: <CheckCircle {...iconProps} />, color: "default", message: t("statusSetupCompleteMsg") };
+      case "APPROVED":
+        return { badge: t("approved"), icon: <CheckCircle {...iconProps} />, color: "default", message: t("statusApprovedMsg") };
+      case "CHARGE_ATTEMPTED":
+        return { badge: t("statusChargePending"), icon: <Clock {...iconProps} />, color: "secondary", message: t("statusChargePendingMsg") };
+      case "CHARGED":
+        return { badge: t("statusCharged"), icon: <CheckCircle {...iconProps} />, color: "default", message: t("statusChargedMsg") };
+      case "CHARGE_REQUIRES_ACTION":
+        return { badge: t("statusActionRequired"), icon: <AlertCircle {...iconProps} />, color: "destructive", message: t("statusActionRequiredMsg") };
+      case "CHARGE_FAILED":
+        return { badge: t("statusChargeFailed"), icon: <XCircle {...iconProps} />, color: "destructive", message: t("statusChargeFailedMsg") };
+      case "DECLINED":
+        return { badge: t("statusDeclined"), icon: <XCircle {...iconProps} />, color: "destructive", message: t("statusDeclinedMsg") };
+      case "EXPIRED":
+        return { badge: t("statusExpired"), icon: <XCircle {...iconProps} />, color: "destructive", message: t("statusExpiredMsg") };
+      default:
+        return { badge: t("statusUnknown"), icon: <AlertCircle {...iconProps} />, color: "outline", message: t("statusUnknownMsg") };
+    }
+  };
 }
 
 function StripePaymentForm({
   clientSecret,
-  publishableKey,
   amountCents,
   currency,
-  transactionId,
   onSuccess,
   onError,
 }: {
@@ -162,6 +109,7 @@ function StripePaymentForm({
 }) {
   const stripe = useStripe();
   const elements = useElements();
+  const { t } = useLanguage();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,16 +130,11 @@ function StripePaymentForm({
 
       const { paymentIntent, error } = await stripe.confirmCardPayment(
         clientSecret,
-        {
-          payment_method: {
-            card: cardElement,
-          },
-        }
+        { payment_method: { card: cardElement } }
       );
 
       if (error) {
-        const errorMessage = error.message || "Payment confirmation failed";
-        onError(errorMessage);
+        onError(error.message || "Payment confirmation failed");
         setIsProcessing(false);
         return;
       }
@@ -206,9 +149,7 @@ function StripePaymentForm({
         setIsProcessing(false);
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An error occurred";
-      onError(errorMessage);
+      onError(error instanceof Error ? error.message : "An error occurred");
       setIsProcessing(false);
     }
   };
@@ -219,10 +160,10 @@ function StripePaymentForm({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CreditCard className="w-5 h-5" />
-            Complete Card Authentication
+            {t("completeCardAuth")}
           </CardTitle>
           <CardDescription>
-            Amount: {(amountCents / 100).toFixed(2)} {currency.toUpperCase()}
+            {t("amount")}: {(amountCents / 100).toFixed(2)} {currency.toUpperCase()}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -233,30 +174,22 @@ function StripePaymentForm({
                   base: {
                     fontSize: "16px",
                     color: "#424242",
-                    "::placeholder": {
-                      color: "#9e9e9e",
-                    },
+                    "::placeholder": { color: "#9e9e9e" },
                   },
-                  invalid: {
-                    color: "#d32f2f",
-                  },
+                  invalid: { color: "#d32f2f" },
                 },
               }}
             />
           </div>
-          <Button
-            type="submit"
-            disabled={!stripe || isProcessing}
-            className="w-full"
-          >
+          <Button type="submit" disabled={!stripe || isProcessing} className="w-full">
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Processing...
+                {t("processing")}
               </>
             ) : (
               <>
-                Complete Authentication
+                {t("completeAuth")}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}
@@ -274,11 +207,11 @@ function StatusPageContent({
   transactionId: string;
   token: string;
 }) {
+  const { t } = useLanguage();
+  const getStatusInfo = useStatusInfo();
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(
-    null
-  );
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
 
   const { data, isLoading, error, refetch } = useQuery<StatusPageData>({
     queryKey: [`/api/status/${transactionId}`, token],
@@ -298,7 +231,6 @@ function StatusPageContent({
     enabled: !!transactionId && !!token,
   });
 
-  // Initialize Stripe when publishableKey is available
   if (data?.publishableKey && !stripePromise) {
     setStripePromise(loadStripe(data.publishableKey));
   }
@@ -326,11 +258,9 @@ function StatusPageContent({
             <div className="flex items-start gap-3">
               <XCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-red-900 mb-1">Error</h3>
+                <h3 className="font-semibold text-red-900 mb-1">{t("error")}</h3>
                 <p className="text-sm text-red-700">
-                  {error instanceof Error
-                    ? error.message
-                    : "Failed to load transaction status"}
+                  {error instanceof Error ? error.message : t("failedToLoadStatus")}
                 </p>
               </div>
             </div>
@@ -345,7 +275,7 @@ function StatusPageContent({
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="py-8 text-center">
-            <p className="text-gray-600">No transaction data available</p>
+            <p className="text-gray-600">{t("noTransactionData")}</p>
           </CardContent>
         </Card>
       </div>
@@ -358,15 +288,13 @@ function StatusPageContent({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Transaction Status
+            {t("transactionStatus")}
           </h1>
-          <p className="text-gray-600">Transaction #{data.id}</p>
+          <p className="text-gray-600">{t("transactionNumber")}{data.id}</p>
         </div>
 
-        {/* Status Card */}
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-start justify-between">
@@ -386,15 +314,13 @@ function StatusPageContent({
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Amount */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Amount</p>
+              <p className="text-sm text-gray-600 mb-1">{t("amount")}</p>
               <p className="text-3xl font-bold text-gray-900">
                 {amount.toFixed(2)} {data.currency.toUpperCase()}
               </p>
             </div>
 
-            {/* Status Message */}
             {paymentError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -406,7 +332,7 @@ function StatusPageContent({
               <Alert className="border-green-200 bg-green-50">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">
-                  Payment authentication completed successfully!
+                  {t("paymentAuthCompleted")}
                 </AlertDescription>
               </Alert>
             )}
@@ -418,7 +344,6 @@ function StatusPageContent({
               </Alert>
             )}
 
-            {/* Stripe Payment Form */}
             {data.requiresAction &&
               !paymentSuccess &&
               stripePromise &&
@@ -433,7 +358,6 @@ function StatusPageContent({
                     transactionId={data.id}
                     onSuccess={() => {
                       setPaymentSuccess(true);
-                      // Refetch status after successful payment
                       setTimeout(() => refetch(), 1000);
                     }}
                     onError={(error) => {
@@ -444,38 +368,33 @@ function StatusPageContent({
               )}
 
             {paymentSuccess && (
-              <Button
-                onClick={() => refetch()}
-                variant="outline"
-                className="w-full"
-              >
-                Refresh Status
+              <Button onClick={() => refetch()} variant="outline" className="w-full">
+                {t("refreshStatus")}
               </Button>
             )}
           </CardContent>
         </Card>
 
-        {/* Status Timeline Info */}
         <Card className="bg-gray-50">
           <CardHeader>
-            <CardTitle className="text-base">Transaction Details</CardTitle>
+            <CardTitle className="text-base">{t("transactionDetails")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Status</span>
+                <span className="text-gray-600">{t("status")}</span>
                 <span className="font-semibold text-gray-900">
                   {statusInfo.badge}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Amount</span>
+                <span className="text-gray-600">{t("amount")}</span>
                 <span className="font-semibold text-gray-900">
                   {amount.toFixed(2)} {data.currency.toUpperCase()}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Location</span>
+                <span className="text-gray-600">{t("location")}</span>
                 <span className="font-semibold text-gray-900">
                   {data.locationName || "N/A"}
                 </span>
@@ -489,6 +408,7 @@ function StatusPageContent({
 }
 
 export default function StatusPage() {
+  const { t } = useLanguage();
   const [, params] = useRoute("/status/:transactionId");
   const transactionId = params?.transactionId || "";
   const token = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("token") || "";
@@ -501,9 +421,9 @@ export default function StatusPage() {
             <div className="flex items-start gap-3">
               <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-red-900 mb-1">Invalid URL</h3>
+                <h3 className="font-semibold text-red-900 mb-1">{t("invalidUrl")}</h3>
                 <p className="text-sm text-red-700">
-                  Transaction ID and token are required in the URL.
+                  {t("invalidUrlDesc")}
                 </p>
               </div>
             </div>

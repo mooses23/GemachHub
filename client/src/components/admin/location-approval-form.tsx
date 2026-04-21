@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { CheckCircle, Copy, MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLanguage } from "@/hooks/use-language";
 
 interface LocationApprovalFormProps {
   application: GemachApplication;
@@ -24,6 +25,7 @@ interface LocationApprovalFormProps {
 
 export function LocationApprovalForm({ application, locations }: LocationApprovalFormProps) {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
@@ -36,16 +38,16 @@ export function LocationApprovalForm({ application, locations }: LocationApprova
     },
     onSuccess: () => {
       toast({
-        title: "Application Approved",
-        description: "Location details have been prepared for the applicant.",
+        title: t("applicationApproved"),
+        description: t("applicationApprovedDesc"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
       setIsOpen(false);
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: `Failed to approve application: ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToApproveApplication")}: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -107,13 +109,13 @@ For questions, contact us at earmuffsgemach@gmail.com
     try {
       await navigator.clipboard.writeText(detailsText);
       toast({
-        title: "Copied!",
-        description: "Location details copied to clipboard.",
+        title: t("copied"),
+        description: t("locationDetailsCopied"),
       });
     } catch (err) {
       toast({
-        title: "Copy failed",
-        description: "Please manually copy the text.",
+        title: t("copyFailed"),
+        description: t("manuallyCopyText"),
         variant: "destructive",
       });
     }
@@ -124,23 +126,23 @@ For questions, contact us at earmuffsgemach@gmail.com
       <DialogTrigger asChild>
         <Button size="sm" className="bg-green-600 hover:bg-green-700">
           <CheckCircle className="h-4 w-4 mr-1" />
-          Approve Location
+          {t("approveLocationButton")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
-            Approve Location: {application.firstName} {application.lastName}
+            {t("approveLocationFor")}: {application.firstName} {application.lastName}
           </DialogTitle>
         </DialogHeader>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <h3 className="font-semibold">Configuration</h3>
+            <h3 className="font-semibold">{t("configuration")}</h3>
             
             <div>
-              <Label htmlFor="locationCode">Custom Location Code (optional)</Label>
+              <Label htmlFor="locationCode">{t("customLocationCodeOptional")}</Label>
               <Input
                 id="locationCode"
                 value={customLocationCode}
@@ -150,7 +152,7 @@ For questions, contact us at earmuffsgemach@gmail.com
             </div>
 
             <div>
-              <Label htmlFor="baseLocation">Base Settings From</Label>
+              <Label htmlFor="baseLocation">{t("baseSettingsFrom")}</Label>
               <select
                 id="baseLocation"
                 className="w-full p-2 border rounded-md"
@@ -160,7 +162,7 @@ For questions, contact us at earmuffsgemach@gmail.com
                   setSelectedLocation(location || null);
                 }}
               >
-                <option value="">Default Settings</option>
+                <option value="">{t("defaultSettings")}</option>
                 {locations.slice(0, 5).map((location) => (
                   <option key={location.id} value={location.id}>
                     {location.name} (${location.depositAmount}, {(location.processingFeePercent || 300)/100}% fee)
@@ -170,12 +172,12 @@ For questions, contact us at earmuffsgemach@gmail.com
             </div>
 
             <div>
-              <Label htmlFor="instructions">Additional Instructions (optional)</Label>
+              <Label htmlFor="instructions">{t("additionalInstructionsOptional")}</Label>
               <Textarea
                 id="instructions"
                 value={customInstructions}
                 onChange={(e) => setCustomInstructions(e.target.value)}
-                placeholder="Any special setup instructions..."
+                placeholder={t("specialSetupInstructions")}
                 rows={4}
               />
             </div>
@@ -183,14 +185,14 @@ For questions, contact us at earmuffsgemach@gmail.com
             <div className="flex gap-2">
               <Button onClick={copyToClipboard} variant="outline" className="flex-1">
                 <Copy className="h-4 w-4 mr-2" />
-                Copy Details
+                {t("copyDetails")}
               </Button>
               <Button 
                 onClick={() => approvalMutation.mutate()} 
                 disabled={approvalMutation.isPending}
                 className="flex-1"
               >
-                {approvalMutation.isPending ? "Approving..." : "Approve & Send"}
+                {approvalMutation.isPending ? t("approving") : t("approveAndSend")}
               </Button>
             </div>
           </div>
@@ -198,7 +200,7 @@ For questions, contact us at earmuffsgemach@gmail.com
           <div>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Location Details to Send</CardTitle>
+                <CardTitle className="text-sm">{t("locationDetailsToSend")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <pre className="whitespace-pre-wrap text-xs bg-gray-50 p-3 rounded border max-h-96 overflow-y-auto">
