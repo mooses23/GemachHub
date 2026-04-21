@@ -119,13 +119,15 @@ export default function Dashboard() {
 
         {/* Section Navigation */}
         <Tabs value={activeSection} onValueChange={(value) => setActiveSection(value as DashboardSection)} className="mb-8">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">{t('overview')}</TabsTrigger>
-            <TabsTrigger value="locations">{t('locations')}</TabsTrigger>
-            <TabsTrigger value="transactions">{t('transactions')}</TabsTrigger>
-            <TabsTrigger value="applications">{t('applications')}</TabsTrigger>
-            <TabsTrigger value="analytics">{t('analytics')}</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <TabsList className="flex w-max min-w-full justify-start sm:grid sm:w-full sm:grid-cols-5">
+              <TabsTrigger value="overview" className="whitespace-nowrap px-4">{t('overview')}</TabsTrigger>
+              <TabsTrigger value="locations" className="whitespace-nowrap px-4">{t('locations')}</TabsTrigger>
+              <TabsTrigger value="transactions" className="whitespace-nowrap px-4">{t('transactions')}</TabsTrigger>
+              <TabsTrigger value="applications" className="whitespace-nowrap px-4">{t('applications')}</TabsTrigger>
+              <TabsTrigger value="analytics" className="whitespace-nowrap px-4">{t('analytics')}</TabsTrigger>
+            </TabsList>
+          </div>
           
           <TabsContent value="overview">
             {/* Stats Cards - Responsive based on view mode */}
