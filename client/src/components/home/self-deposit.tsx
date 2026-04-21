@@ -21,7 +21,7 @@ import { useSearch } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
 
 export function SelfDeposit() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const searchParams = useSearch();
   const urlParams = new URLSearchParams(searchParams);
   const locationIdFromUrl = urlParams.get("locationId") || "";
@@ -58,9 +58,12 @@ export function SelfDeposit() {
         <div className="container mx-auto px-3 sm:px-4 md:px-6">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-6 sm:mb-8">
-              <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-2 sm:mb-4">Complete Your Deposit</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-2 sm:mb-4">{t("completeYourDeposit")}</h2>
               <p className="text-sm sm:text-base md:text-lg text-neutral-600">
-                {borrowerName}, complete your ${selectedLocationData.depositAmount} deposit for {selectedLocationData.name}
+                {t("completeDepositFor")
+                  .replace("{name}", borrowerName)
+                  .replace("{amount}", String(selectedLocationData.depositAmount))
+                  .replace("{location}", language === "he" && selectedLocationData.nameHe ? selectedLocationData.nameHe : selectedLocationData.name)}
               </p>
             </div>
 
@@ -69,13 +72,13 @@ export function SelfDeposit() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="w-5 h-5" />
-                    Borrow Details
+                    {t("borrowDetails")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Location</Label>
-                    <p className="font-semibold">{selectedLocationData.name}</p>
+                    <Label className="text-sm font-medium text-gray-600">{t("location")}</Label>
+                    <p className="font-semibold">{language === "he" && selectedLocationData.nameHe ? selectedLocationData.nameHe : selectedLocationData.name}</p>
                     <p className="text-sm text-gray-500">{selectedLocationData.locationCode}</p>
                   </div>
                   {selectedLocationData.phone && (
@@ -83,19 +86,19 @@ export function SelfDeposit() {
                       <Label className="text-sm font-medium text-gray-600">{t("contactLabel2")}</Label>
                       <a href={`tel:${selectedLocationData.phone.replace(/[^+\d]/g, "")}`} className="block text-sm text-blue-600 hover:text-blue-800 hover:underline">{selectedLocationData.phone}</a>
                       <div className="mt-2">
-                        <ContactActionsLight phone={selectedLocationData.phone} locationName={selectedLocationData.name} />
+                        <ContactActionsLight phone={selectedLocationData.phone} locationName={language === "he" && selectedLocationData.nameHe ? selectedLocationData.nameHe : selectedLocationData.name} />
                       </div>
                     </div>
                   )}
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Borrower</Label>
+                    <Label className="text-sm font-medium text-gray-600">{t("borrower")}</Label>
                     <p className="font-semibold">{borrowerName}</p>
                     <p className="text-sm text-gray-500">{borrowerEmail}</p>
                     {borrowerPhone && <p className="text-sm text-gray-500">{borrowerPhone}</p>}
                   </div>
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Payment Method</Label>
-                    <p className="font-semibold capitalize">{selectedPaymentMethod}</p>
+                    <Label className="text-sm font-medium text-gray-600">{t("paymentMethod")}</Label>
+                    <p className="font-semibold">{selectedPaymentMethod === "cash" ? t("cashNoFee") : selectedPaymentMethod === "stripe" ? t("creditDebitCard") : selectedPaymentMethod}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -104,7 +107,7 @@ export function SelfDeposit() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <CreditCard className="w-5 h-5" />
-                    Payment Processing
+                    {t("paymentProcessing")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -144,7 +147,7 @@ export function SelfDeposit() {
                 onClick={() => setShowPayment(false)}
                 className="mr-4"
               >
-                Back to Details
+                {t("backToDetails")}
               </Button>
             </div>
           </div>
@@ -157,30 +160,30 @@ export function SelfDeposit() {
     <section id="self-deposit" className="bg-white py-12 sm:py-16">
       <div className="container mx-auto px-3 sm:px-4 md:px-6">
         <div className="text-center mb-8 sm:mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-2 sm:mb-4">Self Deposit</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-2 sm:mb-4">{t("selfDepositTitle")}</h2>
           <p className="text-sm sm:text-base md:text-lg text-neutral-600 max-w-3xl mx-auto">
-            Select your location and record your $20 deposit for Baby Banz Earmuffs borrowing.
+            {t("selectLocationAndRecord")}
           </p>
         </div>
         
         <div className="max-w-2xl mx-auto px-3 sm:px-0">
           <Card>
             <CardHeader className="pb-4 sm:pb-6">
-              <CardTitle className="text-xl sm:text-2xl">Record Your Deposit</CardTitle>
+              <CardTitle className="text-xl sm:text-2xl">{t("recordYourDeposit")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5 sm:space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Location
+                  {t("selectLocation")}
                 </label>
                 <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose your gemach location..." />
+                    <SelectValue placeholder={t("chooseYourGemachLocation")} />
                   </SelectTrigger>
                   <SelectContent>
                     {locations.map((location: Location) => (
                       <SelectItem key={location.id} value={location.id.toString()}>
-                        #{location.id} - {location.name} ({location.locationCode})
+                        #{location.id} - {language === "he" && location.nameHe ? location.nameHe : location.name} ({location.locationCode})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -194,38 +197,38 @@ export function SelfDeposit() {
                     <h3 className="font-semibold text-emerald-900">{t("contactLocation")}</h3>
                   </div>
                   <p className="text-sm text-emerald-800 mb-3">
-                    {t("contactLocationPrompt").replace("{location}", selectedLocationData.name)}
+                    {t("contactLocationPrompt").replace("{location}", language === "he" && selectedLocationData.nameHe ? selectedLocationData.nameHe : selectedLocationData.name)}
                   </p>
                   <div className="flex items-center gap-2 mb-2">
                     <a href={`tel:${selectedLocationData.phone.replace(/[^+\d]/g, "")}`} className="text-sm font-medium text-emerald-700 hover:text-emerald-900 hover:underline">{selectedLocationData.phone}</a>
                   </div>
-                  <ContactActionsLight phone={selectedLocationData.phone} locationName={selectedLocationData.name} />
+                  <ContactActionsLight phone={selectedLocationData.phone} locationName={language === "he" && selectedLocationData.nameHe ? selectedLocationData.nameHe : selectedLocationData.name} />
                 </div>
               )}
 
               <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-blue-900 mb-2">Deposit Information</h3>
+                <h3 className="font-semibold text-blue-900 mb-2">{t("depositInformation")}</h3>
                 <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Deposit amount: $20 (fully refundable)</li>
-                  <li>• Return earmuffs in good condition to receive full refund</li>
-                  <li>• Contact location coordinator for pickup/return arrangements</li>
+                  <li>• {t("depositAmount20")}</li>
+                  <li>• {t("returnInGoodCondition")}</li>
+                  <li>• {t("contactCoordinatorArrangements")}</li>
                 </ul>
               </div>
 
               <div className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="borrowerName">Full Name *</Label>
+                    <Label htmlFor="borrowerName">{t("fullName")} *</Label>
                     <Input
                       id="borrowerName"
                       value={borrowerName}
                       onChange={(e) => setBorrowerName(e.target.value)}
-                      placeholder="Enter your full name"
+                      placeholder={t("enterYourFullName")}
                       required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="borrowerEmail">Email Address *</Label>
+                    <Label htmlFor="borrowerEmail">{t("emailAddress")} *</Label>
                     <Input
                       id="borrowerEmail"
                       type="email"
@@ -238,7 +241,7 @@ export function SelfDeposit() {
                 </div>
 
                 <div>
-                  <Label htmlFor="borrowerPhone">Phone Number (Optional)</Label>
+                  <Label htmlFor="borrowerPhone">{t("phoneNumber")}</Label>
                   <Input
                     id="borrowerPhone"
                     type="tel"
@@ -249,22 +252,22 @@ export function SelfDeposit() {
                 </div>
 
                 <div>
-                  <Label>Payment Method *</Label>
+                  <Label>{t("paymentMethod")} *</Label>
                   <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose payment method..." />
+                      <SelectValue placeholder={t("choosePaymentMethod")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="stripe">
                         <div className="flex items-center gap-2">
                           <CreditCard className="w-4 h-4" />
-                          Card (Credit/Debit)
+                          {t("creditDebitCard")}
                         </div>
                       </SelectItem>
                       <SelectItem value="cash">
                         <div className="flex items-center gap-2">
                           <DollarSign className="w-4 h-4" />
-                          Cash (Pay at Location)
+                          {t("cashNoFee")}
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -288,7 +291,7 @@ export function SelfDeposit() {
                 className="w-full h-11 sm:h-12"
                 size="lg"
               >
-                {selectedPaymentMethod === 'cash' ? 'Record Cash Deposit Request' : 'Proceed to Card Payment'}
+                {selectedPaymentMethod === 'cash' ? t("recordCashDeposit") : t("proceedToCardPayment")}
               </Button>
             </CardContent>
           </Card>

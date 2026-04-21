@@ -5,6 +5,7 @@ import { User, MapPin, Phone, Package } from "lucide-react";
 import { ContactActionsLight } from "@/components/ui/contact-actions";
 import { useLocation } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
+import { pickLocalized } from "@/lib/localized-record";
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -50,7 +51,10 @@ interface LocationCardProps {
 
 export function LocationCard({ location, locationNumber }: LocationCardProps) {
   const [, navigate] = useLocation();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const locName = pickLocalized(location, "name", language);
+  const locContact = pickLocalized(location, "contactPerson", language);
+  const locAddress = pickLocalized(location, "address", language);
   const { data: inventoryData } = useQuery<{ inventory: { color: string; quantity: number }[]; total: number }>({
     queryKey: ["/api/locations", location.id, "inventory"],
     queryFn: async () => {
@@ -79,7 +83,7 @@ export function LocationCard({ location, locationNumber }: LocationCardProps) {
                   #{locationNumber}
                 </div>
               )}
-              <h3 className="text-xl font-semibold">{location.name}</h3>
+              <h3 className="text-xl font-semibold">{locName}</h3>
             </div>
             <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
               {location.isActive ? t("active") : t("inactive")}
@@ -88,18 +92,18 @@ export function LocationCard({ location, locationNumber }: LocationCardProps) {
           <div className="mb-4 text-neutral-600">
             <p className="flex items-center mb-2">
               <User className="w-5 h-5 mr-2 text-neutral-500" />
-              <span>{location.contactPerson}</span>
+              <span>{locContact}</span>
             </p>
             <p className="flex items-center mb-2">
               <MapPin className="w-5 h-5 mr-2 text-neutral-500" />
-              <span>{location.address}</span>
+              <span>{locAddress}</span>
             </p>
             <p className="flex items-center mb-2">
               <Phone className="w-5 h-5 mr-2 text-neutral-500" />
               <a href={`tel:${location.phone?.replace(/[^+\d]/g, "")}`} className="text-blue-600 hover:text-blue-800 hover:underline transition-colors">{location.phone}</a>
             </p>
             <div className="mb-2" data-contact-actions>
-              <ContactActionsLight phone={location.phone} locationName={location.name} />
+              <ContactActionsLight phone={location.phone} locationName={locName} />
             </div>
             <p className="flex items-center">
               <Package className="w-5 h-5 mr-2 text-neutral-500" />

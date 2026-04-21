@@ -1,6 +1,8 @@
 import React from "react";
 import { Region } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/hooks/use-language";
+import { pickLocalized } from "@/lib/localized-record";
 
 interface RegionTabsProps {
   regions: Region[];
@@ -9,6 +11,7 @@ interface RegionTabsProps {
 }
 
 export function RegionTabs({ regions, activeRegion, setActiveRegion }: RegionTabsProps) {
+  const { language } = useLanguage();
   // Default tabs if no regions are available yet
   const defaultRegions = [
     { id: 1, name: "United States", slug: "united-states", displayOrder: 1 },
@@ -48,7 +51,7 @@ export function RegionTabs({ regions, activeRegion, setActiveRegion }: RegionTab
               : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-200"
             }`}
           >
-            {region.name}
+            {pickLocalized(region as any, "name", language)}
           </Button>
         ))}
       </div>

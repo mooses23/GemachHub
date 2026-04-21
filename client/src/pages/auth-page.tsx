@@ -12,7 +12,7 @@ import { Home, MapPin, Lock, Loader2 } from "lucide-react";
 
 function OperatorLoginForm() {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [locationCode, setLocationCode] = useState("");
   const [pin, setPin] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +49,7 @@ function OperatorLoginForm() {
 
       toast({
         title: t("welcomeToast"),
-        description: t("loggedInToLocation").replace("{location}", data.location.name),
+        description: t("loggedInToLocation").replace("{location}", language === "he" && data.location.nameHe ? data.location.nameHe : data.location.name),
       });
 
       window.location.href = "/operator/dashboard";
@@ -126,7 +126,7 @@ export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<string>("operator");
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     if (user) {

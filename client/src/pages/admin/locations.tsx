@@ -72,7 +72,7 @@ import { Badge } from "@/components/ui/badge";
 
 export default function AdminLocations() {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [regionFilter, setRegionFilter] = useState<string>("all");
@@ -187,7 +187,13 @@ export default function AdminLocations() {
 
   const getRegionNameById = (regionId: number) => {
     const region = regions.find(r => r.id === regionId);
-    return region ? region.name : "Unknown";
+    if (!region) return "Unknown";
+    return language === "he" && region.nameHe ? region.nameHe : region.name;
+  };
+
+  const localized = (loc: any, base: "name" | "address" | "contactPerson") => {
+    const heKey = `${base}He` as const;
+    return language === "he" && loc[heKey] ? loc[heKey] : loc[base];
   };
 
   const filteredLocations = locations.filter(location => {
@@ -196,8 +202,10 @@ export default function AdminLocations() {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = 
         location.name.toLowerCase().includes(searchLower) ||
+        (location.nameHe && location.nameHe.toLowerCase().includes(searchLower)) ||
         location.contactPerson.toLowerCase().includes(searchLower) ||
         location.address.toLowerCase().includes(searchLower) ||
+        (location.addressHe && location.addressHe.toLowerCase().includes(searchLower)) ||
         getRegionNameById(location.regionId).toLowerCase().includes(searchLower);
       if (!matchesSearch) return false;
     }
@@ -337,7 +345,7 @@ export default function AdminLocations() {
                   <SelectItem value="all">{t('allRegions')}</SelectItem>
                   {regions.map((region) => (
                     <SelectItem key={region.id} value={region.id.toString()}>
-                      {region.name}
+                      {language === "he" && region.nameHe ? region.nameHe : region.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -408,18 +416,18 @@ export default function AdminLocations() {
                       <TableRow key={location.id}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
-                            <span>{location.name}</span>
+                            <span>{localized(location, "name")}</span>
                             {location.locationCode && (
                               <Badge variant="outline" className="text-xs">{location.locationCode}</Badge>
                             )}
                           </div>
                           <div className="text-xs text-muted-foreground flex items-center mt-1">
                             <MapPin className="h-3 w-3 mr-1" />
-                            {location.address}
+                            {localized(location, "address")}
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          <div>{location.contactPerson}</div>
+                          <div>{localized(location, "contactPerson")}</div>
                           <div className="text-xs text-muted-foreground flex items-center">
                             <Phone className="h-3 w-3 mr-1" />
                             {location.phone}

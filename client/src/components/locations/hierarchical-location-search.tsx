@@ -10,21 +10,20 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getLocations, getRegions } from "@/lib/api";
 import { useLanguage } from "@/hooks/use-language";
-import {
-  localizeRegionName,
-  localizeCityName,
-  localizeUSState,
-} from "@/lib/location-names";
+import { localizeUSState } from "@/lib/location-names";
+import { pickLocalized } from "@/lib/localized-record";
 import type { Location, Region } from "@/lib/types";
 
 type CityCategory = {
   id: number;
   name: string;
+  nameHe?: string | null;
   slug: string;
   regionId: number;
   displayOrder: number;
   isPopular: boolean;
   description?: string;
+  descriptionHe?: string | null;
   stateCode?: string | null;
 };
 
@@ -94,11 +93,14 @@ export function HierarchicalLocationSearch() {
         const region = regionsMap[location.regionId];
         return (
           location.name.toLowerCase().includes(query) ||
+          (location.nameHe && location.nameHe.toLowerCase().includes(query)) ||
           location.address.toLowerCase().includes(query) ||
+          (location.addressHe && location.addressHe.toLowerCase().includes(query)) ||
           location.locationCode.toLowerCase().includes(query) ||
           location.phone.includes(query) ||
           (location.zipCode && location.zipCode.toLowerCase().includes(query)) ||
-          region?.name.toLowerCase().includes(query)
+          region?.name.toLowerCase().includes(query) ||
+          (region?.nameHe && region.nameHe.toLowerCase().includes(query))
         );
       });
     }
@@ -160,13 +162,13 @@ export function HierarchicalLocationSearch() {
     if (selectedRegion.slug !== "united-states" && citiesInRegion.length > 0) {
       return {
         codes: citiesInRegion.map(c => c.slug),
-        names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: c.name }), {} as Record<string, string>),
+        names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: pickLocalized(c, "name", language) }), {} as Record<string, string>),
         labelType: "Cities"
       };
     }
     
     return { codes: [], names: {} as Record<string, string>, labelType: "" };
-  }, [selectedRegion, cityCategories]);
+  }, [selectedRegion, cityCategories, language]);
 
   const groupedByCity = useMemo(() => {
     if (!selectedRegion) return {};
@@ -260,7 +262,7 @@ export function HierarchicalLocationSearch() {
                   >
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xl font-semibold text-white">
-                        {localizeRegionName(language, region.slug, region.name)}
+                        {pickLocalized(region, "name", language)}
                       </h3>
                       <ChevronRight className="h-5 w-5 text-slate-300" />
                     </div>
@@ -273,7 +275,7 @@ export function HierarchicalLocationSearch() {
                         <div className="flex flex-wrap gap-1">
                           {regionCities.slice(0, 3).map(city => (
                             <span key={city.id} className="px-2 py-1 text-xs rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              {localizeCityName(language, city.slug, city.name)}
+                              {pickLocalized(city, "name", language)}
                             </span>
                           ))}
                           {regionCities.length > 3 && (
@@ -321,7 +323,7 @@ export function HierarchicalLocationSearch() {
         </div>
         
         <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
-          {localizeRegionName(language, selectedRegion.slug, selectedRegion.name)}
+          {pickLocalized(selectedRegion, "name", language)}
         </h2>
         <p className="text-slate-400">
           {t("choosePopularCity")}
@@ -333,7 +335,7 @@ export function HierarchicalLocationSearch() {
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
           <input
             type="text"
-            placeholder={`${t("searchLocationsIn")} ${localizeRegionName(language, selectedRegion.slug, selectedRegion.name)}...`}
+            placeholder={`${t("searchLocationsIn")} ${pickLocalized(selectedRegion, "name", language)}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-4 text-base rounded-full input-glass placeholder:text-slate-500"
@@ -382,7 +384,7 @@ export function HierarchicalLocationSearch() {
                         : "btn-glass-outline"
                     }`}
                   >
-                    {localizeCityName(language, community.slug, community.name)}
+                    {pickLocalized(community, "name", language)}
                     <span className="ml-1 text-xs opacity-75">({community.locationCount})</span>
                   </button>
                 ))}
@@ -466,7 +468,7 @@ export function HierarchicalLocationSearch() {
                     : "btn-glass-outline"
                 }`}
               >
-                {localizeCityName(language, code, subRegions.names[code] || code)}
+                {subRegions.names[code] || code}
               </button>
             ))}
           </div>
@@ -479,10 +481,10 @@ export function HierarchicalLocationSearch() {
             <div className="flex items-center justify-between mb-6 px-4 md:px-0">
               <div>
                 <h3 className="text-xl font-semibold text-white">
-                  {localizeCityName(language, city.slug, city.name)}
+                  {pickLocalized(city, "name", language)}
                 </h3>
-                {city.description && (
-                  <p className="text-sm text-slate-400">{city.description}</p>
+                {(city.description || city.descriptionHe) && (
+                  <p className="text-sm text-slate-400">{pickLocalized(city, "description", language)}</p>
                 )}
               </div>
               <span className="px-3 py-1 text-sm rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
@@ -563,8 +565,11 @@ interface LocationCardProps {
 }
 
 function LocationCard({ location, region }: LocationCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [, navigate] = useLocation();
+  const locName = pickLocalized(location, "name", language);
+  const locAddress = pickLocalized(location, "address", language);
+  const locContact = pickLocalized(location, "contactPerson", language);
   const { data: inventoryData, isLoading: inventoryLoading } = useQuery<{ inventory: { color: string; quantity: number }[]; total: number }>({
     queryKey: ["/api/locations", location.id, "inventory"],
     queryFn: async () => {
@@ -592,7 +597,7 @@ function LocationCard({ location, region }: LocationCardProps) {
               {location.locationCode}
             </span>
             <h3 className="text-lg font-semibold text-white">
-              {location.name}
+              {locName}
             </h3>
           </div>
         </div>
@@ -600,7 +605,7 @@ function LocationCard({ location, region }: LocationCardProps) {
         <div className="space-y-3">
           <div className="flex items-start">
             <MapPin className="h-4 w-4 text-slate-400 mt-1 mr-2 flex-shrink-0" />
-            <p className="text-sm text-slate-300">{location.address}</p>
+            <p className="text-sm text-slate-300">{locAddress}</p>
           </div>
           
           <div className="flex items-center">
@@ -608,7 +613,7 @@ function LocationCard({ location, region }: LocationCardProps) {
             <a href={`tel:${location.phone?.replace(/[^+\d]/g, "")}`} className="text-sm text-slate-300 hover:text-white transition-colors">{location.phone}</a>
           </div>
           <div data-contact-actions>
-            <ContactActions phone={location.phone} locationName={location.name} compact />
+            <ContactActions phone={location.phone} locationName={locName} compact />
           </div>
           
           <div className="flex items-center min-h-[28px]">
@@ -635,7 +640,7 @@ function LocationCard({ location, region }: LocationCardProps) {
           <div className="flex items-center justify-between">
             <div className="text-sm">
               <span className="text-slate-400">{t("contactLabel")}</span>
-              <span className="font-medium text-slate-300 ml-1">{location.contactPerson}</span>
+              <span className="font-medium text-slate-300 ml-1">{locContact}</span>
             </div>
             <span className={`px-2 py-1 text-xs rounded-full ${
               location.isActive 

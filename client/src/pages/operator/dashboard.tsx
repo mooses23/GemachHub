@@ -1679,7 +1679,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
 export default function OperatorDashboard() {
   const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [, setPath] = useLocation();
   const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return" | "security">("overview");
   const [showAddStock, setShowAddStock] = useState(false);
@@ -1777,7 +1777,7 @@ export default function OperatorDashboard() {
                 </Button>
               </Link>
               <span className="text-slate-500">/</span>
-              <span className="font-semibold text-white">{operatorLocation.name}</span>
+              <span className="font-semibold text-white">{language === "he" && operatorLocation.nameHe ? operatorLocation.nameHe : operatorLocation.name}</span>
             </div>
             <Button variant="ghost" size="sm" onClick={() => logout()} className="hover:bg-white/10 text-slate-300">
               <LogOut className="h-4 w-4 mr-1" /> {t('logOut')}
@@ -1790,7 +1790,7 @@ export default function OperatorDashboard() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
           <div className="flex flex-col gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-white">{operatorLocation.name}</h1>
+              <h1 className="text-2xl font-bold text-white">{language === "he" && operatorLocation.nameHe ? operatorLocation.nameHe : operatorLocation.name}</h1>
               <p className="text-slate-400">{t('manageHeadbandLendingAndReturns')}</p>
             </div>
             <TabsList className="grid grid-cols-4 w-full glass-panel border-white/10">

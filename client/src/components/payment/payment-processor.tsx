@@ -185,7 +185,7 @@ export default function PaymentProcessor({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Payment Required - {location.name}
+            Payment Required - {(location as any).nameHe || location.name}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -202,7 +202,7 @@ export default function PaymentProcessor({
               <h4 className="font-medium mb-2">Location Details</h4>
               <div className="text-sm space-y-1">
                 <p><strong>Code:</strong> {location.locationCode}</p>
-                <p><strong>Contact:</strong> {location.contactPerson}</p>
+                <p><strong>Contact:</strong> {(location as any).contactPersonHe || location.contactPerson}</p>
                 <p><strong>Phone:</strong> {location.phone}</p>
               </div>
             </div>

@@ -40,8 +40,11 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
     const searchLower = searchTerm.toLowerCase();
     return (
       location.name.toLowerCase().includes(searchLower) ||
+      (location.nameHe && location.nameHe.toLowerCase().includes(searchLower)) ||
       location.address.toLowerCase().includes(searchLower) ||
-      location.contactPerson.toLowerCase().includes(searchLower)
+      (location.addressHe && location.addressHe.toLowerCase().includes(searchLower)) ||
+      location.contactPerson.toLowerCase().includes(searchLower) ||
+      (location.contactPersonHe && location.contactPersonHe.toLowerCase().includes(searchLower))
     );
   });
 

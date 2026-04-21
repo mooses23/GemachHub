@@ -12,7 +12,7 @@ import { Link } from "wouter";
 export default function OperatorLogin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [locationCode, setLocationCode] = useState("");
   const [pin, setPin] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +50,7 @@ export default function OperatorLogin() {
       
       toast({
         title: t("welcome"),
-        description: `${t("loggedInTo")} ${data.location.name}`,
+        description: `${t("loggedInTo")} ${language === "he" && data.location.nameHe ? data.location.nameHe : data.location.name}`,
       });
 
       // Redirect to operator dashboard

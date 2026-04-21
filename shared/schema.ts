@@ -66,12 +66,14 @@ export const operatorLoginSchema = z.object({
 export const regions = pgTable("regions", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  nameHe: text("name_he"),
   slug: text("slug").notNull().unique(),
   displayOrder: integer("display_order").notNull().default(0),
 });
 
 export const insertRegionSchema = createInsertSchema(regions).pick({
   name: true,
+  nameHe: true,
   slug: true,
   displayOrder: true,
 });
@@ -80,21 +82,25 @@ export const insertRegionSchema = createInsertSchema(regions).pick({
 export const cityCategories = pgTable("city_categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(), // e.g., "New York", "Los Angeles", "London"
+  nameHe: text("name_he"),
   slug: text("slug").notNull(), // e.g., "new-york", "los-angeles", "london"
   regionId: integer("region_id").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
   isPopular: boolean("is_popular").default(false), // Admin can mark as popular city
   description: text("description"), // Optional description for the city category
+  descriptionHe: text("description_he"),
   stateCode: text("state_code"), // US state code for state-level grouping (e.g., "NY", "CA")
 });
 
 export const insertCityCategorySchema = createInsertSchema(cityCategories).pick({
   name: true,
+  nameHe: true,
   slug: true,
   regionId: true,
   displayOrder: true,
   isPopular: true,
   description: true,
+  descriptionHe: true,
   stateCode: true,
 });
 
@@ -126,9 +132,12 @@ export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export const locations = pgTable("locations", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  nameHe: text("name_he"),
   locationCode: text("location_code").notNull().unique(),
   contactPerson: text("contact_person").notNull(),
+  contactPersonHe: text("contact_person_he"),
   address: text("address").notNull(),
+  addressHe: text("address_he"),
   zipCode: text("zip_code"),
   phone: text("phone").notNull(),
   email: text("email").notNull(),
@@ -144,9 +153,12 @@ export const locations = pgTable("locations", {
 
 export const insertLocationSchema = createInsertSchema(locations).pick({
   name: true,
+  nameHe: true,
   locationCode: true,
   contactPerson: true,
+  contactPersonHe: true,
   address: true,
+  addressHe: true,
   zipCode: true,
   phone: true,
   email: true,

@@ -69,7 +69,7 @@ import {
 
 export default function AdminTransactions() {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -154,7 +154,8 @@ export default function AdminTransactions() {
 
   const getLocationNameById = (locationId: number) => {
     const location = locations.find(l => l.id === locationId);
-    return location ? location.name : "Unknown";
+    if (!location) return "Unknown";
+    return language === "he" && location.nameHe ? location.nameHe : location.name;
   };
 
   const getRefundStatus = (transaction: Transaction) => {

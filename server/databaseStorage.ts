@@ -154,11 +154,13 @@ export class DatabaseStorage implements IStorage {
   async createCityCategory(cityCategory: InsertCityCategory): Promise<CityCategory> {
     const result = await db.insert(cityCategories).values({
       name: cityCategory.name,
+      nameHe: cityCategory.nameHe ?? null,
       slug: cityCategory.slug,
       regionId: cityCategory.regionId,
       displayOrder: cityCategory.displayOrder ?? 0,
       isPopular: cityCategory.isPopular ?? false,
       description: cityCategory.description ?? null,
+      descriptionHe: cityCategory.descriptionHe ?? null,
       stateCode: cityCategory.stateCode ?? null
     }).returning();
     return result[0];

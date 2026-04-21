@@ -2330,7 +2330,8 @@ export class MemStorage implements IStorage {
     const region: Region = { 
       ...insertRegion, 
       id,
-      displayOrder: insertRegion.displayOrder ?? 0
+      displayOrder: insertRegion.displayOrder ?? 0,
+      nameHe: insertRegion.nameHe ?? null,
     };
     this.regions.set(id, region);
     return region;
@@ -2401,7 +2402,10 @@ export class MemStorage implements IStorage {
       paymentMethods: insertLocation.paymentMethods ?? null,
       processingFeePercent: insertLocation.processingFeePercent ?? null,
       cityCategoryId: insertLocation.cityCategoryId ?? null,
-      operatorPin: insertLocation.operatorPin ?? null
+      operatorPin: insertLocation.operatorPin ?? null,
+      nameHe: insertLocation.nameHe ?? null,
+      contactPersonHe: insertLocation.contactPersonHe ?? null,
+      addressHe: insertLocation.addressHe ?? null,
     };
     this.locations.set(id, location);
     return location;
@@ -2825,11 +2829,13 @@ export class MemStorage implements IStorage {
     const newCategory: CityCategory = {
       id,
       name: cityCategory.name,
+      nameHe: cityCategory.nameHe ?? null,
       slug: cityCategory.slug,
       regionId: cityCategory.regionId,
       displayOrder: cityCategory.displayOrder ?? 0,
       isPopular: cityCategory.isPopular ?? false,
       description: cityCategory.description ?? null,
+      descriptionHe: cityCategory.descriptionHe ?? null,
       stateCode: cityCategory.stateCode ?? null
     };
     this.cityCategories.set(id, newCategory);

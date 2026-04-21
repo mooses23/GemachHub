@@ -46,7 +46,7 @@ type BorrowFormValues = z.infer<typeof borrowFormSchema>;
 
 export function BorrowForm() {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isSuccess, setIsSuccess] = useState(false);
 
   const { data: locations = [], isLoading: locationsLoading } = useQuery<Location[]>({
@@ -153,7 +153,7 @@ export function BorrowForm() {
                           .filter(location => location.isActive)
                           .map((location) => (
                             <SelectItem key={location.id} value={location.id.toString()}>
-                              {location.name} - {location.contactPerson}
+                              {language === "he" && location.nameHe ? location.nameHe : location.name} - {language === "he" && location.contactPersonHe ? location.contactPersonHe : location.contactPerson}
                             </SelectItem>
                           ))
                       )}

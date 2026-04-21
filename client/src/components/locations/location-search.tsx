@@ -7,8 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getLocations, getRegions } from "@/lib/api";
 import type { Location, Region } from "@/lib/types";
+import { useLanguage } from "@/hooks/use-language";
+import { pickLocalized } from "@/lib/localized-record";
 
 export function LocationSearch() {
+  const { language } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: locations = [] } = useQuery({
@@ -36,11 +39,14 @@ export function LocationSearch() {
       const region = regionsMap[location.regionId];
       return (
         location.name.toLowerCase().includes(query) ||
+        (location.nameHe && location.nameHe.toLowerCase().includes(query)) ||
         location.address.toLowerCase().includes(query) ||
+        (location.addressHe && location.addressHe.toLowerCase().includes(query)) ||
         location.locationCode.toLowerCase().includes(query) ||
         location.phone.includes(query) ||
         (location.zipCode && location.zipCode.toLowerCase().includes(query)) ||
-        region?.name.toLowerCase().includes(query)
+        region?.name.toLowerCase().includes(query) ||
+        (region?.nameHe && region.nameHe.toLowerCase().includes(query))
       );
     });
   }, [locations, searchQuery, regionsMap]);
@@ -50,10 +56,11 @@ export function LocationSearch() {
       const region = regionsMap[location.regionId];
       if (!region) return acc;
       
-      if (!acc[region.name]) {
-        acc[region.name] = [];
+      const regionLabel = pickLocalized(region as any, "name", language);
+      if (!acc[regionLabel]) {
+        acc[regionLabel] = [];
       }
-      acc[region.name].push(location);
+      acc[regionLabel].push(location);
       return acc;
     }, {} as Record<string, Location[]>);
   }, [filteredLocations, regionsMap]);
@@ -125,6 +132,9 @@ interface LocationCardProps {
 }
 
 function LocationCard({ location, locationNumber }: LocationCardProps) {
+  const { language } = useLanguage();
+  const locName = pickLocalized(location as any, "name", language);
+  const locAddress = pickLocalized(location as any, "address", language);
   return (
     <Card className="hover:shadow-lg transition-shadow duration-200 border-2 hover:border-blue-200">
       <CardContent className="p-6">
@@ -134,7 +144,7 @@ function LocationCard({ location, locationNumber }: LocationCardProps) {
               #{locationNumber}
             </Badge>
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {location.name}
+              {locName}
             </h3>
             <p className="text-sm font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block">
               {location.locationCode}
@@ -145,7 +155,7 @@ function LocationCard({ location, locationNumber }: LocationCardProps) {
         <div className="space-y-3">
           <div className="flex items-start">
             <MapPin className="h-4 w-4 text-gray-400 mt-1 mr-2 flex-shrink-0" />
-            <p className="text-sm text-gray-600">{location.address}</p>
+            <p className="text-sm text-gray-600">{locAddress}</p>
           </div>
           
           <div className="flex items-center">

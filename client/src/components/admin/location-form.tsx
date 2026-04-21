@@ -45,8 +45,11 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
     mode: "onChange",
     defaultValues: location ? {
       name: location.name || "",
+      nameHe: location.nameHe || "",
       contactPerson: location.contactPerson || "",
+      contactPersonHe: location.contactPersonHe || "",
       address: location.address || "",
+      addressHe: location.addressHe || "",
       zipCode: location.zipCode || "",
       phone: location.phone || "",
       email: location.email || "",
@@ -56,8 +59,11 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
       depositAmount: location.depositAmount || 20,
     } : {
       name: "",
+      nameHe: "",
       contactPerson: "",
+      contactPersonHe: "",
       address: "",
+      addressHe: "",
       zipCode: "",
       phone: "",
       email: "",
@@ -127,62 +133,125 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("gemachName")}</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  className="w-full"
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(e.target.value)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("gemachName")} (English)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    className="w-full"
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="nameHe"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("gemachName")} (עברית)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    dir="rtl"
+                    className="w-full"
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
-        <FormField
-          control={form.control}
-          name="contactPerson"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("contactPersonLabel")}</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  className="w-full"
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(e.target.value)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="contactPerson"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("contactPersonLabel")} (English)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    className="w-full"
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="contactPersonHe"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("contactPersonLabel")} (עברית)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    dir="rtl"
+                    className="w-full"
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
-        <FormField
-          control={form.control}
-          name="address"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("addressLabel")}</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  className="w-full"
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(e.target.value)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="address"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("addressLabel")} (English)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    className="w-full"
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="addressHe"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t("addressLabel")} (עברית)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    dir="rtl"
+                    className="w-full"
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}
@@ -262,7 +331,7 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
                 <SelectContent>
                   {regions.map((region) => (
                     <SelectItem key={region.id} value={region.id.toString()}>
-                      {region.name}
+                      {(region as any).nameHe || region.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

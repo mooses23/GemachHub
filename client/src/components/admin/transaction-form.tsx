@@ -44,7 +44,7 @@ interface TransactionFormProps {
 
 export function TransactionForm({ transaction, locations, onSuccess }: TransactionFormProps) {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
 
   const form = useForm<InsertTransaction & { expectedReturnDate: Date | undefined }>({
@@ -146,7 +146,7 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
                 <SelectContent>
                   {locations.map((location) => (
                     <SelectItem key={location.id} value={location.id.toString()}>
-                      {location.name}
+                      {language === "he" && location.nameHe ? location.nameHe : location.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
