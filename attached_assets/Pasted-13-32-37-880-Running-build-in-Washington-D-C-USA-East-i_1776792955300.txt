@@ -1,0 +1,149 @@
+13:32:37.880 Running build in Washington, D.C., USA (East) – iad1
+13:32:37.881 Build machine configuration: 2 cores, 8 GB
+13:32:38.000 Cloning github.com/mooses23/EarmuffsGemach.com (Branch: main, Commit: 7094968)
+13:32:39.144 Cloning completed: 1.144s
+13:32:39.223 Found .vercelignore
+13:32:39.226 Removed 1 ignored files defined in .vercelignore
+13:32:39.226   /.replit
+13:32:39.284 Restored build cache from previous deployment (3mp6hRgr1WkvqcuH7pz8DkiJvyQb)
+13:32:39.508 Running "vercel build"
+13:32:40.801 Vercel CLI 51.6.1
+13:32:41.522 Running "install" command: `npm ci --legacy-peer-deps --include=dev || npm install --legacy-peer-deps --include=dev`...
+13:32:46.549 npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+13:32:48.527 npm warn deprecated glob@8.1.0: Glob versions prior to v9 are no longer supported
+13:32:55.996 
+13:32:55.997 added 608 packages, and audited 609 packages in 14s
+13:32:55.997 
+13:32:55.998 79 packages are looking for funding
+13:32:55.998   run `npm fund` for details
+13:32:56.045 
+13:32:56.045 15 vulnerabilities (1 low, 6 moderate, 8 high)
+13:32:56.046 
+13:32:56.047 To address issues that do not require attention, run:
+13:32:56.047   npm audit fix
+13:32:56.047 
+13:32:56.047 To address all issues (including breaking changes), run:
+13:32:56.048   npm audit fix --force
+13:32:56.048 
+13:32:56.048 Run `npm audit` for details.
+13:32:56.322 
+13:32:56.326 > rest-express@1.0.0 build
+13:32:56.326 > npm run build:client && npm run build:server
+13:32:56.326 
+13:32:56.436 
+13:32:56.437 > rest-express@1.0.0 build:client
+13:32:56.437 > vite build
+13:32:56.437 
+13:32:56.660 [36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+13:32:56.721 transforming...
+13:32:57.724 Browserslist: browsers data (caniuse-lite) is 18 months old. Please run:
+13:32:57.725   npx update-browserslist-db@latest
+13:32:57.725   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+13:32:59.910 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "editColorStock" in object literal[33m
+13:32:59.911 795 |      manageHeadbandLendingAndReturns: "Manage headband lending and returns",
+13:32:59.911 796 |      quantity: "Quantity",
+13:32:59.911 797 |      editColorStock: "Edit {color} Stock",
+13:32:59.912     |      ^
+13:32:59.912 798 |      adjustQuantityForColor: "Adjust the quantity for this color",
+13:32:59.912 799 |      fromCurrentStock: "from current stock",
+13:32:59.912 [39m
+13:32:59.913 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "adjustQuantityForColor" in object literal[33m
+13:32:59.914 796 |      quantity: "Quantity",
+13:32:59.914 797 |      editColorStock: "Edit {color} Stock",
+13:32:59.914 798 |      adjustQuantityForColor: "Adjust the quantity for this color",
+13:32:59.914     |      ^
+13:32:59.915 799 |      fromCurrentStock: "from current stock",
+13:32:59.915 800 |      noPendingCardDeposits: "No pending card deposit transactions",
+13:32:59.915 [39m
+13:32:59.916 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "fromCurrentStock" in object literal[33m
+13:32:59.917 797 |      editColorStock: "Edit {color} Stock",
+13:32:59.917 798 |      adjustQuantityForColor: "Adjust the quantity for this color",
+13:32:59.917 799 |      fromCurrentStock: "from current stock",
+13:32:59.917     |      ^
+13:32:59.917 800 |      noPendingCardDeposits: "No pending card deposit transactions",
+13:32:59.917 801 |      pendingSelfDeposits: "Pending Self-Deposits",
+13:32:59.917 [39m
+13:32:59.918 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "noPendingCardDeposits" in object literal[33m
+13:32:59.918 798 |      adjustQuantityForColor: "Adjust the quantity for this color",
+13:32:59.918 799 |      fromCurrentStock: "from current stock",
+13:32:59.919 800 |      noPendingCardDeposits: "No pending card deposit transactions",
+13:32:59.919     |      ^
+13:32:59.919 801 |      pendingSelfDeposits: "Pending Self-Deposits",
+13:32:59.919 802 |      acceptSelfDepositsDescription: "Accept self-deposits to confirm lending (card saved but not charged)",
+13:32:59.920 [39m
+13:32:59.920 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "pendingSelfDeposits" in object literal[33m
+13:32:59.921 799 |      fromCurrentStock: "from current stock",
+13:32:59.922 800 |      noPendingCardDeposits: "No pending card deposit transactions",
+13:32:59.922 801 |      pendingSelfDeposits: "Pending Self-Deposits",
+13:32:59.922     |      ^
+13:32:59.922 802 |      acceptSelfDepositsDescription: "Accept self-deposits to confirm lending (card saved but not charged)",
+13:32:59.923 803 |      created: "Created:",
+13:32:59.928 [39m
+13:32:59.928 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "acceptSelfDepositsDescription" in object literal[33m
+13:32:59.928 800 |      noPendingCardDeposits: "No pending card deposit transactions",
+13:32:59.929 801 |      pendingSelfDeposits: "Pending Self-Deposits",
+13:32:59.929 802 |      acceptSelfDepositsDescription: "Accept self-deposits to confirm lending (card saved but not charged)",
+13:32:59.929     |      ^
+13:32:59.929 803 |      created: "Created:",
+13:32:59.929 804 |      acceptAndLend: "Accept & Lend",
+13:32:59.930 [39m
+13:32:59.934 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "created" in object literal[33m
+13:32:59.934 801 |      pendingSelfDeposits: "Pending Self-Deposits",
+13:32:59.934 802 |      acceptSelfDepositsDescription: "Accept self-deposits to confirm lending (card saved but not charged)",
+13:32:59.934 803 |      created: "Created:",
+13:32:59.934     |      ^
+13:32:59.935 804 |      acceptAndLend: "Accept & Lend",
+13:32:59.935 805 |      awaitingCardSetup: "Awaiting Card Setup",
+13:32:59.935 [39m
+13:32:59.935 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "acceptAndLend" in object literal[33m
+13:32:59.935 802 |      acceptSelfDepositsDescription: "Accept self-deposits to confirm lending (card saved but not charged)",
+13:32:59.936 803 |      created: "Created:",
+13:32:59.936 804 |      acceptAndLend: "Accept & Lend",
+13:32:59.936     |      ^
+13:32:59.936 805 |      awaitingCardSetup: "Awaiting Card Setup",
+13:32:59.936 806 |    },
+13:32:59.936 [39m
+13:32:59.937 [33m[plugin vite:esbuild] client/src/lib/translations.ts: [33mDuplicate key "awaitingCardSetup" in object literal[33m
+13:32:59.937 803 |      created: "Created:",
+13:32:59.937 804 |      acceptAndLend: "Accept & Lend",
+13:32:59.937 805 |      awaitingCardSetup: "Awaiting Card Setup",
+13:32:59.937     |      ^
+13:32:59.938 806 |    },
+13:32:59.938 807 |    he: {
+13:32:59.938 [39m
+13:33:02.595 [32m✓[39m 2725 modules transformed.
+13:33:03.152 rendering chunks...
+13:33:03.168 computing gzip size...
+13:33:03.196 [2m../dist/public/[22m[32mindex.html                                         [39m[1m[2m  0.63 kB[22m[1m[22m[2m │ gzip:   0.38 kB[22m
+13:33:03.196 [2m../dist/public/[22m[2massets/[22m[32mBabyBanz_Gemach_1769321439923-hVgeZ7U8.jpg  [39m[1m[2m132.48 kB[22m[1m[22m
+13:33:03.197 [2m../dist/public/[22m[2massets/[22m[32mbaby_1769929839890-D8etFoDH.jpg             [39m[1m[2m404.84 kB[22m[1m[22m
+13:33:03.197 [2m../dist/public/[22m[2massets/[22m[35mindex-CPIk7gNP.css                          [39m[1m[2m110.98 kB[22m[1m[22m[2m │ gzip:  18.15 kB[22m
+13:33:03.197 [2m../dist/public/[22m[2massets/[22m[36mindex-DFpOm1GV.js                           [39m[1m[33m932.04 kB[39m[22m[2m │ gzip: 263.01 kB[22m
+13:33:03.197 [33m
+13:33:03.197 (!) Some chunks are larger than 500 kB after minification. Consider:
+13:33:03.197 - Using dynamic import() to code-split the application
+13:33:03.197 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+13:33:03.197 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+13:33:03.198 [32m✓ built in 6.51s[39m
+13:33:03.379 
+13:33:03.379 > rest-express@1.0.0 build:server
+13:33:03.380 > esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+13:33:03.380 
+13:33:03.411 
+13:33:03.412   dist/index.js  296.3kb
+13:33:03.412 
+13:33:03.412 ⚡ Done in 23ms
+13:33:03.453 Installing dependencies...
+13:33:04.407 
+13:33:04.407 up to date in 897ms
+13:33:04.408 
+13:33:04.408 79 packages are looking for funding
+13:33:04.408   run `npm fund` for details
+13:33:04.705 Using TypeScript 5.6.3 (local user-provided)
+13:33:39.938 Build Completed in /vercel/output [58s]
+13:33:40.439 Deploying outputs...
+13:33:46.215 Deployment completed
+13:33:46.317 Creating build cache...
+13:34:09.006 Created build cache: 23s
+13:34:09.007 Uploading build cache [95.53 MB]
+13:34:10.256 Build cache uploaded: 1.250s
