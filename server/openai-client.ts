@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
 import { storage } from './storage.js';
+import { getThreadMessages } from './gmail-client.js';
+import type { Location, FaqEntry, PlaybookFact } from '../shared/schema.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -7,10 +9,9 @@ const openai = new OpenAI({
 
 const SITE_URL = process.env.SITE_URL || 'https://babybanzgemach.com';
 
-const PLAYBOOK = `
+const STATIC_PLAYBOOK = `
 ABOUT BABY BANZ GEMACH
 - A global Jewish community network of free-loan organizations (gemachs) that lend baby noise-cancelling earmuffs (Banz) for use at simchas, weddings, bar/bat mitzvahs, kiddushim, fireworks, concerts, and other loud events.
-- Loans are free. We collect a refundable $20 deposit per pair (some locations may differ; their dashboard shows the exact amount).
 - Service is offered in English and Hebrew. Many locations have Yiddish-speaking volunteers.
 
 KEY URLS (use the matching URL in replies, never invent a URL)
@@ -23,15 +24,8 @@ KEY URLS (use the matching URL in replies, never invent a URL)
 
 OPENING A NEW LOCATION
 - Anyone wishing to start a Baby Banz Gemach in their community fills out the application at ${SITE_URL}/apply.
-- The application asks for the prospective operator's name, contact info, address, and city/country.
 - An admin reviews the application; once approved, we email the new operator their location code, dashboard login link, and starting PIN.
 - We do NOT instruct people to "fill out the contact form" for new-location requests — direct them to /apply.
-
-DEPOSIT & RETURN FLOW
-- Borrower picks up the earmuffs from a local gemach operator and leaves a $20 refundable deposit (cash or whatever payment methods that location supports).
-- When the borrower returns the earmuffs in good condition, the deposit is refunded in full.
-- If earmuffs are not returned or are damaged, the deposit covers replacement.
-- Specific deposit/refund questions for an active loan should be directed to the operator of the location they borrowed from.
 
 OPERATOR DASHBOARD
 - Each location has a dashboard at ${SITE_URL}/operator/login
@@ -56,31 +50,147 @@ type Classification =
   | 'complaint'
   | 'other';
 
-async function gatherContext(emailBody: string, senderName: string, senderEmail?: string): Promise<string> {
-  const facts: string[] = [];
+function tokenize(text: string): Set<string> {
+  return new Set(
+    String(text || '')
+      .toLowerCase()
+      .replace(/[^\w\u0590-\u05FF]+/g, ' ')
+      .split(/\s+/)
+      .filter(t => t.length >= 3)
+  );
+}
+
+function scoreFaqRelevance(query: string, faq: FaqEntry): number {
+  const qTokens = tokenize(query);
+  const fTokens = tokenize(`${faq.question} ${faq.category}`);
+  let overlap = 0;
+  qTokens.forEach(t => { if (fTokens.has(t)) overlap++; });
+  return overlap;
+}
+
+function pickRelevantFaqs(query: string, faqs: FaqEntry[], language: 'en' | 'he', max: number = 4): FaqEntry[] {
+  const candidates = faqs.filter(f => f.isActive && (f.language === language || f.language === 'en'));
+  return candidates
+    .map(f => ({ faq: f, score: scoreFaqRelevance(query, f) }))
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, max)
+    .map(s => s.faq);
+}
+
+function findMatchingLocation(emailBody: string, allLocations: Location[]): Location | null {
+  const lower = emailBody.toLowerCase();
+  let best: { loc: Location; score: number } | null = null;
+  for (const loc of allLocations) {
+    const name = (loc.name || '').toLowerCase().trim();
+    const address = (loc.address || '').toLowerCase().trim();
+    let score = 0;
+    if (name.length > 3 && lower.includes(name)) score += name.length;
+    const cityCandidates = address.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 3);
+    for (const c of cityCandidates) {
+      if (lower.includes(c)) score = Math.max(score, c.length);
+    }
+    if (score > 0 && (!best || score > best.score)) best = { loc, score };
+  }
+  return best?.loc || null;
+}
+
+function detectLanguage(text: string): 'en' | 'he' {
+  // Hebrew Unicode range
+  return /[\u0590-\u05FF]/.test(text) ? 'he' : 'en';
+}
+
+interface AssembledContext {
+  contextBlock: string;
+  matchedLocation: Location | null;
+  threadHistory: string;
+}
+
+async function gatherContext(
+  emailSubject: string,
+  emailBody: string,
+  senderEmail: string | undefined,
+  threadId: string | undefined,
+  currentMessageId: string | undefined,
+  language: 'en' | 'he',
+): Promise<AssembledContext> {
+  const sections: string[] = [];
+
+  // 1. Admin-editable playbook facts
+  let playbookFacts: PlaybookFact[] = [];
+  try { playbookFacts = await storage.getAllPlaybookFacts(); } catch {}
+  if (playbookFacts.length) {
+    sections.push(
+      'GEMACH FACTS (admin-curated):\n' +
+      playbookFacts.map(f => `- [${f.category}] ${f.factKey.replace(/_/g, ' ')}: ${f.factValue}`).join('\n')
+    );
+  }
+
+  // 2. Sender's existing application, if any
+  let matchedLocation: Location | null = null;
   try {
-    const apps = await storage.getAllApplications();
     if (senderEmail) {
-      const match = apps.find((a: any) =>
+      const apps = await storage.getAllApplications();
+      const appMatch = apps.find((a: any) =>
         a?.email && String(a.email).toLowerCase() === senderEmail.toLowerCase()
       );
-      if (match) {
-        facts.push(`This sender has an existing application in our system: status="${match.status}", submitted "${match.streetAddress || ''} ${match.city || ''} ${match.country || ''}".`);
+      if (appMatch) {
+        sections.push(
+          `SENDER HAS AN EXISTING APPLICATION:\n- Status: "${appMatch.status}"\n- Submitted address: "${appMatch.streetAddress || ''} ${appMatch.city || ''} ${appMatch.country || ''}".`
+        );
       }
     }
-    const lower = emailBody.toLowerCase();
+
+    // 3. Match a location mentioned in the email
     const allLocations = await storage.getAllLocations();
-    const cityHit = allLocations.find((l: any) => {
-      const hay = `${l.address || ''} ${l.name || ''}`.toLowerCase();
-      return hay && lower.includes((l.name || '').toLowerCase()) && (l.name || '').length > 3;
-    });
-    if (cityHit) {
-      facts.push(`A nearby active location is "${cityHit.name}" (${cityHit.address}), contact ${cityHit.contactPerson} <${cityHit.email}>.`);
+    matchedLocation = findMatchingLocation(`${emailSubject} ${emailBody}`, allLocations);
+    if (matchedLocation) {
+      const depositAmount = (matchedLocation as any).depositAmount ?? 20;
+      sections.push(
+        `MATCHED LOCATION (the sender appears to be asking about this gemach — use these REAL facts, not generic ones).\n` +
+        `IMPORTANT: do NOT include the operator's email, phone, or any internal location code in your reply — those are admin-only. The admin will forward to the operator if needed.\n` +
+        `- Name: ${matchedLocation.name}\n` +
+        `- Public address: ${matchedLocation.address || '(not provided)'}\n` +
+        `- Refundable deposit at this location: $${depositAmount}`
+      );
     }
   } catch {
-    // Best-effort context only; never fail the draft if DB lookup hiccups.
+    // best-effort context only
   }
-  return facts.length ? `RELEVANT CONTEXT FROM OUR SYSTEM:\n- ${facts.join('\n- ')}` : 'RELEVANT CONTEXT FROM OUR SYSTEM: (none found)';
+
+  // 4. FAQ knowledge base — top relevant entries
+  let threadHistory = '';
+  try {
+    const faqs = await storage.getActiveFaqEntries();
+    const top = pickRelevantFaqs(`${emailSubject} ${emailBody}`, faqs, language, 4);
+    if (top.length) {
+      sections.push(
+        'RELEVANT FAQ ANSWERS (use these as the source of truth for tone and content; rephrase, do not copy verbatim):\n' +
+        top.map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n---\n')
+      );
+    }
+  } catch {}
+
+  // 5. Thread history (prior messages in this Gmail thread)
+  try {
+    if (threadId) {
+      const msgs = await getThreadMessages(threadId, 6);
+      const prior = msgs.filter(m => m.id !== currentMessageId);
+      if (prior.length) {
+        threadHistory =
+          'PRIOR MESSAGES IN THIS THREAD (oldest first — use this so you do not repeat info or contradict yourself):\n' +
+          prior
+            .map(m => `[${m.date}] From: ${m.from}\nSubject: ${m.subject}\n${m.body.slice(0, 1200)}`)
+            .join('\n---\n');
+        sections.push(threadHistory);
+      }
+    }
+  } catch {}
+
+  const contextBlock = sections.length
+    ? sections.join('\n\n')
+    : 'CONTEXT FROM OUR SYSTEM: (no specific context found for this inquiry)';
+  return { contextBlock, matchedLocation, threadHistory };
 }
 
 export interface GeneratedEmailResponse {
@@ -88,24 +198,33 @@ export interface GeneratedEmailResponse {
   classification: Classification;
   needsHumanReview: boolean;
   reviewReason?: string;
+  matchedLocationId?: number;
+  matchedLocationName?: string;
 }
 
 export async function generateEmailResponse(
   emailSubject: string,
   emailBody: string,
   senderName: string,
-  senderEmail?: string
+  senderEmail?: string,
+  threadId?: string,
+  currentMessageId?: string,
 ): Promise<GeneratedEmailResponse> {
-  const context = await gatherContext(emailBody, senderName, senderEmail);
+  const language = detectLanguage(`${emailSubject} ${emailBody}`);
+  const { contextBlock, matchedLocation } = await gatherContext(
+    emailSubject, emailBody, senderEmail, threadId, currentMessageId, language
+  );
 
   const systemPrompt = `You are a warm, knowledgeable representative of Baby Banz Gemach drafting an email reply on behalf of the gemach team.
 
-${PLAYBOOK}
+${STATIC_PLAYBOOK}
 
 WRITING STYLE
 - Friendly, respectful, concise (4-10 sentences). No corporate jargon.
 - Match the language the sender wrote in (English or Hebrew). If Hebrew, write in fluent, natural Hebrew.
 - Use the right URL from KEY URLS above for the action you are recommending. Never invent URLs.
+- When the context block lists MATCHED LOCATION facts (deposit amount, operator, etc.), USE THOSE REAL FACTS instead of any generic playbook value.
+- When the context block lists PRIOR MESSAGES in the thread, do NOT repeat information already shared, and acknowledge what was previously discussed.
 - Sign off as "Baby Banz Gemach" (or the Hebrew equivalent if writing in Hebrew).
 - The human admin will review and edit before sending — your draft should be ready-to-send, not a template with placeholders.
 
@@ -122,7 +241,7 @@ OUTPUT FORMAT — return STRICT JSON only, no markdown fences:
   "draft": "the full email body text, including greeting and sign-off"
 }`;
 
-  const userPrompt = `${context}
+  const userPrompt = `${contextBlock}
 
 INCOMING EMAIL
 From: ${senderName}${senderEmail ? ` <${senderEmail}>` : ''}
@@ -136,8 +255,8 @@ ${emailBody}`;
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    max_tokens: 1200,
-    temperature: 0.6,
+    max_tokens: 1400,
+    temperature: 0.5,
     response_format: { type: 'json_object' },
   });
 
@@ -159,6 +278,8 @@ ${emailBody}`;
     classification: (parsed.classification as Classification) || 'other',
     needsHumanReview: !!parsed.needsHumanReview,
     reviewReason: parsed.needsHumanReview ? String(parsed.reviewReason || 'Flagged for review.') : undefined,
+    matchedLocationId: matchedLocation?.id,
+    matchedLocationName: matchedLocation?.name,
   };
 }
 

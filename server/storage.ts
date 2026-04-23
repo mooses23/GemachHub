@@ -13,11 +13,24 @@ import {
   inventory, type Inventory, type InsertInventory,
   auditLogs, type AuditLog, type InsertAuditLog,
   webhookEvents, type WebhookEvent, type InsertWebhookEvent,
+  playbookFacts, type PlaybookFact, type InsertPlaybookFact,
+  faqEntries, type FaqEntry, type InsertFaqEntry,
   type PayLaterStatus
 } from "../shared/schema.js";
 
 // Interface for storage operations
 export interface IStorage {
+  // Playbook & FAQ
+  getAllPlaybookFacts(): Promise<PlaybookFact[]>;
+  createPlaybookFact(fact: InsertPlaybookFact): Promise<PlaybookFact>;
+  updatePlaybookFact(id: number, data: Partial<InsertPlaybookFact>): Promise<PlaybookFact>;
+  deletePlaybookFact(id: number): Promise<void>;
+  getAllFaqEntries(): Promise<FaqEntry[]>;
+  getActiveFaqEntries(): Promise<FaqEntry[]>;
+  createFaqEntry(faq: InsertFaqEntry): Promise<FaqEntry>;
+  updateFaqEntry(id: number, data: Partial<InsertFaqEntry>): Promise<FaqEntry>;
+  deleteFaqEntry(id: number): Promise<void>;
+
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -2912,6 +2925,25 @@ export class MemStorage implements IStorage {
   async getWebhookEvent(eventId: string): Promise<WebhookEvent | undefined> {
     return Array.from(this.webhookEventsMap.values()).find(event => event.eventId === eventId);
   }
+
+  // Playbook Fact / FAQ stubs (MemStorage is unused in production; these satisfy the interface)
+  async getAllPlaybookFacts(): Promise<PlaybookFact[]> { return []; }
+  async createPlaybookFact(fact: InsertPlaybookFact): Promise<PlaybookFact> {
+    return { id: 0, factKey: fact.factKey, factValue: fact.factValue, category: fact.category || 'general', updatedAt: new Date() };
+  }
+  async updatePlaybookFact(id: number, _data: Partial<InsertPlaybookFact>): Promise<PlaybookFact> {
+    throw new Error(`Playbook fact ${id} not found`);
+  }
+  async deletePlaybookFact(_id: number): Promise<void> {}
+  async getAllFaqEntries(): Promise<FaqEntry[]> { return []; }
+  async getActiveFaqEntries(): Promise<FaqEntry[]> { return []; }
+  async createFaqEntry(faq: InsertFaqEntry): Promise<FaqEntry> {
+    return { id: 0, question: faq.question, answer: faq.answer, language: faq.language || 'en', category: faq.category || 'general', isActive: faq.isActive ?? true, updatedAt: new Date() };
+  }
+  async updateFaqEntry(id: number, _data: Partial<InsertFaqEntry>): Promise<FaqEntry> {
+    throw new Error(`FAQ entry ${id} not found`);
+  }
+  async deleteFaqEntry(_id: number): Promise<void> {}
 
   async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
     const webhookEvent: WebhookEvent = {

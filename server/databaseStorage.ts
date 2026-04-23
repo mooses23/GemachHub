@@ -15,6 +15,8 @@ import {
   inventory, type Inventory, type InsertInventory,
   auditLogs, type AuditLog, type InsertAuditLog,
   webhookEvents, type WebhookEvent, type InsertWebhookEvent,
+  playbookFacts, type PlaybookFact, type InsertPlaybookFact,
+  faqEntries, type FaqEntry, type InsertFaqEntry,
   type PayLaterStatus
 } from '../shared/schema.js';
 import type { IStorage } from './storage.js';
@@ -677,5 +679,42 @@ export class DatabaseStorage implements IStorage {
       processedAt: new Date()
     }).returning();
     return result[0];
+  }
+
+  // Playbook Fact operations (admin-editable AI facts)
+  async getAllPlaybookFacts(): Promise<PlaybookFact[]> {
+    return db.select().from(playbookFacts).orderBy(playbookFacts.category, playbookFacts.factKey);
+  }
+  async createPlaybookFact(fact: InsertPlaybookFact): Promise<PlaybookFact> {
+    const result = await db.insert(playbookFacts).values({ ...fact, updatedAt: new Date() }).returning();
+    return result[0];
+  }
+  async updatePlaybookFact(id: number, data: Partial<InsertPlaybookFact>): Promise<PlaybookFact> {
+    const result = await db.update(playbookFacts).set({ ...data, updatedAt: new Date() }).where(eq(playbookFacts.id, id)).returning();
+    if (!result[0]) throw new Error(`Playbook fact ${id} not found`);
+    return result[0];
+  }
+  async deletePlaybookFact(id: number): Promise<void> {
+    await db.delete(playbookFacts).where(eq(playbookFacts.id, id));
+  }
+
+  // FAQ Entry operations (admin-curated AI knowledge base)
+  async getAllFaqEntries(): Promise<FaqEntry[]> {
+    return db.select().from(faqEntries).orderBy(faqEntries.category, faqEntries.id);
+  }
+  async getActiveFaqEntries(): Promise<FaqEntry[]> {
+    return db.select().from(faqEntries).where(eq(faqEntries.isActive, true));
+  }
+  async createFaqEntry(faq: InsertFaqEntry): Promise<FaqEntry> {
+    const result = await db.insert(faqEntries).values({ ...faq, updatedAt: new Date() }).returning();
+    return result[0];
+  }
+  async updateFaqEntry(id: number, data: Partial<InsertFaqEntry>): Promise<FaqEntry> {
+    const result = await db.update(faqEntries).set({ ...data, updatedAt: new Date() }).where(eq(faqEntries.id, id)).returning();
+    if (!result[0]) throw new Error(`FAQ entry ${id} not found`);
+    return result[0];
+  }
+  async deleteFaqEntry(id: number): Promise<void> {
+    await db.delete(faqEntries).where(eq(faqEntries.id, id));
   }
 }

@@ -260,6 +260,33 @@ export async function getEmail(messageId: string): Promise<EmailMessage | null> 
   }
 }
 
+export async function getThreadMessages(threadId: string, max: number = 6): Promise<EmailMessage[]> {
+  const gmail = await getUncachableGmailClient();
+  try {
+    const thread = await gmail.users.threads.get({ userId: 'me', id: threadId, format: 'full' });
+    const messages = thread.data.messages || [];
+    const sliced = messages.slice(-max);
+    return sliced.map((m: any) => {
+      const headers = m.payload?.headers || [];
+      return {
+        id: m.id || '',
+        threadId: m.threadId || threadId,
+        from: getHeader(headers, 'From'),
+        to: getHeader(headers, 'To'),
+        subject: getHeader(headers, 'Subject'),
+        snippet: m.snippet || '',
+        body: extractBody(m.payload),
+        date: getHeader(headers, 'Date'),
+        isRead: !(m.labelIds || []).includes('UNREAD'),
+        labels: m.labelIds || [],
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching thread:', error);
+    return [];
+  }
+}
+
 export async function markAsRead(messageId: string): Promise<void> {
   const gmail = await getUncachableGmailClient();
   await gmail.users.messages.modify({

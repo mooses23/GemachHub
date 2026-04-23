@@ -284,6 +284,8 @@ export default function AdminInbox() {
       toast({ title: t("replySent"), description: t("emailSentSuccessfully") });
       setReplyText("");
       setReviewWarning(null);
+      setMatchedLocation(null);
+      setForwardNote("");
       setSelected(null);
       qc.invalidateQueries({ queryKey: ["/api/contact"] });
       qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] });
@@ -292,6 +294,8 @@ export default function AdminInbox() {
       toast({ title: t("error"), description: err instanceof Error ? err.message : t("failedToSendReply"), variant: "destructive" }),
   });
   const [reviewWarning, setReviewWarning] = useState<string | null>(null);
+  const [matchedLocation, setMatchedLocation] = useState<{ id: number; name: string } | null>(null);
+  const [forwardNote, setForwardNote] = useState("");
   const generateMutation = useMutation({
     mutationFn: async (item: UnifiedItem) => {
       const url = item.source === "email"
@@ -303,6 +307,8 @@ export default function AdminInbox() {
         classification?: string;
         needsHumanReview?: boolean;
         reviewReason?: string;
+        matchedLocationId?: number;
+        matchedLocationName?: string;
       };
     },
     onSuccess: (data) => {
@@ -311,6 +317,11 @@ export default function AdminInbox() {
         setReviewWarning(data.reviewReason || t("inboxReviewBeforeSending"));
       } else {
         setReviewWarning(null);
+      }
+      if (data.matchedLocationId && data.matchedLocationName) {
+        setMatchedLocation({ id: data.matchedLocationId, name: data.matchedLocationName });
+      } else {
+        setMatchedLocation(null);
       }
       toast({ title: t("aiResponseGenerated"), description: t("reviewEditBeforeSending") });
     },
@@ -323,11 +334,27 @@ export default function AdminInbox() {
       return (await res.json()).translated as string;
     },
   });
+  const forwardMutation = useMutation({
+    mutationFn: async ({ emailId, locationId }: { emailId: string; locationId: number }) => {
+      const res = await apiRequest("POST", `/api/admin/emails/${emailId}/forward-to-operator`, {
+        locationId, note: forwardNote.trim() || undefined,
+      });
+      return (await res.json()) as { forwardedTo: string; locationName: string };
+    },
+    onSuccess: (data) => {
+      toast({ title: "Forwarded to operator", description: `${data.locationName} (${data.forwardedTo})` });
+      setForwardNote("");
+    },
+    onError: (err: unknown) =>
+      toast({ title: t("error"), description: err instanceof Error ? err.message : "Failed to forward", variant: "destructive" }),
+  });
 
   const openItem = (item: UnifiedItem) => {
     setSelected(item);
     setReplyText("");
     setReviewWarning(null);
+    setMatchedLocation(null);
+    setForwardNote("");
     const subj = item.subject?.startsWith("Re:") ? item.subject : `Re: ${item.subject || ""}`;
     setReplySubject(subj);
     if (!item.isRead) {
@@ -542,6 +569,35 @@ export default function AdminInbox() {
                   data-testid="input-reply-subject"
                 />
               </div>
+              {selected.source === "email" && matchedLocation && (
+                <div className="rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 p-3 space-y-2" data-testid="panel-forward-operator">
+                  <div className="text-sm">
+                    <div className="font-semibold text-blue-900 dark:text-blue-100">
+                      Sender appears to be asking about: {matchedLocation.name}
+                    </div>
+                    <div className="text-xs text-blue-900/80 dark:text-blue-100/80 mt-1">
+                      Forward this message to that gemach's operator instead of replying yourself.
+                    </div>
+                  </div>
+                  <Textarea
+                    placeholder="Optional note to the operator (e.g. 'Please follow up with this borrower directly')"
+                    value={forwardNote}
+                    onChange={(e) => setForwardNote(e.target.value)}
+                    rows={2}
+                    className="resize-none text-sm"
+                    data-testid="textarea-forward-note"
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={forwardMutation.isPending}
+                    onClick={() => forwardMutation.mutate({ emailId: String(selected.id), locationId: matchedLocation.id })}
+                    data-testid="button-forward-operator"
+                  >
+                    {forwardMutation.isPending ? "Forwarding…" : `Forward to ${matchedLocation.name}`}
+                  </Button>
+                </div>
+              )}
               {reviewWarning && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm flex items-start gap-2" data-testid="banner-needs-review">
                   <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />

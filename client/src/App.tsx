@@ -21,6 +21,7 @@ import AdminPaymentMethods from "@/pages/admin/payment-methods";
 import PaymentConfirmations from "@/pages/admin/payment-confirmations";
 import PaymentStatusMonitor from "@/pages/admin/payment-status-monitor";
 import AdminInbox from "@/pages/admin/inbox";
+import AdminGlossary from "@/pages/admin/glossary";
 import OperatorIndex from "@/pages/operator/index";
 import OperatorLogin from "@/pages/operator/login";
 import OperatorDashboard from "@/pages/operator/dashboard";
@@ -55,6 +56,7 @@ function Router() {
         <ProtectedRoute path="/admin/payment-confirmations" component={PaymentConfirmations} requiredRole="admin" />
         <ProtectedRoute path="/admin/payment-status" component={PaymentStatusMonitor} requiredRole="admin" />
         <ProtectedRoute path="/admin/inbox" component={AdminInbox} requiredRole="admin" />
+        <ProtectedRoute path="/admin/glossary" component={AdminGlossary} requiredRole="admin" />
         <Route path="/admin/emails">{() => <Redirect to="/admin/inbox" />}</Route>
         <Route path="/admin/messages">{() => <Redirect to="/admin/inbox" />}</Route>
         

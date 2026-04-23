@@ -2151,18 +2151,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email.subject,
         email.body,
         senderName,
-        senderEmail
+        senderEmail,
+        email.threadId,
+        email.id,
       );
       res.json({
         response: result.draft,
         classification: result.classification,
         needsHumanReview: result.needsHumanReview,
         reviewReason: result.reviewReason,
+        matchedLocationId: result.matchedLocationId,
+        matchedLocationName: result.matchedLocationName,
       });
     } catch (error: any) {
       console.error("Error generating AI response:", error);
       res.status(500).json({ message: error.message || "Failed to generate response" });
     }
+  });
+
+  // Forward an inbound email to a specific gemach operator
+  app.post("/api/admin/emails/:id/forward-to-operator", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const { locationId, note } = req.body as { locationId?: number; note?: string };
+      if (!locationId) {
+        return res.status(400).json({ message: "locationId is required" });
+      }
+      const location = await storage.getLocation(Number(locationId));
+      if (!location) return res.status(404).json({ message: "Location not found" });
+      if (!location.email) return res.status(400).json({ message: "This location has no operator email on file" });
+
+      const email = await getEmail(req.params.id);
+      if (!email) return res.status(404).json({ message: "Email not found" });
+
+      const sanitize = (s: string) => String(s || '').replace(/[\r\n]+/g, ' ').trim();
+      const noteBlock = (note && note.trim())
+        ? `Note from admin:\n${note.trim()}\n\n----- Original message -----\n`
+        : `Forwarded from the Baby Banz Gemach inbox — please follow up with the borrower directly.\n\n----- Original message -----\n`;
+      const fwdBody =
+        `${noteBlock}` +
+        `From: ${email.from}\n` +
+        `Subject: ${email.subject}\n\n` +
+        `${email.body}\n`;
+      const fwdSubject = `[Fwd] ${email.subject}`.slice(0, 200);
+      await sendNewEmail(sanitize(location.email), sanitize(fwdSubject), fwdBody);
+      res.json({ success: true, forwardedTo: location.email, locationName: location.name });
+    } catch (error: any) {
+      console.error("Error forwarding email to operator:", error);
+      res.status(500).json({ message: error.message || "Failed to forward email" });
+    }
+  });
+
+  // ============================================
+  // ADMIN PLAYBOOK FACTS (AI knowledge base)
+  // ============================================
+  const requireAdminMW = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    next();
+  };
+
+  app.get("/api/admin/playbook-facts", requireAdminMW, async (_req, res) => {
+    try { res.json(await storage.getAllPlaybookFacts()); }
+    catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+  app.post("/api/admin/playbook-facts", requireAdminMW, async (req, res) => {
+    try {
+      const { factKey, factValue, category } = req.body as { factKey?: string; factValue?: string; category?: string };
+      if (!factKey || !factValue) return res.status(400).json({ message: "factKey and factValue are required" });
+      const f = await storage.createPlaybookFact({ factKey: factKey.trim(), factValue: factValue.trim(), category: (category || 'general').trim() });
+      res.status(201).json(f);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+  app.patch("/api/admin/playbook-facts/:id", requireAdminMW, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const f = await storage.updatePlaybookFact(id, req.body);
+      res.json(f);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+  app.delete("/api/admin/playbook-facts/:id", requireAdminMW, async (req, res) => {
+    try { await storage.deletePlaybookFact(parseInt(req.params.id, 10)); res.json({ success: true }); }
+    catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/admin/faq-entries", requireAdminMW, async (_req, res) => {
+    try { res.json(await storage.getAllFaqEntries()); }
+    catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+  app.post("/api/admin/faq-entries", requireAdminMW, async (req, res) => {
+    try {
+      const { question, answer, language, category, isActive } = req.body as any;
+      if (!question || !answer) return res.status(400).json({ message: "question and answer are required" });
+      const f = await storage.createFaqEntry({
+        question: String(question).trim(),
+        answer: String(answer).trim(),
+        language: language === 'he' ? 'he' : 'en',
+        category: (category || 'general').trim(),
+        isActive: isActive !== false,
+      });
+      res.status(201).json(f);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+  app.patch("/api/admin/faq-entries/:id", requireAdminMW, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const f = await storage.updateFaqEntry(id, req.body);
+      res.json(f);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+  app.delete("/api/admin/faq-entries/:id", requireAdminMW, async (req, res) => {
+    try { await storage.deleteFaqEntry(parseInt(req.params.id, 10)); res.json({ success: true }); }
+    catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   // Send reply to an email
@@ -2206,7 +2309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate AI response for a contact-form message
   app.post("/api/contact/:id/generate-response", async (req, res) => {
     try {
-      if (!req.isAuthenticated() || (req.user as any)?.role !== 'admin') {
+      if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
         return res.status(403).json({ message: "Admin access required" });
       }
       const id = parseInt(req.params.id, 10);

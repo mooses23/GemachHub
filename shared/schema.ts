@@ -479,3 +479,29 @@ export const insertWebhookEventSchema = createInsertSchema(webhookEvents).pick({
 
 export type WebhookEvent = typeof webhookEvents.$inferSelect;
 export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
+
+// AI Playbook Facts — admin-editable global facts the AI uses when drafting replies
+export const playbookFacts = pgTable("playbook_facts", {
+  id: serial("id").primaryKey(),
+  factKey: text("fact_key").notNull().unique(),
+  factValue: text("fact_value").notNull(),
+  category: text("category").notNull().default("general"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+export const insertPlaybookFactSchema = createInsertSchema(playbookFacts).omit({ id: true, updatedAt: true });
+export type PlaybookFact = typeof playbookFacts.$inferSelect;
+export type InsertPlaybookFact = z.infer<typeof insertPlaybookFactSchema>;
+
+// AI FAQ Knowledge Base — admin-curated Q&A pairs the AI references when drafting
+export const faqEntries = pgTable("faq_entries", {
+  id: serial("id").primaryKey(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  language: text("language").notNull().default("en"),
+  category: text("category").notNull().default("general"),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+export const insertFaqEntrySchema = createInsertSchema(faqEntries).omit({ id: true, updatedAt: true });
+export type FaqEntry = typeof faqEntries.$inferSelect;
+export type InsertFaqEntry = z.infer<typeof insertFaqEntrySchema>;
