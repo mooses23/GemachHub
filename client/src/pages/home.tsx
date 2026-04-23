@@ -88,7 +88,7 @@ export default function Home() {
 
                   <div className="relative px-6 py-6 md:px-10 md:py-8 space-y-3">
                     <p className="font-serif text-sm md:text-base text-amber-100/90 leading-relaxed tracking-wide" data-testid="text-tribute-para-1">
-                      {t('tributePara1')}
+                      {t('tributePara1Lead')}{t('tributeFounderName')} <span className="text-amber-300/80 text-xs align-super font-sans">{t('tributeFounderHonor')}</span>{t('tributePara1Tail')}
                     </p>
                     <p className="font-serif text-sm md:text-base text-slate-300/75 leading-relaxed tracking-wide" data-testid="text-tribute-para-2">
                       {t('tributePara2')}

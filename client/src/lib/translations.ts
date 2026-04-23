@@ -511,7 +511,10 @@ export const translations = {
     // Founder's tribute (landing page)
     tapToReadStory: "· tap to read her story ·",
     tributeAriaLabel: "Learn the story behind this organization",
-    tributePara1: "Started by Rivka A\"H, this gemach grew from one simple idea — protecting babies' hearing — into a worldwide network.",
+    tributePara1Lead: "Started by ",
+    tributeFounderName: "Rivka",
+    tributeFounderHonor: "A\"H",
+    tributePara1Tail: ", this gemach grew from one simple idea — protecting babies' hearing — into a worldwide network.",
     tributePara2: "She was never one to leave a good idea on the shelf. From a single location, she built it into over 100 locations worldwide, helping families in a meaningful and practical way.",
     tributePara3: "She also founded a separate organization dedicated to children with special needs — one of many ways she lived a life of doing for others.",
     tributePara4: "Her legacy continues to make a difference every day.",
@@ -2072,7 +2075,10 @@ export const translations = {
     // Founder's tribute (landing page)
     tapToReadStory: "· הקש כדי לקרוא את הסיפור שלה ·",
     tributeAriaLabel: "לקרוא את הסיפור מאחורי הארגון",
-    tributePara1: "הגמ״ח הזה התחיל מרבקה ע״ה — מרעיון פשוט אחד, להגן על שמיעתם של תינוקות — וצמח לרשת עולמית.",
+    tributePara1Lead: "הגמ״ח הזה התחיל מ",
+    tributeFounderName: "רבקה",
+    tributeFounderHonor: "ע״ה",
+    tributePara1Tail: " — מרעיון פשוט אחד, להגן על שמיעתם של תינוקות — וצמח לרשת עולמית.",
     tributePara2: "היא מעולם לא הסתפקה ברעיון על הנייר. מסניף יחיד היא הרחיבה אותו ליותר ממאה סניפים ברחבי העולם, ועזרה למשפחות בצורה מוחשית ומעשית.",
     tributePara3: "במקביל היא ייסדה ארגון נוסף, המוקדש לילדים בעלי צרכים מיוחדים — אחת מני דרכים רבות שבהן חיה חיים של עשייה למען הזולת.",
     tributePara4: "המורשת שלה ממשיכה לעשות שינוי בכל יום מחדש.",
