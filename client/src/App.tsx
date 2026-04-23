@@ -20,8 +20,7 @@ import AdminApplications from "@/pages/admin/applications";
 import AdminPaymentMethods from "@/pages/admin/payment-methods";
 import PaymentConfirmations from "@/pages/admin/payment-confirmations";
 import PaymentStatusMonitor from "@/pages/admin/payment-status-monitor";
-import AdminEmails from "@/pages/admin/emails";
-import AdminMessages from "@/pages/admin/messages";
+import AdminInbox from "@/pages/admin/inbox";
 import OperatorIndex from "@/pages/operator/index";
 import OperatorDashboard from "@/pages/operator/dashboard";
 import OperatorDepositDashboard from "@/pages/operator/deposit-dashboard";
@@ -54,8 +53,9 @@ function Router() {
         <ProtectedRoute path="/admin/payment-methods" component={AdminPaymentMethods} requiredRole="admin" />
         <ProtectedRoute path="/admin/payment-confirmations" component={PaymentConfirmations} requiredRole="admin" />
         <ProtectedRoute path="/admin/payment-status" component={PaymentStatusMonitor} requiredRole="admin" />
-        <ProtectedRoute path="/admin/emails" component={AdminEmails} requiredRole="admin" />
-        <ProtectedRoute path="/admin/messages" component={AdminMessages} requiredRole="admin" />
+        <ProtectedRoute path="/admin/inbox" component={AdminInbox} requiredRole="admin" />
+        <Route path="/admin/emails">{() => <Redirect to="/admin/inbox" />}</Route>
+        <Route path="/admin/messages">{() => <Redirect to="/admin/inbox" />}</Route>
         
         {/* Operator Routes - Use localStorage-based auth via useOperatorAuth hook */}
         <Route path="/operator/login">{() => <Redirect to="/auth" />}</Route>

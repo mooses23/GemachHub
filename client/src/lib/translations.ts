@@ -508,6 +508,22 @@ export const translations = {
     emailSentSuccessfully: "Your email has been sent successfully.",
     failedToSendReply: "Failed to send reply",
 
+    // Unified Inbox
+    inboxTitle: "Inbox",
+    inboxSubtitle: "All contact-form messages and Gmail emails in one place",
+    inboxSearchPlaceholder: "Search by sender, subject, or content...",
+    inboxSourceEmail: "Email",
+    inboxSourceForm: "Web Form",
+    inboxEmpty: "Nothing here yet",
+    inboxEmptyDesc: "When messages arrive, they'll show up here.",
+    inboxLoadMore: "Load more",
+    inboxTo: "To",
+    inboxSentFromGemach: "Replies are sent from the gemach Gmail account.",
+    inboxTranslate: "Translate",
+    inboxTranslateReply: "Translate reply",
+    inboxShowOriginal: "Show original",
+    inboxTranslated: "Translated",
+
     // Founder's tribute (landing page)
     tapToReadStory: "· tap to read her story ·",
     tributeAriaLabel: "Learn the story behind this organization",
@@ -1548,6 +1564,22 @@ export const translations = {
     replySent: "התגובה נשלחה",
     emailSentSuccessfully: "הדוא״ל שלך נשלח בהצלחה.",
     failedToSendReply: "נכשל בשליחת תגובה",
+
+    // Unified Inbox
+    inboxTitle: "תיבת הדואר",
+    inboxSubtitle: "כל ההודעות מטופס יצירת קשר ומ-Gmail במקום אחד",
+    inboxSearchPlaceholder: "חיפוש לפי שולח, נושא או תוכן...",
+    inboxSourceEmail: "אימייל",
+    inboxSourceForm: "טופס באתר",
+    inboxEmpty: "אין כאן כלום עדיין",
+    inboxEmptyDesc: "כשיגיעו הודעות הן יופיעו כאן.",
+    inboxLoadMore: "טען עוד",
+    inboxTo: "אל",
+    inboxSentFromGemach: "התגובות נשלחות מחשבון ה-Gmail של הגמ\"ח.",
+    inboxTranslate: "תרגם",
+    inboxTranslateReply: "תרגם את התגובה",
+    inboxShowOriginal: "הצג את המקור",
+    inboxTranslated: "מתורגם",
 
     contactMessages: "הודעות יצירת קשר",
     msgPageSubtitle: "צפייה ומענה להודעות מטופס יצירת הקשר",

@@ -190,16 +190,10 @@ export default function Dashboard() {
                       {t('reviewApplications')}
                     </Button>
                   </Link>
-                  <Link href="/admin/messages">
-                    <Button className="w-full" variant="outline">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      {t('contactMessages')}
-                    </Button>
-                  </Link>
-                  <Link href="/admin/emails">
+                  <Link href="/admin/inbox">
                     <Button className="w-full" variant="outline">
                       <Mail className="h-4 w-4 mr-2" />
-                      {t('emailInbox')}
+                      {t('inboxTitle')}
                     </Button>
                   </Link>
                 </CardContent>

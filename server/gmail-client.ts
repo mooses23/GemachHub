@@ -174,43 +174,59 @@ function extractBody(payload: any): string {
   return '';
 }
 
-export async function listEmails(maxResults: number = 20): Promise<EmailMessage[]> {
+export interface ListEmailsResult {
+  emails: EmailMessage[];
+  nextPageToken?: string;
+}
+
+export async function listEmails(
+  maxResults: number = 25,
+  pageToken?: string
+): Promise<ListEmailsResult> {
   const gmail = await getUncachableGmailClient();
-  
+
   const response = await gmail.users.messages.list({
     userId: 'me',
     maxResults,
-    labelIds: ['INBOX']
+    labelIds: ['INBOX'],
+    pageToken: pageToken || undefined,
   });
 
   const messages = response.data.messages || [];
   const emails: EmailMessage[] = [];
 
-  for (const msg of messages) {
-    const detail = await gmail.users.messages.get({
-      userId: 'me',
-      id: msg.id!,
-      format: 'full'
-    });
+  await Promise.all(
+    messages.map(async (msg) => {
+      const detail = await gmail.users.messages.get({
+        userId: 'me',
+        id: msg.id!,
+        format: 'full',
+      });
 
-    const headers = detail.data.payload?.headers || [];
-    const body = extractBody(detail.data.payload);
+      const headers = detail.data.payload?.headers || [];
+      const body = extractBody(detail.data.payload);
 
-    emails.push({
-      id: detail.data.id!,
-      threadId: detail.data.threadId!,
-      from: getHeader(headers, 'From'),
-      to: getHeader(headers, 'To'),
-      subject: getHeader(headers, 'Subject'),
-      snippet: detail.data.snippet || '',
-      body,
-      date: getHeader(headers, 'Date'),
-      isRead: !detail.data.labelIds?.includes('UNREAD'),
-      labels: detail.data.labelIds || []
-    });
-  }
+      emails.push({
+        id: detail.data.id!,
+        threadId: detail.data.threadId!,
+        from: getHeader(headers, 'From'),
+        to: getHeader(headers, 'To'),
+        subject: getHeader(headers, 'Subject'),
+        snippet: detail.data.snippet || '',
+        body,
+        date: getHeader(headers, 'Date'),
+        isRead: !detail.data.labelIds?.includes('UNREAD'),
+        labels: detail.data.labelIds || [],
+      });
+    })
+  );
 
-  return emails;
+  emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  return {
+    emails,
+    nextPageToken: response.data.nextPageToken || undefined,
+  };
 }
 
 export async function getEmail(messageId: string): Promise<EmailMessage | null> {

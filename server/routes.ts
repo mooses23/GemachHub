@@ -12,7 +12,7 @@ import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, getEmail, markAsRead, sendReply, sendNewEmail, getGmailConfigStatus } from "./gmail-client.js";
-import { generateEmailResponse } from "./openai-client.js";
+import { generateEmailResponse, translateText } from "./openai-client.js";
 import { z } from "zod";
 
 // Utility function to detect card brand
@@ -1993,9 +1993,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const maxResults = parseInt(req.query.maxResults as string) || 20;
-      const emails = await listEmails(maxResults);
-      res.json(emails);
+      const maxResults = parseInt(req.query.maxResults as string) || 25;
+      const pageToken = (req.query.pageToken as string) || undefined;
+      const result = await listEmails(maxResults, pageToken);
+      res.json(result);
     } catch (error: any) {
       console.error("Error fetching emails:", error);
       res.status(500).json({ message: error.message || "Failed to fetch emails" });
@@ -2103,6 +2104,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error sending reply:", error);
       res.status(500).json({ message: error.message || "Failed to send reply" });
+    }
+  });
+
+  // Generate AI response for a contact-form message
+  app.post("/api/contact/:id/generate-response", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || (req.user as any)?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const id = parseInt(req.params.id, 10);
+      const contact = await storage.getContact(id);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      const response = await generateEmailResponse(
+        contact.subject,
+        contact.message,
+        contact.name
+      );
+      res.json({ response });
+    } catch (error: any) {
+      console.error("Error generating contact AI response:", error);
+      res.status(500).json({ message: error.message || "Failed to generate response" });
+    }
+  });
+
+  // Translate arbitrary text (used by unified inbox)
+  app.post("/api/admin/inbox/translate", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const { text, target } = req.body as { text?: string; target?: string };
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        return res.status(400).json({ message: "Text is required" });
+      }
+      const targetLang: 'en' | 'he' = target === 'he' ? 'he' : 'en';
+      const translated = await translateText(text, targetLang);
+      res.json({ translated });
+    } catch (error: any) {
+      console.error("Error translating text:", error);
+      res.status(500).json({ message: error.message || "Failed to translate" });
     }
   });
 

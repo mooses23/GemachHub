@@ -22,6 +22,10 @@ const optionalVars = [
   'SMTP_USER',
   'SMTP_PASSWORD',
   'APP_URL',
+  'OPENAI_API_KEY',
+  'GMAIL_CLIENT_ID',
+  'GMAIL_CLIENT_SECRET',
+  'GMAIL_REFRESH_TOKEN',
 ];
 
 console.log('🔍 Verifying Environment Variables...\n');
