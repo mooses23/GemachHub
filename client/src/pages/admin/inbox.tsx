@@ -125,11 +125,16 @@ export default function AdminInbox() {
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const [replyText, setReplyText] = useState("");
   const [replySubject, setReplySubject] = useState("");
-  const [translatedBody, setTranslatedBody] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<Contact | null>(null);
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editSubject, setEditSubject] = useState("");
   const [editMessage, setEditMessage] = useState("");
+
+  // Gmail config status
+  const gmailStatusQuery = useQuery<{ configured: boolean; environment: string; message: string }>({
+    queryKey: ["/api/admin/emails/status"],
+  });
 
   // Contacts query
   const contactsQuery = useQuery<Contact[]>({
@@ -178,8 +183,8 @@ export default function AdminInbox() {
       if (!res.ok) throw new Error("Failed to load more");
       const data: EmailsResponse = await res.json();
       setEmailPages((prev) => [...prev, data]);
-    } catch (e: any) {
-      toast({ title: t("error"), description: e.message, variant: "destructive" });
+    } catch (e) {
+      toast({ title: t("error"), description: e instanceof Error ? e.message : String(e), variant: "destructive" });
     }
   };
 
@@ -277,13 +282,12 @@ export default function AdminInbox() {
     onSuccess: () => {
       toast({ title: t("replySent"), description: t("emailSentSuccessfully") });
       setReplyText("");
-      setTranslatedBody(null);
       setSelected(null);
       qc.invalidateQueries({ queryKey: ["/api/contact"] });
       qc.invalidateQueries({ queryKey: ["/api/admin/emails"] });
     },
-    onError: (err: any) =>
-      toast({ title: t("error"), description: err.message || t("failedToSendReply"), variant: "destructive" }),
+    onError: (err: unknown) =>
+      toast({ title: t("error"), description: err instanceof Error ? err.message : t("failedToSendReply"), variant: "destructive" }),
   });
   const generateMutation = useMutation({
     mutationFn: async (item: UnifiedItem) => {
@@ -297,8 +301,8 @@ export default function AdminInbox() {
       setReplyText(response);
       toast({ title: t("aiResponseGenerated"), description: t("reviewEditBeforeSending") });
     },
-    onError: (err: any) =>
-      toast({ title: t("error"), description: err.message || t("failedToGenerateResponse"), variant: "destructive" }),
+    onError: (err: unknown) =>
+      toast({ title: t("error"), description: err instanceof Error ? err.message : t("failedToGenerateResponse"), variant: "destructive" }),
   });
   const translateMutation = useMutation({
     mutationFn: async ({ text, target }: { text: string; target: "en" | "he" }) => {
@@ -310,7 +314,6 @@ export default function AdminInbox() {
   const openItem = (item: UnifiedItem) => {
     setSelected(item);
     setReplyText("");
-    setTranslatedBody(null);
     const subj = item.subject?.startsWith("Re:") ? item.subject : `Re: ${item.subject || ""}`;
     setReplySubject(subj);
     if (!item.isRead) {
@@ -326,18 +329,24 @@ export default function AdminInbox() {
 
   // Translation always targets the current admin UI language.
   const uiTarget: "en" | "he" = language === "he" ? "he" : "en";
+  const translationKey = selected ? `${selected.source}:${selected.id}` : "";
+  const translatedBody = translationKey ? translations[translationKey] ?? null : null;
 
   const handleTranslateMessage = async () => {
     if (!selected) return;
     if (translatedBody) {
-      setTranslatedBody(null);
+      setTranslations((prev) => {
+        const next = { ...prev };
+        delete next[translationKey];
+        return next;
+      });
       return;
     }
     try {
       const out = await translateMutation.mutateAsync({ text: selected.body, target: uiTarget });
-      setTranslatedBody(out);
-    } catch (e: any) {
-      toast({ title: t("error"), description: e.message, variant: "destructive" });
+      setTranslations((prev) => ({ ...prev, [translationKey]: out }));
+    } catch (e) {
+      toast({ title: t("error"), description: e instanceof Error ? e.message : String(e), variant: "destructive" });
     }
   };
 
@@ -346,8 +355,8 @@ export default function AdminInbox() {
     try {
       const out = await translateMutation.mutateAsync({ text: replyText, target: uiTarget });
       setReplyText(out);
-    } catch (e: any) {
-      toast({ title: t("error"), description: e.message, variant: "destructive" });
+    } catch (e) {
+      toast({ title: t("error"), description: e instanceof Error ? e.message : String(e), variant: "destructive" });
     }
   };
 
@@ -441,7 +450,7 @@ export default function AdminInbox() {
                     variant="outline"
                     size="sm"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => setConfirmDelete({ id: Number(selected.id) } as Contact)}
+                    onClick={() => setConfirmDeleteId(Number(selected.id))}
                     data-testid="button-delete-message"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -611,7 +620,7 @@ export default function AdminInbox() {
             </DialogContent>
           </Dialog>
 
-          <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+          <AlertDialog open={confirmDeleteId !== null} onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>{t("msgConfirmDelete")}</AlertDialogTitle>
@@ -621,7 +630,7 @@ export default function AdminInbox() {
                 <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
                 <AlertDialogAction
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => confirmDelete && deleteContact.mutate(confirmDelete.id)}
+                  onClick={() => confirmDeleteId !== null && deleteContact.mutate(confirmDeleteId)}
                 >
                   {deleteContact.isPending ? t("deleting") : t("msgDelete")}
                 </AlertDialogAction>
@@ -635,7 +644,11 @@ export default function AdminInbox() {
 
   // ============ LIST VIEW ============
   const isLoading = contactsQuery.isLoading || (emailQueries.isLoading && emailPages.length === 0);
-  const emailError = emailQueries.isError ? (emailQueries.error as any)?.message : null;
+  const emailErrorRaw = emailQueries.error;
+  const emailError = emailQueries.isError
+    ? (emailErrorRaw instanceof Error ? emailErrorRaw.message : String(emailErrorRaw))
+    : null;
+  const gmailNotConfigured = gmailStatusQuery.data && !gmailStatusQuery.data.configured;
 
   return (
     <div className="py-10">
@@ -706,7 +719,34 @@ export default function AdminInbox() {
           </div>
         </div>
 
-        {emailError && (
+        {gmailNotConfigured && (
+          <Card className="mb-6 border-amber-300 bg-amber-50 dark:bg-amber-950/30" data-testid="card-gmail-not-configured">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="space-y-2 text-sm">
+                  <div className="font-semibold text-amber-900 dark:text-amber-100">{t("inboxGmailNotConfiguredTitle")}</div>
+                  <p className="text-amber-900/90 dark:text-amber-100/90">{t("inboxGmailNotConfiguredDesc")}</p>
+                  <ul className="list-disc list-inside text-xs text-amber-900/80 dark:text-amber-100/80 space-y-0.5">
+                    <li><code>GMAIL_CLIENT_ID</code></li>
+                    <li><code>GMAIL_CLIENT_SECRET</code></li>
+                    <li><code>GMAIL_REFRESH_TOKEN</code></li>
+                  </ul>
+                  <a
+                    href="https://developers.google.com/gmail/api/quickstart/nodejs"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block underline text-amber-900 dark:text-amber-100 font-medium"
+                    data-testid="link-gmail-setup"
+                  >
+                    {t("inboxGmailSetupLink")}
+                  </a>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {emailError && !gmailNotConfigured && (
           <Card className="mb-4 border-destructive/50">
             <CardContent className="p-4 flex items-start gap-3 text-sm">
               <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />

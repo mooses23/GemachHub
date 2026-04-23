@@ -524,6 +524,9 @@ export const translations = {
     inboxShowOriginal: "Show original",
     inboxTranslated: "Translated",
     inboxCannotMarkEmailUnread: "Marking Gmail messages as unread isn't supported here — open Gmail to do that.",
+    inboxGmailNotConfiguredTitle: "Gmail is not configured",
+    inboxGmailNotConfiguredDesc: "Email features are unavailable. Add the following environment variables to enable Gmail:",
+    inboxGmailSetupLink: "Read the Gmail API setup guide →",
 
     // Founder's tribute (landing page)
     tapToReadStory: "· tap to read her story ·",
@@ -1582,6 +1585,9 @@ export const translations = {
     inboxShowOriginal: "הצג את המקור",
     inboxTranslated: "מתורגם",
     inboxCannotMarkEmailUnread: "סימון הודעות Gmail כלא נקראו אינו נתמך כאן — פתח את Gmail כדי לעשות זאת.",
+    inboxGmailNotConfiguredTitle: "Gmail אינו מוגדר",
+    inboxGmailNotConfiguredDesc: "תכונות הדוא״ל אינן זמינות. הוסף את משתני הסביבה הבאים כדי להפעיל את Gmail:",
+    inboxGmailSetupLink: "קרא את מדריך הגדרת Gmail API ←",
 
     contactMessages: "הודעות יצירת קשר",
     msgPageSubtitle: "צפייה ומענה להודעות מטופס יצירת הקשר",
