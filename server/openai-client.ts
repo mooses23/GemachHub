@@ -283,6 +283,50 @@ ${emailBody}`;
   };
 }
 
+export async function generateWelcomeOpener(input: {
+  locationName: string;
+  operatorName?: string;
+  city?: string;
+  country?: string;
+}): Promise<string> {
+  const safeName = (input.operatorName || '').trim();
+  const place = [input.city, input.country].filter(Boolean).join(', ');
+  const fallback = safeName
+    ? `Hi ${safeName.split(/\s+/)[0]} — quick note to confirm the ${input.locationName} dashboard is set up and ready whenever you are.`
+    : `Quick note to confirm the ${input.locationName} dashboard is set up and ready whenever you are.`;
+
+  if (!process.env.OPENAI_API_KEY) return fallback;
+
+  try {
+    const sys = `You write ONE warm, low-key opening sentence for a transactional "your dashboard is ready" email to a volunteer who runs a free-loan baby-earmuff gemach.
+Rules:
+- Exactly one sentence, max 25 words.
+- Address the operator by first name only if a name is given; otherwise no name.
+- Mention the gemach/location naturally; mention the city only if it adds warmth.
+- Sound like a friendly confirmation, NOT a sales pitch or a broadcast. No "welcome!", no exclamation, no emojis, no marketing language.
+- Plain text only. No quotes around the sentence.`;
+    const user = `Location name: ${input.locationName}
+Operator name: ${safeName || '(unknown)'}
+City/area: ${place || '(unknown)'}`;
+
+    const resp = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: user },
+      ],
+      max_tokens: 80,
+      temperature: 0.7,
+    });
+    const line = (resp.choices[0]?.message?.content || '').trim().replace(/^["']|["']$/g, '');
+    if (!line || line.length > 240) return fallback;
+    return line;
+  } catch (err) {
+    console.warn('generateWelcomeOpener failed, using fallback:', (err as any)?.message);
+    return fallback;
+  }
+}
+
 export async function translateText(
   text: string,
   targetLanguage: 'en' | 'he'

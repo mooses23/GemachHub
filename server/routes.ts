@@ -12,7 +12,7 @@ import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, getEmail, markAsRead, sendReply, sendNewEmail, getGmailConfigStatus } from "./gmail-client.js";
-import { generateEmailResponse, translateText } from "./openai-client.js";
+import { generateEmailResponse, translateText, generateWelcomeOpener } from "./openai-client.js";
 import { z } from "zod";
 
 // Utility function to detect card brand
@@ -608,6 +608,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const baseUrl = process.env.APP_URL || process.env.SITE_URL || `${req.protocol}://${req.get('host')}`;
       const dashboardUrl = `${baseUrl.replace(/\/$/, '')}/operator/login`;
+      const opener = await generateWelcomeOpener({
+        locationName: location.name,
+        operatorName: location.contactPerson || '',
+        city: location.address || '',
+      });
       await sendOperatorWelcomeEmail({
         locationName: location.name,
         locationCode: location.locationCode,
@@ -615,6 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         operatorEmail: location.email,
         dashboardUrl,
         defaultPin: location.operatorPin || '1234',
+        opener,
       });
       res.json({ success: true, sentTo: location.email });
     } catch (error: any) {
@@ -643,6 +649,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
         try {
+          const opener = await generateWelcomeOpener({
+            locationName: loc.name,
+            operatorName: loc.contactPerson || '',
+            city: loc.address || '',
+          });
           await sendOperatorWelcomeEmail({
             locationName: loc.name,
             locationCode: loc.locationCode,
@@ -650,6 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             operatorEmail: loc.email,
             dashboardUrl,
             defaultPin: loc.operatorPin || '1234',
+            opener,
           });
           results.push({ id: loc.id, name: loc.name, status: 'sent' });
         } catch (err: any) {

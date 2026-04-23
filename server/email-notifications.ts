@@ -92,39 +92,25 @@ export interface OperatorWelcomeContext {
   operatorEmail: string;
   dashboardUrl: string;
   defaultPin: string;
+  /** Optional personalized opening line; if omitted, a neutral one is used. */
+  opener?: string;
 }
 
 function buildWelcomeEmail(ctx: OperatorWelcomeContext): { subject: string; body: string } {
-  const subject = `Welcome to your Baby Banz Gemach dashboard — ${ctx.locationName}`;
-  const body = `Hi ${ctx.operatorName || 'there'},
+  const subject = `Your Baby Banz Gemach dashboard is ready — ${ctx.locationName}`;
+  const opener =
+    (ctx.opener && ctx.opener.trim()) ||
+    `Quick note to confirm the ${ctx.locationName} dashboard is set up and ready whenever you are.`;
 
-Thank you for being part of the Baby Banz Gemach network! This email is to make sure you know how to access the operator dashboard for your location.
+  const body = `${opener}
 
-YOUR LOCATION
-  Name:           ${ctx.locationName}
-  Location code:  ${ctx.locationCode}
+Log in:  ${ctx.dashboardUrl}
+Code:    ${ctx.locationCode}
+PIN:     ${ctx.defaultPin}  (please change after your first login)
 
-HOW TO LOG IN
-  1. Go to: ${ctx.dashboardUrl}
-  2. Enter your location code: ${ctx.locationCode}
-  3. Enter the temporary PIN: ${ctx.defaultPin}
+That's it — no action needed today. Reply to this email any time you need a hand.
 
-PLEASE CHANGE YOUR PIN
-After your first login, please change your PIN to something only you know:
-  • Click your profile / settings in the dashboard
-  • Choose "Change PIN"
-  • Pick any 4–6 digit number you'll remember
-
-WHAT THE DASHBOARD LETS YOU DO
-  • See and update your inventory of earmuffs
-  • Log a loan when someone borrows a pair
-  • Mark returns and refund deposits
-  • View your loan history and active borrowers
-
-If you have any questions, just reply to this email.
-
-Thank you for serving your community,
-Baby Banz Gemach
+— Baby Banz Gemach
 `;
   return { subject, body };
 }
