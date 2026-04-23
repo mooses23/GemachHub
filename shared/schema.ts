@@ -250,10 +250,28 @@ export const transactions = pgTable("transactions", {
   magicTokenExpiresAt: timestamp("magic_token_expires_at"),
   chargeErrorCode: text("charge_error_code"), // Stripe error code if charge fails
   chargeErrorMessage: text("charge_error_message"), // Stripe error message
-  // Return reminder tracking
+  // Return reminder tracking (fast summary; detailed history lives in returnReminderEvents)
   lastReturnReminderAt: timestamp("last_return_reminder_at"),
   returnReminderCount: integer("return_reminder_count").notNull().default(0),
 });
+
+// Per-send history of return reminders for each transaction.
+export const returnReminderEvents = pgTable("return_reminder_events", {
+  id: serial("id").primaryKey(),
+  transactionId: integer("transaction_id").notNull(),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  sentByUserId: integer("sent_by_user_id"),
+  channel: text("channel").notNull().default("email"),
+  language: text("language").notNull().default("en"),
+});
+
+export const insertReturnReminderEventSchema = createInsertSchema(returnReminderEvents).omit({
+  id: true,
+  sentAt: true,
+});
+
+export type ReturnReminderEvent = typeof returnReminderEvents.$inferSelect;
+export type InsertReturnReminderEvent = z.infer<typeof insertReturnReminderEventSchema>;
 
 export const insertTransactionSchema = createInsertSchema(transactions).pick({
   locationId: true,

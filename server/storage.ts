@@ -17,6 +17,7 @@ import {
   faqEntries, type FaqEntry, type InsertFaqEntry,
   knowledgeDocs, type KnowledgeDoc, type InsertKnowledgeDoc,
   replyExamples, type ReplyExample, type InsertReplyExample,
+  returnReminderEvents, type ReturnReminderEvent, type InsertReturnReminderEvent,
   kbEmbeddings, type KbEmbedding, type InsertKbEmbedding,
   type KbSourceKind,
   type PayLaterStatus
@@ -117,7 +118,8 @@ export interface IStorage {
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction>;
   markTransactionReturned(id: number, refundAmount?: number): Promise<Transaction>;
-  recordReturnReminderSent(id: number): Promise<Transaction>;
+  recordReturnReminderSent(id: number, opts?: { channel?: string; language?: string; sentByUserId?: number | null }): Promise<Transaction>;
+  getReturnReminderEvents(transactionId: number): Promise<ReturnReminderEvent[]>;
 
   // Contact operations
   getAllContacts(): Promise<Contact[]>;
@@ -178,6 +180,8 @@ export class MemStorage implements IStorage {
   private inventoryItems: Map<number, Inventory>;
   private auditLogsMap: Map<number, AuditLog>;
   private webhookEventsMap: Map<number, WebhookEvent>;
+  private returnReminderEventsMap: Map<number, ReturnReminderEvent>;
+  private returnReminderEventCounter: number = 1;
   private validInviteCodes: Set<string>;
 
   private userCounter: number;
@@ -210,6 +214,7 @@ export class MemStorage implements IStorage {
     this.inventoryItems = new Map();
     this.auditLogsMap = new Map();
     this.webhookEventsMap = new Map();
+    this.returnReminderEventsMap = new Map();
     this.validInviteCodes = new Set();
 
     this.userCounter = 1;
@@ -2631,6 +2636,8 @@ export class MemStorage implements IStorage {
       currency: insertTransaction.currency ?? "usd",
       magicToken: insertTransaction.magicToken ?? null,
       magicTokenExpiresAt: insertTransaction.magicTokenExpiresAt ? new Date(insertTransaction.magicTokenExpiresAt) : null,
+      lastReturnReminderAt: null,
+      returnReminderCount: 0,
       chargeErrorCode: insertTransaction.chargeErrorCode ?? null,
       chargeErrorMessage: insertTransaction.chargeErrorMessage ?? null
     };
@@ -2666,18 +2673,35 @@ export class MemStorage implements IStorage {
     return updatedTransaction;
   }
 
-  async recordReturnReminderSent(id: number): Promise<Transaction> {
+  async recordReturnReminderSent(id: number, opts?: { channel?: string; language?: string; sentByUserId?: number | null }): Promise<Transaction> {
     const transaction = this.transactions.get(id);
     if (!transaction) {
       throw new Error(`Transaction with id ${id} not found`);
     }
+    const now = new Date();
     const updated: Transaction = {
       ...transaction,
-      lastReturnReminderAt: new Date(),
+      lastReturnReminderAt: now,
       returnReminderCount: (transaction.returnReminderCount ?? 0) + 1,
     };
     this.transactions.set(id, updated);
+    const eventId = this.returnReminderEventCounter++;
+    const event: ReturnReminderEvent = {
+      id: eventId,
+      transactionId: id,
+      sentAt: now,
+      sentByUserId: opts?.sentByUserId ?? null,
+      channel: opts?.channel ?? 'email',
+      language: opts?.language ?? 'en',
+    };
+    this.returnReminderEventsMap.set(eventId, event);
     return updated;
+  }
+
+  async getReturnReminderEvents(transactionId: number): Promise<ReturnReminderEvent[]> {
+    return Array.from(this.returnReminderEventsMap.values())
+      .filter(e => e.transactionId === transactionId)
+      .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
   }
 
   // Contact methods

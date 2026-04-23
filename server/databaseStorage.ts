@@ -19,6 +19,7 @@ import {
   faqEntries, type FaqEntry, type InsertFaqEntry,
   knowledgeDocs, type KnowledgeDoc, type InsertKnowledgeDoc,
   replyExamples, type ReplyExample, type InsertReplyExample,
+  returnReminderEvents, type ReturnReminderEvent, type InsertReturnReminderEvent,
   kbEmbeddings, type KbEmbedding, type InsertKbEmbedding,
   type KbSourceKind,
   type PayLaterStatus
@@ -436,19 +437,36 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async recordReturnReminderSent(id: number): Promise<Transaction> {
-    const transaction = await this.getTransaction(id);
-    if (!transaction) {
-      throw new Error(`Transaction with id ${id} not found`);
-    }
-    const result = await db.update(transactions)
-      .set({
-        lastReturnReminderAt: new Date(),
-        returnReminderCount: (transaction.returnReminderCount ?? 0) + 1,
-      })
-      .where(eq(transactions.id, id))
-      .returning();
-    return result[0];
+  async recordReturnReminderSent(id: number, opts?: { channel?: string; language?: string; sentByUserId?: number | null }): Promise<Transaction> {
+    return await db.transaction(async (tx) => {
+      const existing = await tx.select().from(transactions).where(eq(transactions.id, id));
+      const transaction = existing[0];
+      if (!transaction) {
+        throw new Error(`Transaction with id ${id} not found`);
+      }
+      const now = new Date();
+      const result = await tx.update(transactions)
+        .set({
+          lastReturnReminderAt: now,
+          returnReminderCount: (transaction.returnReminderCount ?? 0) + 1,
+        })
+        .where(eq(transactions.id, id))
+        .returning();
+      await tx.insert(returnReminderEvents).values({
+        transactionId: id,
+        sentByUserId: opts?.sentByUserId ?? null,
+        channel: opts?.channel ?? 'email',
+        language: opts?.language ?? 'en',
+      });
+      return result[0];
+    });
+  }
+
+  async getReturnReminderEvents(transactionId: number): Promise<ReturnReminderEvent[]> {
+    return db.select()
+      .from(returnReminderEvents)
+      .where(eq(returnReminderEvents.transactionId, transactionId))
+      .orderBy(desc(returnReminderEvents.sentAt));
   }
 
   // Contact operations
@@ -834,6 +852,17 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   try {
     await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS last_return_reminder_at TIMESTAMP`);
     await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_reminder_count INTEGER NOT NULL DEFAULT 0`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS return_reminder_events (
+        id SERIAL PRIMARY KEY,
+        transaction_id INTEGER NOT NULL,
+        sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        sent_by_user_id INTEGER,
+        channel TEXT NOT NULL DEFAULT 'email',
+        language TEXT NOT NULL DEFAULT 'en'
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS return_reminder_events_tx_idx ON return_reminder_events (transaction_id, sent_at DESC)`);
     // Task #9 tables (drizzle-kit on this project does not run pg push, so we
     // create them idempotently here so existing DBs pick them up automatically).
     await db.execute(sql`

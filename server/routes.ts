@@ -2329,11 +2329,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(502).json({ message: sendErr?.message || "Failed to send reminder email" });
       }
 
-      const updated = await storage.recordReturnReminderSent(transactionId);
+      const sentByUserId = req.isAuthenticated() ? ((req.user as any)?.id ?? null) : null;
+      const updated = await storage.recordReturnReminderSent(transactionId, {
+        channel: 'email',
+        language,
+        sentByUserId,
+      });
       res.json({ success: true, transaction: updated });
     } catch (error: any) {
       console.error("Error sending return reminder:", error);
       res.status(500).json({ message: error?.message || "Failed to send return reminder" });
+    }
+  });
+
+  // List the full return-reminder send history for a single transaction (operator-scoped).
+  app.get("/api/locations/:locationId/transactions/:id/return-reminders", async (req, res) => {
+    try {
+      const locationId = parseInt(req.params.locationId, 10);
+      const transactionId = parseInt(req.params.id, 10);
+      if (Number.isNaN(locationId) || Number.isNaN(transactionId)) {
+        return res.status(400).json({ message: "Invalid location or transaction id" });
+      }
+
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
+        return res.status(401).json({ message: "Operator authentication required" });
+      }
+      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+        return res.status(403).json({ message: "Not authorized for this location" });
+      }
+
+      const transaction = await storage.getTransaction(transactionId);
+      if (!transaction || transaction.locationId !== locationId) {
+        return res.status(404).json({ message: "Transaction not found for this location" });
+      }
+
+      const events = await storage.getReturnReminderEvents(transactionId);
+      res.json({ events });
+    } catch (error: any) {
+      console.error("Error fetching return reminder history:", error);
+      res.status(500).json({ message: error?.message || "Failed to fetch reminder history" });
     }
   });
 

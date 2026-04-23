@@ -7,7 +7,7 @@ import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
-import { Transaction, Location, HEADBAND_COLORS, InventoryByColor } from "@shared/schema";
+import { Transaction, Location, HEADBAND_COLORS, InventoryByColor, ReturnReminderEvent } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -181,6 +181,60 @@ function RestockingInstructions() {
   );
 }
 
+function ReminderHistoryTimeline({ tx, locationId }: { tx: Transaction; locationId: number }) {
+  const { t, language } = useLanguage();
+  const reminderCount = tx.returnReminderCount ?? 0;
+  const enabled = reminderCount > 0;
+
+  const { data, isLoading } = useQuery<{ events: ReturnReminderEvent[] }>({
+    queryKey: ['/api/locations', locationId, 'transactions', tx.id, 'return-reminders'],
+    queryFn: async () => {
+      const res = await apiRequest(
+        'GET',
+        `/api/locations/${locationId}/transactions/${tx.id}/return-reminders`,
+      );
+      return res.json();
+    },
+    enabled,
+  });
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/5 p-3" data-testid={`reminder-history-${tx.id}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <BellRing className="h-4 w-4 text-amber-300" />
+        <span className="text-sm font-medium text-white">{t('reminderHistoryTitle')}</span>
+        {enabled && (
+          <span className="text-xs text-slate-400">({reminderCount})</span>
+        )}
+      </div>
+      {!enabled ? (
+        <p className="text-xs text-slate-400">{t('reminderHistoryEmpty')}</p>
+      ) : isLoading ? (
+        <p className="text-xs text-slate-400">{t('reminderHistoryLoading')}</p>
+      ) : (data?.events ?? []).length === 0 ? (
+        <p className="text-xs text-slate-400">{t('reminderHistoryEmpty')}</p>
+      ) : (
+        <ol className="space-y-1.5">
+          {(data?.events ?? []).map((ev) => (
+            <li
+              key={ev.id}
+              className="flex items-center gap-2 text-xs text-slate-300"
+              data-testid={`reminder-history-item-${ev.id}`}
+            >
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-300 flex-shrink-0" />
+              <span className="text-slate-200">{formatLocalizedDate(new Date(ev.sentAt), language)}</span>
+              <span className="text-slate-500">·</span>
+              <span className="uppercase tracking-wide text-[10px] text-slate-400">{ev.channel}</span>
+              <span className="text-slate-500">·</span>
+              <span className="uppercase tracking-wide text-[10px] text-slate-400">{ev.language}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId: number }) {
   const { t, language } = useLanguage();
   const { toast } = useToast();
@@ -199,6 +253,7 @@ function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId:
       toast({ title: t('reminderSent'), description: t('reminderSentToast') });
       queryClient.invalidateQueries({ queryKey: ['/api/locations', locationId, 'transactions'] });
       queryClient.invalidateQueries({ queryKey: [`/api/locations/${locationId}/transactions`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/locations', locationId, 'transactions', tx.id, 'return-reminders'] });
       setConfirmOpen(false);
     },
     onError: (err: any) => {
@@ -253,6 +308,9 @@ function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId:
               {t('reminderLastSentLabel')}: {formatLocalizedDate(lastSent, language)}
               {(tx.returnReminderCount ?? 0) > 0 && ` · ${t('reminderCountLabel')}: ${tx.returnReminderCount}`}
             </div>
+          )}
+          {(tx.returnReminderCount ?? 0) > 0 && (
+            <ReminderHistoryTimeline tx={tx} locationId={locationId} />
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={mutation.isPending}>
@@ -1070,7 +1128,13 @@ function ReturnWizard({
               )}
             </div>
           </div>
-          
+
+          {(selectedTransaction.returnReminderCount ?? 0) > 0 && (
+            <div className="mb-6">
+              <ReminderHistoryTimeline tx={selectedTransaction} locationId={location.id} />
+            </div>
+          )}
+
           {/* Card deposit specific options */}
           {selectedTransaction.payLaterStatus && selectedTransaction.payLaterStatus !== "CHARGED" ? (
             <div className="space-y-4">
