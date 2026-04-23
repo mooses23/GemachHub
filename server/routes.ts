@@ -13,8 +13,15 @@ import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, getEmail, markAsRead, sendReply, sendNewEmail, getGmailConfigStatus } from "./gmail-client.js";
-import { generateEmailResponse, translateText, generateWelcomeOpener } from "./openai-client.js";
+import {
+  generateEmailResponse, translateText, generateWelcomeOpener,
+  reindexFact, reindexFaq, reindexDoc, reindexReplyExample, backfillEmbeddings, seedKnowledgeDocs,
+} from "./openai-client.js";
 import { z } from "zod";
+
+function normalizeWhitespace(s: string): string {
+  return String(s || '').replace(/\s+/g, ' ').trim();
+}
 
 // Utility function to detect card brand
 function detectCardBrand(cardNumber: string): string {
@@ -38,8 +45,12 @@ import {
   insertPaymentMethodSchema,
   insertLocationPaymentMethodSchema,
   insertCityCategorySchema,
+  insertReplyExampleSchema,
+  insertFaqEntrySchema,
+  insertKnowledgeDocSchema,
   operatorLoginSchema,
-  HEADBAND_COLORS
+  HEADBAND_COLORS,
+  type InsertReplyExample,
 } from "../shared/schema.js";
 import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth.js";
 
@@ -52,6 +63,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Apply lightweight schema upgrades (idempotent)
   await ensureSchemaUpgrades();
+  // Idempotent: seeds /rules + common scenarios docs on first boot so the AI
+  // has authoritative long-form context out of the box. Safe to call every start.
+  seedKnowledgeDocs().catch(() => {});
 
   // Helper to check operator authorization - supports both Passport auth and PIN-based session
   function getOperatorLocationId(req: any): number | null {
@@ -1102,7 +1116,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
-      const { replyText, replySubject: customSubject } = req.body as { replyText?: string; replySubject?: string };
+      const { replyText, replySubject: customSubject, aiDraft, classification, matchedLocationId } = req.body as {
+        replyText?: string; replySubject?: string;
+        aiDraft?: string; classification?: string; matchedLocationId?: number;
+      };
       if (!replyText || typeof replyText !== 'string' || !replyText.trim()) {
         return res.status(400).json({ message: "Reply text is required" });
       }
@@ -1113,6 +1130,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const replySubject = baseSubject.startsWith('Re:') ? baseSubject : `Re: ${baseSubject}`;
       await sendNewEmail(sanitize(contact.email), sanitize(replySubject), replyText.trim());
       await storage.markContactRead(id);
+
+      try {
+        const language: 'en' | 'he' = /[\u0590-\u05FF]/.test(`${contact.subject} ${contact.message}`) ? 'he' : 'en';
+        const wasEdited = !!aiDraft && normalizeWhitespace(aiDraft) !== normalizeWhitespace(replyText);
+        const parsed = insertReplyExampleSchema.parse({
+          sourceType: 'form',
+          sourceRef: String(contact.id),
+          senderEmail: contact.email,
+          senderName: contact.name,
+          incomingSubject: contact.subject,
+          incomingBody: contact.message,
+          sentReply: replyText.trim(),
+          classification: classification || null,
+          language,
+          matchedLocationId: matchedLocationId ?? null,
+          wasEdited,
+        } satisfies InsertReplyExample);
+        const example = await storage.createReplyExample(parsed);
+        reindexReplyExample(example).catch((e: Error) =>
+          console.warn('reindexReplyExample failed:', e?.message));
+      } catch (capErr) {
+        console.warn('Failed to capture contact reply example (non-fatal):',
+          capErr instanceof Error ? capErr.message : String(capErr));
+      }
       res.json({ message: "Reply sent successfully" });
     } catch (error) {
       console.error("Error responding to contact:", error);
@@ -2178,6 +2219,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reviewReason: result.reviewReason,
         matchedLocationId: result.matchedLocationId,
         matchedLocationName: result.matchedLocationName,
+        language: result.language,
+        confidence: result.confidence,
+        sources: result.sources,
+        citedSourceIds: result.citedSourceIds,
+        todayIso: result.todayIso,
+        senderHistoryCount: result.senderHistoryCount,
+        threadHistoryCount: result.threadHistoryCount,
       });
     } catch (error: any) {
       console.error("Error generating AI response:", error);
@@ -2308,6 +2356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { factKey, factValue, category } = req.body as { factKey?: string; factValue?: string; category?: string };
       if (!factKey || !factValue) return res.status(400).json({ message: "factKey and factValue are required" });
       const f = await storage.createPlaybookFact({ factKey: factKey.trim(), factValue: factValue.trim(), category: (category || 'general').trim() });
+      reindexFact(f).catch(() => {});
       res.status(201).json(f);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
@@ -2315,12 +2364,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id, 10);
       const f = await storage.updatePlaybookFact(id, req.body);
+      reindexFact(f).catch(() => {});
       res.json(f);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
   app.delete("/api/admin/playbook-facts/:id", requireAdminMW, async (req, res) => {
-    try { await storage.deletePlaybookFact(parseInt(req.params.id, 10)); res.json({ success: true }); }
-    catch (e: any) { res.status(500).json({ message: e.message }); }
+    try {
+      const id = parseInt(req.params.id, 10);
+      await storage.deletePlaybookFact(id);
+      storage.deleteKbEmbedding('fact', id).catch(() => {});
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   app.get("/api/admin/faq-entries", requireAdminMW, async (_req, res) => {
@@ -2329,28 +2383,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   app.post("/api/admin/faq-entries", requireAdminMW, async (req, res) => {
     try {
-      const { question, answer, language, category, isActive } = req.body as any;
-      if (!question || !answer) return res.status(400).json({ message: "question and answer are required" });
+      const parsed = insertFaqEntrySchema.parse(req.body);
       const f = await storage.createFaqEntry({
-        question: String(question).trim(),
-        answer: String(answer).trim(),
-        language: language === 'he' ? 'he' : 'en',
-        category: (category || 'general').trim(),
-        isActive: isActive !== false,
+        ...parsed,
+        question: parsed.question.trim(),
+        answer: parsed.answer.trim(),
+        language: parsed.language === 'he' ? 'he' : 'en',
+        category: (parsed.category || 'general').trim(),
+        isActive: parsed.isActive !== false,
       });
+      reindexFaq(f).catch(() => {});
       res.status(201).json(f);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
+    } catch (e: any) {
+      if (e?.issues) return res.status(400).json({ message: 'Invalid FAQ payload', issues: e.issues });
+      res.status(500).json({ message: e.message });
+    }
   });
   app.patch("/api/admin/faq-entries/:id", requireAdminMW, async (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
       const f = await storage.updateFaqEntry(id, req.body);
+      reindexFaq(f).catch(() => {});
       res.json(f);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
   app.delete("/api/admin/faq-entries/:id", requireAdminMW, async (req, res) => {
-    try { await storage.deleteFaqEntry(parseInt(req.params.id, 10)); res.json({ success: true }); }
+    try {
+      const id = parseInt(req.params.id, 10);
+      await storage.deleteFaqEntry(id);
+      storage.deleteKbEmbedding('faq', id).catch(() => {});
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // Knowledge documents (long-form)
+  app.get("/api/admin/knowledge-docs", requireAdminMW, async (_req, res) => {
+    try { res.json(await storage.getAllKnowledgeDocs()); }
     catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+  app.post("/api/admin/knowledge-docs", requireAdminMW, async (req, res) => {
+    try {
+      const parsed = insertKnowledgeDocSchema.parse(req.body);
+      const d = await storage.createKnowledgeDoc({
+        ...parsed,
+        title: parsed.title.trim(),
+        body: parsed.body.trim(),
+        category: (parsed.category || 'general').trim(),
+        language: parsed.language === 'he' ? 'he' : 'en',
+        isActive: parsed.isActive !== false,
+      });
+      reindexDoc(d).catch(() => {});
+      res.status(201).json(d);
+    } catch (e: any) {
+      if (e?.issues) return res.status(400).json({ message: 'Invalid knowledge doc payload', issues: e.issues });
+      res.status(500).json({ message: e.message });
+    }
+  });
+  app.patch("/api/admin/knowledge-docs/:id", requireAdminMW, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const d = await storage.updateKnowledgeDoc(id, req.body);
+      reindexDoc(d).catch(() => {});
+      res.json(d);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+  app.delete("/api/admin/knowledge-docs/:id", requireAdminMW, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      await storage.deleteKnowledgeDoc(id);
+      storage.deleteKbEmbedding('doc', id).catch(() => {});
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // List recent reply examples (for admin visibility / debugging)
+  app.get("/api/admin/reply-examples", requireAdminMW, async (req, res) => {
+    try {
+      const limit = Math.min(200, parseInt(String(req.query.limit || '50'), 10) || 50);
+      res.json(await storage.getRecentReplyExamples(limit));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // Backfill embeddings (best-effort, idempotent)
+  app.post("/api/admin/embeddings/backfill", requireAdminMW, async (_req, res) => {
+    try {
+      const result = await backfillEmbeddings();
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   // Send reply to an email
@@ -2364,7 +2483,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const { replyText, replySubject: customSubject } = req.body as { replyText?: string; replySubject?: string };
+      const { replyText, replySubject: customSubject, aiDraft, classification, matchedLocationId } = req.body as {
+        replyText?: string; replySubject?: string;
+        aiDraft?: string; classification?: string; matchedLocationId?: number;
+      };
       if (!replyText || typeof replyText !== 'string') {
         return res.status(400).json({ message: "Reply text is required" });
       }
@@ -2384,6 +2506,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email.from,
         subjectToUse
       );
+
+      // Capture as a reply example for future few-shot retrieval (best-effort)
+      try {
+        const fromMatch = String(email.from || '').match(/^\s*"?(.*?)"?\s*<([^>]+)>\s*$/);
+        const senderName = fromMatch ? fromMatch[1] || fromMatch[2] : email.from;
+        const senderEmail = fromMatch ? fromMatch[2] : (email.from || '').includes('@') ? email.from : '';
+        const language: 'en' | 'he' = /[\u0590-\u05FF]/.test(`${email.subject} ${email.body}`) ? 'he' : 'en';
+        const wasEdited = !!aiDraft && normalizeWhitespace(aiDraft) !== normalizeWhitespace(replyText);
+        const parsed = insertReplyExampleSchema.parse({
+          sourceType: 'email',
+          sourceRef: email.id,
+          senderEmail: senderEmail || null,
+          senderName: senderName || null,
+          incomingSubject: email.subject || '(no subject)',
+          incomingBody: email.body || '',
+          sentReply: replyText,
+          classification: classification || null,
+          language,
+          matchedLocationId: matchedLocationId ?? null,
+          wasEdited,
+        } satisfies InsertReplyExample);
+        const example = await storage.createReplyExample(parsed);
+        reindexReplyExample(example).catch((e: Error) =>
+          console.warn('reindexReplyExample failed:', e?.message));
+      } catch (capErr) {
+        console.warn('Failed to capture reply example (non-fatal):',
+          capErr instanceof Error ? capErr.message : String(capErr));
+      }
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error sending reply:", error);
@@ -2413,6 +2563,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         classification: result.classification,
         needsHumanReview: result.needsHumanReview,
         reviewReason: result.reviewReason,
+        matchedLocationId: result.matchedLocationId,
+        matchedLocationName: result.matchedLocationName,
+        language: result.language,
+        confidence: result.confidence,
+        sources: result.sources,
+        citedSourceIds: result.citedSourceIds,
+        todayIso: result.todayIso,
+        senderHistoryCount: result.senderHistoryCount,
+        threadHistoryCount: result.threadHistoryCount,
       });
     } catch (error: any) {
       console.error("Error generating contact AI response:", error);

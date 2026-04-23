@@ -508,3 +508,54 @@ export const faqEntries = pgTable("faq_entries", {
 export const insertFaqEntrySchema = createInsertSchema(faqEntries).omit({ id: true, updatedAt: true });
 export type FaqEntry = typeof faqEntries.$inferSelect;
 export type InsertFaqEntry = z.infer<typeof insertFaqEntrySchema>;
+
+// Long-form knowledge documents (rules, policies, common scenarios) — chunked + embedded
+export const knowledgeDocs = pgTable("knowledge_docs", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  category: text("category").notNull().default("general"),
+  language: text("language").notNull().default("en"),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+export const insertKnowledgeDocSchema = createInsertSchema(knowledgeDocs).omit({ id: true, updatedAt: true });
+export type KnowledgeDoc = typeof knowledgeDocs.$inferSelect;
+export type InsertKnowledgeDoc = z.infer<typeof insertKnowledgeDocSchema>;
+
+// Reply examples — captured every time the admin sends a reply, used as few-shot training
+export const replyExamples = pgTable("reply_examples", {
+  id: serial("id").primaryKey(),
+  sourceType: text("source_type").notNull(), // 'email' | 'form'
+  sourceRef: text("source_ref"), // gmail message id or contact id (string)
+  senderEmail: text("sender_email"),
+  senderName: text("sender_name"),
+  incomingSubject: text("incoming_subject").notNull(),
+  incomingBody: text("incoming_body").notNull(),
+  sentReply: text("sent_reply").notNull(),
+  classification: text("classification"),
+  language: text("language").notNull().default("en"),
+  matchedLocationId: integer("matched_location_id"),
+  wasEdited: boolean("was_edited").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export const insertReplyExampleSchema = createInsertSchema(replyExamples).omit({ id: true, createdAt: true });
+export type ReplyExample = typeof replyExamples.$inferSelect;
+export type InsertReplyExample = z.infer<typeof insertReplyExampleSchema>;
+
+// Unified semantic-search index over fact / faq / doc / reply_example sources
+export const KB_SOURCE_KINDS = ["fact", "faq", "doc", "reply_example"] as const;
+export type KbSourceKind = typeof KB_SOURCE_KINDS[number];
+export const kbEmbeddings = pgTable("kb_embeddings", {
+  id: serial("id").primaryKey(),
+  sourceKind: text("source_kind").notNull(),
+  sourceId: integer("source_id").notNull(),
+  chunkIdx: integer("chunk_idx").notNull().default(0),
+  content: text("content").notNull(),
+  embedding: jsonb("embedding").notNull(), // number[]
+  language: text("language").notNull().default("en"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+export const insertKbEmbeddingSchema = createInsertSchema(kbEmbeddings).omit({ id: true, updatedAt: true });
+export type KbEmbedding = typeof kbEmbeddings.$inferSelect;
+export type InsertKbEmbedding = z.infer<typeof insertKbEmbeddingSchema>;

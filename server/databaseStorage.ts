@@ -1,4 +1,4 @@
-import { eq, and, sql, ilike, isNull, or, inArray } from 'drizzle-orm';
+import { eq, and, sql, ilike, isNull, or, inArray, desc } from 'drizzle-orm';
 import { db } from './db.js';
 import {
   users, type User, type InsertUser,
@@ -17,6 +17,10 @@ import {
   webhookEvents, type WebhookEvent, type InsertWebhookEvent,
   playbookFacts, type PlaybookFact, type InsertPlaybookFact,
   faqEntries, type FaqEntry, type InsertFaqEntry,
+  knowledgeDocs, type KnowledgeDoc, type InsertKnowledgeDoc,
+  replyExamples, type ReplyExample, type InsertReplyExample,
+  kbEmbeddings, type KbEmbedding, type InsertKbEmbedding,
+  type KbSourceKind,
   type PayLaterStatus
 } from '../shared/schema.js';
 import type { IStorage } from './storage.js';
@@ -732,6 +736,95 @@ export class DatabaseStorage implements IStorage {
   async deleteFaqEntry(id: number): Promise<void> {
     await db.delete(faqEntries).where(eq(faqEntries.id, id));
   }
+
+  // Knowledge Docs
+  async getAllKnowledgeDocs(): Promise<KnowledgeDoc[]> {
+    return db.select().from(knowledgeDocs).orderBy(knowledgeDocs.category, knowledgeDocs.id);
+  }
+  async getActiveKnowledgeDocs(): Promise<KnowledgeDoc[]> {
+    return db.select().from(knowledgeDocs).where(eq(knowledgeDocs.isActive, true));
+  }
+  async getKnowledgeDoc(id: number): Promise<KnowledgeDoc | undefined> {
+    const r = await db.select().from(knowledgeDocs).where(eq(knowledgeDocs.id, id));
+    return r[0];
+  }
+  async createKnowledgeDoc(doc: InsertKnowledgeDoc): Promise<KnowledgeDoc> {
+    const r = await db.insert(knowledgeDocs).values({ ...doc, updatedAt: new Date() }).returning();
+    return r[0];
+  }
+  async updateKnowledgeDoc(id: number, data: Partial<InsertKnowledgeDoc>): Promise<KnowledgeDoc> {
+    const r = await db.update(knowledgeDocs).set({ ...data, updatedAt: new Date() }).where(eq(knowledgeDocs.id, id)).returning();
+    if (!r[0]) throw new Error(`Knowledge doc ${id} not found`);
+    return r[0];
+  }
+  async deleteKnowledgeDoc(id: number): Promise<void> {
+    await db.delete(knowledgeDocs).where(eq(knowledgeDocs.id, id));
+  }
+
+  // Reply examples
+  async createReplyExample(rec: InsertReplyExample): Promise<ReplyExample> {
+    const r = await db.insert(replyExamples).values({ ...rec, createdAt: new Date() }).returning();
+    return r[0];
+  }
+  async getRecentReplyExamples(limit: number = 50): Promise<ReplyExample[]> {
+    return db.select().from(replyExamples).orderBy(desc(replyExamples.createdAt)).limit(limit);
+  }
+  async getReplyExamplesBySender(email: string, limit: number = 10): Promise<ReplyExample[]> {
+    if (!email) return [];
+    return db.select().from(replyExamples)
+      .where(sql`lower(${replyExamples.senderEmail}) = ${email.toLowerCase()}`)
+      .orderBy(desc(replyExamples.createdAt))
+      .limit(limit);
+  }
+  async getReplyExample(id: number): Promise<ReplyExample | undefined> {
+    const r = await db.select().from(replyExamples).where(eq(replyExamples.id, id));
+    return r[0];
+  }
+
+  // KB embeddings
+  async upsertKbEmbedding(rec: InsertKbEmbedding): Promise<KbEmbedding> {
+    const chunkIdx = rec.chunkIdx ?? 0;
+    const existing = await db.select().from(kbEmbeddings).where(
+      and(
+        eq(kbEmbeddings.sourceKind, rec.sourceKind),
+        eq(kbEmbeddings.sourceId, rec.sourceId),
+        eq(kbEmbeddings.chunkIdx, chunkIdx),
+      )
+    );
+    if (existing[0]) {
+      const r = await db.update(kbEmbeddings).set({
+        content: rec.content,
+        embedding: rec.embedding,
+        language: rec.language || existing[0].language,
+        updatedAt: new Date(),
+      }).where(eq(kbEmbeddings.id, existing[0].id)).returning();
+      return r[0];
+    }
+    const r = await db.insert(kbEmbeddings).values({ ...rec, chunkIdx, updatedAt: new Date() }).returning();
+    return r[0];
+  }
+  async deleteKbEmbedding(kind: KbSourceKind, id: number): Promise<void> {
+    // Delete all chunks for this source
+    await db.delete(kbEmbeddings).where(
+      and(eq(kbEmbeddings.sourceKind, kind), eq(kbEmbeddings.sourceId, id))
+    );
+  }
+  async getAllKbEmbeddings(): Promise<KbEmbedding[]> {
+    return db.select().from(kbEmbeddings);
+  }
+  async getKbEmbeddingsByKind(kind: KbSourceKind): Promise<KbEmbedding[]> {
+    return db.select().from(kbEmbeddings).where(eq(kbEmbeddings.sourceKind, kind));
+  }
+
+  // Sender history helpers
+  async getContactsByEmail(email: string): Promise<Contact[]> {
+    if (!email) return [];
+    return db.select().from(contacts).where(sql`lower(${contacts.email}) = ${email.toLowerCase()}`);
+  }
+  async getTransactionsByEmail(email: string): Promise<Transaction[]> {
+    if (!email) return [];
+    return db.select().from(transactions).where(sql`lower(${transactions.borrowerEmail}) = ${email.toLowerCase()}`);
+  }
 }
 
 let schemaUpgradesRun = false;
@@ -741,6 +834,49 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   try {
     await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS last_return_reminder_at TIMESTAMP`);
     await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_reminder_count INTEGER NOT NULL DEFAULT 0`);
+    // Task #9 tables (drizzle-kit on this project does not run pg push, so we
+    // create them idempotently here so existing DBs pick them up automatically).
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS knowledge_docs (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'general',
+        language TEXT NOT NULL DEFAULT 'en',
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS reply_examples (
+        id SERIAL PRIMARY KEY,
+        source_type TEXT NOT NULL,
+        source_ref TEXT,
+        sender_email TEXT,
+        sender_name TEXT,
+        incoming_subject TEXT NOT NULL,
+        incoming_body TEXT NOT NULL,
+        sent_reply TEXT NOT NULL,
+        classification TEXT,
+        language TEXT NOT NULL DEFAULT 'en',
+        matched_location_id INTEGER,
+        was_edited BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS kb_embeddings (
+        id SERIAL PRIMARY KEY,
+        source_kind TEXT NOT NULL,
+        source_id INTEGER NOT NULL,
+        chunk_idx INTEGER NOT NULL DEFAULT 0,
+        content TEXT NOT NULL,
+        embedding JSONB NOT NULL,
+        language TEXT NOT NULL DEFAULT 'en',
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS kb_embeddings_source_idx ON kb_embeddings (source_kind, source_id, chunk_idx)`);
   } catch (err: any) {
     schemaUpgradesRun = false;
     console.error('[ensureSchemaUpgrades] Failed to apply transactions reminder columns:', err?.message || err);

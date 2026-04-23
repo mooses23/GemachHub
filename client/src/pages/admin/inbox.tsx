@@ -277,7 +277,19 @@ export default function AdminInbox() {
   });
   const sendReplyMutation = useMutation({
     mutationFn: async (item: UnifiedItem) => {
-      const payload = { replyText, replySubject };
+      const payload: {
+        replyText: string;
+        replySubject: string;
+        aiDraft?: string;
+        classification?: string;
+        matchedLocationId?: number;
+      } = {
+        replyText,
+        replySubject,
+        aiDraft: aiDraftSnapshot ?? undefined,
+        classification: draftClassification ?? undefined,
+        matchedLocationId: matchedLocation?.id ?? undefined,
+      };
       if (item.source === "email") {
         await apiRequest("POST", `/api/admin/emails/${item.id}/reply`, payload);
       } else {
@@ -286,11 +298,22 @@ export default function AdminInbox() {
     },
     onSuccess: () => {
       toast({ title: t("replySent"), description: t("emailSentSuccessfully") });
-      setReplyText("");
-      setReviewWarning(null);
-      setMatchedLocation(null);
-      setForwardNote("");
-      setSelected(null);
+      // Offer one-click save-to-FAQ before closing
+      setFaqQuestion(selected?.subject || "");
+      // Map AI classification → FAQ category so the admin doesn't have to retype it.
+      // Keys must match the Classification union in server/openai-client.ts.
+      const classificationToCategory: Record<string, string> = {
+        new_location: "applications",
+        borrow_request: "borrowing",
+        return_or_deposit: "deposits",
+        application_status: "applications",
+        general_question: "general",
+        complaint: "general",
+        other: "general",
+      };
+      const mapped = draftClassification ? classificationToCategory[draftClassification] : undefined;
+      setFaqCategory(mapped || "general");
+      setShowSaveFaq(true);
       qc.invalidateQueries({ queryKey: ["/api/contact"] });
       qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] });
     },
@@ -300,23 +323,67 @@ export default function AdminInbox() {
   const [reviewWarning, setReviewWarning] = useState<string | null>(null);
   const [matchedLocation, setMatchedLocation] = useState<{ id: number; name: string } | null>(null);
   const [forwardNote, setForwardNote] = useState("");
+  const [aiDraftSnapshot, setAiDraftSnapshot] = useState<string | null>(null);
+  const [draftClassification, setDraftClassification] = useState<string | null>(null);
+  type DraftSource = { kind: string; id: number; label?: string; title?: string; snippet?: string; score?: number };
+  type GenerateResponse = {
+    response: string;
+    classification?: string;
+    needsHumanReview?: boolean;
+    reviewReason?: string;
+    matchedLocationId?: number;
+    matchedLocationName?: string;
+    confidence?: number;
+    sources?: DraftSource[];
+    citedSourceIds?: string[];
+    todayIso?: string;
+    senderHistoryCount?: number;
+    threadHistoryCount?: number;
+    language?: string;
+  };
+  type DraftMeta = {
+    confidence?: number;
+    sources?: DraftSource[];
+    // Server returns IDs as "kind-id" strings (e.g. "faq-12") so the model can
+    // emit them naturally. We parse them client-side for citation highlighting.
+    citedSourceIds?: string[];
+    todayIso?: string;
+    senderHistoryCount?: number;
+    threadHistoryCount?: number;
+    language?: string;
+  } | null;
+  const parseCitedId = (raw: string): { kind: string; id: number } | null => {
+    const m = String(raw).trim().match(/^([a-z_]+)-(\d+)$/i);
+    if (!m) return null;
+    return { kind: m[1].toLowerCase(), id: Number(m[2]) };
+  };
+  const [draftMeta, setDraftMeta] = useState<DraftMeta>(null);
+  const [showWhyPanel, setShowWhyPanel] = useState(false);
+  const [showSaveFaq, setShowSaveFaq] = useState(false);
+  const [faqQuestion, setFaqQuestion] = useState("");
+  const [faqCategory, setFaqCategory] = useState("general");
   const generateMutation = useMutation({
     mutationFn: async (item: UnifiedItem) => {
       const url = item.source === "email"
         ? `/api/admin/emails/${item.id}/generate-response`
         : `/api/contact/${item.id}/generate-response`;
       const res = await apiRequest("POST", url);
-      return (await res.json()) as {
-        response: string;
-        classification?: string;
-        needsHumanReview?: boolean;
-        reviewReason?: string;
-        matchedLocationId?: number;
-        matchedLocationName?: string;
-      };
+      return (await res.json()) as GenerateResponse;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: GenerateResponse) => {
       setReplyText(data.response);
+      setAiDraftSnapshot(data.response);
+      setDraftClassification(data.classification ?? null);
+      setDraftMeta({
+        confidence: data.confidence,
+        sources: data.sources,
+        citedSourceIds: data.citedSourceIds,
+        todayIso: data.todayIso,
+        senderHistoryCount: data.senderHistoryCount,
+        threadHistoryCount: data.threadHistoryCount,
+        language: data.language,
+      });
+      setShowWhyPanel(true);
       if (data.needsHumanReview) {
         setReviewWarning(data.reviewReason || t("inboxReviewBeforeSending"));
       } else {
@@ -359,6 +426,13 @@ export default function AdminInbox() {
     setReviewWarning(null);
     setMatchedLocation(null);
     setForwardNote("");
+    setAiDraftSnapshot(null);
+    setDraftClassification(null);
+    setDraftMeta(null);
+    setShowWhyPanel(false);
+    setShowSaveFaq(false);
+    setFaqQuestion("");
+    setFaqCategory("general");
     const subj = item.subject?.startsWith("Re:") ? item.subject : `Re: ${item.subject || ""}`;
     setReplySubject(subj);
     if (!item.isRead) {
@@ -652,6 +726,109 @@ export default function AdminInbox() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">{t("inboxSentFromGemach")}</p>
+
+              {draftMeta && (
+                <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-2" data-testid="panel-why-this-draft">
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between font-semibold text-sm"
+                    onClick={() => setShowWhyPanel((v) => !v)}
+                    data-testid="button-toggle-why-draft"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Why this draft
+                      {typeof draftMeta.confidence === "number" && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded font-mono ${
+                            draftMeta.confidence >= 0.8
+                              ? "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-100"
+                              : draftMeta.confidence >= 0.6
+                              ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                              : "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-100"
+                          }`}
+                          data-testid="badge-confidence"
+                        >
+                          {Math.round((draftMeta.confidence ?? 0) * 100)}%
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-muted-foreground">{showWhyPanel ? "−" : "+"}</span>
+                  </button>
+                  {showWhyPanel && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-muted-foreground">
+                        {draftMeta.todayIso && <div>Date used: <span className="font-mono text-foreground">{draftMeta.todayIso}</span></div>}
+                        {draftClassification && <div>Classification: <span className="text-foreground">{draftClassification}</span></div>}
+                        {draftMeta.language && <div>Language: <span className="text-foreground">{draftMeta.language}</span></div>}
+                        {typeof draftMeta.senderHistoryCount === "number" && (
+                          <div>Sender history: <span className="text-foreground">{draftMeta.senderHistoryCount}</span></div>
+                        )}
+                        {typeof draftMeta.threadHistoryCount === "number" && (
+                          <div>Thread msgs: <span className="text-foreground">{draftMeta.threadHistoryCount}</span></div>
+                        )}
+                      </div>
+                      {draftMeta.sources && draftMeta.sources.length > 0 ? (
+                        <div>
+                          {(() => {
+                            const citedSet = new Set(
+                              (draftMeta.citedSourceIds || [])
+                                .map(parseCitedId)
+                                .filter((x): x is { kind: string; id: number } => !!x)
+                                .map((c) => `${c.kind}:${c.id}`)
+                            );
+                            return (
+                              <>
+                                <div className="font-semibold mb-1">
+                                  Sources used ({draftMeta.sources.length}
+                                  {citedSet.size > 0 ? `, ${citedSet.size} cited` : ""}):
+                                </div>
+                                <ul className="space-y-1">
+                                  {draftMeta.sources.map((s, i) => {
+                                    const cited = citedSet.has(`${s.kind}:${s.id}`);
+                                    const display = s.label || s.title || `${s.kind}-${s.id}`;
+                                    return (
+                                      <li key={`${s.kind}-${s.id}-${i}`} className={`flex gap-2 ${cited ? "" : "opacity-60"}`} data-testid={`source-${s.kind}-${s.id}`}>
+                                        <span className="font-mono text-[10px] uppercase shrink-0 px-1 py-0.5 rounded bg-background border">{s.kind}</span>
+                                        <span className="flex-1">
+                                          <span className="font-medium">{display}</span>
+                                          {cited && <span className="ml-1 text-green-700 dark:text-green-400">✓ cited</span>}
+                                          {s.snippet && <div className="text-muted-foreground line-clamp-2">{s.snippet}</div>}
+                                        </span>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground italic">No knowledge-base matches were retrieved.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {showSaveFaq && (
+                <SaveToFaqPanel
+                  defaultQuestion={faqQuestion}
+                  defaultCategory={faqCategory}
+                  answer={replyText}
+                  language={draftMeta?.language || "en"}
+                  onCancel={() => {
+                    setShowSaveFaq(false);
+                    setReplyText("");
+                    setSelected(null);
+                  }}
+                  onSaved={() => {
+                    setShowSaveFaq(false);
+                    setReplyText("");
+                    setSelected(null);
+                  }}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -940,6 +1117,76 @@ export default function AdminInbox() {
             </Button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SaveToFaqPanel({
+  defaultQuestion, defaultCategory, answer, language, onSaved, onCancel,
+}: {
+  defaultQuestion: string;
+  defaultCategory: string;
+  answer: string;
+  language: string;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const { toast } = useToast();
+  const [question, setQuestion] = useState(defaultQuestion);
+  const [category, setCategory] = useState(defaultCategory);
+  const [editedAnswer, setEditedAnswer] = useState(answer);
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/faq-entries", {
+        question: question.trim(),
+        answer: editedAnswer.trim(),
+        category: category.trim() || "general",
+        language: language === "he" ? "he" : "en",
+        isActive: true,
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Saved to knowledge base", description: "This Q&A will now be retrieved for similar future emails." });
+      onSaved();
+    },
+    onError: (err: unknown) =>
+      toast({ title: "Failed to save", description: err instanceof Error ? err.message : String(err), variant: "destructive" }),
+  });
+  return (
+    <div className="rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-950/30 p-3 space-y-2" data-testid="panel-save-to-faq">
+      <div className="font-semibold text-sm text-blue-900 dark:text-blue-100">Save this reply to the knowledge base?</div>
+      <div className="text-xs text-blue-900/80 dark:text-blue-100/80">Future emails like this will use it as a reference.</div>
+      <Input
+        placeholder="Question (what was the sender asking?)"
+        value={question}
+        onChange={(e) => setQuestion(e.target.value)}
+        data-testid="input-faq-question"
+      />
+      <Input
+        placeholder="Category (e.g. returns, hours, location)"
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        data-testid="input-faq-category"
+      />
+      <Textarea
+        rows={4}
+        value={editedAnswer}
+        onChange={(e) => setEditedAnswer(e.target.value)}
+        className="resize-none text-sm"
+        data-testid="textarea-faq-answer"
+      />
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel} data-testid="button-skip-save-faq">Skip</Button>
+        <Button
+          size="sm"
+          disabled={!question.trim() || !editedAnswer.trim() || saveMut.isPending}
+          onClick={() => saveMut.mutate()}
+          data-testid="button-save-faq"
+        >
+          {saveMut.isPending ? "Saving…" : "Save to FAQ"}
+        </Button>
       </div>
     </div>
   );

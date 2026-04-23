@@ -12,10 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Trash2, Plus, BookOpen, Save } from "lucide-react";
-import type { PlaybookFact, FaqEntry } from "@shared/schema";
+import type { PlaybookFact, FaqEntry, KnowledgeDoc } from "@shared/schema";
 
 const FACT_KEY = ["/api/admin/playbook-facts"] as const;
 const FAQ_KEY = ["/api/admin/faq-entries"] as const;
+const DOCS_KEY = ["/api/admin/knowledge-docs"] as const;
 
 function FactsTab() {
   const { toast } = useToast();
@@ -318,18 +319,204 @@ function FaqTab() {
   );
 }
 
+function DocsTab() {
+  const { toast } = useToast();
+  const { data: docs = [], isLoading } = useQuery<KnowledgeDoc[]>({ queryKey: DOCS_KEY });
+  const [draft, setDraft] = useState({ title: "", body: "", category: "general", language: "en", isActive: true });
+  const [edits, setEdits] = useState<Record<number, Partial<KnowledgeDoc>>>({});
+
+  const createMut = useMutation({
+    mutationFn: async () => (await apiRequest("POST", "/api/admin/knowledge-docs", draft)).json(),
+    onSuccess: () => {
+      setDraft({ title: "", body: "", category: "general", language: "en", isActive: true });
+      queryClient.invalidateQueries({ queryKey: DOCS_KEY });
+      toast({ title: "Document added" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+  const updateMut = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<KnowledgeDoc> }) =>
+      (await apiRequest("PATCH", `/api/admin/knowledge-docs/${id}`, data)).json(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DOCS_KEY });
+      toast({ title: "Saved" });
+    },
+  });
+  const deleteMut = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/admin/knowledge-docs/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DOCS_KEY });
+      toast({ title: "Deleted" });
+    },
+  });
+  const backfillMut = useMutation({
+    mutationFn: async (): Promise<{ scanned: number; created: number }> =>
+      (await apiRequest("POST", "/api/admin/embeddings/backfill", {})).json(),
+    onSuccess: (r) =>
+      toast({
+        title: "Backfill complete",
+        description: `Scanned ${r?.scanned ?? 0} items, indexed ${r?.created ?? 0} new`,
+      }),
+    onError: (e: unknown) =>
+      toast({
+        title: "Backfill failed",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      }),
+  });
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <CardTitle className="text-base">Add a knowledge document</CardTitle>
+          <Button size="sm" variant="outline" onClick={() => backfillMut.mutate()} disabled={backfillMut.isPending} data-testid="button-backfill-embeddings">
+            {backfillMut.isPending ? "Indexing…" : "Re-index all"}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-[1fr_140px_140px] items-end">
+            <div className="space-y-1">
+              <Label className="text-xs">Title</Label>
+              <Input
+                placeholder="Common borrowing scenarios"
+                value={draft.title}
+                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                data-testid="input-doc-title"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Language</Label>
+              <Select value={draft.language} onValueChange={(v) => setDraft((d) => ({ ...d, language: v }))}>
+                <SelectTrigger data-testid="select-doc-language"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="he">Hebrew</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Category</Label>
+              <Input
+                value={draft.category}
+                onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
+                data-testid="input-doc-category"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Body (long-form rules, policies, scenarios)</Label>
+            <Textarea
+              rows={6}
+              value={draft.body}
+              onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
+              data-testid="textarea-doc-body"
+            />
+          </div>
+          <Button
+            onClick={() => createMut.mutate()}
+            disabled={!draft.title.trim() || !draft.body.trim() || createMut.isPending}
+            data-testid="button-add-doc"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add document
+          </Button>
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      ) : docs.length === 0 ? (
+        <div className="text-sm text-muted-foreground">No knowledge documents yet.</div>
+      ) : (
+        <div className="space-y-2">
+          {docs.map((d) => {
+            const e = edits[d.id] || {};
+            const merged = { ...d, ...e };
+            return (
+              <Card key={d.id} data-testid={`card-doc-${d.id}`}>
+                <CardContent className="space-y-2 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{merged.language === "he" ? "Hebrew" : "English"}</Badge>
+                    <Badge variant="secondary">{merged.category}</Badge>
+                    <div className="flex items-center gap-2 ml-auto">
+                      <Label className="text-xs">Active</Label>
+                      <Switch
+                        checked={!!merged.isActive}
+                        onCheckedChange={(v) => setEdits((p) => ({ ...p, [d.id]: { ...e, isActive: v } }))}
+                      />
+                    </div>
+                  </div>
+                  <Input
+                    value={merged.title}
+                    onChange={(ev) => setEdits((p) => ({ ...p, [d.id]: { ...e, title: ev.target.value } }))}
+                  />
+                  <Textarea
+                    rows={5}
+                    value={merged.body}
+                    onChange={(ev) => setEdits((p) => ({ ...p, [d.id]: { ...e, body: ev.target.value } }))}
+                  />
+                  <div className="grid gap-2 md:grid-cols-[140px_140px_1fr_auto_auto] items-center">
+                    <Select
+                      value={merged.language}
+                      onValueChange={(v) => setEdits((p) => ({ ...p, [d.id]: { ...e, language: v } }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="he">Hebrew</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={merged.category}
+                      onChange={(ev) => setEdits((p) => ({ ...p, [d.id]: { ...e, category: ev.target.value } }))}
+                    />
+                    <div />
+                    <Button
+                      size="sm"
+                      onClick={() => updateMut.mutate({ id: d.id, data: e })}
+                      disabled={Object.keys(e).length === 0}
+                      data-testid={`button-save-doc-${d.id}`}
+                    >
+                      <Save className="h-4 w-4 mr-1" /> Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        if (confirm("Delete this document?")) deleteMut.mutate(d.id);
+                      }}
+                      data-testid={`button-delete-doc-${d.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GlossaryContent() {
   return (
     <Tabs defaultValue="facts">
       <TabsList>
         <TabsTrigger value="facts" data-testid="tab-facts">Facts</TabsTrigger>
         <TabsTrigger value="faqs" data-testid="tab-faqs">FAQs</TabsTrigger>
+        <TabsTrigger value="docs" data-testid="tab-docs">Documents</TabsTrigger>
       </TabsList>
       <TabsContent value="facts" className="mt-4">
         <FactsTab />
       </TabsContent>
       <TabsContent value="faqs" className="mt-4">
         <FaqTab />
+      </TabsContent>
+      <TabsContent value="docs" className="mt-4">
+        <DocsTab />
       </TabsContent>
     </Tabs>
   );

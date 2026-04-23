@@ -15,6 +15,10 @@ import {
   webhookEvents, type WebhookEvent, type InsertWebhookEvent,
   playbookFacts, type PlaybookFact, type InsertPlaybookFact,
   faqEntries, type FaqEntry, type InsertFaqEntry,
+  knowledgeDocs, type KnowledgeDoc, type InsertKnowledgeDoc,
+  replyExamples, type ReplyExample, type InsertReplyExample,
+  kbEmbeddings, type KbEmbedding, type InsertKbEmbedding,
+  type KbSourceKind,
   type PayLaterStatus
 } from "../shared/schema.js";
 
@@ -30,6 +34,30 @@ export interface IStorage {
   createFaqEntry(faq: InsertFaqEntry): Promise<FaqEntry>;
   updateFaqEntry(id: number, data: Partial<InsertFaqEntry>): Promise<FaqEntry>;
   deleteFaqEntry(id: number): Promise<void>;
+
+  // Long-form Knowledge Docs
+  getAllKnowledgeDocs(): Promise<KnowledgeDoc[]>;
+  getActiveKnowledgeDocs(): Promise<KnowledgeDoc[]>;
+  getKnowledgeDoc(id: number): Promise<KnowledgeDoc | undefined>;
+  createKnowledgeDoc(doc: InsertKnowledgeDoc): Promise<KnowledgeDoc>;
+  updateKnowledgeDoc(id: number, data: Partial<InsertKnowledgeDoc>): Promise<KnowledgeDoc>;
+  deleteKnowledgeDoc(id: number): Promise<void>;
+
+  // Reply Examples (training memory)
+  createReplyExample(rec: InsertReplyExample): Promise<ReplyExample>;
+  getRecentReplyExamples(limit?: number): Promise<ReplyExample[]>;
+  getReplyExamplesBySender(email: string, limit?: number): Promise<ReplyExample[]>;
+  getReplyExample(id: number): Promise<ReplyExample | undefined>;
+
+  // KB Embeddings
+  upsertKbEmbedding(rec: InsertKbEmbedding): Promise<KbEmbedding>;
+  deleteKbEmbedding(sourceKind: KbSourceKind, sourceId: number): Promise<void>;
+  getAllKbEmbeddings(): Promise<KbEmbedding[]>;
+  getKbEmbeddingsByKind(kind: KbSourceKind): Promise<KbEmbedding[]>;
+
+  // Sender history helpers
+  getContactsByEmail(email: string): Promise<Contact[]>;
+  getTransactionsByEmail(email: string): Promise<Transaction[]>;
 
   // User operations
   getUser(id: number): Promise<User | undefined>;
@@ -2959,6 +2987,54 @@ export class MemStorage implements IStorage {
     throw new Error(`FAQ entry ${id} not found`);
   }
   async deleteFaqEntry(_id: number): Promise<void> {}
+
+  async getAllKnowledgeDocs(): Promise<KnowledgeDoc[]> { return []; }
+  async getActiveKnowledgeDocs(): Promise<KnowledgeDoc[]> { return []; }
+  async getKnowledgeDoc(_id: number): Promise<KnowledgeDoc | undefined> { return undefined; }
+  async createKnowledgeDoc(doc: InsertKnowledgeDoc): Promise<KnowledgeDoc> {
+    return { id: 0, title: doc.title, body: doc.body, category: doc.category || 'general', language: doc.language || 'en', isActive: doc.isActive ?? true, updatedAt: new Date() };
+  }
+  async updateKnowledgeDoc(id: number, _data: Partial<InsertKnowledgeDoc>): Promise<KnowledgeDoc> {
+    throw new Error(`Knowledge doc ${id} not found`);
+  }
+  async deleteKnowledgeDoc(_id: number): Promise<void> {}
+
+  async createReplyExample(rec: InsertReplyExample): Promise<ReplyExample> {
+    return {
+      id: 0,
+      sourceType: rec.sourceType, sourceRef: rec.sourceRef ?? null,
+      senderEmail: rec.senderEmail ?? null, senderName: rec.senderName ?? null,
+      incomingSubject: rec.incomingSubject, incomingBody: rec.incomingBody,
+      sentReply: rec.sentReply, classification: rec.classification ?? null,
+      language: rec.language || 'en', matchedLocationId: rec.matchedLocationId ?? null,
+      wasEdited: rec.wasEdited ?? false, createdAt: new Date(),
+    };
+  }
+  async getRecentReplyExamples(_limit?: number): Promise<ReplyExample[]> { return []; }
+  async getReplyExamplesBySender(_email: string, _limit?: number): Promise<ReplyExample[]> { return []; }
+  async getReplyExample(_id: number): Promise<ReplyExample | undefined> { return undefined; }
+
+  async upsertKbEmbedding(rec: InsertKbEmbedding): Promise<KbEmbedding> {
+    return {
+      id: 0,
+      sourceKind: rec.sourceKind, sourceId: rec.sourceId,
+      chunkIdx: rec.chunkIdx ?? 0,
+      content: rec.content, embedding: rec.embedding,
+      language: rec.language || 'en', updatedAt: new Date(),
+    };
+  }
+  async deleteKbEmbedding(_kind: KbSourceKind, _id: number): Promise<void> {}
+  async getAllKbEmbeddings(): Promise<KbEmbedding[]> { return []; }
+  async getKbEmbeddingsByKind(_kind: KbSourceKind): Promise<KbEmbedding[]> { return []; }
+
+  async getContactsByEmail(email: string): Promise<Contact[]> {
+    const e = (email || '').toLowerCase();
+    return Array.from(this.contacts.values()).filter(c => (c.email || '').toLowerCase() === e);
+  }
+  async getTransactionsByEmail(email: string): Promise<Transaction[]> {
+    const e = (email || '').toLowerCase();
+    return Array.from(this.transactions.values()).filter(t => (t.borrowerEmail || '').toLowerCase() === e);
+  }
 
   async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
     const webhookEvent: WebhookEvent = {
