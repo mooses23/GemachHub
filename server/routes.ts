@@ -4,7 +4,7 @@ import { storage } from "./storage.js";
 import { PaymentSyncService } from "./payment-sync.js";
 import { DepositSyncService } from "./deposit-sync.js";
 import { DepositRefundService } from "./deposit-refund.js";
-import { EmailNotificationService } from "./email-notifications.js";
+import { EmailNotificationService, sendOperatorWelcomeEmail } from "./email-notifications.js";
 import { AuditTrailService } from "./audit-trail.js";
 import { PaymentAnalyticsEngine } from "./analytics-engine.js";
 import { DepositDetectionService } from "./deposit-detection.js";
@@ -589,6 +589,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error changing admin PIN:", error);
       res.status(500).json({ message: "Failed to change PIN" });
+    }
+  });
+
+  // Send operator welcome / setup email for a single location
+  app.post("/api/admin/locations/:id/send-welcome", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid location ID" });
+
+      const location = await storage.getLocation(id);
+      if (!location) return res.status(404).json({ message: "Location not found" });
+      if (!location.email) return res.status(400).json({ message: "Location has no email on file" });
+      if (!location.locationCode) return res.status(400).json({ message: "Location has no location code" });
+
+      const baseUrl = process.env.APP_URL || process.env.SITE_URL || `${req.protocol}://${req.get('host')}`;
+      const dashboardUrl = `${baseUrl.replace(/\/$/, '')}/operator/login`;
+      await sendOperatorWelcomeEmail({
+        locationName: location.name,
+        locationCode: location.locationCode,
+        operatorName: location.contactPerson || '',
+        operatorEmail: location.email,
+        dashboardUrl,
+        defaultPin: location.operatorPin || '1234',
+      });
+      res.json({ success: true, sentTo: location.email });
+    } catch (error: any) {
+      console.error("Error sending welcome email:", error);
+      res.status(500).json({ message: error.message || "Failed to send welcome email" });
+    }
+  });
+
+  // Bulk-send welcome emails to all active locations with email + code
+  app.post("/api/admin/locations/send-welcome-all", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      const locations = await storage.getAllLocations();
+      const baseUrl = process.env.APP_URL || process.env.SITE_URL || `${req.protocol}://${req.get('host')}`;
+      const dashboardUrl = `${baseUrl.replace(/\/$/, '')}/operator/login`;
+      const results: { id: number; name: string; status: 'sent' | 'skipped' | 'failed'; reason?: string }[] = [];
+      for (const loc of locations) {
+        if ((loc as any).isActive === false) {
+          results.push({ id: loc.id, name: loc.name, status: 'skipped', reason: 'inactive' });
+          continue;
+        }
+        if (!loc.email || !loc.locationCode) {
+          results.push({ id: loc.id, name: loc.name, status: 'skipped', reason: 'missing email or code' });
+          continue;
+        }
+        try {
+          await sendOperatorWelcomeEmail({
+            locationName: loc.name,
+            locationCode: loc.locationCode,
+            operatorName: loc.contactPerson || '',
+            operatorEmail: loc.email,
+            dashboardUrl,
+            defaultPin: loc.operatorPin || '1234',
+          });
+          results.push({ id: loc.id, name: loc.name, status: 'sent' });
+        } catch (err: any) {
+          results.push({ id: loc.id, name: loc.name, status: 'failed', reason: err?.message || 'send error' });
+        }
+      }
+      const sent = results.filter(r => r.status === 'sent').length;
+      const skipped = results.filter(r => r.status === 'skipped').length;
+      const failed = results.filter(r => r.status === 'failed').length;
+      res.json({ success: true, sent, skipped, failed, results });
+    } catch (error: any) {
+      console.error("Error bulk-sending welcome emails:", error);
+      res.status(500).json({ message: error.message || "Failed to bulk-send welcome emails" });
     }
   });
 
@@ -2070,12 +2144,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Email not found" });
       }
 
-      const response = await generateEmailResponse(
+      const fromMatch = String(email.from || '').match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+      const senderName = fromMatch ? fromMatch[1] || fromMatch[2] : email.from;
+      const senderEmail = fromMatch ? fromMatch[2] : undefined;
+      const result = await generateEmailResponse(
         email.subject,
         email.body,
-        email.from
+        senderName,
+        senderEmail
       );
-      res.json({ response });
+      res.json({
+        response: result.draft,
+        classification: result.classification,
+        needsHumanReview: result.needsHumanReview,
+        reviewReason: result.reviewReason,
+      });
     } catch (error: any) {
       console.error("Error generating AI response:", error);
       res.status(500).json({ message: error.message || "Failed to generate response" });
@@ -2131,12 +2214,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
-      const response = await generateEmailResponse(
+      const result = await generateEmailResponse(
         contact.subject,
         contact.message,
-        contact.name
+        contact.name,
+        contact.email
       );
-      res.json({ response });
+      res.json({
+        response: result.draft,
+        classification: result.classification,
+        needsHumanReview: result.needsHumanReview,
+        reviewReason: result.reviewReason,
+      });
     } catch (error: any) {
       console.error("Error generating contact AI response:", error);
       res.status(500).json({ message: error.message || "Failed to generate response" });

@@ -271,12 +271,25 @@ export async function markAsRead(messageId: string): Promise<void> {
   });
 }
 
+function sanitizeHeaderValue(v: string): string {
+  return String(v ?? '').replace(/[\r\n]+/g, ' ').trim();
+}
+function assertValidEmail(email: string): void {
+  const cleaned = sanitizeHeaderValue(email);
+  if (!/^[^\s<>"]+@[^\s<>"]+\.[^\s<>"]+$/.test(cleaned)) {
+    throw new Error(`Invalid recipient email: ${email}`);
+  }
+}
+
 export async function sendNewEmail(toEmail: string, subject: string, body: string): Promise<void> {
+  assertValidEmail(toEmail);
+  const safeTo = sanitizeHeaderValue(toEmail);
+  const safeSubject = sanitizeHeaderValue(subject);
   const gmail = await getUncachableGmailClient();
   
   const rawMessage = [
-    `To: ${toEmail}`,
-    `Subject: ${subject}`,
+    `To: ${safeTo}`,
+    `Subject: ${safeSubject}`,
     'Content-Type: text/plain; charset=utf-8',
     '',
     body
@@ -299,13 +312,17 @@ export async function sendNewEmail(toEmail: string, subject: string, body: strin
 export async function sendReply(messageId: string, threadId: string, replyText: string, toEmail: string, subject: string): Promise<void> {
   const gmail = await getUncachableGmailClient();
   
-  const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
+  assertValidEmail(toEmail);
+  const safeTo = sanitizeHeaderValue(toEmail);
+  const baseSubject = sanitizeHeaderValue(subject);
+  const replySubject = baseSubject.startsWith('Re:') ? baseSubject : `Re: ${baseSubject}`;
+  const safeMessageId = sanitizeHeaderValue(messageId);
   
   const rawMessage = [
-    `To: ${toEmail}`,
+    `To: ${safeTo}`,
     `Subject: ${replySubject}`,
-    `In-Reply-To: ${messageId}`,
-    `References: ${messageId}`,
+    `In-Reply-To: ${safeMessageId}`,
+    `References: ${safeMessageId}`,
     'Content-Type: text/plain; charset=utf-8',
     '',
     replyText

@@ -66,7 +66,8 @@ import {
   XCircle,
   Loader2,
   KeyRound,
-  ShieldCheck
+  ShieldCheck,
+  Send
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -132,6 +133,35 @@ export default function AdminLocations() {
         description: error.message || t('failedToDelete'),
         variant: "destructive",
       });
+    },
+  });
+
+  const sendWelcomeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/admin/locations/${id}/send-welcome`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "Welcome email sent", description: `Sent to ${data.sentTo}` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to send", variant: "destructive" });
+    },
+  });
+
+  const sendWelcomeAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/locations/send-welcome-all`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Bulk welcome emails complete",
+        description: `Sent: ${data.sent} • Skipped: ${data.skipped} • Failed: ${data.failed}`,
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err?.message || "Failed to bulk-send", variant: "destructive" });
     },
   });
 
@@ -577,17 +607,33 @@ export default function AdminLocations() {
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-primary" />
                 <div>
-                  <CardTitle>PIN Management</CardTitle>
-                  <CardDescription>Manage operator PINs for all locations</CardDescription>
+                  <CardTitle>PIN Management & Operator Onboarding</CardTitle>
+                  <CardDescription>Manage operator PINs and send setup instructions</CardDescription>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPinManagementOpen(!isPinManagementOpen)}
-              >
-                {isPinManagementOpen ? "Collapse" : "Expand"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    if (window.confirm("Send the setup email to every active location with an email address on file?")) {
+                      sendWelcomeAllMutation.mutate();
+                    }
+                  }}
+                  disabled={sendWelcomeAllMutation.isPending}
+                  data-testid="button-send-welcome-all"
+                >
+                  <Send className="h-4 w-4 mr-1" />
+                  {sendWelcomeAllMutation.isPending ? "Sending…" : "Send setup email to all"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPinManagementOpen(!isPinManagementOpen)}
+                >
+                  {isPinManagementOpen ? "Collapse" : "Expand"}
+                </Button>
+              </div>
             </div>
           </CardHeader>
           {isPinManagementOpen && (
@@ -627,14 +673,28 @@ export default function AdminLocations() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleChangePinForLocation(loc)}
-                          >
-                            <KeyRound className="h-4 w-4 mr-1" />
-                            Change PIN
-                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleChangePinForLocation(loc)}
+                              data-testid={`button-change-pin-${loc.id}`}
+                            >
+                              <KeyRound className="h-4 w-4 mr-1" />
+                              Change PIN
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => sendWelcomeMutation.mutate(loc.id)}
+                              disabled={sendWelcomeMutation.isPending || !loc.email || !loc.locationCode}
+                              title={!loc.email ? "No email on file" : !loc.locationCode ? "No location code" : "Send setup email"}
+                              data-testid={`button-send-welcome-${loc.id}`}
+                            >
+                              <Send className="h-4 w-4 mr-1" />
+                              Send setup email
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

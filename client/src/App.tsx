@@ -22,6 +22,7 @@ import PaymentConfirmations from "@/pages/admin/payment-confirmations";
 import PaymentStatusMonitor from "@/pages/admin/payment-status-monitor";
 import AdminInbox from "@/pages/admin/inbox";
 import OperatorIndex from "@/pages/operator/index";
+import OperatorLogin from "@/pages/operator/login";
 import OperatorDashboard from "@/pages/operator/dashboard";
 import OperatorDepositDashboard from "@/pages/operator/deposit-dashboard";
 import { ProtectedRoute } from "@/components/auth/protected-route";
@@ -58,7 +59,7 @@ function Router() {
         <Route path="/admin/messages">{() => <Redirect to="/admin/inbox" />}</Route>
         
         {/* Operator Routes - Use localStorage-based auth via useOperatorAuth hook */}
-        <Route path="/operator/login">{() => <Redirect to="/auth" />}</Route>
+        <Route path="/operator/login" component={OperatorLogin} />
         <Route path="/operator" component={OperatorDashboard} />
         <Route path="/operator/dashboard" component={OperatorDashboard} />
         <Route path="/operator/deposits" component={OperatorDepositDashboard} />

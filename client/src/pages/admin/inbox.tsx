@@ -283,6 +283,7 @@ export default function AdminInbox() {
     onSuccess: () => {
       toast({ title: t("replySent"), description: t("emailSentSuccessfully") });
       setReplyText("");
+      setReviewWarning(null);
       setSelected(null);
       qc.invalidateQueries({ queryKey: ["/api/contact"] });
       qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] });
@@ -290,16 +291,27 @@ export default function AdminInbox() {
     onError: (err: unknown) =>
       toast({ title: t("error"), description: err instanceof Error ? err.message : t("failedToSendReply"), variant: "destructive" }),
   });
+  const [reviewWarning, setReviewWarning] = useState<string | null>(null);
   const generateMutation = useMutation({
     mutationFn: async (item: UnifiedItem) => {
       const url = item.source === "email"
         ? `/api/admin/emails/${item.id}/generate-response`
         : `/api/contact/${item.id}/generate-response`;
       const res = await apiRequest("POST", url);
-      return (await res.json()).response as string;
+      return (await res.json()) as {
+        response: string;
+        classification?: string;
+        needsHumanReview?: boolean;
+        reviewReason?: string;
+      };
     },
-    onSuccess: (response) => {
-      setReplyText(response);
+    onSuccess: (data) => {
+      setReplyText(data.response);
+      if (data.needsHumanReview) {
+        setReviewWarning(data.reviewReason || t("inboxReviewBeforeSending"));
+      } else {
+        setReviewWarning(null);
+      }
       toast({ title: t("aiResponseGenerated"), description: t("reviewEditBeforeSending") });
     },
     onError: (err: unknown) =>
@@ -315,6 +327,7 @@ export default function AdminInbox() {
   const openItem = (item: UnifiedItem) => {
     setSelected(item);
     setReplyText("");
+    setReviewWarning(null);
     const subj = item.subject?.startsWith("Re:") ? item.subject : `Re: ${item.subject || ""}`;
     setReplySubject(subj);
     if (!item.isRead) {
@@ -529,6 +542,15 @@ export default function AdminInbox() {
                   data-testid="input-reply-subject"
                 />
               </div>
+              {reviewWarning && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm flex items-start gap-2" data-testid="banner-needs-review">
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-amber-900 dark:text-amber-100">{t("inboxNeedsReviewTitle")}</div>
+                    <div className="text-amber-900/90 dark:text-amber-100/90 text-xs mt-1">{reviewWarning}</div>
+                  </div>
+                </div>
+              )}
               <Textarea
                 placeholder={t("writeYourReply")}
                 value={replyText}

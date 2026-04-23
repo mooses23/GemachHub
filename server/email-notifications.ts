@@ -82,3 +82,54 @@ export class EmailNotificationService {
     }
   }
 }
+
+import { sendNewEmail } from './gmail-client.js';
+
+export interface OperatorWelcomeContext {
+  locationName: string;
+  locationCode: string;
+  operatorName: string;
+  operatorEmail: string;
+  dashboardUrl: string;
+  defaultPin: string;
+}
+
+function buildWelcomeEmail(ctx: OperatorWelcomeContext): { subject: string; body: string } {
+  const subject = `Welcome to your Baby Banz Gemach dashboard — ${ctx.locationName}`;
+  const body = `Hi ${ctx.operatorName || 'there'},
+
+Thank you for being part of the Baby Banz Gemach network! This email is to make sure you know how to access the operator dashboard for your location.
+
+YOUR LOCATION
+  Name:           ${ctx.locationName}
+  Location code:  ${ctx.locationCode}
+
+HOW TO LOG IN
+  1. Go to: ${ctx.dashboardUrl}
+  2. Enter your location code: ${ctx.locationCode}
+  3. Enter the temporary PIN: ${ctx.defaultPin}
+
+PLEASE CHANGE YOUR PIN
+After your first login, please change your PIN to something only you know:
+  • Click your profile / settings in the dashboard
+  • Choose "Change PIN"
+  • Pick any 4–6 digit number you'll remember
+
+WHAT THE DASHBOARD LETS YOU DO
+  • See and update your inventory of earmuffs
+  • Log a loan when someone borrows a pair
+  • Mark returns and refund deposits
+  • View your loan history and active borrowers
+
+If you have any questions, just reply to this email.
+
+Thank you for serving your community,
+Baby Banz Gemach
+`;
+  return { subject, body };
+}
+
+export async function sendOperatorWelcomeEmail(ctx: OperatorWelcomeContext): Promise<void> {
+  const { subject, body } = buildWelcomeEmail(ctx);
+  await sendNewEmail(ctx.operatorEmail, subject, body);
+}
