@@ -1094,8 +1094,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (typeof subject === 'string') updateData.subject = subject;
       if (typeof message === 'string') updateData.message = message;
       if (typeof isRead === 'boolean') updateData.isRead = isRead;
-      if (isArchived !== undefined) updateData.isArchived = !!isArchived;
-      if (isSpam !== undefined) updateData.isSpam = !!isSpam;
+      if (typeof isArchived === 'boolean') updateData.isArchived = isArchived;
+      if (typeof isSpam === 'boolean') updateData.isSpam = isSpam;
       const updatedContact = await storage.updateContact(id, updateData);
       res.json(updatedContact);
     } catch (error) {
