@@ -60,7 +60,7 @@ import {
 } from "@/components/ui/dialog";
 import { Link } from "wouter";
 import DOMPurify from "dompurify";
-import type { Contact, ReplyExample } from "@shared/schema";
+import type { Contact } from "@shared/schema";
 import type { TranslationKey } from "@/lib/translations";
 
 type SourceFilter = "all" | "email" | "form";
@@ -194,8 +194,14 @@ export default function AdminInbox() {
     }
     return m;
   }, [repliedRefsQuery.data]);
+  // For email items the saved reply ref key is the Gmail threadId (so all
+  // messages on a conversation share replied state); forms key by contact id.
+  const replyRefForItem = (item: UnifiedItem): string => {
+    if (item.source === "email") return String(item.threadId || item.id);
+    return String(item.id);
+  };
   const lookupReplied = (item: UnifiedItem): string | null => {
-    return repliedRefMap.get(`${item.source}:${String(item.id)}`) || null;
+    return repliedRefMap.get(`${item.source}:${replyRefForItem(item)}`) || null;
   };
 
   // Paginated emails (using infinite query for proper cache + refresh behavior).
@@ -653,11 +659,12 @@ export default function AdminInbox() {
       qc.invalidateQueries({ queryKey: ["/api/contact"] });
       qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] });
       // Refresh "Replied" badges everywhere and the per-message thread for
-      // the selected item so the new reply appears immediately.
+      // the selected item so the new reply appears immediately. Email items
+      // are keyed by Gmail threadId so the entire conversation gets marked.
       qc.invalidateQueries({ queryKey: ["/api/admin/reply-examples/refs"] });
       if (selected) {
         qc.invalidateQueries({
-          queryKey: ["/api/admin/reply-examples/by-ref", selected.source, String(selected.id)],
+          queryKey: ["/api/admin/reply-examples/by-ref", selected.source, replyRefForItem(selected)],
         });
       }
     },
@@ -1033,7 +1040,7 @@ export default function AdminInbox() {
             </CardContent>
           </Card>
 
-          <SentRepliesPanel item={selected} t={t} />
+          <SentRepliesPanel item={selected} t={t} sourceRef={replyRefForItem(selected)} />
 
           <Card>
             <CardHeader>
@@ -1642,17 +1649,22 @@ export default function AdminInbox() {
                                 </span>
                               </span>
                               {(() => {
+                                // Skip the badge in Spam/Trash folders so the
+                                // list there isn't visually noisy; replied
+                                // state is still visible in the detail view.
+                                if (folder === "spam" || folder === "trash") return null;
                                 const repliedAt = lookupReplied(it);
                                 if (!repliedAt) return null;
                                 return (
                                   <Badge
                                     variant="outline"
-                                    className="text-[10px] py-0 h-5 flex-shrink-0 border-green-600 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300 dark:border-green-700 font-semibold"
+                                    className="text-[10px] py-0 h-5 flex-shrink-0 border-green-600 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300 dark:border-green-700 font-semibold gap-1"
                                     data-testid={`badge-replied-${it.key}`}
                                     title={t("inboxRepliedOn").replace("{date}", formatDate(repliedAt))}
                                   >
-                                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                                    {t("inboxReplied")}
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    <span>{t("inboxReplied")}</span>
+                                    <span className="font-normal opacity-80">· {formatDate(repliedAt)}</span>
                                   </Badge>
                                 );
                               })()}
@@ -1874,16 +1886,35 @@ function SaveToFaqPanel({
   );
 }
 
-// Shows every reply sent for this message (form id or Gmail message id),
-// oldest → newest, so the admin can tell at a glance whether a question
-// has already been answered. Hides itself entirely when there are no
-// saved replies, to avoid adding noise to the detail view.
-function SentRepliesPanel({ item, t }: { item: UnifiedItem; t: (k: TranslationKey) => string }) {
+// Unified "Sent replies" panel for the message detail view. For Gmail
+// items it merges saved reply records (this app) AND messages on the
+// Gmail thread that we sent ourselves (label SENT) — so an admin can
+// see prior replies regardless of where they were sent from. For form
+// items it shows the saved replies for that contact id. Hidden when
+// there are no entries to avoid adding noise.
+type SentReplyEntry = {
+  id: string;
+  source: "saved" | "gmail";
+  sentReply: string;
+  createdAt: string;
+  senderEmail: string | null;
+  senderName: string | null;
+  wasEdited?: boolean;
+};
+function SentRepliesPanel({
+  item,
+  t,
+  sourceRef,
+}: {
+  item: UnifiedItem;
+  t: (k: TranslationKey) => string;
+  sourceRef: string;
+}) {
   const [open, setOpen] = useState(true);
-  const query = useQuery<ReplyExample[]>({
-    queryKey: ["/api/admin/reply-examples/by-ref", item.source, String(item.id)],
+  const query = useQuery<SentReplyEntry[]>({
+    queryKey: ["/api/admin/reply-examples/by-ref", item.source, sourceRef],
     queryFn: async () => {
-      const params = new URLSearchParams({ sourceType: item.source, sourceRef: String(item.id) });
+      const params = new URLSearchParams({ sourceType: item.source, sourceRef });
       const res = await fetch(`/api/admin/reply-examples/by-ref?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load reply history");
       return res.json();
@@ -1921,22 +1952,41 @@ function SentRepliesPanel({ item, t }: { item: UnifiedItem; t: (k: TranslationKe
       </CardHeader>
       {open && (
         <CardContent className="space-y-3 pt-0">
-          {replies.map((r, idx) => (
-            <div
-              key={r.id}
-              className="rounded-md border bg-muted/30 p-3 text-sm"
-              data-testid={`sent-reply-${r.id}`}
-            >
-              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground mb-1">
-                <span className="font-medium">#{idx + 1}</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatDate(r.createdAt)}
-                </span>
+          {replies.map((r, idx) => {
+            const senderLabel = r.senderName || r.senderEmail || "—";
+            return (
+              <div
+                key={r.id}
+                className="rounded-md border bg-muted/30 p-3 text-sm"
+                data-testid={`sent-reply-${r.id}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mb-2">
+                  <span className="flex items-center gap-2">
+                    <span className="font-semibold text-foreground">#{idx + 1}</span>
+                    <User className="h-3 w-3" />
+                    <span className="font-medium text-foreground" data-testid={`sent-reply-sender-${r.id}`}>
+                      {senderLabel}
+                    </span>
+                    {r.senderName && r.senderEmail && (
+                      <span className="text-muted-foreground/80">&lt;{r.senderEmail}&gt;</span>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] py-0 h-4 uppercase tracking-wide"
+                      title={r.source === "gmail" ? "Sent from Gmail" : "Sent from this app"}
+                    >
+                      {r.source === "gmail" ? "Gmail" : "App"}
+                    </Badge>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatDate(r.createdAt)}
+                  </span>
+                </div>
+                <div className="whitespace-pre-wrap leading-relaxed">{r.sentReply}</div>
               </div>
-              <div className="whitespace-pre-wrap leading-relaxed">{r.sentReply}</div>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       )}
     </Card>

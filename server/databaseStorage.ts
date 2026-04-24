@@ -833,20 +833,23 @@ export class DatabaseStorage implements IStorage {
   async getReplyExampleRefs(): Promise<{ sourceType: string; sourceRef: string; lastRepliedAt: string }[]> {
     // Aggregate the most recent reply timestamp per (sourceType, sourceRef) so
     // the inbox list can mark answered messages without an N+1 lookup. Filter
-    // out rows with a null sourceRef (legacy/manual entries).
-    const rows = await db.execute(sql`
-      SELECT source_type AS "sourceType",
-             source_ref AS "sourceRef",
-             MAX(created_at) AS "lastRepliedAt"
-      FROM reply_examples
-      WHERE source_ref IS NOT NULL
-      GROUP BY source_type, source_ref
-    `);
-    const list = (rows as any).rows ?? rows;
-    return (Array.isArray(list) ? list : []).map((r: any) => ({
-      sourceType: String(r.sourceType),
-      sourceRef: String(r.sourceRef),
-      lastRepliedAt: r.lastRepliedAt instanceof Date ? r.lastRepliedAt.toISOString() : String(r.lastRepliedAt),
+    // out rows with a null sourceRef (legacy/manual entries) via the WHERE so
+    // the result row type can stay non-nullable for sourceRef.
+    const rows = await db
+      .select({
+        sourceType: replyExamples.sourceType,
+        sourceRef: replyExamples.sourceRef,
+        lastRepliedAt: sql<Date>`MAX(${replyExamples.createdAt})`.as("lastRepliedAt"),
+      })
+      .from(replyExamples)
+      .where(sql`${replyExamples.sourceRef} IS NOT NULL`)
+      .groupBy(replyExamples.sourceType, replyExamples.sourceRef);
+    return rows.map((r) => ({
+      sourceType: r.sourceType,
+      sourceRef: r.sourceRef ?? "",
+      lastRepliedAt: r.lastRepliedAt instanceof Date
+        ? r.lastRepliedAt.toISOString()
+        : new Date(r.lastRepliedAt).toISOString(),
     }));
   }
 

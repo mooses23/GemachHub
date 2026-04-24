@@ -12,7 +12,7 @@ import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
-import { listEmails, getEmail, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, type GmailListMode } from "./gmail-client.js";
+import { listEmails, getEmail, getThreadMessages, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, type GmailListMode } from "./gmail-client.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
 import {
   generateEmailResponse, translateText, generateWelcomeOpener,
@@ -2661,8 +2661,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
-  // Full reply history for one message (form id or Gmail message id), oldest
-  // first. Used by the detail view's "Sent replies" panel.
+  // Full reply history for one message, oldest first. Used by the detail
+  // view's "Sent replies" panel. For email items the response merges saved
+  // reply_examples (sourceRef = Gmail threadId) with any Gmail-thread
+  // messages that we sent (label SENT) so admins also see replies sent
+  // directly from Gmail. Duplicates between the two sources are collapsed
+  // by normalized body match.
   app.get("/api/admin/reply-examples/by-ref", requireAdminMW, async (req, res) => {
     try {
       const sourceType = String(req.query.sourceType || '').trim();
@@ -2673,7 +2677,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (sourceType !== 'email' && sourceType !== 'form') {
         return res.status(400).json({ message: "sourceType must be 'email' or 'form'" });
       }
-      res.json(await storage.getReplyExamplesByRef(sourceType, sourceRef));
+
+      type SentReplyEntry = {
+        id: string;
+        source: 'saved' | 'gmail';
+        sentReply: string;
+        createdAt: string; // ISO
+        senderEmail: string | null;
+        senderName: string | null;
+        wasEdited?: boolean;
+      };
+
+      const saved = await storage.getReplyExamplesByRef(sourceType, sourceRef);
+      const savedEntries: SentReplyEntry[] = saved.map((r) => ({
+        id: `saved:${r.id}`,
+        source: 'saved',
+        sentReply: r.sentReply,
+        createdAt: (r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt)).toISOString(),
+        senderEmail: r.senderEmail ?? null,
+        senderName: r.senderName ?? null,
+        wasEdited: r.wasEdited,
+      }));
+
+      if (sourceType === 'form') {
+        return res.json(savedEntries);
+      }
+
+      // email: also merge in Gmail-side sent messages on this thread.
+      const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+      const savedNormBodies = new Set(savedEntries.map((e) => norm(e.sentReply)));
+      let gmailEntries: SentReplyEntry[] = [];
+      try {
+        const threadMessages = await getThreadMessages(sourceRef, 50);
+        gmailEntries = threadMessages
+          .filter((m) => Array.isArray(m.labels) && m.labels.includes('SENT'))
+          .map((m) => {
+            const fromMatch = String(m.from || '').match(/^\s*"?(.*?)"?\s*<([^>]+)>\s*$/);
+            const senderName = fromMatch ? (fromMatch[1] || fromMatch[2]) : (m.from || null);
+            const senderEmail = fromMatch ? fromMatch[2] : ((m.from || '').includes('@') ? m.from : null);
+            const dateRaw = m.date ? new Date(m.date) : new Date();
+            const createdAt = isNaN(dateRaw.getTime()) ? new Date().toISOString() : dateRaw.toISOString();
+            return {
+              id: `gmail:${m.id}`,
+              source: 'gmail' as const,
+              sentReply: m.body || m.snippet || '',
+              createdAt,
+              senderEmail: senderEmail || null,
+              senderName: senderName || null,
+            };
+          })
+          // Drop messages whose body matches an already-saved reply to avoid
+          // showing the same reply twice (saved row wins because it carries
+          // wasEdited / classification metadata).
+          .filter((g) => !savedNormBodies.has(norm(g.sentReply)));
+      } catch (gmailErr) {
+        console.warn('Failed to merge Gmail thread sent messages (non-fatal):',
+          gmailErr instanceof Error ? gmailErr.message : String(gmailErr));
+      }
+
+      const merged = [...savedEntries, ...gmailEntries].sort((a, b) =>
+        a.createdAt.localeCompare(b.createdAt));
+      res.json(merged);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
@@ -2729,7 +2793,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const wasEdited = !!aiDraft && normalizeWhitespace(aiDraft) !== normalizeWhitespace(replyText);
         const parsed = insertReplyExampleSchema.parse({
           sourceType: 'email',
-          sourceRef: email.id,
+          // Use the Gmail threadId (not the message id) so reply state and
+          // history can be tracked at the conversation level — multiple
+          // incoming messages on the same thread share replied state.
+          sourceRef: email.threadId || email.id,
           senderEmail: senderEmail || null,
           senderName: senderName || null,
           incomingSubject: email.subject || '(no subject)',
