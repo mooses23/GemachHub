@@ -507,7 +507,9 @@ export class DatabaseStorage implements IStorage {
     const result = await db.insert(contacts).values({
       ...insertContact,
       submittedAt: new Date(),
-      isRead: false
+      isRead: false,
+      isArchived: false,
+      isSpam: false,
     }).returning();
     return result[0];
   }
@@ -523,7 +525,7 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateContact(id: number, data: Partial<Pick<Contact, 'subject' | 'message' | 'isRead'>>): Promise<Contact> {
+  async updateContact(id: number, data: Partial<Pick<Contact, 'subject' | 'message' | 'isRead' | 'isArchived' | 'isSpam'>>): Promise<Contact> {
     const result = await db.update(contacts)
       .set(data)
       .where(eq(contacts.id, id))
@@ -876,6 +878,9 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   try {
     await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS last_return_reminder_at TIMESTAMP`);
     await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_reminder_count INTEGER NOT NULL DEFAULT 0`);
+    // Inbox: archived/spam flags for web-form contacts (Task #22)
+    await db.execute(sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE`);
+    await db.execute(sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_spam BOOLEAN NOT NULL DEFAULT FALSE`);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS return_reminder_events (
         id SERIAL PRIMARY KEY,

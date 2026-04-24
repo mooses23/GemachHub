@@ -126,7 +126,7 @@ export interface IStorage {
   getContact(id: number): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
   markContactRead(id: number): Promise<Contact>;
-  updateContact(id: number, data: Partial<Pick<Contact, 'subject' | 'message' | 'isRead'>>): Promise<Contact>;
+  updateContact(id: number, data: Partial<Pick<Contact, 'subject' | 'message' | 'isRead' | 'isArchived' | 'isSpam'>>): Promise<Contact>;
   deleteContact(id: number): Promise<void>;
 
   // Payment operations
@@ -2726,7 +2726,9 @@ export class MemStorage implements IStorage {
       ...insertContact, 
       id, 
       submittedAt: new Date(),
-      isRead: false
+      isRead: false,
+      isArchived: false,
+      isSpam: false
     };
     this.contacts.set(id, contact);
     return contact;
@@ -2743,7 +2745,7 @@ export class MemStorage implements IStorage {
     return updatedContact;
   }
 
-  async updateContact(id: number, data: Partial<Pick<Contact, 'subject' | 'message' | 'isRead'>>): Promise<Contact> {
+  async updateContact(id: number, data: Partial<Pick<Contact, 'subject' | 'message' | 'isRead' | 'isArchived' | 'isSpam'>>): Promise<Contact> {
     const contact = this.contacts.get(id);
     if (!contact) {
       throw new Error(`Contact with id ${id} not found`);

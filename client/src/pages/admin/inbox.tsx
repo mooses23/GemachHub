@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { useLanguage } from "@/hooks/use-language";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import {
@@ -38,7 +39,13 @@ import {
   Eye,
   EyeOff,
   BookOpen,
+  Archive,
+  ShieldAlert,
+  ShieldCheck,
+  Undo2,
+  SlidersHorizontal,
 } from "lucide-react";
+import { SwipeableRow } from "@/components/admin/SwipeableRow";
 import { GlossaryContent } from "./glossary";
 import {
   Dialog,
@@ -55,6 +62,7 @@ import type { Contact } from "@shared/schema";
 
 type SourceFilter = "all" | "email" | "form";
 type ReadFilter = "all" | "unread" | "read";
+type Folder = "inbox" | "spam" | "trash";
 
 interface GmailEmail {
   id: string;
@@ -86,6 +94,8 @@ interface UnifiedItem {
   snippet: string;
   date: string;
   isRead: boolean;
+  isArchived?: boolean;
+  isSpam?: boolean;
 }
 
 function parseEmailAddress(from: string): { name: string; email: string } {
@@ -132,6 +142,8 @@ export default function AdminInbox() {
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
+  const [folder, setFolder] = useState<Folder>("inbox");
+  const [showFilters, setShowFilters] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySubject, setReplySubject] = useState("");
   const [translations, setTranslations] = useState<Record<string, string>>({});
@@ -151,12 +163,13 @@ export default function AdminInbox() {
     queryKey: ["/api/contact"],
   });
 
-  // Paginated emails (using infinite query for proper cache + refresh behavior)
+  // Paginated emails (using infinite query for proper cache + refresh behavior).
+  // The Gmail folder is part of the queryKey so each tab gets its own cache.
   const emailQueries = useInfiniteQuery<EmailsResponse>({
-    queryKey: ["/api/admin/emails", "infinite"],
+    queryKey: ["/api/admin/emails", "infinite", folder],
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
-      const params = new URLSearchParams({ maxResults: "25" });
+      const params = new URLSearchParams({ maxResults: "25", mode: folder });
       if (typeof pageParam === "string" && pageParam) {
         params.set("pageToken", pageParam);
       }
@@ -170,6 +183,10 @@ export default function AdminInbox() {
     },
     getNextPageParam: (lastPage) => lastPage.nextPageToken ?? undefined,
   });
+
+  const invalidateEmailLists = () => {
+    qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] });
+  };
 
   const allEmails: GmailEmail[] = useMemo(() => {
     const merged = (emailQueries.data?.pages ?? []).flatMap((p) => p.emails);
@@ -212,6 +229,8 @@ export default function AdminInbox() {
         snippet: c.message.slice(0, 140),
         date: safeDate(c.submittedAt),
         isRead: !!c.isRead,
+        isArchived: !!(c as any).isArchived,
+        isSpam: !!(c as any).isSpam,
       });
     }
     for (const e of allEmails) {
@@ -237,7 +256,18 @@ export default function AdminInbox() {
     });
   }, [contactsQuery.data, allEmails]);
 
-  const filtered = unified.filter((it) => {
+  // Folder filter for form contacts. Gmail messages already arrive pre-filtered
+  // by the server based on the `mode` query param, so we don't filter them here.
+  const folderFiltered = unified.filter((it) => {
+    if (it.source === "form") {
+      if (folder === "inbox") return !it.isArchived && !it.isSpam;
+      if (folder === "spam") return !!it.isSpam && !it.isArchived;
+      if (folder === "trash") return !!it.isArchived;
+    }
+    return true;
+  });
+
+  const filtered = folderFiltered.filter((it) => {
     if (sourceFilter !== "all" && it.source !== sourceFilter) return false;
     if (readFilter === "read" && !it.isRead) return false;
     if (readFilter === "unread" && it.isRead) return false;
@@ -255,7 +285,17 @@ export default function AdminInbox() {
     return true;
   });
 
-  const unreadCount = unified.filter((u) => !u.isRead).length;
+  // Unread count is for Inbox only — Spam/Trash unread badges would be noisy.
+  const inboxItems = unified.filter(
+    (u) => u.source === "email" || (!u.isArchived && !u.isSpam)
+  );
+  const unreadCount = inboxItems.filter((u) => !u.isRead).length;
+  const formSpamCount = (contactsQuery.data ?? []).filter(
+    (c) => (c as any).isSpam && !(c as any).isArchived
+  ).length;
+  const formTrashCount = (contactsQuery.data ?? []).filter(
+    (c) => (c as any).isArchived
+  ).length;
 
   // Mutations
   const markEmailRead = useMutation({
@@ -266,6 +306,114 @@ export default function AdminInbox() {
       apiRequest("PATCH", `/api/contact/${id}`, { isRead }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/contact"] }),
   });
+
+  // ===== Folder/spam/archive/trash mutations (emails + contacts) =====
+  const markEmailUnread = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/unread`),
+    onSuccess: () => invalidateEmailLists(),
+  });
+  const archiveEmailMut = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/archive`),
+    onSuccess: () => invalidateEmailLists(),
+  });
+  const trashEmailMut = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/trash`),
+    onSuccess: () => invalidateEmailLists(),
+  });
+  const untrashEmailMut = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/untrash`),
+    onSuccess: () => invalidateEmailLists(),
+  });
+  const spamEmailMut = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/spam`),
+    onSuccess: () => invalidateEmailLists(),
+  });
+  const notSpamEmailMut = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/not-spam`),
+    onSuccess: () => invalidateEmailLists(),
+  });
+  const updateContactFlags = useMutation({
+    mutationFn: async ({ id, ...flags }: { id: number; isRead?: boolean; isArchived?: boolean; isSpam?: boolean }) =>
+      apiRequest("PATCH", `/api/contact/${id}`, flags),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/contact"] }),
+  });
+
+  // Generic swipe-action handlers — work for both sources.
+  const performMarkUnread = (item: UnifiedItem) => {
+    const success = () => toast({ title: t("inboxUnreadSuccess") });
+    const failure = () => toast({ title: t("inboxUnreadFailed"), variant: "destructive" });
+    if (item.source === "email") {
+      markEmailUnread.mutate(String(item.id), { onSuccess: success, onError: failure });
+    } else {
+      updateContactFlags.mutate({ id: Number(item.id), isRead: false }, { onSuccess: success, onError: failure });
+    }
+  };
+  // Toast with an undo action — for destructive/archival operations that the
+  // user might want to take back without hunting for the row in Trash/Spam.
+  const undoToast = (title: string, undoFn: () => void) => {
+    toast({
+      title,
+      action: (
+        <ToastAction altText={t("inboxDetailRestore")} onClick={undoFn} data-testid="toast-undo-action">
+          {t("inboxDetailRestore")}
+        </ToastAction>
+      ),
+    });
+  };
+  const performArchive = (item: UnifiedItem) => {
+    const failure = () => toast({ title: t("inboxArchiveFailed"), variant: "destructive" });
+    const success = () => undoToast(t("inboxArchiveSuccess"), () => performRestore(item));
+    if (item.source === "email") {
+      archiveEmailMut.mutate(String(item.id), { onSuccess: success, onError: failure });
+    } else {
+      // Contacts have no separate archive bucket — archived contacts surface in Trash.
+      updateContactFlags.mutate({ id: Number(item.id), isArchived: true }, { onSuccess: success, onError: failure });
+    }
+  };
+  const performTrash = (item: UnifiedItem) => {
+    const failure = () => toast({ title: t("inboxTrashFailed"), variant: "destructive" });
+    const success = () => undoToast(t("inboxTrashSuccess"), () => performRestore(item));
+    if (item.source === "email") {
+      trashEmailMut.mutate(String(item.id), { onSuccess: success, onError: failure });
+    } else {
+      updateContactFlags.mutate({ id: Number(item.id), isArchived: true }, { onSuccess: success, onError: failure });
+    }
+  };
+  const performRestore = (item: UnifiedItem) => {
+    const success = () => toast({ title: t("inboxRestoreSuccess") });
+    const failure = () => toast({ title: t("inboxRestoreFailed"), variant: "destructive" });
+    if (item.source === "email") {
+      // Restoring from Trash and unmarking spam both put the message back in inbox.
+      if (folder === "spam") {
+        notSpamEmailMut.mutate(String(item.id), { onSuccess: success, onError: failure });
+      } else {
+        untrashEmailMut.mutate(String(item.id), { onSuccess: success, onError: failure });
+      }
+    } else {
+      updateContactFlags.mutate(
+        { id: Number(item.id), isArchived: false, isSpam: false },
+        { onSuccess: success, onError: failure }
+      );
+    }
+  };
+  const performMarkSpam = (item: UnifiedItem) => {
+    const failure = () => toast({ title: t("inboxSpamFailed"), variant: "destructive" });
+    const success = () => undoToast(t("inboxSpamSuccess"), () => performUnmarkSpam(item));
+    if (item.source === "email") {
+      spamEmailMut.mutate(String(item.id), { onSuccess: success, onError: failure });
+    } else {
+      updateContactFlags.mutate({ id: Number(item.id), isSpam: true }, { onSuccess: success, onError: failure });
+    }
+  };
+  const performUnmarkSpam = (item: UnifiedItem) => {
+    const success = () => toast({ title: t("inboxNotSpamSuccess") });
+    const failure = () => toast({ title: t("inboxNotSpamFailed"), variant: "destructive" });
+    if (item.source === "email") {
+      notSpamEmailMut.mutate(String(item.id), { onSuccess: success, onError: failure });
+    } else {
+      updateContactFlags.mutate({ id: Number(item.id), isSpam: false }, { onSuccess: success, onError: failure });
+    }
+  };
   const deleteContact = useMutation({
     mutationFn: async (id: number) => apiRequest("DELETE", `/api/contact/${id}`),
     onSuccess: () => {
@@ -438,7 +586,7 @@ export default function AdminInbox() {
     if (!item.isRead) {
       if (item.source === "email") {
         markEmailRead.mutate(String(item.id), {
-          onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] }),
+          onSuccess: () => invalidateEmailLists(),
         });
       } else {
         markContactRead.mutate({ id: Number(item.id), isRead: true });
@@ -482,15 +630,11 @@ export default function AdminInbox() {
   const toggleReadStatus = (item: UnifiedItem) => {
     const newIsRead = !item.isRead;
     if (item.source === "email") {
-      // Gmail backend only supports mark-as-read; show toast if user tries to mark unread
-      if (!newIsRead) {
-        toast({ title: t("error"), description: t("inboxCannotMarkEmailUnread"), variant: "destructive" });
-        return;
-      }
-      markEmailRead.mutate(String(item.id), {
+      const m = newIsRead ? markEmailRead : markEmailUnread;
+      m.mutate(String(item.id), {
         onSuccess: () => {
-          qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] });
-          setSelected({ ...item, isRead: true });
+          invalidateEmailLists();
+          setSelected({ ...item, isRead: newIsRead });
         },
       });
     } else {
@@ -554,6 +698,49 @@ export default function AdminInbox() {
                   </>
                 )}
               </Button>
+              {/* Spam / Not spam toggle (works for both email + form) */}
+              {selected.isSpam || folder === "spam" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    performUnmarkSpam(selected);
+                    setSelected(null);
+                  }}
+                  data-testid="button-not-spam"
+                >
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                  {t("inboxDetailNotSpam")}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    performMarkSpam(selected);
+                    setSelected(null);
+                  }}
+                  data-testid="button-report-spam"
+                >
+                  <ShieldAlert className="h-4 w-4 mr-2" />
+                  {t("inboxDetailReportSpam")}
+                </Button>
+              )}
+              {/* Restore button when viewing a Trash item */}
+              {(folder === "trash" || (selected.source === "form" && selected.isArchived)) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    performRestore(selected);
+                    setSelected(null);
+                  }}
+                  data-testid="button-restore"
+                >
+                  <Undo2 className="h-4 w-4 mr-2" />
+                  {t("inboxDetailRestore")}
+                </Button>
+              )}
               {selected.source === "form" && (
                 <>
                   <Button
@@ -963,7 +1150,57 @@ export default function AdminInbox() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        {/* Folder tabs (Inbox / Spam / Trash) — primary filter */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {([
+            { key: "inbox" as Folder, label: t("inboxFolderInbox"), icon: InboxIcon, count: unreadCount },
+            { key: "spam" as Folder, label: t("inboxFolderSpam"), icon: ShieldAlert, count: formSpamCount },
+            { key: "trash" as Folder, label: t("inboxFolderTrash"), icon: Trash2, count: formTrashCount },
+          ]).map(({ key, label, icon: Icon, count }) => {
+            const active = folder === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFolder(key)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-foreground hover-elevate"
+                }`}
+                data-testid={`tab-folder-${key}`}
+                aria-pressed={active}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{label}</span>
+                {count > 0 && (
+                  <span
+                    className={`ml-1 rounded-full px-1.5 text-[10px] font-medium ${
+                      active ? "bg-primary-foreground/20" : "bg-muted"
+                    }`}
+                    data-testid={`tab-folder-${key}-count`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          <div className="ml-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowFilters((v) => !v)}
+              data-testid="button-toggle-filters"
+            >
+              <SlidersHorizontal className="h-4 w-4 mr-1.5" />
+              {showFilters ? t("inboxFiltersHide") : t("inboxFiltersShow")}
+            </Button>
+          </div>
+        </div>
+
+        {/* Search + secondary filters (collapsible to keep the chrome tidy) */}
+        <div className="flex flex-col gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -974,31 +1211,47 @@ export default function AdminInbox() {
               data-testid="input-search"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {(["all", "email", "form"] as SourceFilter[]).map((s) => (
-              <Button
-                key={s}
-                variant={sourceFilter === s ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSourceFilter(s)}
-                data-testid={`filter-source-${s}`}
-              >
-                {s === "all" ? t("msgAll") : s === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
-              </Button>
-            ))}
-            <div className="w-px bg-border mx-1" />
-            {(["all", "unread", "read"] as ReadFilter[]).map((r) => (
-              <Button
-                key={r}
-                variant={readFilter === r ? "default" : "outline"}
-                size="sm"
-                onClick={() => setReadFilter(r)}
-                data-testid={`filter-read-${r}`}
-              >
-                {r === "all" ? t("msgAll") : r === "unread" ? t("unread") : t("read")}
-              </Button>
-            ))}
-          </div>
+          {/* Swipe-discoverability hint (desktop sees a tooltip-like line; on touch it just reads as a tip) */}
+          <p className="text-xs text-muted-foreground italic" data-testid="text-swipe-hint">
+            {t("inboxSwipeHint")}
+          </p>
+          {showFilters && (
+            <div className="flex gap-2 flex-wrap items-center" data-testid="filters-secondary">
+              {(["all", "email", "form"] as SourceFilter[]).map((s) => (
+                <Button
+                  key={s}
+                  variant={sourceFilter === s ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSourceFilter(s)}
+                  data-testid={`filter-source-${s}`}
+                >
+                  {s === "all" ? t("msgAll") : s === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                </Button>
+              ))}
+              <div className="w-px h-6 bg-border mx-1" />
+              {(["all", "unread", "read"] as ReadFilter[]).map((r) => (
+                <Button
+                  key={r}
+                  variant={readFilter === r ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setReadFilter(r)}
+                  data-testid={`filter-read-${r}`}
+                >
+                  {r === "all" ? t("msgAll") : r === "unread" ? t("unread") : t("read")}
+                </Button>
+              ))}
+              {(sourceFilter !== "all" || readFilter !== "all" || search) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setSourceFilter("all"); setReadFilter("all"); setSearch(""); }}
+                  data-testid="button-clear-filters"
+                >
+                  {t("inboxClearFilters")}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {showGmailIssue && (
@@ -1062,48 +1315,95 @@ export default function AdminInbox() {
             ) : filtered.length === 0 ? (
               <div className="p-12 text-center">
                 <InboxIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium">{t("inboxEmpty")}</h3>
+                <h3 className="text-lg font-medium">
+                  {folder === "spam"
+                    ? t("inboxSpamEmpty")
+                    : folder === "trash"
+                    ? t("inboxTrashEmpty")
+                    : t("inboxEmpty")}
+                </h3>
                 <p className="text-muted-foreground">{t("inboxEmptyDesc")}</p>
               </div>
             ) : (
               <div className="divide-y">
-                {filtered.map((it) => (
-                  <button
-                    key={it.key}
-                    onClick={() => openItem(it)}
-                    className={`w-full p-4 text-left hover-elevate active-elevate-2 transition-colors flex items-start gap-4 ${
-                      !it.isRead ? "bg-primary/5" : ""
-                    }`}
-                    data-testid={`row-${it.key}`}
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 ${
-                        !it.isRead ? "bg-primary" : "bg-muted-foreground"
-                      }`}
+                {filtered.map((it) => {
+                  // Swipe action wiring depends on which folder we're in.
+                  // Inbox: right=mark unread, left short=archive, left long=delete.
+                  // Spam:  right=mark unread, left long=delete (no "archive spam").
+                  // Trash: right=restore (re-uses unread visual since it's the "recovery" gesture), no destructive long-swipe.
+                  const rightAction =
+                    folder === "trash"
+                      ? { label: t("inboxDetailRestore"), icon: Undo2, color: "bg-blue-500", onCommit: () => performRestore(it) }
+                      : it.isRead
+                      ? { label: t("inboxSwipeMarkUnread"), icon: EyeOff, color: "bg-blue-500", onCommit: () => performMarkUnread(it) }
+                      : { label: t("markAsRead"), icon: Eye, color: "bg-blue-500", onCommit: () => {
+                          if (it.source === "email") {
+                            markEmailRead.mutate(String(it.id), { onSuccess: () => invalidateEmailLists() });
+                          } else {
+                            markContactRead.mutate({ id: Number(it.id), isRead: true });
+                          }
+                        } };
+                  const leftAction =
+                    folder === "inbox"
+                      ? { label: t("inboxSwipeArchive"), icon: Archive, color: "bg-amber-600", onCommit: () => performArchive(it) }
+                      : undefined;
+                  const leftLongAction =
+                    folder === "trash"
+                      ? undefined
+                      : { label: t("inboxSwipeDelete"), icon: Trash2, color: "bg-red-600", onCommit: () => performTrash(it) };
+                  return (
+                    <SwipeableRow
+                      key={it.key}
+                      testId={`row-${it.key}`}
+                      rightAction={rightAction}
+                      leftAction={leftAction}
+                      leftLongAction={leftLongAction}
+                      isRtl={language === "he"}
                     >
-                      {(it.fromName || "?").charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className={`font-medium truncate ${!it.isRead ? "text-foreground" : "text-muted-foreground"}`}>
-                            {it.fromName}
-                          </span>
-                          <Badge variant={it.source === "email" ? "default" : "secondary"} className="text-[10px] py-0 h-5 flex-shrink-0">
-                            {it.source === "email" ? <Mail className="h-3 w-3 mr-1" /> : <MessageSquare className="h-3 w-3 mr-1" />}
-                            {it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
-                          </Badge>
+                      <button
+                        type="button"
+                        onClick={() => openItem(it)}
+                        className={`w-full p-4 text-left hover-elevate active-elevate-2 transition-colors flex items-start gap-4 ${
+                          !it.isRead ? "bg-primary/5" : ""
+                        }`}
+                        data-testid={`row-${it.key}-button`}
+                      >
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 ${
+                            !it.isRead ? "bg-primary" : "bg-muted-foreground"
+                          }`}
+                        >
+                          {(it.fromName || "?").charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(it.date)}</span>
-                      </div>
-                      <p className={`text-sm truncate ${!it.isRead ? "font-medium" : ""}`}>
-                        {it.subject || t("noSubject")}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate mt-1">{it.snippet}</p>
-                    </div>
-                    {!it.isRead && <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />}
-                  </button>
-                ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`font-medium truncate ${!it.isRead ? "text-foreground" : "text-muted-foreground"}`}>
+                                {it.fromName}
+                              </span>
+                              <Badge variant={it.source === "email" ? "default" : "secondary"} className="text-[10px] py-0 h-5 flex-shrink-0">
+                                {it.source === "email" ? <Mail className="h-3 w-3 mr-1" /> : <MessageSquare className="h-3 w-3 mr-1" />}
+                                {it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                              </Badge>
+                              {it.source === "form" && it.isSpam && (
+                                <Badge variant="outline" className="text-[10px] py-0 h-5 flex-shrink-0 border-amber-500 text-amber-700 dark:text-amber-300">
+                                  <ShieldAlert className="h-3 w-3 mr-1" />
+                                  {t("inboxFolderSpam")}
+                                </Badge>
+                              )}
+                            </div>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(it.date)}</span>
+                          </div>
+                          <p className={`text-sm truncate ${!it.isRead ? "font-medium" : ""}`}>
+                            {it.subject || t("noSubject")}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate mt-1">{it.snippet}</p>
+                        </div>
+                        {!it.isRead && <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />}
+                      </button>
+                    </SwipeableRow>
+                  );
+                })}
               </div>
             )}
           </CardContent>

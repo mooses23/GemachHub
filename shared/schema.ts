@@ -315,6 +315,8 @@ export const contacts = pgTable("contacts", {
   message: text("message").notNull(),
   submittedAt: timestamp("submitted_at").notNull().defaultNow(),
   isRead: boolean("is_read").default(false),
+  isArchived: boolean("is_archived").notNull().default(false),
+  isSpam: boolean("is_spam").notNull().default(false),
 });
 
 export const insertContactSchema = createInsertSchema(contacts).pick({

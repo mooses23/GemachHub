@@ -179,18 +179,41 @@ export interface ListEmailsResult {
   nextPageToken?: string;
 }
 
+export type GmailListMode = 'inbox' | 'spam' | 'trash' | 'archive' | 'all';
+
+function labelsForMode(mode: GmailListMode): string[] | undefined {
+  switch (mode) {
+    case 'inbox': return ['INBOX'];
+    case 'spam': return ['SPAM'];
+    case 'trash': return ['TRASH'];
+    // 'archive' = mail without INBOX label, no SPAM/TRASH; Gmail has no
+    // single "archive" label, so we just list everything and let the caller
+    // filter. We expose it as undefined (= all mail) to the API.
+    case 'archive': return undefined;
+    case 'all': return undefined;
+  }
+}
+
 export async function listEmails(
   maxResults: number = 25,
-  pageToken?: string
+  pageToken?: string,
+  mode: GmailListMode = 'inbox',
 ): Promise<ListEmailsResult> {
   const gmail = await getUncachableGmailClient();
 
-  const response = await gmail.users.messages.list({
+  const labelIds = labelsForMode(mode);
+  const listParams: any = {
     userId: 'me',
     maxResults,
-    labelIds: ['INBOX'],
     pageToken: pageToken || undefined,
-  });
+  };
+  if (labelIds) listParams.labelIds = labelIds;
+  // For 'archive' mode, exclude inbox/spam/trash via search query
+  if (mode === 'archive') {
+    listParams.q = '-in:inbox -in:spam -in:trash';
+  }
+
+  const response = await gmail.users.messages.list(listParams);
 
   const messages = response.data.messages || [];
   const emails: EmailMessage[] = [];
@@ -295,6 +318,68 @@ export async function markAsRead(messageId: string): Promise<void> {
     requestBody: {
       removeLabelIds: ['UNREAD']
     }
+  });
+}
+
+export async function markAsUnread(messageId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.messages.modify({
+    userId: 'me',
+    id: messageId,
+    requestBody: {
+      addLabelIds: ['UNREAD']
+    }
+  });
+}
+
+export async function archiveEmail(messageId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.messages.modify({
+    userId: 'me',
+    id: messageId,
+    requestBody: {
+      removeLabelIds: ['INBOX']
+    }
+  });
+}
+
+export async function trashEmail(messageId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.messages.trash({
+    userId: 'me',
+    id: messageId,
+  });
+}
+
+export async function untrashEmail(messageId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.messages.untrash({
+    userId: 'me',
+    id: messageId,
+  });
+}
+
+export async function markAsSpam(messageId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.messages.modify({
+    userId: 'me',
+    id: messageId,
+    requestBody: {
+      addLabelIds: ['SPAM'],
+      removeLabelIds: ['INBOX'],
+    },
+  });
+}
+
+export async function unmarkSpam(messageId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.messages.modify({
+    userId: 'me',
+    id: messageId,
+    requestBody: {
+      addLabelIds: ['INBOX'],
+      removeLabelIds: ['SPAM'],
+    },
   });
 }
 

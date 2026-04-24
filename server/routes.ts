@@ -12,7 +12,8 @@ import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
-import { listEmails, getEmail, markAsRead, sendReply, sendNewEmail, getGmailConfigStatus } from "./gmail-client.js";
+import { listEmails, getEmail, markAsRead, markAsUnread, archiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, sendReply, sendNewEmail, getGmailConfigStatus, type GmailListMode } from "./gmail-client.js";
+import { scoreContactSpam } from "./spam-heuristic.js";
 import {
   generateEmailResponse, translateText, generateWelcomeOpener,
   reindexFact, reindexFaq, reindexDoc, reindexReplyExample, backfillEmbeddings, seedKnowledgeDocs,
@@ -1035,6 +1036,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const contactData = insertContactSchema.parse(req.body);
       const contact = await storage.createContact(contactData);
+      // Auto-tag obvious spam so it's pre-filtered out of the admin's main inbox
+      try {
+        const spam = scoreContactSpam(contactData);
+        if (spam.isSpam) {
+          await storage.updateContact(contact.id, { isSpam: true });
+          contact.isSpam = true;
+          console.log(`[contact ${contact.id}] auto-tagged as spam (score=${spam.score}): ${spam.reasons.join('; ')}`);
+        }
+      } catch (e: any) {
+        console.error("Spam-scoring error (non-fatal):", e?.message || e);
+      }
       res.status(201).json(contact);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1075,11 +1087,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
-      const { subject, message, isRead } = req.body;
+      const { subject, message, isRead, isArchived, isSpam } = req.body;
       const updateData: any = {};
       if (subject !== undefined) updateData.subject = subject;
       if (message !== undefined) updateData.message = message;
       if (isRead !== undefined) updateData.isRead = isRead;
+      if (isArchived !== undefined) updateData.isArchived = !!isArchived;
+      if (isSpam !== undefined) updateData.isSpam = !!isSpam;
       const updatedContact = await storage.updateContact(id, updateData);
       res.json(updatedContact);
     } catch (error) {
@@ -2129,7 +2143,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const maxResults = parseInt(req.query.maxResults as string) || 25;
       const pageToken = (req.query.pageToken as string) || undefined;
-      const result = await listEmails(maxResults, pageToken);
+      const rawMode = String(req.query.mode || 'inbox').toLowerCase();
+      const mode: GmailListMode = (['inbox','spam','trash','archive','all'] as const)
+        .includes(rawMode as any) ? (rawMode as GmailListMode) : 'inbox';
+      const result = await listEmails(maxResults, pageToken, mode);
       res.json(result);
     } catch (error: any) {
       console.error("Error fetching emails:", error);
@@ -2182,6 +2199,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error marking email as read:", error);
       res.status(500).json({ message: error.message || "Failed to mark as read" });
+    }
+  });
+
+  // Mark email as unread
+  app.post("/api/admin/emails/:id/unread", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      await markAsUnread(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error marking email as unread:", error);
+      res.status(500).json({ message: error.message || "Failed to mark as unread" });
+    }
+  });
+
+  // Archive email (remove INBOX label)
+  app.post("/api/admin/emails/:id/archive", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      await archiveEmail(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error archiving email:", error);
+      res.status(500).json({ message: error.message || "Failed to archive" });
+    }
+  });
+
+  // Move to trash
+  app.post("/api/admin/emails/:id/trash", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      await trashEmail(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error trashing email:", error);
+      res.status(500).json({ message: error.message || "Failed to trash" });
+    }
+  });
+
+  // Restore from trash
+  app.post("/api/admin/emails/:id/untrash", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      await untrashEmail(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error untrashing email:", error);
+      res.status(500).json({ message: error.message || "Failed to restore" });
+    }
+  });
+
+  // Mark as spam
+  app.post("/api/admin/emails/:id/spam", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      await markAsSpam(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error marking email as spam:", error);
+      res.status(500).json({ message: error.message || "Failed to mark as spam" });
+    }
+  });
+
+  // Unmark spam (restore to inbox)
+  app.post("/api/admin/emails/:id/not-spam", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      await unmarkSpam(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error unmarking spam:", error);
+      res.status(500).json({ message: error.message || "Failed to unmark spam" });
     }
   });
 
