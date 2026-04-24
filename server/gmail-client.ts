@@ -307,10 +307,17 @@ function assertValidEmail(email: string): void {
     throw new Error(`Invalid recipient email: ${email}`);
   }
 }
+function extractEmailAddress(value: string): string {
+  const cleaned = sanitizeHeaderValue(value);
+  const angle = cleaned.match(/<([^>]+)>/);
+  if (angle && angle[1]) return angle[1].trim();
+  return cleaned;
+}
 
 export async function sendNewEmail(toEmail: string, subject: string, body: string): Promise<void> {
-  assertValidEmail(toEmail);
-  const safeTo = sanitizeHeaderValue(toEmail);
+  const recipient = extractEmailAddress(toEmail);
+  assertValidEmail(recipient);
+  const safeTo = sanitizeHeaderValue(recipient);
   const safeSubject = sanitizeHeaderValue(subject);
   const gmail = await getUncachableGmailClient();
   
@@ -339,8 +346,9 @@ export async function sendNewEmail(toEmail: string, subject: string, body: strin
 export async function sendReply(messageId: string, threadId: string, replyText: string, toEmail: string, subject: string): Promise<void> {
   const gmail = await getUncachableGmailClient();
   
-  assertValidEmail(toEmail);
-  const safeTo = sanitizeHeaderValue(toEmail);
+  const recipient = extractEmailAddress(toEmail);
+  assertValidEmail(recipient);
+  const safeTo = sanitizeHeaderValue(recipient);
   const baseSubject = sanitizeHeaderValue(subject);
   const replySubject = baseSubject.startsWith('Re:') ? baseSubject : `Re: ${baseSubject}`;
   const safeMessageId = sanitizeHeaderValue(messageId);
