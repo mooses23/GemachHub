@@ -2145,7 +2145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Counts are a soft enhancement — never break the inbox UI if Gmail is down/unconfigured.
       const msg = error instanceof Error ? error.message : "Failed to fetch label counts";
       console.error("Error fetching Gmail label counts:", msg);
-      res.status(200).json({ unread: 0, spam: 0, trash: 0, error: msg });
+      res.status(200).json({ inbox: 0, spam: 0, trash: 0, error: msg });
     }
   });
 

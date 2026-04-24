@@ -65,13 +65,24 @@ export function scoreContactSpam(input: {
   }
 
   // 4) Excessive ALL-CAPS in subject (spam-shouting)
-  const letters = subject.replace(/[^A-Za-z]/g, '');
-  if (letters.length >= 12) {
-    const upper = letters.replace(/[^A-Z]/g, '');
-    const ratio = upper.length / letters.length;
+  const subjectLetters = subject.replace(/[^A-Za-z]/g, '');
+  if (subjectLetters.length >= 12) {
+    const upper = subjectLetters.replace(/[^A-Z]/g, '');
+    const ratio = upper.length / subjectLetters.length;
     if (ratio >= 0.7) {
       score += 1;
       reasons.push('subject is mostly ALL CAPS');
+    }
+  }
+
+  // 4b) Excessive ALL-CAPS in body (spam-shouting in the message itself)
+  const bodyLetters = message.replace(/[^A-Za-z]/g, '');
+  if (bodyLetters.length >= 30) {
+    const upper = bodyLetters.replace(/[^A-Z]/g, '');
+    const ratio = upper.length / bodyLetters.length;
+    if (ratio >= 0.7) {
+      score += 1;
+      reasons.push('body is mostly ALL CAPS');
     }
   }
 

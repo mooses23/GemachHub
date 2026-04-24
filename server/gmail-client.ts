@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google, type gmail_v1 } from 'googleapis';
 
 let connectionSettings: any;
 let vercelOAuth2Client: any = null;
@@ -202,7 +202,7 @@ export async function listEmails(
   const gmail = await getUncachableGmailClient();
 
   const labelIds = labelsForMode(mode);
-  const listParams: any = {
+  const listParams: gmail_v1.Params$Resource$Users$Messages$List = {
     userId: 'me',
     maxResults,
     pageToken: pageToken || undefined,
@@ -372,14 +372,16 @@ export async function markAsSpam(messageId: string): Promise<void> {
 }
 
 export interface LabelCounts {
-  unread: number;
+  inbox: number;
   spam: number;
   trash: number;
 }
 
+// Returns total messages per Gmail label (not unread). Used as a stable
+// "backlog at a glance" metric for inbox folder chips.
 export async function getLabelCounts(): Promise<LabelCounts> {
   const gmail = await getUncachableGmailClient();
-  const ids = ['UNREAD', 'SPAM', 'TRASH'] as const;
+  const ids = ['INBOX', 'SPAM', 'TRASH'] as const;
   const settled = await Promise.all(
     ids.map((id) =>
       gmail.users.labels
@@ -388,7 +390,7 @@ export async function getLabelCounts(): Promise<LabelCounts> {
         .catch(() => 0)
     )
   );
-  return { unread: settled[0], spam: settled[1], trash: settled[2] };
+  return { inbox: settled[0], spam: settled[1], trash: settled[2] };
 }
 
 export async function unmarkSpam(messageId: string): Promise<void> {

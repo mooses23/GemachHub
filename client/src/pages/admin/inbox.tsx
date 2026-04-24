@@ -158,9 +158,9 @@ export default function AdminInbox() {
     queryKey: ["/api/admin/emails/status"],
   });
 
-  // Gmail backlog counts (UNREAD/SPAM/TRASH labels) for folder chips.
+  // Gmail backlog totals (INBOX/SPAM/TRASH label sizes) for folder chips.
   // The endpoint returns zeros if Gmail is unavailable, so this is safe to render unconditionally.
-  const gmailLabelCountsQuery = useQuery<{ unread: number; spam: number; trash: number }>({
+  const gmailLabelCountsQuery = useQuery<{ inbox: number; spam: number; trash: number }>({
     queryKey: ["/api/admin/emails/labels"],
     enabled: !!gmailStatusQuery.data?.configured,
     refetchInterval: 60_000,
@@ -293,11 +293,17 @@ export default function AdminInbox() {
     return true;
   });
 
-  // Unread count is for Inbox only — Spam/Trash unread badges would be noisy.
-  const inboxItems = unified.filter(
-    (u) => u.source === "email" || (!u.isArchived && !u.isSpam)
-  );
-  const unreadCount = inboxItems.filter((u) => !u.isRead).length;
+  // Folder chip counts use TOTAL backlog per source — not unread — so they
+  // mirror Gmail's own folder badges. Form-side counts come from the local
+  // contacts list; Gmail-side counts come from /api/admin/emails/labels.
+  const formInboxCount = (contactsQuery.data ?? []).filter(
+    (c) => !c.isArchived && !c.isSpam
+  ).length;
+  // Unread badge in the header reflects only currently-loaded inbox items
+  // (used as a quick visual cue, not an authoritative backlog metric).
+  const unreadCount = unified.filter(
+    (u) => !u.isRead && (u.source === "email" || (!u.isArchived && !u.isSpam))
+  ).length;
   const formSpamCount = (contactsQuery.data ?? []).filter(
     (c) => c.isSpam && !c.isArchived
   ).length;
@@ -1169,9 +1175,9 @@ export default function AdminInbox() {
             chip reflects the full queue, not just one source. */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           {(() => {
-            const gmailCounts = gmailLabelCountsQuery.data ?? { unread: 0, spam: 0, trash: 0 };
+            const gmailCounts = gmailLabelCountsQuery.data ?? { inbox: 0, spam: 0, trash: 0 };
             return [
-              { key: "inbox" as Folder, label: t("inboxFolderInbox"), icon: InboxIcon, count: unreadCount + gmailCounts.unread },
+              { key: "inbox" as Folder, label: t("inboxFolderInbox"), icon: InboxIcon, count: formInboxCount + gmailCounts.inbox },
               { key: "spam" as Folder, label: t("inboxFolderSpam"), icon: ShieldAlert, count: formSpamCount + gmailCounts.spam },
               { key: "trash" as Folder, label: t("inboxFolderTrash"), icon: Trash2, count: formTrashCount + gmailCounts.trash },
             ];
