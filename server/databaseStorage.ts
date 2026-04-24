@@ -824,6 +824,31 @@ export class DatabaseStorage implements IStorage {
     const r = await db.select().from(replyExamples).where(eq(replyExamples.id, id));
     return r[0];
   }
+  async getReplyExamplesByRef(sourceType: string, sourceRef: string): Promise<ReplyExample[]> {
+    if (!sourceType || !sourceRef) return [];
+    return db.select().from(replyExamples)
+      .where(and(eq(replyExamples.sourceType, sourceType), eq(replyExamples.sourceRef, sourceRef)))
+      .orderBy(replyExamples.createdAt);
+  }
+  async getReplyExampleRefs(): Promise<{ sourceType: string; sourceRef: string; lastRepliedAt: string }[]> {
+    // Aggregate the most recent reply timestamp per (sourceType, sourceRef) so
+    // the inbox list can mark answered messages without an N+1 lookup. Filter
+    // out rows with a null sourceRef (legacy/manual entries).
+    const rows = await db.execute(sql`
+      SELECT source_type AS "sourceType",
+             source_ref AS "sourceRef",
+             MAX(created_at) AS "lastRepliedAt"
+      FROM reply_examples
+      WHERE source_ref IS NOT NULL
+      GROUP BY source_type, source_ref
+    `);
+    const list = (rows as any).rows ?? rows;
+    return (Array.isArray(list) ? list : []).map((r: any) => ({
+      sourceType: String(r.sourceType),
+      sourceRef: String(r.sourceRef),
+      lastRepliedAt: r.lastRepliedAt instanceof Date ? r.lastRepliedAt.toISOString() : String(r.lastRepliedAt),
+    }));
+  }
 
   // KB embeddings
   async upsertKbEmbedding(rec: InsertKbEmbedding): Promise<KbEmbedding> {

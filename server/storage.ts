@@ -49,6 +49,8 @@ export interface IStorage {
   getRecentReplyExamples(limit?: number): Promise<ReplyExample[]>;
   getReplyExamplesBySender(email: string, limit?: number): Promise<ReplyExample[]>;
   getReplyExample(id: number): Promise<ReplyExample | undefined>;
+  getReplyExamplesByRef(sourceType: string, sourceRef: string): Promise<ReplyExample[]>;
+  getReplyExampleRefs(): Promise<{ sourceType: string; sourceRef: string; lastRepliedAt: string }[]>;
 
   // KB Embeddings
   upsertKbEmbedding(rec: InsertKbEmbedding): Promise<KbEmbedding>;
@@ -3046,6 +3048,8 @@ export class MemStorage implements IStorage {
   async getRecentReplyExamples(_limit?: number): Promise<ReplyExample[]> { return []; }
   async getReplyExamplesBySender(_email: string, _limit?: number): Promise<ReplyExample[]> { return []; }
   async getReplyExample(_id: number): Promise<ReplyExample | undefined> { return undefined; }
+  async getReplyExamplesByRef(_sourceType: string, _sourceRef: string): Promise<ReplyExample[]> { return []; }
+  async getReplyExampleRefs(): Promise<{ sourceType: string; sourceRef: string; lastRepliedAt: string }[]> { return []; }
 
   async upsertKbEmbedding(rec: InsertKbEmbedding): Promise<KbEmbedding> {
     return {

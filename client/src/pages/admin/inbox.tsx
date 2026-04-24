@@ -43,6 +43,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Undo2,
+  CheckCircle2,
 } from "lucide-react";
 import { SwipeableRow } from "@/components/admin/SwipeableRow";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -59,7 +60,8 @@ import {
 } from "@/components/ui/dialog";
 import { Link } from "wouter";
 import DOMPurify from "dompurify";
-import type { Contact } from "@shared/schema";
+import type { Contact, ReplyExample } from "@shared/schema";
+import type { TranslationKey } from "@/lib/translations";
 
 type SourceFilter = "all" | "email" | "form";
 type ReadFilter = "all" | "unread" | "read";
@@ -176,6 +178,25 @@ export default function AdminInbox() {
   const contactsQuery = useQuery<Contact[]>({
     queryKey: ["/api/contact"],
   });
+
+  // Which messages have already been answered (from any saved reply example).
+  // Aggregated server-side as one row per (sourceType, sourceRef) so the list
+  // can render a "Replied" badge without per-row fetches. Refetches on a slow
+  // poll so the badge appears even if a reply was sent from another tab.
+  const repliedRefsQuery = useQuery<{ sourceType: string; sourceRef: string; lastRepliedAt: string }[]>({
+    queryKey: ["/api/admin/reply-examples/refs"],
+    refetchInterval: 60_000,
+  });
+  const repliedRefMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of repliedRefsQuery.data ?? []) {
+      m.set(`${r.sourceType}:${r.sourceRef}`, r.lastRepliedAt);
+    }
+    return m;
+  }, [repliedRefsQuery.data]);
+  const lookupReplied = (item: UnifiedItem): string | null => {
+    return repliedRefMap.get(`${item.source}:${String(item.id)}`) || null;
+  };
 
   // Paginated emails (using infinite query for proper cache + refresh behavior).
   // The Gmail folder is part of the queryKey so each tab gets its own cache.
@@ -631,6 +652,14 @@ export default function AdminInbox() {
       setShowSaveFaq(true);
       qc.invalidateQueries({ queryKey: ["/api/contact"] });
       qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] });
+      // Refresh "Replied" badges everywhere and the per-message thread for
+      // the selected item so the new reply appears immediately.
+      qc.invalidateQueries({ queryKey: ["/api/admin/reply-examples/refs"] });
+      if (selected) {
+        qc.invalidateQueries({
+          queryKey: ["/api/admin/reply-examples/by-ref", selected.source, String(selected.id)],
+        });
+      }
     },
     onError: (err: unknown) =>
       toast({ title: t("error"), description: err instanceof Error ? err.message : t("failedToSendReply"), variant: "destructive" }),
@@ -939,9 +968,32 @@ export default function AdminInbox() {
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-xl">{selected.subject || t("noSubject")}</CardTitle>
-                  <Badge variant={selected.source === "email" ? "default" : "secondary"}>
-                    {selected.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
-                  </Badge>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {(() => {
+                      const repliedAt = lookupReplied(selected);
+                      if (!repliedAt) return null;
+                      return (
+                        <Badge
+                          variant="outline"
+                          className="border-green-600 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300 dark:border-green-700 font-semibold"
+                          data-testid="badge-replied-detail"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                          {t("inboxRepliedOn").replace("{date}", formatDate(repliedAt))}
+                        </Badge>
+                      );
+                    })()}
+                    {/* Quieter outline-style source marker (matches the list). */}
+                    <span
+                      className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground"
+                      data-testid={`source-tag-detail-${selected.source}`}
+                    >
+                      {selected.source === "email"
+                        ? <Mail className="h-3.5 w-3.5" />
+                        : <MessageSquare className="h-3.5 w-3.5" />}
+                      {selected.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -980,6 +1032,8 @@ export default function AdminInbox() {
               </div>
             </CardContent>
           </Card>
+
+          <SentRepliesPanel item={selected} t={t} />
 
           <Card>
             <CardHeader>
@@ -1533,9 +1587,9 @@ export default function AdminInbox() {
                       <button
                         type="button"
                         onClick={() => (selectMode ? toggleRowSelection(it.key) : openItem(it))}
-                        className={`w-full p-4 text-left hover-elevate active-elevate-2 transition-colors flex items-start gap-4 ${
-                          !it.isRead ? "bg-primary/5" : ""
-                        } ${selectMode && isChecked ? "bg-primary/10" : ""}`}
+                        className={`w-full p-4 text-left hover-elevate active-elevate-2 transition-colors flex items-start gap-3 ${
+                          !it.isRead ? "bg-primary/10 dark:bg-primary/15" : ""
+                        } ${selectMode && isChecked ? "bg-primary/20" : ""}`}
                         data-testid={`row-${it.key}-button`}
                         aria-pressed={selectMode ? isChecked : undefined}
                       >
@@ -1551,9 +1605,18 @@ export default function AdminInbox() {
                             <Checkbox checked={isChecked} tabIndex={-1} />
                           </div>
                         )}
+                        {/* Read/unread accent bar — first thing the eye lands
+                            on. Bold primary color for unread; invisible spacer
+                            for read so list rows still align. */}
+                        <div
+                          className={`self-stretch w-1 rounded-full flex-shrink-0 ${
+                            !it.isRead ? "bg-primary" : "bg-transparent"
+                          }`}
+                          aria-hidden="true"
+                        />
                         <div
                           className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 ${
-                            !it.isRead ? "bg-primary" : "bg-muted-foreground"
+                            !it.isRead ? "bg-primary" : "bg-muted-foreground/60"
                           }`}
                         >
                           {(it.fromName || "?").charAt(0).toUpperCase()}
@@ -1561,13 +1624,38 @@ export default function AdminInbox() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className={`font-medium truncate ${!it.isRead ? "text-foreground" : "text-muted-foreground"}`}>
+                              <span className={`truncate ${!it.isRead ? "font-bold text-foreground" : "font-normal text-muted-foreground"}`}>
                                 {it.fromName}
                               </span>
-                              <Badge variant={it.source === "email" ? "default" : "secondary"} className="text-[10px] py-0 h-5 flex-shrink-0">
-                                {it.source === "email" ? <Mail className="h-3 w-3 mr-1" /> : <MessageSquare className="h-3 w-3 mr-1" />}
-                                {it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
-                              </Badge>
+                              {/* Quiet outline-style source marker so it stops
+                                  competing with the sender name. */}
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground/80 flex-shrink-0"
+                                title={it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                                data-testid={`source-tag-${it.source}`}
+                              >
+                                {it.source === "email"
+                                  ? <Mail className="h-3 w-3" />
+                                  : <MessageSquare className="h-3 w-3" />}
+                                <span className="hidden sm:inline">
+                                  {it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                                </span>
+                              </span>
+                              {(() => {
+                                const repliedAt = lookupReplied(it);
+                                if (!repliedAt) return null;
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] py-0 h-5 flex-shrink-0 border-green-600 bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-300 dark:border-green-700 font-semibold"
+                                    data-testid={`badge-replied-${it.key}`}
+                                    title={t("inboxRepliedOn").replace("{date}", formatDate(repliedAt))}
+                                  >
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    {t("inboxReplied")}
+                                  </Badge>
+                                );
+                              })()}
                               {it.source === "form" && it.isSpam && (
                                 <Badge variant="outline" className="text-[10px] py-0 h-5 flex-shrink-0 border-amber-500 text-amber-700 dark:text-amber-300">
                                   <ShieldAlert className="h-3 w-3 mr-1" />
@@ -1575,14 +1663,14 @@ export default function AdminInbox() {
                                 </Badge>
                               )}
                             </div>
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(it.date)}</span>
+                            <span className={`text-xs whitespace-nowrap ${!it.isRead ? "text-foreground font-semibold" : "text-muted-foreground"}`}>{formatDate(it.date)}</span>
                           </div>
-                          <p className={`text-sm truncate ${!it.isRead ? "font-medium" : ""}`}>
+                          <p className={`text-sm truncate ${!it.isRead ? "font-semibold text-foreground" : "font-normal text-muted-foreground"}`}>
                             {it.subject || t("noSubject")}
                           </p>
                           <p className="text-xs text-muted-foreground truncate mt-1">{it.snippet}</p>
                         </div>
-                        {!it.isRead && <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0" />}
+                        {!it.isRead && <div className="w-2.5 h-2.5 rounded-full bg-primary mt-2 flex-shrink-0 ring-2 ring-primary/30" />}
                       </button>
                     </SwipeableRow>
                   );
@@ -1783,5 +1871,74 @@ function SaveToFaqPanel({
         </Button>
       </div>
     </div>
+  );
+}
+
+// Shows every reply sent for this message (form id or Gmail message id),
+// oldest → newest, so the admin can tell at a glance whether a question
+// has already been answered. Hides itself entirely when there are no
+// saved replies, to avoid adding noise to the detail view.
+function SentRepliesPanel({ item, t }: { item: UnifiedItem; t: (k: TranslationKey) => string }) {
+  const [open, setOpen] = useState(true);
+  const query = useQuery<ReplyExample[]>({
+    queryKey: ["/api/admin/reply-examples/by-ref", item.source, String(item.id)],
+    queryFn: async () => {
+      const params = new URLSearchParams({ sourceType: item.source, sourceRef: String(item.id) });
+      const res = await fetch(`/api/admin/reply-examples/by-ref?${params.toString()}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load reply history");
+      return res.json();
+    },
+  });
+  const replies = query.data ?? [];
+  if (query.isLoading) {
+    return (
+      <Card className="mb-6" data-testid="panel-sent-replies-loading">
+        <CardContent className="py-4">
+          <Skeleton className="h-4 w-40" />
+        </CardContent>
+      </Card>
+    );
+  }
+  if (replies.length === 0) return null;
+  return (
+    <Card className="mb-6 border-green-300 dark:border-green-800" data-testid="panel-sent-replies">
+      <CardHeader className="pb-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="w-full flex items-center justify-between text-left"
+          data-testid="button-toggle-sent-replies"
+        >
+          <CardTitle className="text-base flex items-center gap-2 text-green-800 dark:text-green-300">
+            <CheckCircle2 className="h-4 w-4" />
+            {t("inboxSentReplies")}
+            <Badge variant="outline" className="border-green-600 text-green-800 dark:text-green-300 dark:border-green-700 font-mono">
+              {t("inboxSentRepliesCount").replace("{count}", String(replies.length))}
+            </Badge>
+          </CardTitle>
+          <span className="text-muted-foreground text-sm">{open ? "−" : "+"}</span>
+        </button>
+      </CardHeader>
+      {open && (
+        <CardContent className="space-y-3 pt-0">
+          {replies.map((r, idx) => (
+            <div
+              key={r.id}
+              className="rounded-md border bg-muted/30 p-3 text-sm"
+              data-testid={`sent-reply-${r.id}`}
+            >
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground mb-1">
+                <span className="font-medium">#{idx + 1}</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatDate(r.createdAt)}
+                </span>
+              </div>
+              <div className="whitespace-pre-wrap leading-relaxed">{r.sentReply}</div>
+            </div>
+          ))}
+        </CardContent>
+      )}
+    </Card>
   );
 }

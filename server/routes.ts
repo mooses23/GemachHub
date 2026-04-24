@@ -2652,6 +2652,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  // Lightweight: which messages already have at least one saved reply?
+  // Returns one row per (sourceType, sourceRef) with the most-recent reply
+  // timestamp, so the inbox list can mark answered rows without N+1 lookups.
+  app.get("/api/admin/reply-examples/refs", requireAdminMW, async (_req, res) => {
+    try {
+      res.json(await storage.getReplyExampleRefs());
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // Full reply history for one message (form id or Gmail message id), oldest
+  // first. Used by the detail view's "Sent replies" panel.
+  app.get("/api/admin/reply-examples/by-ref", requireAdminMW, async (req, res) => {
+    try {
+      const sourceType = String(req.query.sourceType || '').trim();
+      const sourceRef = String(req.query.sourceRef || '').trim();
+      if (!sourceType || !sourceRef) {
+        return res.status(400).json({ message: "sourceType and sourceRef are required" });
+      }
+      if (sourceType !== 'email' && sourceType !== 'form') {
+        return res.status(400).json({ message: "sourceType must be 'email' or 'form'" });
+      }
+      res.json(await storage.getReplyExamplesByRef(sourceType, sourceRef));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   // Backfill embeddings (best-effort, idempotent)
   app.post("/api/admin/embeddings/backfill", requireAdminMW, async (_req, res) => {
     try {
