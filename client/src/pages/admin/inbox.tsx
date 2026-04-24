@@ -2007,9 +2007,9 @@ function SentRepliesPanel({
                     <Badge
                       variant="outline"
                       className="text-[9px] py-0 h-4 uppercase tracking-wide"
-                      title={r.source === "gmail" ? "Sent from Gmail" : "Sent from this app"}
+                      title={r.source === "gmail" ? t("inboxSentReplyTooltipGmail") : t("inboxSentReplyTooltipApp")}
                     >
-                      {r.source === "gmail" ? "Gmail" : "App"}
+                      {r.source === "gmail" ? t("inboxSentReplySourceGmail") : t("inboxSentReplySourceApp")}
                     </Badge>
                   </span>
                   <span className="flex items-center gap-1">
