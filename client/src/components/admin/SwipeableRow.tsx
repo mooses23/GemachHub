@@ -57,8 +57,7 @@ export function SwipeableRow({
     if (offset >= COMMIT && rightAction) return commit(rightAction);
     if (offset <= -LONG && leftLongAction) return commit(leftLongAction);
     if (offset <= -COMMIT && leftAction) return commit(leftAction);
-    // Partial-reveal snap so the user can tap the revealed action button or
-    // tap outside (overlay) to cancel — the iOS Mail interaction model.
+    // Persistent partial-reveal: user can tap the revealed action or tap outside to cancel.
     if (offset >= REVEAL && rightAction) {
       animate(x, REVEAL + 24, { type: "spring", stiffness: 500, damping: 40 });
       setReveal("right");

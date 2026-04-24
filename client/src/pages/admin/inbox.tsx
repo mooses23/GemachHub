@@ -405,9 +405,7 @@ export default function AdminInbox() {
   const performTrash = (item: UnifiedItem) => {
     const failure = () => toast({ title: t("inboxTrashFailed"), variant: "destructive" });
     if (item.source === "email") {
-      // Bind the inverse (untrash) at trigger time so the undo button still
-      // works correctly even if the user navigates to a different folder
-      // before clicking it.
+      // Bind the inverse here so undo works regardless of current folder.
       const undo = () => {
         const ok = () => toast({ title: t("inboxRestoreSuccess") });
         const ko = () => toast({ title: t("inboxRestoreFailed"), variant: "destructive" });
@@ -1367,11 +1365,9 @@ export default function AdminInbox() {
             ) : (
               <div className="divide-y">
                 {filtered.map((it) => {
-                  // Swipe action wiring per Task #22 spec:
-                  // - Right swipe ALWAYS = Mark unread (in Trash it doubles as Restore since "unread"
-                  //   on a trashed item is meaningless — Restore is the equivalent recovery gesture).
-                  // - Short left = Archive (Inbox only).
-                  // - Long left = Delete (hard-delete for contacts, Gmail trash for emails). Disabled in Trash.
+                  // Right = mark unread (Restore in Trash). Short left = archive
+                  // (Inbox only). Long left = delete (hard-delete for contacts,
+                  // Gmail trash for emails); disabled in Trash.
                   const rightAction =
                     folder === "trash"
                       ? { label: t("inboxDetailRestore"), icon: Undo2, color: "bg-blue-500", onCommit: () => performRestore(it) }
