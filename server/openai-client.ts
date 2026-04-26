@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { storage } from './storage.js';
 import { getThreadMessages } from './gmail-client.js';
+import { normalizeSubject } from './inbox-threading.js';
 import type {
   Location, FaqEntry, PlaybookFact, KnowledgeDoc, ReplyExample,
   KbEmbedding, KbSourceKind, Region, CityCategory, Transaction, Contact,
@@ -77,17 +78,6 @@ function cosine(a: number[], b: number[]): number {
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
   return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
-}
-
-// Strip leading "Re:" / "Fwd:" / "Aw:" / "Tr:" prefixes and collapse
-// whitespace so two messages with the same underlying subject group together.
-// Used for both the AI's form-side thread context and the inbox UI's grouping.
-function normalizeSubject(s: string): string {
-  return String(s || '')
-    .replace(/^\s*((re|fw|fwd|aw|tr)\s*:\s*)+/i, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
 }
 
 function chunkText(text: string, chunkSize = 900, overlap = 150): string[] {

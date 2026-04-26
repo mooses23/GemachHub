@@ -14,6 +14,7 @@ import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
+import { groupContactsByThread } from "./inbox-threading.js";
 import {
   generateEmailResponse, translateText, generateWelcomeOpener,
   reindexFact, reindexFaq, reindexDoc, reindexReplyExample, backfillEmbeddings, seedKnowledgeDocs,
@@ -2196,52 +2197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.user as Express.User;
       if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
       const all = await storage.getAllContacts();
-      const norm = (s: string) => String(s || '')
-        .replace(/^\s*((re|fw|fwd|aw|tr)\s*:\s*)+/i, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-      type Group = {
-        key: string;
-        latest: typeof all[number];
-        messageCount: number;
-        unreadCount: number;
-        memberIds: number[];
-      };
-      const groups = new Map<string, Group>();
-      for (const c of all) {
-        const k = `form::${(c.email || '').toLowerCase()}::${norm(c.subject)}`;
-        const tNew = (c.submittedAt instanceof Date ? c.submittedAt : new Date(c.submittedAt)).getTime();
-        const existing = groups.get(k);
-        if (!existing) {
-          groups.set(k, {
-            key: k,
-            latest: c,
-            messageCount: 1,
-            unreadCount: c.isRead ? 0 : 1,
-            memberIds: [c.id],
-          });
-          continue;
-        }
-        existing.messageCount += 1;
-        if (!c.isRead) existing.unreadCount += 1;
-        existing.memberIds.push(c.id);
-        const tCur = (existing.latest.submittedAt instanceof Date ? existing.latest.submittedAt : new Date(existing.latest.submittedAt)).getTime();
-        if (tNew > tCur) existing.latest = c;
-      }
-      const out = Array.from(groups.values())
-        .map((g) => ({
-          key: g.key,
-          messageCount: g.messageCount,
-          unreadCount: g.unreadCount,
-          memberIds: g.memberIds,
-          latest: g.latest,
-        }))
-        .sort((a, b) => {
-          const ta = (a.latest.submittedAt instanceof Date ? a.latest.submittedAt : new Date(a.latest.submittedAt)).getTime();
-          const tb = (b.latest.submittedAt instanceof Date ? b.latest.submittedAt : new Date(b.latest.submittedAt)).getTime();
-          return tb - ta;
-        });
+      const out = groupContactsByThread(all);
       res.json({ threads: out });
     } catch (error: unknown) {
       console.error('Error grouping contacts:', error);
