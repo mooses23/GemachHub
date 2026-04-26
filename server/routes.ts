@@ -12,7 +12,7 @@ import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
-import { listEmails, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, type GmailListMode } from "./gmail-client.js";
+import { listEmails, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
 import {
   generateEmailResponse, translateText, generateWelcomeOpener,
@@ -2337,6 +2337,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
   app.post("/api/admin/emails/:id/not-spam", unmarkSpamHandler);
   app.post("/api/admin/emails/:id/unspam", unmarkSpamHandler);
+
+  // ===== Thread-level Gmail mutations (Task #29) =====
+  // These wrap Gmail's `users.threads.*` APIs which apply the change to
+  // EVERY message in the thread atomically. They are the
+  // server-authoritative path the inbox UI uses for any per-thread action,
+  // so older siblings that the client hadn't loaded still move correctly.
+  const requireAdmin = (req: Request, res: Response): boolean => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ message: "Authentication required" });
+      return false;
+    }
+    const user = req.user as Express.User;
+    if (!user.isAdmin) {
+      res.status(403).json({ message: "Admin access required" });
+      return false;
+    }
+    return true;
+  };
+  type ThreadOp = (threadId: string) => Promise<void>;
+  const makeThreadRoute = (path: string, op: ThreadOp, errLabel: string) => {
+    app.post(path, async (req, res) => {
+      if (!requireAdmin(req, res)) return;
+      try {
+        await op(req.params.threadId);
+        res.json({ success: true });
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : `Failed to ${errLabel}`;
+        console.error(`Error ${errLabel} thread:`, msg);
+        res.status(500).json({ message: msg });
+      }
+    });
+  };
+  makeThreadRoute("/api/admin/emails/thread/:threadId/read", markThreadAsRead, "mark thread as read");
+  makeThreadRoute("/api/admin/emails/thread/:threadId/unread", markThreadAsUnread, "mark thread as unread");
+  makeThreadRoute("/api/admin/emails/thread/:threadId/archive", archiveThread, "archive thread");
+  makeThreadRoute("/api/admin/emails/thread/:threadId/unarchive", unarchiveThread, "unarchive thread");
+  makeThreadRoute("/api/admin/emails/thread/:threadId/trash", trashThread, "trash thread");
+  makeThreadRoute("/api/admin/emails/thread/:threadId/untrash", untrashThread, "untrash thread");
+  makeThreadRoute("/api/admin/emails/thread/:threadId/spam", markThreadAsSpam, "mark thread as spam");
+  const unspamHandler: ThreadOp = (id) => unmarkThreadSpam(id);
+  makeThreadRoute("/api/admin/emails/thread/:threadId/not-spam", unspamHandler, "unmark thread spam");
+  makeThreadRoute("/api/admin/emails/thread/:threadId/unspam", unspamHandler, "unmark thread spam");
 
   // Generate AI response for an email
   app.post("/api/admin/emails/:id/generate-response", async (req, res) => {

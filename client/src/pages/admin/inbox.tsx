@@ -711,23 +711,32 @@ export default function AdminInbox() {
   // Each bulk action is implemented as a single async function that runs the
   // existing per-id endpoints in a loop. We fan out with Promise.allSettled so
   // a single failure doesn't stop the rest, then surface ONE summary toast.
-  type BulkKind = "markRead" | "archive" | "trash" | "spam" | "notSpam" | "restore";
+  type BulkKind = "markRead" | "markUnread" | "archive" | "trash" | "spam" | "notSpam" | "restore";
   const runOneBulk = async (item: UnifiedItem, kind: BulkKind): Promise<void> => {
     const idStr = String(item.id);
     const idNum = Number(item.id);
     if (item.source === "email") {
+      // Prefer thread-level endpoints when we have a Gmail threadId — Gmail's
+      // `users.threads.*` API moves every message in the thread atomically,
+      // so older siblings the client hadn't loaded still get the action.
+      // Falls back to the per-message endpoint when threadId is missing.
+      const tid = item.threadId;
+      const base = tid
+        ? `/api/admin/emails/thread/${tid}`
+        : `/api/admin/emails/${idStr}`;
       switch (kind) {
-        case "markRead": await apiRequest("POST", `/api/admin/emails/${idStr}/read`); return;
-        case "archive": await apiRequest("POST", `/api/admin/emails/${idStr}/archive`); return;
-        case "trash": await apiRequest("POST", `/api/admin/emails/${idStr}/trash`); return;
-        case "spam": await apiRequest("POST", `/api/admin/emails/${idStr}/spam`); return;
-        case "notSpam": await apiRequest("POST", `/api/admin/emails/${idStr}/not-spam`); return;
+        case "markRead": await apiRequest("POST", `${base}/read`); return;
+        case "markUnread": await apiRequest("POST", `${base}/unread`); return;
+        case "archive": await apiRequest("POST", `${base}/archive`); return;
+        case "trash": await apiRequest("POST", `${base}/trash`); return;
+        case "spam": await apiRequest("POST", `${base}/spam`); return;
+        case "notSpam": await apiRequest("POST", `${base}/not-spam`); return;
         case "restore":
           // Spam folder uses not-spam; Trash folder uses untrash.
           if (folder === "spam") {
-            await apiRequest("POST", `/api/admin/emails/${idStr}/not-spam`);
+            await apiRequest("POST", `${base}/not-spam`);
           } else {
-            await apiRequest("POST", `/api/admin/emails/${idStr}/untrash`);
+            await apiRequest("POST", `${base}/untrash`);
           }
           return;
       }
@@ -735,6 +744,8 @@ export default function AdminInbox() {
       switch (kind) {
         case "markRead":
           await apiRequest("PATCH", `/api/contact/${idNum}`, { isRead: true }); return;
+        case "markUnread":
+          await apiRequest("PATCH", `/api/contact/${idNum}`, { isRead: false }); return;
         case "archive":
           await apiRequest("PATCH", `/api/contact/${idNum}`, { isArchived: true }); return;
         case "trash":
@@ -749,10 +760,26 @@ export default function AdminInbox() {
       }
     }
   };
+  // Dedupe items so we make ONE request per Gmail thread (not one per
+  // sibling). Form items have no thread endpoint and are kept per-row.
+  const dedupeForBulk = (items: UnifiedItem[]): UnifiedItem[] => {
+    const seen = new Set<string>();
+    const out: UnifiedItem[] = [];
+    for (const it of items) {
+      const tag = it.source === "email" && it.threadId
+        ? `email-thread::${it.threadId}`
+        : `${it.source}::${it.id}`;
+      if (seen.has(tag)) continue;
+      seen.add(tag);
+      out.push(it);
+    }
+    return out;
+  };
   const runBulkAction = async (kind: BulkKind, items: UnifiedItem[]) => {
     if (items.length === 0 || bulkRunning) return;
     setBulkRunning(true);
-    const results = await Promise.allSettled(items.map((it) => runOneBulk(it, kind)));
+    const targets = dedupeForBulk(items);
+    const results = await Promise.allSettled(targets.map((it) => runOneBulk(it, kind)));
     const ok = results.filter((r) => r.status === "fulfilled").length;
     const fail = results.length - ok;
     // Refresh affected caches (one shot, not per-row) to repaint the list.
@@ -789,7 +816,8 @@ export default function AdminInbox() {
   ) => {
     if (items.length === 0 || bulkRunning) return;
     setBulkRunning(true);
-    const results = await Promise.allSettled(items.map((it) => runOneBulk(it, kind)));
+    const targets = dedupeForBulk(items);
+    const results = await Promise.allSettled(targets.map((it) => runOneBulk(it, kind)));
     const ok = results.filter((r) => r.status === "fulfilled").length;
     const fail = results.length - ok;
     qc.invalidateQueries({ queryKey: ["/api/contact"] });
@@ -1049,23 +1077,18 @@ export default function AdminInbox() {
     }
   };
 
-  // Thread-level read toggle: when an admin marks the open conversation
-  // as read or unread we apply the change to EVERY message in the
-  // thread so unread filters and the row-level unread badge stay in
-  // sync with the user's mental model. Falls back to single-item
-  // semantics when the thread only has one message.
+  // Thread-level read toggle: marking the open conversation read/unread
+  // applies the change to EVERY message in the thread.
+  //   - Gmail items → ONE call to the thread endpoint (server moves all
+  //     siblings atomically, even ones the client never loaded).
+  //   - Form items → fan out across loaded sibling rows.
   const toggleReadStatus = (item: UnifiedItem) => {
     const newIsRead = !item.isRead;
     const members = groupMembersFor(item);
-    const calls: Promise<unknown>[] = members.map((m) => {
-      if (m.source === "email") {
-        const path = newIsRead
-          ? `/api/admin/emails/${m.id}/read`
-          : `/api/admin/emails/${m.id}/unread`;
-        return apiRequest("POST", path);
-      }
-      return apiRequest("PATCH", `/api/contact/${m.id}`, { isRead: newIsRead });
-    });
+    const targets = dedupeForBulk(members);
+    const calls = targets.map((m) =>
+      runOneBulk(m, newIsRead ? "markRead" : "markUnread")
+    );
     Promise.allSettled(calls).then((results) => {
       qc.invalidateQueries({ queryKey: ["/api/contact"] });
       invalidateEmailLists();
@@ -1796,7 +1819,15 @@ export default function AdminInbox() {
                           label: t("inboxSwipeMarkUnread"),
                           icon: EyeOff,
                           color: "bg-blue-500",
-                          onCommit: () => g.members.forEach((m) => performMarkUnread(m)),
+                          // One thread-endpoint call per Gmail thread (server
+                          // unreads every sibling); fan-out for form rows.
+                          onCommit: () =>
+                            performThreadAction(
+                              g.members,
+                              "markUnread",
+                              t("inboxUnreadSuccess"),
+                              t("inboxUnreadFailed"),
+                            ),
                         };
                   const leftAction =
                     folder === "inbox"

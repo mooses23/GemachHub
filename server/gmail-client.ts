@@ -445,6 +445,77 @@ export async function unmarkSpam(messageId: string): Promise<void> {
   });
 }
 
+// ====================== Thread-level mutations ======================
+// Gmail's `users.threads.*` APIs apply the change to EVERY message in the
+// thread atomically — so when an admin archives / trashes / spams /
+// marks-read a conversation, every sibling moves together regardless of
+// whether the client had loaded all of them. This is the server-authoritative
+// path used for Task #29 thread-level mutations.
+
+export async function markThreadAsRead(threadId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.threads.modify({
+    userId: 'me',
+    id: threadId,
+    requestBody: { removeLabelIds: ['UNREAD'] },
+  });
+}
+
+export async function markThreadAsUnread(threadId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.threads.modify({
+    userId: 'me',
+    id: threadId,
+    requestBody: { addLabelIds: ['UNREAD'] },
+  });
+}
+
+export async function archiveThread(threadId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.threads.modify({
+    userId: 'me',
+    id: threadId,
+    requestBody: { removeLabelIds: ['INBOX'] },
+  });
+}
+
+export async function unarchiveThread(threadId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.threads.modify({
+    userId: 'me',
+    id: threadId,
+    requestBody: { addLabelIds: ['INBOX'] },
+  });
+}
+
+export async function trashThread(threadId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.threads.trash({ userId: 'me', id: threadId });
+}
+
+export async function untrashThread(threadId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.threads.untrash({ userId: 'me', id: threadId });
+}
+
+export async function markThreadAsSpam(threadId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.threads.modify({
+    userId: 'me',
+    id: threadId,
+    requestBody: { addLabelIds: ['SPAM'], removeLabelIds: ['INBOX'] },
+  });
+}
+
+export async function unmarkThreadSpam(threadId: string): Promise<void> {
+  const gmail = await getUncachableGmailClient();
+  await gmail.users.threads.modify({
+    userId: 'me',
+    id: threadId,
+    requestBody: { addLabelIds: ['INBOX'], removeLabelIds: ['SPAM'] },
+  });
+}
+
 function sanitizeHeaderValue(v: string): string {
   return String(v ?? '').replace(/[\r\n]+/g, ' ').trim();
 }

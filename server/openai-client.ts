@@ -552,29 +552,42 @@ async function gatherContext(
   }
 
   // 5. Thread / conversation history. Two cases:
-  //    a) Gmail email with a threadId — pull the full Gmail thread (up to 50
-  //       messages) so the AI sees every prior turn, not just a 6-message
-  //       window. This was the cause of replies that contradicted earlier
-  //       answers in long threads.
+  //    a) Gmail email with a threadId — pull the FULL Gmail thread so the AI
+  //       sees every prior turn (was capped at 6, now uncapped).
   //    b) Contact-form message (no threadId) — build a virtual thread from
   //       sibling contacts on the same normalized subject from the same
-  //       sender, plus any saved replies, so the AI also has context for
-  //       repeat senders who wrote in via the website form.
+  //       sender, plus any saved replies.
+  // Both branches build a unified `events` list and then run the same
+  // prompt-budget compressor: keep the most recent ~10 turns verbatim and
+  // collapse anything older into a short "Earlier in this conversation"
+  // summary so we never silently drop context (per task #29).
   let threadHistoryCount = 0;
   try {
+    type ThreadEvent = {
+      ts: number;
+      direction: 'inbound' | 'outbound';
+      from?: string;
+      subject?: string;
+      body: string;
+    };
+    let events: ThreadEvent[] = [];
+    let headerLabel = 'PRIOR MESSAGES IN THIS THREAD';
+
     if (threadId) {
-      const msgs = await getThreadMessages(threadId, 50);
+      // No cap — return everything Gmail will give us for this threadId.
+      const msgs = await getThreadMessages(threadId, 1000);
       const prior = msgs.filter(m => m.id !== currentMessageId);
-      threadHistoryCount = prior.length;
-      if (prior.length) {
-        sections.push(
-          'PRIOR MESSAGES IN THIS THREAD (oldest first — use this so you do not repeat info or contradict yourself):\n' +
-          prior.map(m => {
-            const dir = (m.labels || []).includes('SENT') ? 'OUR REPLY (sent)' : `INBOUND from ${m.from}`;
-            return `[${m.date}] ${dir}\nSubject: ${m.subject}\n${(m.body || m.snippet || '').slice(0, 1500)}`;
-          }).join('\n---\n')
-        );
-      }
+      events = prior.map((m) => {
+        const isSent = (m.labels || []).includes('SENT');
+        const ts = m.date ? new Date(m.date).getTime() || 0 : 0;
+        return {
+          ts,
+          direction: isSent ? 'outbound' : 'inbound',
+          from: isSent ? undefined : m.from,
+          subject: m.subject,
+          body: m.body || m.snippet || '',
+        };
+      });
     } else if (senderEmail) {
       const normSubj = normalizeSubject(emailSubject);
       const allContacts = await storage.getContactsByEmail(senderEmail).catch(() => [] as Contact[]);
@@ -586,30 +599,77 @@ async function gatherContext(
         const repliesPerSibling = await Promise.all(
           siblings.map(s => storage.getReplyExamplesByRef('form', String(s.id)).catch(() => [] as ReplyExample[]))
         );
-        const events: { ts: number; line: string }[] = [];
         siblings.forEach((s, i) => {
           const ts = (s.submittedAt instanceof Date ? s.submittedAt : new Date(s.submittedAt)).getTime() || 0;
           events.push({
             ts,
-            line: `[${new Date(ts).toISOString()}] INBOUND from ${s.name} <${s.email}>\nSubject: ${s.subject}\n${(s.message || '').slice(0, 1500)}`,
+            direction: 'inbound',
+            from: `${s.name} <${s.email}>`,
+            subject: s.subject,
+            body: s.message || '',
           });
           for (const r of repliesPerSibling[i] || []) {
             const rts = (r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt)).getTime() || 0;
             events.push({
               ts: rts,
-              line: `[${new Date(rts).toISOString()}] OUR PRIOR REPLY (sent)\n${(r.sentReply || '').slice(0, 1500)}`,
+              direction: 'outbound',
+              body: r.sentReply || '',
             });
           }
         });
-        events.sort((a, b) => a.ts - b.ts);
-        threadHistoryCount = events.length;
-        if (events.length) {
-          sections.push(
-            'PRIOR MESSAGES IN THIS CONVERSATION (oldest first — same sender + subject; use to avoid repeating info or contradicting yourself):\n' +
-            events.map(e => e.line).join('\n---\n')
-          );
-        }
+        headerLabel = 'PRIOR MESSAGES IN THIS CONVERSATION (same sender + subject)';
       }
+    }
+
+    events.sort((a, b) => a.ts - b.ts);
+    threadHistoryCount = events.length;
+
+    if (events.length) {
+      // Prompt-budget compression. We keep the most recent KEEP_VERBATIM
+      // turns in full and squeeze the rest into a single "Earlier in this
+      // conversation" summary so the AI never loses the long-tail context
+      // even on huge threads.
+      const KEEP_VERBATIM = 10;
+      const VERBATIM_BODY_CHARS = 4000;
+      const SUMMARY_BODY_CHARS = 240;
+
+      const olderCount = Math.max(0, events.length - KEEP_VERBATIM);
+      const olderEvents = olderCount > 0 ? events.slice(0, olderCount) : [];
+      const recentEvents = olderCount > 0 ? events.slice(olderCount) : events;
+
+      const fmtVerbatim = (e: ThreadEvent) => {
+        const dir = e.direction === 'outbound'
+          ? 'OUR REPLY (sent)'
+          : `INBOUND${e.from ? ` from ${e.from}` : ''}`;
+        const subj = e.subject ? `Subject: ${e.subject}\n` : '';
+        const body = e.body.length > VERBATIM_BODY_CHARS
+          ? e.body.slice(0, VERBATIM_BODY_CHARS) + ' …[truncated]'
+          : e.body;
+        const date = e.ts ? new Date(e.ts).toISOString() : 'unknown date';
+        return `[${date}] ${dir}\n${subj}${body}`;
+      };
+
+      const fmtSummary = (e: ThreadEvent) => {
+        const dir = e.direction === 'outbound'
+          ? 'we replied'
+          : `inbound${e.from ? ` from ${e.from}` : ''}`;
+        const date = e.ts ? new Date(e.ts).toISOString().slice(0, 10) : 'unknown';
+        const oneLine = e.body.replace(/\s+/g, ' ').trim().slice(0, SUMMARY_BODY_CHARS);
+        return `- [${date}] ${dir}: ${oneLine}`;
+      };
+
+      const parts: string[] = [];
+      if (olderEvents.length) {
+        parts.push(
+          `EARLIER IN THIS CONVERSATION (${olderEvents.length} older message${olderEvents.length === 1 ? '' : 's'}, summarized — oldest first):\n` +
+          olderEvents.map(fmtSummary).join('\n')
+        );
+      }
+      parts.push(
+        `${headerLabel} — last ${recentEvents.length} message${recentEvents.length === 1 ? '' : 's'} verbatim, oldest first (use this so you do not repeat info or contradict yourself):\n` +
+        recentEvents.map(fmtVerbatim).join('\n---\n')
+      );
+      sections.push(parts.join('\n\n'));
     }
   } catch {}
 
