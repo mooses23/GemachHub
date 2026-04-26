@@ -1,8 +1,27 @@
 import { defineConfig } from "@playwright/test";
+import { execSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${PORT}`;
-const SYSTEM_CHROMIUM = process.env.PLAYWRIGHT_CHROMIUM_PATH || "/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium";
+
+function resolveChromium(): string | undefined {
+  const fromEnv = process.env.PLAYWRIGHT_CHROMIUM_PATH;
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  for (const cmd of ["chromium", "chromium-browser", "google-chrome", "chrome"]) {
+    try {
+      const out = execSync(`command -v ${cmd}`, { stdio: ["ignore", "pipe", "ignore"] })
+        .toString()
+        .trim();
+      if (out && existsSync(out)) return out;
+    } catch {
+      // try next
+    }
+  }
+  return undefined;
+}
+
+const chromiumPath = resolveChromium();
 
 export default defineConfig({
   testDir: "./e2e",
@@ -15,8 +34,6 @@ export default defineConfig({
     headless: true,
     actionTimeout: 10_000,
     navigationTimeout: 20_000,
-    launchOptions: {
-      executablePath: SYSTEM_CHROMIUM,
-    },
+    launchOptions: chromiumPath ? { executablePath: chromiumPath } : {},
   },
 });

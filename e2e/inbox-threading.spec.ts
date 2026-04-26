@@ -131,8 +131,8 @@ test.describe("admin inbox — thread grouping regression", () => {
     await expect(page.getByTestId("badge-thread-message-count")).toHaveText(
       new RegExp(`\\b${SEED_MESSAGES.length}\\b`),
     );
-    const transcriptEntries = page.locator('[data-testid^="thread-entry-"][data-testid$="-toggle"], [data-testid^="thread-entry-"]:not([data-testid*="-toggle"]):not([data-testid*="-direction"]):not([data-testid*="-from"]):not([data-testid*="-date"]):not([data-testid*="-body"]):not([data-testid*="-translate"])');
-    // Use the per-id "from" rows as a stable count of unique transcript entries.
+    // The per-id "from" rows are the stable, one-per-message marker in the
+    // transcript, so use them to assert every seeded message rendered.
     const fromRows = page.locator('[data-testid^="thread-entry-from-"]');
     await expect(fromRows).toHaveCount(SEED_MESSAGES.length);
 
