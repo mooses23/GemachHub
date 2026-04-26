@@ -1055,7 +1055,7 @@ export default function AdminInbox() {
   const currentGroup: InboxThread | null = selected
     ? threadGroups.find((g) => g.key === groupKey(selected)) ?? null
     : null;
-  const currentItems: UnifiedItem[] = currentGroup?.items ?? (selected ? [selected] : []);
+  const currentItems: UnifiedItem[] = currentGroup?.members ?? (selected ? [selected] : []);
 
   if (selected) {
     return (
@@ -1733,7 +1733,7 @@ export default function AdminInbox() {
                           color: "bg-blue-500",
                           onCommit: () =>
                             performThreadAction(
-                              g.items,
+                              g.members,
                               "restore",
                               t("inboxRestoreSuccess"),
                               t("inboxRestoreFailed"),
@@ -1748,7 +1748,7 @@ export default function AdminInbox() {
                           color: "bg-gray-500",
                           onCommit: () =>
                             performThreadAction(
-                              g.items,
+                              g.members,
                               "archive",
                               t("inboxArchiveSuccess"),
                               t("inboxArchiveFailed"),
@@ -1767,13 +1767,13 @@ export default function AdminInbox() {
                           color: "bg-red-600",
                           onCommit: () =>
                             performThreadAction(
-                              g.items,
+                              g.members,
                               "trash",
                               t("inboxTrashSuccess"),
                               t("inboxTrashFailed"),
                               // Contacts are hard-deleted on trash, so undo
                               // would 404. Only emails support untrash.
-                              g.items.every((m) => m.source === "email") ? "restore" : undefined,
+                              g.members.every((m) => m.source === "email") ? "restore" : undefined,
                               t("inboxRestoreSuccess"),
                               t("inboxRestoreFailed"),
                             ),
