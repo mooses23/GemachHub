@@ -751,7 +751,12 @@ export default function AdminInbox() {
   // Each bulk action is implemented as a single async function that runs the
   // existing per-id endpoints in a loop. We fan out with Promise.allSettled so
   // a single failure doesn't stop the rest, then surface ONE summary toast.
-  type BulkKind = "markRead" | "markUnread" | "archive" | "trash" | "spam" | "notSpam" | "restore";
+  // `unarchive` is the inverse of `archive` (Gmail: re-add INBOX label;
+  // form: clear isArchived). It's distinct from `restore`, which only
+  // applies to the Trash/Spam folders and untrashes / unmarks-spam.
+  // Mixing them was a real undo bug — undoing an archive used to call
+  // /untrash, which is a no-op for archived (but not trashed) threads.
+  type BulkKind = "markRead" | "markUnread" | "archive" | "unarchive" | "trash" | "spam" | "notSpam" | "restore";
   const runOneBulk = async (item: UnifiedItem, kind: BulkKind): Promise<void> => {
     const idStr = String(item.id);
     const idNum = Number(item.id);
@@ -768,6 +773,7 @@ export default function AdminInbox() {
         case "markRead": await apiRequest("POST", `${base}/read`); return;
         case "markUnread": await apiRequest("POST", `${base}/unread`); return;
         case "archive": await apiRequest("POST", `${base}/archive`); return;
+        case "unarchive": await apiRequest("POST", `${base}/unarchive`); return;
         case "trash": await apiRequest("POST", `${base}/trash`); return;
         case "spam": await apiRequest("POST", `${base}/spam`); return;
         case "notSpam": await apiRequest("POST", `${base}/not-spam`); return;
@@ -788,6 +794,8 @@ export default function AdminInbox() {
           await apiRequest("PATCH", `/api/contact/${idNum}`, { isRead: false }); return;
         case "archive":
           await apiRequest("PATCH", `/api/contact/${idNum}`, { isArchived: true }); return;
+        case "unarchive":
+          await apiRequest("PATCH", `/api/contact/${idNum}`, { isArchived: false }); return;
         case "trash":
           // Contacts are hard-deleted from Trash actions (mirrors single-row behavior).
           await apiRequest("DELETE", `/api/contact/${idNum}`); return;
@@ -1302,6 +1310,7 @@ export default function AdminInbox() {
             translatedBody={translatedBody}
             onTranslateLatestInbound={handleTranslateMessage}
             isTranslating={translateMutation.isPending}
+            uiTarget={uiTarget}
           />
 
           <Card>
@@ -1841,6 +1850,11 @@ export default function AdminInbox() {
                   // thread so older siblings don't linger in the previous
                   // folder. Mark-unread stays on the latest only since
                   // group unread state derives from latest.
+                  // Resolve sibling members from the canonical (unfiltered)
+                  // thread map so a search/read/source filter that hides
+                  // some siblings doesn't leave them behind in the wrong
+                  // folder. `g.members` only contains the visible subset.
+                  const canonicalMembers = groupMembersFor(it);
                   const rightAction =
                     folder === "trash"
                       ? {
@@ -1849,7 +1863,7 @@ export default function AdminInbox() {
                           color: "bg-blue-500",
                           onCommit: () =>
                             performThreadAction(
-                              g.members,
+                              canonicalMembers,
                               "restore",
                               t("inboxRestoreSuccess"),
                               t("inboxRestoreFailed"),
@@ -1863,7 +1877,7 @@ export default function AdminInbox() {
                           // unreads every sibling); fan-out for form rows.
                           onCommit: () =>
                             performThreadAction(
-                              g.members,
+                              canonicalMembers,
                               "markUnread",
                               t("inboxUnreadSuccess"),
                               t("inboxUnreadFailed"),
@@ -1876,12 +1890,16 @@ export default function AdminInbox() {
                           icon: Archive,
                           color: "bg-gray-500",
                           onCommit: () =>
+                            // Undo of archive is `unarchive` (re-add INBOX
+                            // label / clear isArchived). `restore` would
+                            // route to /untrash for emails, which is a
+                            // no-op for archived (but not trashed) threads.
                             performThreadAction(
-                              g.members,
+                              canonicalMembers,
                               "archive",
                               t("inboxArchiveSuccess"),
                               t("inboxArchiveFailed"),
-                              "restore",
+                              "unarchive",
                               t("inboxRestoreSuccess"),
                               t("inboxRestoreFailed"),
                             ),
@@ -1896,13 +1914,13 @@ export default function AdminInbox() {
                           color: "bg-red-600",
                           onCommit: () =>
                             performThreadAction(
-                              g.members,
+                              canonicalMembers,
                               "trash",
                               t("inboxTrashSuccess"),
                               t("inboxTrashFailed"),
                               // Contacts are hard-deleted on trash, so undo
                               // would 404. Only emails support untrash.
-                              g.members.every((m) => m.source === "email") ? "restore" : undefined,
+                              canonicalMembers.every((m) => m.source === "email") ? "restore" : undefined,
                               t("inboxRestoreSuccess"),
                               t("inboxRestoreFailed"),
                             ),
@@ -2244,13 +2262,48 @@ function ThreadTranscriptPanel({
   translatedBody,
   onTranslateLatestInbound,
   isTranslating,
+  uiTarget,
 }: {
   selected: UnifiedItem;
   t: (k: TranslationKey) => string;
   translatedBody: string | null;
   onTranslateLatestInbound: () => void;
   isTranslating: boolean;
+  uiTarget: "en" | "he";
 }) {
+  // Per-entry translations for OLDER inbound messages. The latest inbound
+  // (the one matched by `isCurrent`) keeps using the parent-owned
+  // `translatedBody` so the transcript card and the reply panel stay in
+  // sync. Everything else translates locally — the cache is keyed by
+  // ThreadEntry.id so toggles persist while the panel stays mounted.
+  const [entryTranslations, setEntryTranslations] = useState<Record<string, string>>({});
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  const translateEntryMutation = useMutation({
+    mutationFn: async ({ text, target }: { text: string; target: "en" | "he" }) => {
+      const res = await apiRequest("POST", `/api/admin/inbox/translate`, { text, target });
+      return (await res.json()).translated as string;
+    },
+  });
+  const { toast } = useToast();
+  const handleTranslateEntry = async (entry: ThreadEntry) => {
+    if (entryTranslations[entry.id]) {
+      setEntryTranslations((p) => {
+        const next = { ...p };
+        delete next[entry.id];
+        return next;
+      });
+      return;
+    }
+    setTranslatingId(entry.id);
+    try {
+      const out = await translateEntryMutation.mutateAsync({ text: entry.body, target: uiTarget });
+      setEntryTranslations((p) => ({ ...p, [entry.id]: out }));
+    } catch (e) {
+      toast({ title: "Translate failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally {
+      setTranslatingId(null);
+    }
+  };
   const ref = selected.source === "email"
     ? String(selected.threadId || selected.id)
     : String(selected.id);
@@ -2372,11 +2425,21 @@ function ThreadTranscriptPanel({
         {messages.map((m, idx) => {
           const open = isExpanded(m, idx);
           const outbound = m.direction === "outbound";
-          // Only the current selected (inbound) message shows the
-          // translation toggle — translating sent / older messages would
-          // require new mutation plumbing and offers little value here.
-          const showTranslate = isCurrent(m) && !outbound;
-          const body = showTranslate && translatedBody ? translatedBody : m.body;
+          // Translation is offered on EVERY inbound message in the
+          // transcript so admins can read older customer messages in
+          // their UI language. The latest inbound (the "current" one)
+          // is wired to the parent-owned `translatedBody` so it stays
+          // in sync with the reply panel; older inbound messages
+          // translate locally with their own per-entry cache.
+          const showTranslate = !outbound;
+          const isLatestInbound = isCurrent(m);
+          const entryTranslated = isLatestInbound
+            ? translatedBody
+            : entryTranslations[m.id] ?? null;
+          const isThisTranslating = isLatestInbound
+            ? isTranslating
+            : translatingId === m.id;
+          const body = showTranslate && entryTranslated ? entryTranslated : m.body;
           return (
             <div
               key={m.id}
@@ -2429,14 +2492,14 @@ function ThreadTranscriptPanel({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={onTranslateLatestInbound}
-                        disabled={isTranslating}
-                        data-testid="button-translate-message"
+                        onClick={() => isLatestInbound ? onTranslateLatestInbound() : handleTranslateEntry(m)}
+                        disabled={isThisTranslating}
+                        data-testid={isLatestInbound ? "button-translate-message" : `button-translate-entry-${m.id}`}
                       >
                         <Languages className="h-4 w-4 mr-2" />
-                        {translatedBody ? t("inboxShowOriginal") : t("inboxTranslate")}
+                        {entryTranslated ? t("inboxShowOriginal") : t("inboxTranslate")}
                       </Button>
-                      {translatedBody && (
+                      {entryTranslated && (
                         <span className="text-xs text-muted-foreground">{t("inboxTranslated")}</span>
                       )}
                     </div>
