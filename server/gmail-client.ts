@@ -252,6 +252,83 @@ export async function listEmails(
   };
 }
 
+// ====================== Thread-grouped list (Task #29) ======================
+// Server-authoritative listing that returns one row per Gmail conversation
+// (not per message). Uses Gmail's `threads.list` for thread-level paging and
+// `threads.get(format=full)` to compute the authoritative messageCount /
+// unreadCount per thread. The latest message in the thread is surfaced as
+// the row representative. This is what the inbox UI consumes so paging,
+// counts, and unread state always reflect the full conversation — not just
+// whichever messages happen to be loaded.
+export interface EmailThreadSummary extends EmailMessage {
+  messageCount: number;
+  unreadCount: number;
+}
+
+export interface ListEmailThreadsResult {
+  threads: EmailThreadSummary[];
+  nextPageToken?: string;
+}
+
+export async function listEmailThreads(
+  maxResults: number = 25,
+  pageToken?: string,
+  mode: GmailListMode = 'inbox',
+): Promise<ListEmailThreadsResult> {
+  const gmail = await getUncachableGmailClient();
+  const labelIds = labelsForMode(mode);
+  const params: gmail_v1.Params$Resource$Users$Threads$List = {
+    userId: 'me',
+    maxResults,
+    pageToken: pageToken || undefined,
+  };
+  if (labelIds) params.labelIds = labelIds;
+  if (mode === 'archive') params.q = '-in:inbox -in:spam -in:trash';
+
+  const resp = await gmail.users.threads.list(params);
+  const threadStubs = resp.data.threads || [];
+  const summaries: EmailThreadSummary[] = [];
+  await Promise.all(
+    threadStubs.map(async (stub) => {
+      if (!stub.id) return;
+      try {
+        const detail = await gmail.users.threads.get({
+          userId: 'me',
+          id: stub.id,
+          format: 'full',
+        });
+        const messages = detail.data.messages || [];
+        if (!messages.length) return;
+        const messageCount = messages.length;
+        const unreadCount = messages.filter((m) => (m.labelIds || []).includes('UNREAD')).length;
+        const latest = messages[messages.length - 1];
+        const headers = latest.payload?.headers || [];
+        summaries.push({
+          id: latest.id || '',
+          threadId: stub.id,
+          from: getHeader(headers, 'From'),
+          to: getHeader(headers, 'To'),
+          subject: getHeader(headers, 'Subject'),
+          snippet: latest.snippet || '',
+          body: extractBody(latest.payload),
+          date: getHeader(headers, 'Date'),
+          isRead: !(latest.labelIds || []).includes('UNREAD'),
+          labels: latest.labelIds || [],
+          messageCount,
+          unreadCount,
+        });
+      } catch (e) {
+        console.warn('listEmailThreads: failed to load thread', stub.id, (e as Error)?.message);
+      }
+    })
+  );
+  summaries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return {
+    threads: summaries,
+    nextPageToken: resp.data.nextPageToken || undefined,
+  };
+}
+
 export async function getEmail(messageId: string): Promise<EmailMessage | null> {
   const gmail = await getUncachableGmailClient();
   
@@ -311,12 +388,15 @@ export async function listSentThreadIds(maxThreads: number = 500): Promise<strin
   return Array.from(ids);
 }
 
-export async function getThreadMessages(threadId: string, max: number = 50): Promise<EmailMessage[]> {
+export async function getThreadMessages(threadId: string, max?: number): Promise<EmailMessage[]> {
   const gmail = await getUncachableGmailClient();
   try {
     const thread = await gmail.users.threads.get({ userId: 'me', id: threadId, format: 'full' });
     const messages = thread.data.messages || [];
-    const sliced = messages.slice(-max);
+    // No cap by default — return EVERY message in the thread so the
+    // transcript view and AI context never silently drop history. A `max`
+    // is only honored when the caller explicitly opts in.
+    const sliced = typeof max === 'number' && max > 0 ? messages.slice(-max) : messages;
     return sliced.map((m: any) => {
       const headers = m.payload?.headers || [];
       return {

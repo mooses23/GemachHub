@@ -79,10 +79,21 @@ interface GmailEmail {
   date: string;
   isRead: boolean;
   labels: string[];
+  // Optional server-authoritative thread metadata. Populated by the
+  // /api/admin/emails/threads endpoint which returns ONE entry per
+  // Gmail conversation (latest message as representative) plus the
+  // total message count and unread count of the full thread — not
+  // just the messages that happen to be loaded on this page.
+  messageCount?: number;
+  unreadCount?: number;
 }
 
 interface EmailsResponse {
-  emails: GmailEmail[];
+  // The new thread-grouped endpoint returns `threads`. The legacy
+  // per-message endpoint returned `emails`. We accept both shapes so
+  // the page degrades cleanly if the new endpoint isn't deployed yet.
+  threads?: GmailEmail[];
+  emails?: GmailEmail[];
   nextPageToken?: string;
 }
 
@@ -100,6 +111,11 @@ interface UnifiedItem {
   isRead: boolean;
   isArchived?: boolean;
   isSpam?: boolean;
+  // Server-authoritative thread counts from the thread-grouped list
+  // endpoints. When set, takes precedence over the client-derived
+  // count in the inbox row.
+  serverMessageCount?: number;
+  serverUnreadCount?: number;
 }
 
 function parseEmailAddress(from: string): { name: string; email: string } {
@@ -264,17 +280,21 @@ export default function AdminInbox() {
     return null;
   };
 
-  // Paginated emails (using infinite query for proper cache + refresh behavior).
-  // The Gmail folder is part of the queryKey so each tab gets its own cache.
+  // Paginated email THREADS (using infinite query for proper cache + refresh
+  // behavior). Hits the server-authoritative thread-grouped endpoint that
+  // returns ONE entry per Gmail conversation with messageCount/unreadCount
+  // computed from the FULL thread membership — so paging, counts, and unread
+  // state always reflect the real conversation state, never just whatever
+  // messages happen to be loaded.
   const emailQueries = useInfiniteQuery<EmailsResponse>({
-    queryKey: ["/api/admin/emails", "infinite", folder],
+    queryKey: ["/api/admin/emails/threads", "infinite", folder],
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({ maxResults: "25", mode: folder });
       if (typeof pageParam === "string" && pageParam) {
         params.set("pageToken", pageParam);
       }
-      const res = await fetch(`/api/admin/emails?${params.toString()}`, { credentials: "include" });
+      const res = await fetch(`/api/admin/emails/threads?${params.toString()}`, { credentials: "include" });
       if (!res.ok) {
         let message = "Failed to load emails";
         try { message = (await res.json()).message || message; } catch {}
@@ -286,14 +306,17 @@ export default function AdminInbox() {
   });
 
   const invalidateEmailLists = () => {
-    qc.invalidateQueries({ queryKey: ["/api/admin/emails", "infinite"] });
+    qc.invalidateQueries({ queryKey: ["/api/admin/emails/threads", "infinite"] });
     // Folder-chip backlog counts also depend on the just-changed Gmail label,
     // so refresh them immediately rather than waiting for the 60s poll.
     qc.invalidateQueries({ queryKey: ["/api/admin/emails/labels"] });
   };
 
   const allEmails: GmailEmail[] = useMemo(() => {
-    const merged = (emailQueries.data?.pages ?? []).flatMap((p) => p.emails);
+    // Accept both response shapes (`threads` from the new endpoint, `emails`
+    // from the legacy one) so a single page-load failure doesn't blank the
+    // inbox if/when the server is rolled back.
+    const merged = (emailQueries.data?.pages ?? []).flatMap((p) => p.threads ?? p.emails ?? []);
     const ids = new Set<string>();
     return merged.filter((e) => {
       if (ids.has(e.id)) return false;
@@ -351,6 +374,11 @@ export default function AdminInbox() {
         snippet: e.snippet,
         date: safeDate(e.date),
         isRead: e.isRead,
+        // Carry server-authoritative thread metadata onto the unified item
+        // so the inbox row's "{N} messages" pill reflects the FULL Gmail
+        // thread, not just the messages currently loaded on this page.
+        serverMessageCount: e.messageCount,
+        serverUnreadCount: e.unreadCount,
       });
     }
     return list.sort((a, b) => {
@@ -425,6 +453,18 @@ export default function AdminInbox() {
         existing.latest = it;
       }
     }
+    // Apply server-authoritative counts when present. The thread-grouped
+    // Gmail endpoint returns ONE entry per conversation with the FULL
+    // thread's messageCount/unreadCount, so we trust those over our
+    // client-derived tally (which only reflects loaded messages).
+    Array.from(groups.values()).forEach((g) => {
+      if (typeof g.latest.serverMessageCount === 'number') {
+        g.messageCount = g.latest.serverMessageCount;
+      }
+      if (typeof g.latest.serverUnreadCount === 'number') {
+        g.unreadCount = g.latest.serverUnreadCount;
+      }
+    });
     return Array.from(groups.values()).sort((a, b) => {
       const ta = new Date(a.latest.date).getTime();
       const tb = new Date(b.latest.date).getTime();

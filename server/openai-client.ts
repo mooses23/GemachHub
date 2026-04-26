@@ -574,8 +574,9 @@ async function gatherContext(
     let headerLabel = 'PRIOR MESSAGES IN THIS THREAD';
 
     if (threadId) {
-      // No cap — return everything Gmail will give us for this threadId.
-      const msgs = await getThreadMessages(threadId, 1000);
+      // No cap — return EVERY message in the Gmail thread so the
+      // budget-compressor below operates on the true full history.
+      const msgs = await getThreadMessages(threadId);
       const prior = msgs.filter(m => m.id !== currentMessageId);
       events = prior.map((m) => {
         const isSent = (m.labels || []).includes('SENT');

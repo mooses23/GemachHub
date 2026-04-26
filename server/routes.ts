@@ -12,7 +12,7 @@ import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
-import { listEmails, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
+import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
 import {
   generateEmailResponse, translateText, generateWelcomeOpener,
@@ -2189,6 +2189,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Thread-grouped contact-form list (server-authoritative). Groups every
+  // contact-form submission by (lower(email), normalized subject) — the same
+  // bucket used for Gmail-style threading on the form side — and returns one
+  // row per conversation with authoritative messageCount/unreadCount derived
+  // from the FULL contact set.
+  app.get("/api/admin/contacts/threads", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      const all = await storage.getAllContacts();
+      const norm = (s: string) => String(s || '')
+        .replace(/^\s*((re|fw|fwd|aw|tr)\s*:\s*)+/i, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+      type Group = {
+        key: string;
+        latest: typeof all[number];
+        messageCount: number;
+        unreadCount: number;
+        memberIds: number[];
+      };
+      const groups = new Map<string, Group>();
+      for (const c of all) {
+        const k = `form::${(c.email || '').toLowerCase()}::${norm(c.subject)}`;
+        const tNew = (c.submittedAt instanceof Date ? c.submittedAt : new Date(c.submittedAt)).getTime();
+        const existing = groups.get(k);
+        if (!existing) {
+          groups.set(k, {
+            key: k,
+            latest: c,
+            messageCount: 1,
+            unreadCount: c.isRead ? 0 : 1,
+            memberIds: [c.id],
+          });
+          continue;
+        }
+        existing.messageCount += 1;
+        if (!c.isRead) existing.unreadCount += 1;
+        existing.memberIds.push(c.id);
+        const tCur = (existing.latest.submittedAt instanceof Date ? existing.latest.submittedAt : new Date(existing.latest.submittedAt)).getTime();
+        if (tNew > tCur) existing.latest = c;
+      }
+      const out = Array.from(groups.values())
+        .map((g) => ({
+          key: g.key,
+          messageCount: g.messageCount,
+          unreadCount: g.unreadCount,
+          memberIds: g.memberIds,
+          latest: g.latest,
+        }))
+        .sort((a, b) => {
+          const ta = (a.latest.submittedAt instanceof Date ? a.latest.submittedAt : new Date(a.latest.submittedAt)).getTime();
+          const tb = (b.latest.submittedAt instanceof Date ? b.latest.submittedAt : new Date(b.latest.submittedAt)).getTime();
+          return tb - ta;
+        });
+      res.json({ threads: out });
+    } catch (error: unknown) {
+      console.error('Error grouping contacts:', error);
+      res.status(500).json({ message: error instanceof Error ? error.message : 'Failed' });
+    }
+  });
+
+  // Thread-grouped Gmail list (server-authoritative). Returns one entry per
+  // Gmail conversation with messageCount/unreadCount derived from the FULL
+  // thread membership (not just whichever messages happen to be loaded).
+  // Pagination is thread-based via Gmail's `threads.list` page tokens.
+  app.get("/api/admin/emails/threads", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      const maxResults = parseInt(req.query.maxResults as string) || 25;
+      const pageToken = (req.query.pageToken as string) || undefined;
+      const rawMode = String(req.query.mode || 'inbox').toLowerCase();
+      const allowedModes = ['inbox', 'spam', 'trash', 'archive', 'all'] as const;
+      const mode: GmailListMode = (allowedModes as readonly string[]).includes(rawMode)
+        ? (rawMode as GmailListMode)
+        : 'inbox';
+      const result = await listEmailThreads(maxResults, pageToken, mode);
+      res.json(result);
+    } catch (error: unknown) {
+      console.error("Error fetching email threads:", error);
+      const errObj = error as { message?: string; response?: { data?: { error?: string } } } | undefined;
+      const raw = String(errObj?.message || errObj?.response?.data?.error || "");
+      if (/invalid_grant/i.test(raw)) {
+        return res.status(401).json({
+          code: "gmail_invalid_grant",
+          message: "Gmail refresh token is invalid or expired.",
+        });
+      }
+      res.status(500).json({ message: errObj?.message || "Failed to fetch threads" });
+    }
+  });
+
   // Get a single email by ID
   app.get("/api/admin/emails/:id", async (req, res) => {
     try {
@@ -2858,9 +2954,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       if (source === 'email') {
-        // ref = Gmail threadId
+        // ref = Gmail threadId. No cap — pull the entire Gmail thread so
+        // the transcript view always shows every message in the
+        // conversation, never a silently-truncated tail.
         const [threadMessages, savedReplies] = await Promise.all([
-          getThreadMessages(ref, 100).catch(() => []),
+          getThreadMessages(ref).catch(() => []),
           storage.getReplyExamplesByRef('email', ref).catch(() => []),
         ]);
         const entries: ThreadEntry[] = [];
