@@ -724,8 +724,8 @@ export default function AdminInbox() {
   };
 
   // ===== Bulk actions =====
-  // `unarchive` is the inverse of `archive`; `restore` only applies in Trash/Spam.
-  type BulkKind = "markRead" | "markUnread" | "archive" | "unarchive" | "trash" | "spam" | "notSpam" | "restore";
+  // `unarchive` is archive's inverse; `untrash` is trash's inverse; `restore` is the folder-aware user action.
+  type BulkKind = "markRead" | "markUnread" | "archive" | "unarchive" | "trash" | "untrash" | "spam" | "notSpam" | "restore";
   const runOneBulk = async (item: UnifiedItem, kind: BulkKind): Promise<void> => {
     const idStr = String(item.id);
     const idNum = Number(item.id);
@@ -741,6 +741,7 @@ export default function AdminInbox() {
         case "archive": await apiRequest("POST", `${base}/archive`); return;
         case "unarchive": await apiRequest("POST", `${base}/unarchive`); return;
         case "trash": await apiRequest("POST", `${base}/trash`); return;
+        case "untrash": await apiRequest("POST", `${base}/untrash`); return;
         case "spam": await apiRequest("POST", `${base}/spam`); return;
         case "notSpam": await apiRequest("POST", `${base}/not-spam`); return;
         case "restore":
@@ -1847,8 +1848,8 @@ export default function AdminInbox() {
                               "trash",
                               t("inboxTrashSuccess"),
                               t("inboxTrashFailed"),
-                              // Only emails support untrash; contacts are hard-deleted.
-                              canonicalMembers.every((m) => m.source === "email") ? "restore" : undefined,
+                              // Only emails support untrash; contacts are hard-deleted. Use explicit `untrash` so undo is unambiguous regardless of folder.
+                              canonicalMembers.every((m) => m.source === "email") ? "untrash" : undefined,
                               t("inboxRestoreSuccess"),
                               t("inboxRestoreFailed"),
                             ),
