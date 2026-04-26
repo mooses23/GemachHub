@@ -395,9 +395,15 @@ export default function AdminInbox() {
   // the same sender/subject pair on every back-and-forth turn. Bulk-select
   // and swipe gestures still operate on the latest message — opening a
   // thread loads the full transcript via /api/admin/inbox/thread.
-  const threadGroups: InboxThread[] = useMemo(() => {
+  // Helper: build a map of conversation groups from a list of items.
+  // Used twice — once over filtered items (for the visible inbox list)
+  // and once over the full unified list (for thread-level mutations so
+  // archive/spam/trash always fan out to every sibling, even when the
+  // user has a folder/search/unread filter active that hides some of
+  // them).
+  const buildGroups = (items: UnifiedItem[]): InboxThread[] => {
     const groups = new Map<string, InboxThread>();
-    for (const it of filtered) {
+    for (const it of items) {
       const k = groupKey(it);
       const existing = groups.get(k);
       if (!existing) {
@@ -424,7 +430,26 @@ export default function AdminInbox() {
       const tb = new Date(b.latest.date).getTime();
       return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
     });
-  }, [filtered]);
+  };
+
+  const threadGroups: InboxThread[] = useMemo(() => buildGroups(filtered), [filtered]);
+
+  // Canonical thread map across ALL loaded messages (no filters
+  // applied). Mutation handlers — bulk actions, swipe gestures, detail
+  // header buttons — resolve a thread's full member list against this
+  // map so an action on one row always touches every sibling, even if
+  // the unread/source/search filter currently hides some of them.
+  const allThreadGroupsByKey: Map<string, InboxThread> = useMemo(() => {
+    const map = new Map<string, InboxThread>();
+    for (const g of buildGroups(unified)) map.set(g.key, g);
+    return map;
+  }, [unified]);
+
+  const groupMembersFor = (item: UnifiedItem | null | undefined): UnifiedItem[] => {
+    if (!item) return [];
+    const g = allThreadGroupsByKey.get(groupKey(item));
+    return g?.members ?? [item];
+  };
 
   // Replied-state lookup at the thread level. For Gmail threads every
   // member shares the same threadId so the existing per-item lookup is
@@ -457,6 +482,23 @@ export default function AdminInbox() {
     () => threadGroups.map((g) => g.latest).filter((it) => selectedKeys.has(it.key)),
     [threadGroups, selectedKeys]
   );
+  // Flatten the selected threads to ALL their members so bulk actions
+  // (archive/trash/spam/restore/markRead) move every sibling, not just
+  // the latest. Falls back to the visible item when a group can't be
+  // resolved (extremely defensive — shouldn't happen in practice).
+  const selectedThreadMembers = useMemo(() => {
+    const out: UnifiedItem[] = [];
+    const seen = new Set<string>();
+    for (const it of selectedItems) {
+      const members = groupMembersFor(it);
+      for (const m of members) {
+        if (seen.has(m.key)) continue;
+        seen.add(m.key);
+        out.push(m);
+      }
+    }
+    return out;
+  }, [selectedItems, allThreadGroupsByKey]);
 
   // Drop any selected keys that no longer appear in the visible list (e.g.
   // after switching folders, applying a filter, or after a bulk action moved
@@ -1007,22 +1049,35 @@ export default function AdminInbox() {
     }
   };
 
+  // Thread-level read toggle: when an admin marks the open conversation
+  // as read or unread we apply the change to EVERY message in the
+  // thread so unread filters and the row-level unread badge stay in
+  // sync with the user's mental model. Falls back to single-item
+  // semantics when the thread only has one message.
   const toggleReadStatus = (item: UnifiedItem) => {
     const newIsRead = !item.isRead;
-    if (item.source === "email") {
-      const m = newIsRead ? markEmailRead : markEmailUnread;
-      m.mutate(String(item.id), {
-        onSuccess: () => {
-          invalidateEmailLists();
-          setSelected({ ...item, isRead: newIsRead });
-        },
-      });
-    } else {
-      markContactRead.mutate(
-        { id: Number(item.id), isRead: newIsRead },
-        { onSuccess: () => setSelected({ ...item, isRead: newIsRead }) }
-      );
-    }
+    const members = groupMembersFor(item);
+    const calls: Promise<unknown>[] = members.map((m) => {
+      if (m.source === "email") {
+        const path = newIsRead
+          ? `/api/admin/emails/${m.id}/read`
+          : `/api/admin/emails/${m.id}/unread`;
+        return apiRequest("POST", path);
+      }
+      return apiRequest("PATCH", `/api/contact/${m.id}`, { isRead: newIsRead });
+    });
+    Promise.allSettled(calls).then((results) => {
+      qc.invalidateQueries({ queryKey: ["/api/contact"] });
+      invalidateEmailLists();
+      const fail = results.filter((r) => r.status === "rejected").length;
+      if (fail > 0) {
+        toast({
+          title: newIsRead ? t("error") : t("inboxUnreadFailed"),
+          variant: "destructive",
+        });
+      }
+      setSelected({ ...item, isRead: newIsRead });
+    });
   };
 
   const openEditDialog = () => {
@@ -1049,13 +1104,11 @@ export default function AdminInbox() {
   });
 
   // ============ DETAIL VIEW ============
-  // Look up the full conversation group for the currently-selected
-  // message so detail-view actions (spam/restore) can apply across the
-  // whole thread, not just the latest entry.
-  const currentGroup: InboxThread | null = selected
-    ? threadGroups.find((g) => g.key === groupKey(selected)) ?? null
-    : null;
-  const currentItems: UnifiedItem[] = currentGroup?.members ?? (selected ? [selected] : []);
+  // Resolve the full conversation members for the selected message
+  // against the unfiltered thread map so detail-view actions
+  // (spam/restore/mark-read) act on EVERY sibling — even when the
+  // current folder/search/unread filter hides them.
+  const currentItems: UnifiedItem[] = groupMembersFor(selected);
 
   if (selected) {
     return (
@@ -1739,7 +1792,12 @@ export default function AdminInbox() {
                               t("inboxRestoreFailed"),
                             ),
                         }
-                      : { label: t("inboxSwipeMarkUnread"), icon: EyeOff, color: "bg-blue-500", onCommit: () => performMarkUnread(it) };
+                      : {
+                          label: t("inboxSwipeMarkUnread"),
+                          icon: EyeOff,
+                          color: "bg-blue-500",
+                          onCommit: () => g.members.forEach((m) => performMarkUnread(m)),
+                        };
                   const leftAction =
                     folder === "inbox"
                       ? {
@@ -1955,7 +2013,7 @@ export default function AdminInbox() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => runBulkAction("markRead", selectedItems)}
+                    onClick={() => runBulkAction("markRead", selectedThreadMembers)}
                     disabled={selectedItems.length === 0 || bulkRunning}
                     data-testid="button-bulk-mark-read"
                   >
@@ -1967,7 +2025,7 @@ export default function AdminInbox() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => runBulkAction("archive", selectedItems)}
+                    onClick={() => runBulkAction("archive", selectedThreadMembers)}
                     disabled={selectedItems.length === 0 || bulkRunning}
                     data-testid="button-bulk-archive"
                   >
@@ -1979,7 +2037,7 @@ export default function AdminInbox() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => runBulkAction("spam", selectedItems)}
+                    onClick={() => runBulkAction("spam", selectedThreadMembers)}
                     disabled={selectedItems.length === 0 || bulkRunning}
                     data-testid="button-bulk-spam"
                   >
@@ -1991,7 +2049,7 @@ export default function AdminInbox() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => runBulkAction("notSpam", selectedItems)}
+                    onClick={() => runBulkAction("notSpam", selectedThreadMembers)}
                     disabled={selectedItems.length === 0 || bulkRunning}
                     data-testid="button-bulk-not-spam"
                   >
@@ -2003,7 +2061,7 @@ export default function AdminInbox() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => runBulkAction("restore", selectedItems)}
+                    onClick={() => runBulkAction("restore", selectedThreadMembers)}
                     disabled={selectedItems.length === 0 || bulkRunning}
                     data-testid="button-bulk-restore"
                   >
@@ -2015,7 +2073,7 @@ export default function AdminInbox() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => runBulkAction("trash", selectedItems)}
+                    onClick={() => runBulkAction("trash", selectedThreadMembers)}
                     disabled={selectedItems.length === 0 || bulkRunning}
                     data-testid="button-bulk-trash"
                   >
