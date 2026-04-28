@@ -4043,6 +4043,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Task #55: Mark the row as REFUND_PENDING before calling Stripe so that
+      // if the server crashes between here and the DB persist below, the
+      // reconciliation job can detect and resolve the orphaned state.
+      const priorStatus = transaction.payLaterStatus as PayLaterStatus;
+      const pendingTx = await storage.transitionTransactionPayLaterStatus(
+        transactionId,
+        priorStatus,
+        "REFUND_PENDING",
+        { refundAttemptedAt: new Date() },
+      );
+      if (!pendingTx) {
+        // CAS failed — another request raced us to REFUND_PENDING (or the status
+        // changed since we validated it). The in-process mutex should prevent this
+        // in normal operation; this is a cross-process safety net.
+        return res.status(409).json({
+          message: "Transaction is already being processed. Try again in a moment.",
+        });
+      }
+
       // Stripe-first call. Deterministic idempotency key keyed on
       // (transaction, prior cumulative, this amount) — replays after a crash
       // dedupe at Stripe and return the same refund object. Two simultaneous
@@ -4061,6 +4080,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
       } catch (stripeErr: any) {
         console.error("Stripe refund error:", stripeErr);
+        // Roll back REFUND_PENDING → prior status so the row isn't stuck.
+        await storage.transitionTransactionPayLaterStatus(
+          transactionId,
+          "REFUND_PENDING",
+          priorStatus,
+          { refundAttemptedAt: null },
+        ).catch(rollbackErr => {
+          console.error(`[refund] Failed to roll back REFUND_PENDING for tx ${transactionId}:`, rollbackErr);
+        });
         return res.status(502).json({ message: stripeErr.message || "Stripe refund failed" });
       }
 

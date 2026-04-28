@@ -935,6 +935,7 @@ export class DatabaseStorage implements IStorage {
         payLaterStatus: args.newStatus,
         refundAmount: args.newRefundAmount,
         stripeRefundId: args.stripeRefundId,
+        refundAttemptedAt: null,
       })
       .where(and(
         eq(transactions.id, args.id),
@@ -943,6 +944,16 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     return result.length === 0 ? null : result[0];
+  }
+
+  async getStaleRefundPendingTransactions(olderThanMinutes: number): Promise<Transaction[]> {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
+    return db.select().from(transactions).where(
+      and(
+        eq(transactions.payLaterStatus, "REFUND_PENDING"),
+        sql`${transactions.refundAttemptedAt} IS NOT NULL AND ${transactions.refundAttemptedAt} < ${cutoff}`,
+      )
+    );
   }
 
   // Audit Log operations
@@ -1361,6 +1372,8 @@ export async function ensureSchemaUpgrades(): Promise<void> {
     // Add it idempotently so getGlobalSetting/setGlobalSetting (which
     // reference the column via Drizzle) don't throw on existing DBs.
     await db.execute(sql`ALTER TABLE global_settings ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN NOT NULL DEFAULT true`);
+    // Task #55: refund_attempted_at — set when a refund enters REFUND_PENDING; cleared on finalization.
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS refund_attempted_at TIMESTAMP`);
     // Task #60: email onboarding status tracking on locations
     await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_status TEXT`);
     await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_error TEXT`);

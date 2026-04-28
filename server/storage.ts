@@ -181,6 +181,7 @@ export interface IStorage {
     newRefundAmount: number;
     stripeRefundId: string;
   }): Promise<Transaction | null>;
+  getStaleRefundPendingTransactions(olderThanMinutes: number): Promise<Transaction[]>;
 
   // Audit Log operations
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
@@ -2713,6 +2714,7 @@ export class MemStorage implements IStorage {
       chargeNotificationChannel: insertTransaction.chargeNotificationChannel ?? null,
       depositFeeCents: insertTransaction.depositFeeCents ?? null,
       chargedAt: insertTransaction.chargedAt ?? null,
+      refundAttemptedAt: null,
     };
     
     this.transactions.set(id, transaction);
@@ -3102,9 +3104,20 @@ export class MemStorage implements IStorage {
       payLaterStatus: args.newStatus,
       refundAmount: args.newRefundAmount,
       stripeRefundId: args.stripeRefundId,
+      refundAttemptedAt: null,
     };
     this.transactions.set(args.id, updated);
     return updated;
+  }
+
+  async getStaleRefundPendingTransactions(olderThanMinutes: number): Promise<Transaction[]> {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
+    return Array.from(this.transactions.values()).filter(t =>
+      t.payLaterStatus === "REFUND_PENDING" &&
+      t.refundAttemptedAt !== null &&
+      t.refundAttemptedAt !== undefined &&
+      new Date(t.refundAttemptedAt) < cutoff
+    );
   }
 
   // Audit Log operations

@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite.js";
 import { WebhookHandlers } from "./webhookHandlers.js";
 import { DepositService } from "./depositService.js";
 import { getTwilioConfigStatus } from "./twilio-client.js";
+import { startRefundReconciliation } from "./refund-reconciliation.js";
 
 const app = express();
 
@@ -110,5 +111,6 @@ app.use((req, res, next) => {
         && !process.env.SITE_URL?.trim()) {
       log('WARNING: APP_URL/SITE_URL is not set; SMS reminders will fail in production.');
     }
+    startRefundReconciliation();
   });
 })();

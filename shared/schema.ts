@@ -15,6 +15,7 @@ export const PAY_LATER_STATUSES = [
   "DECLINED",
   "EXPIRED",
   "PARTIALLY_REFUNDED",
+  "REFUND_PENDING",
   "REFUNDED"
 ] as const;
 export type PayLaterStatus = typeof PAY_LATER_STATUSES[number];
@@ -299,6 +300,9 @@ export const transactions = pgTable("transactions", {
   depositFeeCents: integer("deposit_fee_cents"),
   // Task #39: timestamp when a successful off-session charge ran (used as dispute-rate denominator)
   chargedAt: timestamp("charged_at"),
+  // Task #55: set to now() when a refund attempt starts; cleared when finalized or rolled back.
+  // A background reconciliation job uses this to detect crashed mid-flight refunds.
+  refundAttemptedAt: timestamp("refund_attempted_at"),
 });
 
 // Per-send history of return reminders for each transaction.
