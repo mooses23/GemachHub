@@ -137,6 +137,10 @@ function LocationStripeFeeSection({ locationId }: { locationId: number }) {
   const feeFixedNum = Number(feeFixed);
   const isInvalid = !Number.isFinite(feePercentNum) || !Number.isFinite(feeFixedNum) || feePercent === "" || feeFixed === "";
 
+  const feePreview = (!isInvalid)
+    ? `${(feePercentNum / 100).toFixed(2)}% + $${(feeFixedNum / 100).toFixed(2)} per transaction`
+    : null;
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("PATCH", "/api/admin/settings/stripe", {
@@ -166,32 +170,39 @@ function LocationStripeFeeSection({ locationId }: { locationId: number }) {
       ) : isError ? (
         <p className="text-xs text-destructive">Could not load fee settings. Refresh and try again.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">% rate (basis points)</label>
-            <Input
-              type="number"
-              min={0}
-              max={10000}
-              value={feePercent}
-              onChange={e => setFeePercent(e.target.value)}
-              title="Basis points: 290 = 2.90%"
-            />
-            <p className="text-xs text-muted-foreground mt-0.5">e.g. 290 = 2.90%</p>
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">% rate (basis points)</label>
+              <Input
+                type="number"
+                min={0}
+                max={10000}
+                value={feePercent}
+                onChange={e => setFeePercent(e.target.value)}
+                title="Basis points: 290 = 2.90%"
+              />
+              <p className="text-xs text-muted-foreground mt-0.5">e.g. 290 = 2.90%</p>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Fixed fee (cents)</label>
+              <Input
+                type="number"
+                min={0}
+                max={9999}
+                value={feeFixed}
+                onChange={e => setFeeFixed(e.target.value)}
+                title="Cents: 30 = $0.30"
+              />
+              <p className="text-xs text-muted-foreground mt-0.5">e.g. 30 = $0.30</p>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Fixed fee (cents)</label>
-            <Input
-              type="number"
-              min={0}
-              max={9999}
-              value={feeFixed}
-              onChange={e => setFeeFixed(e.target.value)}
-              title="Cents: 30 = $0.30"
-            />
-            <p className="text-xs text-muted-foreground mt-0.5">e.g. 30 = $0.30</p>
-          </div>
-        </div>
+          {feePreview && (
+            <p className="text-sm font-medium text-foreground">
+              Current fee: <span className="text-primary">{feePreview}</span>
+            </p>
+          )}
+        </>
       )}
       <Button
         size="sm"
