@@ -30,10 +30,7 @@ import {
   reindexFact, reindexFaq, reindexDoc, reindexReplyExample, backfillEmbeddings, seedKnowledgeDocs,
 } from "./openai-client.js";
 import { z } from "zod";
-
-function normalizeWhitespace(s: string): string {
-  return String(s || '').replace(/\s+/g, ' ').trim();
-}
+import { computeReplyWasEdited } from "./reply-edit-detection.js";
 
 // Utility function to detect card brand
 function detectCardBrand(cardNumber: string): string {
@@ -1481,7 +1478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         const language: 'en' | 'he' = /[\u0590-\u05FF]/.test(`${contact.subject} ${contact.message}`) ? 'he' : 'en';
-        const wasEdited = !!aiDraft && normalizeWhitespace(aiDraft) !== normalizeWhitespace(replyText);
+        const wasEdited = computeReplyWasEdited(aiDraft, replyText);
         const parsed = insertReplyExampleSchema.parse({
           sourceType: 'form',
           sourceRef: String(contact.id),
@@ -3515,7 +3512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const senderName = fromMatch ? fromMatch[1] || fromMatch[2] : email.from;
         const senderEmail = fromMatch ? fromMatch[2] : (email.from || '').includes('@') ? email.from : '';
         const language: 'en' | 'he' = /[\u0590-\u05FF]/.test(`${email.subject} ${email.body}`) ? 'he' : 'en';
-        const wasEdited = !!aiDraft && normalizeWhitespace(aiDraft) !== normalizeWhitespace(replyText);
+        const wasEdited = computeReplyWasEdited(aiDraft, replyText);
         const parsed = insertReplyExampleSchema.parse({
           sourceType: 'email',
           // Use the Gmail threadId (not the message id) so reply state and

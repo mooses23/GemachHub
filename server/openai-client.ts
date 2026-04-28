@@ -13,6 +13,28 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// ===================== OpenAI test seam =====================
+// In production, drafting and embedding go straight through the openai SDK.
+// For tests we need deterministic responses (no network, no flakiness, no
+// real API key). The two indirection variables below let
+// scripts/test-ai-drafting.ts swap in a stub via __setOpenAIClientForTests
+// without touching production behavior — passing null restores the real
+// SDK call. Keep this seam minimal: it only exists so generateEmailResponse
+// and embedText can be exercised end-to-end in tests.
+type ChatCreate = typeof openai.chat.completions.create;
+type EmbedCreate = typeof openai.embeddings.create;
+const realChatCreate: ChatCreate = openai.chat.completions.create.bind(openai.chat.completions);
+const realEmbedCreate: EmbedCreate = openai.embeddings.create.bind(openai.embeddings);
+let chatCreate: ChatCreate = realChatCreate;
+let embedCreate: EmbedCreate = realEmbedCreate;
+export function __setOpenAIClientForTests(stubs: {
+  chat?: ChatCreate | null;
+  embed?: EmbedCreate | null;
+}): void {
+  if (stubs.chat !== undefined) chatCreate = stubs.chat ?? realChatCreate;
+  if (stubs.embed !== undefined) embedCreate = stubs.embed ?? realEmbedCreate;
+}
+
 const SITE_URL = process.env.SITE_URL || 'https://babybanzgemach.com';
 const DRAFT_MODEL = process.env.OPENAI_DRAFT_MODEL || 'gpt-4o';
 const EMBED_MODEL = process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small';
@@ -66,7 +88,7 @@ export async function embedText(text: string): Promise<number[] | null> {
   const cleaned = String(text || '').slice(0, 8000).trim();
   if (!cleaned) return null;
   try {
-    const r = await openai.embeddings.create({ model: EMBED_MODEL, input: cleaned });
+    const r = await embedCreate({ model: EMBED_MODEL, input: cleaned });
     return r.data[0].embedding as unknown as number[];
   } catch (err) {
     console.warn('embedText failed:', err instanceof Error ? err.message : String(err));
@@ -873,7 +895,7 @@ ${emailBody}`;
   let parsed: DraftJson = {};
   let rawErr: string | null = null;
   try {
-    const response = await openai.chat.completions.create({
+    const response = await chatCreate({
       model: DRAFT_MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
