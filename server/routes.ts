@@ -13,6 +13,7 @@ import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
+import { getTwilioConfigStatus, sendReturnReminderSMS, normalizePhoneForSms } from "./twilio-client.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
 import { groupContactsByThread } from "./inbox-threading.js";
 import {
@@ -2510,6 +2511,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const PLACEHOLDER_EMAIL_SUFFIX = "@placeholder.local";
   const REMINDER_RATE_LIMIT_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+  // Body schema for the reminder send. `channel` defaults to "email" so
+  // existing clients (and older versions of the dashboard) keep working
+  // with no change. New clients explicitly send "sms" to opt into the
+  // Twilio path.
+  const sendReminderBodySchema = z.object({
+    channel: z.enum(['email', 'sms']).optional().default('email'),
+  });
+
   app.post("/api/locations/:locationId/transactions/:id/return-reminder", async (req, res) => {
     try {
       const locationId = parseInt(req.params.locationId, 10);
@@ -2526,6 +2535,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
 
+      const parsedBody = sendReminderBodySchema.safeParse(req.body ?? {});
+      if (!parsedBody.success) {
+        return res.status(400).json({ message: "Invalid request body", errors: parsedBody.error.flatten() });
+      }
+      const channel = parsedBody.data.channel;
+
       const transaction = await storage.getTransaction(transactionId);
       if (!transaction || transaction.locationId !== locationId) {
         return res.status(404).json({ message: "Transaction not found for this location" });
@@ -2533,10 +2548,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (transaction.isReturned) {
         return res.status(400).json({ message: "This transaction is already marked returned" });
       }
+
       const email = (transaction.borrowerEmail || '').trim();
-      if (!email || email.toLowerCase().endsWith(PLACEHOLDER_EMAIL_SUFFIX)) {
+      const hasRealEmail = !!email && !email.toLowerCase().endsWith(PLACEHOLDER_EMAIL_SUFFIX);
+      const phone = normalizePhoneForSms(transaction.borrowerPhone);
+
+      // Per-channel preconditions BEFORE rate-limit so the operator gets
+      // an actionable error ("no phone on file") instead of a confusing
+      // 429 when both conditions fail.
+      if (channel === 'email' && !hasRealEmail) {
         return res.status(400).json({ message: "No real borrower email on file for this transaction" });
       }
+      if (channel === 'sms') {
+        const twilio = getTwilioConfigStatus();
+        if (!twilio.configured) {
+          return res.status(400).json({ message: twilio.reason || 'SMS is not configured.' });
+        }
+        if (!phone) {
+          return res.status(400).json({ message: "No borrower phone number on file for this transaction" });
+        }
+      }
+
+      // Rate limit is shared across channels: one reminder per 24h per
+      // transaction, regardless of how it was sent. Keys off
+      // `lastReturnReminderAt`, which is updated for both channels.
       if (transaction.lastReturnReminderAt) {
         const elapsed = Date.now() - new Date(transaction.lastReturnReminderAt).getTime();
         if (elapsed < REMINDER_RATE_LIMIT_MS) {
@@ -2553,29 +2588,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const language: 'en' | 'he' = location.nameHe ? 'he' : 'en';
       const locationName = (language === 'he' && location.nameHe) ? location.nameHe : location.name;
 
-      try {
-        await sendReturnReminderEmail({
-          borrowerName: transaction.borrowerName,
-          borrowerEmail: email,
-          locationName,
-          language,
-        });
-      } catch (sendErr: any) {
-        console.error("Failed to send return reminder email:", sendErr);
-        return res.status(502).json({ message: sendErr?.message || "Failed to send reminder email" });
+      if (channel === 'email') {
+        try {
+          await sendReturnReminderEmail({
+            borrowerName: transaction.borrowerName,
+            borrowerEmail: email,
+            locationName,
+            language,
+          });
+        } catch (sendErr: any) {
+          console.error("Failed to send return reminder email:", sendErr);
+          return res.status(502).json({ message: sendErr?.message || "Failed to send reminder email" });
+        }
+      } else {
+        try {
+          await sendReturnReminderSMS({
+            borrowerName: transaction.borrowerName,
+            borrowerPhone: phone!,
+            locationName,
+            language,
+          });
+        } catch (sendErr: any) {
+          console.error("Failed to send return reminder SMS:", sendErr);
+          return res.status(502).json({ message: sendErr?.message || "Failed to send reminder SMS" });
+        }
       }
 
       const sentByUserId = req.isAuthenticated() ? ((req.user as any)?.id ?? null) : null;
       const updated = await storage.recordReturnReminderSent(transactionId, {
-        channel: 'email',
+        channel,
         language,
         sentByUserId,
       });
-      res.json({ success: true, transaction: updated });
+      res.json({ success: true, transaction: updated, channel });
     } catch (error: any) {
       console.error("Error sending return reminder:", error);
       res.status(500).json({ message: error?.message || "Failed to send return reminder" });
     }
+  });
+
+  // Lightweight, operator-scoped read of whether SMS reminders are
+  // available in this environment. Returns a boolean and (when not
+  // configured) a human-readable hint that the dashboard surfaces in
+  // a tooltip — never the secret values themselves. Auth is required
+  // so we don't leak even the configured/unconfigured signal publicly.
+  app.get("/api/operator/sms-config-status", async (req, res) => {
+    const operatorLocationId = getOperatorLocationId(req);
+    if (!operatorLocationId) {
+      return res.status(401).json({ message: "Operator authentication required" });
+    }
+    const status = getTwilioConfigStatus();
+    res.json(status);
   });
 
   // List the full return-reminder send history for a single transaction (operator-scoped).

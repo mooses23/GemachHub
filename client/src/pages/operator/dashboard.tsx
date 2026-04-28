@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link, useLocation } from "wouter";
 import { useOperatorAuth } from "@/hooks/use-operator-auth";
@@ -281,7 +282,15 @@ function ReminderHistoryTimeline({ tx, locationId }: { tx: Transaction; location
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-300 flex-shrink-0" />
                   <span className="text-slate-200">{formatLocalizedDate(new Date(ev.sentAt), language)}</span>
                   <span className="text-slate-500">·</span>
-                  <span className="uppercase tracking-wide text-[10px] text-slate-400">{ev.channel}</span>
+                  <span
+                    className="inline-flex items-center gap-1 uppercase tracking-wide text-[10px] text-slate-400"
+                    data-testid={`reminder-history-channel-${ev.id}`}
+                  >
+                    {ev.channel === 'sms'
+                      ? <Phone className="h-3 w-3" />
+                      : <Mail className="h-3 w-3" />}
+                    {ev.channel === 'sms' ? t('reminderChannelSms') : t('reminderChannelEmail')}
+                  </span>
                   <span className="text-slate-500">·</span>
                   <span className="uppercase tracking-wide text-[10px] text-slate-400">{ev.language}</span>
                   <span className="text-slate-500">·</span>
@@ -298,6 +307,22 @@ function ReminderHistoryTimeline({ tx, locationId }: { tx: Transaction; location
   );
 }
 
+// Operator-scoped Twilio status. Cached per session via React Query so the
+// reminder dialog can show the SMS option (or a "not configured" tooltip)
+// without re-fetching on every transaction. Failure to fetch is treated
+// as "not configured" — the dashboard never blocks on this signal.
+function useSmsConfigStatus(): { configured: boolean; reason?: string; isLoading: boolean } {
+  const { data, isLoading } = useQuery<{ configured: boolean; reason?: string }>({
+    queryKey: ['/api/operator/sms-config-status'],
+    staleTime: 5 * 60 * 1000,
+  });
+  return {
+    configured: !!data?.configured,
+    reason: data?.reason,
+    isLoading,
+  };
+}
+
 function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId: number }) {
   const { t, language } = useLanguage();
   const { toast } = useToast();
@@ -305,15 +330,46 @@ function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId:
 
   const email = (tx.borrowerEmail || '').trim();
   const isPlaceholderEmail = !email || email.toLowerCase().endsWith('@placeholder.local');
+  const hasEmail = !isPlaceholderEmail;
+  const phone = (tx.borrowerPhone || '').trim();
+  const hasPhone = phone.replace(/\D/g, '').length >= 7;
   const lastSent = tx.lastReturnReminderAt ? new Date(tx.lastReturnReminderAt) : null;
   const sentRecently = !!(lastSent && (Date.now() - lastSent.getTime()) < 24 * 60 * 60 * 1000);
 
+  const sms = useSmsConfigStatus();
+  const smsAvailable = sms.configured;
+
+  // Default channel per spec: prefer SMS only when BOTH contact methods are
+  // present AND Twilio is configured. Otherwise fall back to whichever
+  // option is actually usable, with email as the final fallback. Recomputed
+  // when the dialog opens so a freshly-edited transaction doesn't keep a
+  // stale default.
+  const computeDefaultChannel = (): 'email' | 'sms' => {
+    if (smsAvailable && hasPhone && hasEmail) return 'sms';
+    if (hasEmail) return 'email';
+    if (smsAvailable && hasPhone) return 'sms';
+    return 'email';
+  };
+  const [channel, setChannel] = useState<'email' | 'sms'>(computeDefaultChannel());
+
+  // When the dialog is opened, re-seed the channel so the smart default
+  // tracks the latest contact info / SMS-config flag. Without this, an
+  // operator who first opens the dialog before SMS is enabled would keep
+  // seeing "Email" pre-selected even after Twilio is wired up.
+  useEffect(() => {
+    if (confirmOpen) setChannel(computeDefaultChannel());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmOpen, smsAvailable, hasPhone, hasEmail]);
+
   const mutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('POST', `/api/locations/${locationId}/transactions/${tx.id}/return-reminder`, {});
+    mutationFn: async (chosenChannel: 'email' | 'sms') => {
+      return apiRequest('POST', `/api/locations/${locationId}/transactions/${tx.id}/return-reminder`, { channel: chosenChannel });
     },
-    onSuccess: () => {
-      toast({ title: t('reminderSent'), description: t('reminderSentToast') });
+    onSuccess: (_data, chosenChannel) => {
+      toast({
+        title: t('reminderSent'),
+        description: chosenChannel === 'sms' ? t('reminderSentToastSms') : t('reminderSentToastEmail'),
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/locations', locationId, 'transactions'] });
       queryClient.invalidateQueries({ queryKey: [`/api/locations/${locationId}/transactions`] });
       queryClient.invalidateQueries({ queryKey: ['/api/locations', locationId, 'transactions', tx.id, 'return-reminders'] });
@@ -324,10 +380,25 @@ function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId:
     },
   });
 
+  // Top-level button is disabled when there is NO usable channel at all.
+  // Fine-grained per-channel reasons (e.g. "phone missing") are surfaced
+  // inside the dialog next to each radio option.
   let disabledReason: string | null = null;
   if (tx.isReturned) disabledReason = t('reminderAlreadyReturnedTooltip');
-  else if (isPlaceholderEmail) disabledReason = t('reminderNoEmailTooltip');
-  else if (sentRecently) disabledReason = t('reminderRecentlySentTooltip');
+  else if (!hasEmail && !(smsAvailable && hasPhone)) {
+    // Neither email nor SMS is usable. Pick the most informative tooltip:
+    //  - phone exists but Twilio is off → tell them SMS isn't enabled
+    //    (so they ask an admin), not the misleading "no email" line.
+    //  - no phone at all + Twilio on → tell them no contact method exists.
+    //  - default → no email on file.
+    if (hasPhone && !smsAvailable) {
+      disabledReason = t('reminderChannelSmsNotConfiguredTooltip');
+    } else if (smsAvailable) {
+      disabledReason = t('reminderNoContactTooltip');
+    } else {
+      disabledReason = t('reminderNoEmailTooltip');
+    }
+  } else if (sentRecently) disabledReason = t('reminderRecentlySentTooltip');
 
   const button = (
     <Button
@@ -366,6 +437,84 @@ function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId:
               {t('reminderConfirmBody').replace('{{name}}', tx.borrowerName)}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Channel selector. Each option is disabled with a short helper
+              line when its required contact info is missing. SMS is hidden
+              entirely when Twilio is not configured (with a tooltip on the
+              icon) so operators don't see a choice they can't take. */}
+          <div className="space-y-2" data-testid={`reminder-channel-group-${tx.id}`}>
+            <Label className="text-sm font-medium">{t('reminderChannelLabel')}</Label>
+            <RadioGroup
+              value={channel}
+              onValueChange={(v) => setChannel(v as 'email' | 'sms')}
+              className="gap-2"
+            >
+              <div className="flex items-start gap-2">
+                <RadioGroupItem
+                  value="email"
+                  id={`reminder-channel-email-${tx.id}`}
+                  disabled={!hasEmail}
+                  data-testid={`reminder-channel-email-${tx.id}`}
+                />
+                <Label htmlFor={`reminder-channel-email-${tx.id}`} className="flex flex-col gap-0.5 cursor-pointer">
+                  <span className="flex items-center gap-1.5 text-sm">
+                    <Mail className="h-3.5 w-3.5" />
+                    {t('reminderChannelEmail')}
+                    {hasEmail && <span className="text-xs text-muted-foreground">· {email}</span>}
+                  </span>
+                  {!hasEmail && (
+                    <span className="text-xs text-muted-foreground" data-testid={`reminder-channel-email-hint-${tx.id}`}>
+                      {t('reminderChannelEmailMissing')}
+                    </span>
+                  )}
+                </Label>
+              </div>
+              {smsAvailable ? (
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem
+                    value="sms"
+                    id={`reminder-channel-sms-${tx.id}`}
+                    disabled={!hasPhone}
+                    data-testid={`reminder-channel-sms-${tx.id}`}
+                  />
+                  <Label htmlFor={`reminder-channel-sms-${tx.id}`} className="flex flex-col gap-0.5 cursor-pointer">
+                    <span className="flex items-center gap-1.5 text-sm">
+                      <Phone className="h-3.5 w-3.5" />
+                      {t('reminderChannelSms')}
+                      {hasPhone && <span className="text-xs text-muted-foreground">· {phone}</span>}
+                    </span>
+                    {!hasPhone && (
+                      <span className="text-xs text-muted-foreground" data-testid={`reminder-channel-sms-hint-${tx.id}`}>
+                        {t('reminderChannelSmsMissing')}
+                      </span>
+                    )}
+                  </Label>
+                </div>
+              ) : hasPhone ? (
+                // Twilio not configured but borrower has a phone: show the
+                // option as unavailable so the operator knows why SMS isn't
+                // an option (and who to ask). When the borrower also has no
+                // phone, hide the row entirely — there's nothing actionable.
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="flex items-center gap-2 text-xs text-muted-foreground"
+                        data-testid={`reminder-channel-sms-unavailable-${tx.id}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5 opacity-50" />
+                        {t('reminderChannelSmsNotConfigured')}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs text-xs">{sms.reason || t('reminderChannelSmsNotConfiguredTooltip')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+            </RadioGroup>
+          </div>
+
           {lastSent && (
             <div className="text-xs text-muted-foreground">
               {t('reminderLastSentLabel')}: {formatLocalizedDate(lastSent, language)}
@@ -379,7 +528,15 @@ function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId:
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={mutation.isPending}>
               {t('cancel')}
             </Button>
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} data-testid={`button-confirm-reminder-${tx.id}`}>
+            <Button
+              onClick={() => mutation.mutate(channel)}
+              disabled={
+                mutation.isPending ||
+                (channel === 'email' && !hasEmail) ||
+                (channel === 'sms' && (!smsAvailable || !hasPhone))
+              }
+              data-testid={`button-confirm-reminder-${tx.id}`}
+            >
               {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {t('sendReminder')}
             </Button>

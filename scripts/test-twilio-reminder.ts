@@ -1,0 +1,103 @@
+#!/usr/bin/env tsx
+/**
+ * Unit tests for the Twilio return-reminder helpers.
+ *
+ * Run with: npx tsx scripts/test-twilio-reminder.ts
+ *
+ * Locks in:
+ *  - Config detection (missing/partial/malformed env -> not configured).
+ *  - Phone normalization (rejects garbage, keeps valid +country numbers).
+ *  - Bilingual SMS body (short, includes location name + first name + URL).
+ *
+ * No network calls. Exits non-zero on failure.
+ */
+
+import {
+  getTwilioConfigStatus,
+  normalizePhoneForSms,
+  buildReturnReminderSmsBody,
+} from "../server/twilio-client.js";
+
+let failures = 0;
+function check(cond: any, label: string) {
+  if (!cond) {
+    console.error(`FAIL: ${label}`);
+    failures++;
+  } else {
+    console.log(`ok:   ${label}`);
+  }
+}
+
+function withEnv(env: Record<string, string | undefined>, fn: () => void) {
+  const prev: Record<string, string | undefined> = {};
+  for (const k of Object.keys(env)) {
+    prev[k] = process.env[k];
+    if (env[k] === undefined) delete process.env[k];
+    else process.env[k] = env[k];
+  }
+  try { fn(); } finally {
+    for (const k of Object.keys(prev)) {
+      if (prev[k] === undefined) delete process.env[k];
+      else process.env[k] = prev[k];
+    }
+  }
+}
+
+// --- Config status ----------------------------------------------------------
+withEnv({ TWILIO_ACCOUNT_SID: undefined, TWILIO_AUTH_TOKEN: undefined, TWILIO_FROM_NUMBER: undefined }, () => {
+  const s = getTwilioConfigStatus();
+  check(!s.configured, "missing all secrets -> not configured");
+  check(typeof s.reason === "string" && s.reason.includes("TWILIO"), "missing secrets -> reason mentions env vars");
+});
+
+withEnv({ TWILIO_ACCOUNT_SID: "AC123", TWILIO_AUTH_TOKEN: "secret", TWILIO_FROM_NUMBER: "" }, () => {
+  check(!getTwilioConfigStatus().configured, "missing TWILIO_FROM_NUMBER -> not configured");
+});
+
+withEnv({ TWILIO_ACCOUNT_SID: "not-an-ac", TWILIO_AUTH_TOKEN: "secret", TWILIO_FROM_NUMBER: "+15551234567" }, () => {
+  const s = getTwilioConfigStatus();
+  check(!s.configured, "non-AC SID is rejected");
+  check(s.reason?.includes('AC'), 'non-AC SID -> reason explains "AC" prefix');
+});
+
+withEnv({ TWILIO_ACCOUNT_SID: "AC1234567890abcdef", TWILIO_AUTH_TOKEN: "secret", TWILIO_FROM_NUMBER: "+15551234567" }, () => {
+  check(getTwilioConfigStatus().configured, "valid env -> configured");
+});
+
+// --- Phone normalization ----------------------------------------------------
+check(normalizePhoneForSms(null) === null, "null phone -> null");
+check(normalizePhoneForSms("") === null, "empty phone -> null");
+check(normalizePhoneForSms("123") === null, "very short phone -> null (won't reach Twilio)");
+check(normalizePhoneForSms("(555) 123-4567") === "5551234567", "US-formatted -> bare digits");
+check(normalizePhoneForSms("+1 (555) 123-4567") === "+15551234567", "+country preserved");
+check(normalizePhoneForSms("+972-50-123-4567") === "+972501234567", "Israeli +country preserved");
+
+// --- SMS body ---------------------------------------------------------------
+const enBody = buildReturnReminderSmsBody({
+  borrowerName: "Sara Goldberg",
+  borrowerPhone: "+15551234567",
+  locationName: "Lakewood",
+  language: "en",
+  statusUrl: "https://example.com/status/42?token=abc",
+});
+check(enBody.startsWith("Hi Sara,"), "EN body uses first name only");
+check(enBody.includes("Lakewood"), "EN body includes location name");
+check(enBody.includes("https://example.com/status/42?token=abc"), "EN body includes status URL when provided");
+check(enBody.length < 320, "EN body stays under ~2 SMS segments");
+
+const heBody = buildReturnReminderSmsBody({
+  borrowerName: "שרה גולדברג",
+  borrowerPhone: "+972501234567",
+  locationName: "לייקווד",
+  language: "he",
+});
+check(heBody.startsWith("שלום שרה"), "HE body uses Hebrew greeting + first name");
+check(heBody.includes("לייקווד"), "HE body includes Hebrew location name");
+check(!heBody.includes("https://"), "HE body without statusUrl omits the URL line");
+check(heBody.length < 320, "HE body stays under ~2 SMS segments");
+
+if (failures > 0) {
+  console.error(`\n${failures} test(s) failed.`);
+  process.exit(1);
+}
+console.log(`\nAll twilio-reminder tests passed.`);

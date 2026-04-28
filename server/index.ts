@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
 import { WebhookHandlers } from "./webhookHandlers.js";
 import { DepositService } from "./depositService.js";
+import { getTwilioConfigStatus } from "./twilio-client.js";
 
 const app = express();
 
@@ -100,5 +101,12 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    // One-line startup notice when SMS reminders are unavailable, so an
+    // operator wondering why the SMS option is hidden in the dashboard
+    // can find the missing secrets in the server log without digging.
+    const sms = getTwilioConfigStatus();
+    if (!sms.configured) {
+      log(`SMS reminders disabled: ${sms.reason}`);
+    }
   });
 })();
