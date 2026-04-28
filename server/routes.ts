@@ -2609,12 +2609,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let statusUrl: string | undefined;
         try {
           const rawToken = await mintBorrowerStatusToken(transactionId);
-          const proto = (req.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim()
-            || (req.protocol as string)
-            || 'https';
-          const host = req.get('host');
-          if (host) {
-            statusUrl = `${proto}://${host}/status/${transactionId}?token=${rawToken}`;
+          // Prefer a canonical base URL from configuration so attacker-set
+          // Host / X-Forwarded-* headers can't redirect borrowers to a
+          // spoofed status page. Falls back to req-derived only as a last
+          // resort (matches the convention used elsewhere in this file
+          // for operator welcome links).
+          const envBase = (process.env.APP_URL || process.env.SITE_URL || '').trim();
+          const baseUrl = envBase
+            ? envBase.replace(/\/$/, '')
+            : `${req.protocol}://${req.get('host')}`;
+          if (baseUrl) {
+            statusUrl = `${baseUrl}/status/${transactionId}?token=${rawToken}`;
           }
         } catch (tokenErr) {
           // A token mint failure shouldn't block the SMS send — the
