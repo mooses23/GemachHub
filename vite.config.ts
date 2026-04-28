@@ -27,5 +27,35 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/") || id.includes("node_modules/react-is/") || id.includes("node_modules/scheduler/")) {
+            return "vendor-react";
+          }
+          if (id.includes("node_modules/@tanstack/")) {
+            return "vendor-query";
+          }
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-") || id.includes("node_modules/victory-") || id.includes("node_modules/internmap") || id.includes("node_modules/robust-predicates")) {
+            return "vendor-charts";
+          }
+          if (id.includes("node_modules/@stripe/") || id.includes("node_modules/stripe/")) {
+            return "vendor-stripe";
+          }
+          if (id.includes("node_modules/framer-motion") || id.includes("node_modules/motion")) {
+            return "vendor-motion";
+          }
+          if (id.includes("node_modules/zod") || id.includes("node_modules/drizzle-zod")) {
+            return "vendor-zod";
+          }
+          if (id.includes("node_modules/date-fns")) {
+            return "vendor-date-fns";
+          }
+          if (id.includes("node_modules/")) {
+            return "vendor-misc";
+          }
+        },
+      },
+    },
   },
 });

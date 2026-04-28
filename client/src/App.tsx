@@ -1,8 +1,15 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { Layout } from "@/components/layout/layout";
+import { AuthProvider } from "@/hooks/use-auth";
+import { LanguageProvider } from "@/hooks/use-language";
+import { OperatorAuthProvider } from "@/hooks/use-operator-auth";
+
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Locations from "@/pages/locations";
@@ -10,37 +17,45 @@ import Apply from "@/pages/apply";
 import Contact from "@/pages/contact";
 import Borrow from "@/pages/borrow";
 import AuthPage from "@/pages/auth-page";
-import SelfDepositPage from "@/pages/self-deposit";
 import Rules from "@/pages/rules";
-import StatusPage from "@/pages/status";
-import AdminDashboard from "@/pages/admin/dashboard";
-import AdminLocations from "@/pages/admin/locations";
-import AdminTransactions from "@/pages/admin/transactions";
-import AdminApplications from "@/pages/admin/applications";
-import AdminPaymentMethods from "@/pages/admin/payment-methods";
-import PaymentConfirmations from "@/pages/admin/payment-confirmations";
-import PaymentStatusMonitor from "@/pages/admin/payment-status-monitor";
-import AdminInbox from "@/pages/admin/inbox";
-import AdminGlossary from "@/pages/admin/glossary";
-import OperatorIndex from "@/pages/operator/index";
-import OperatorLogin from "@/pages/operator/login";
-import OperatorDashboard from "@/pages/operator/dashboard";
-import OperatorDepositDashboard from "@/pages/operator/deposit-dashboard";
-import WelcomePage from "@/pages/welcome";
-import { ProtectedRoute } from "@/components/auth/protected-route";
-import { Layout } from "@/components/layout/layout";
-import { AuthProvider } from "@/hooks/use-auth";
-import { LanguageProvider } from "@/hooks/use-language";
-import { OperatorAuthProvider } from "@/hooks/use-operator-auth";
+
+const SelfDepositPage = lazy(() => import("@/pages/self-deposit"));
+const StatusPage = lazy(() => import("@/pages/status"));
+const WelcomePage = lazy(() => import("@/pages/welcome"));
+
+const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
+const AdminLocations = lazy(() => import("@/pages/admin/locations"));
+const AdminTransactions = lazy(() => import("@/pages/admin/transactions"));
+const AdminApplications = lazy(() => import("@/pages/admin/applications"));
+const AdminPaymentMethods = lazy(() => import("@/pages/admin/payment-methods"));
+const PaymentConfirmations = lazy(() => import("@/pages/admin/payment-confirmations"));
+const PaymentStatusMonitor = lazy(() => import("@/pages/admin/payment-status-monitor"));
+const AdminInbox = lazy(() => import("@/pages/admin/inbox"));
+const AdminGlossary = lazy(() => import("@/pages/admin/glossary"));
+
+const OperatorIndex = lazy(() => import("@/pages/operator/index"));
+const OperatorLogin = lazy(() => import("@/pages/operator/login"));
+const OperatorDashboard = lazy(() => import("@/pages/operator/dashboard"));
+const OperatorDepositDashboard = lazy(() => import("@/pages/operator/deposit-dashboard"));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
+}
 
 function Router() {
   return (
-    <Switch>
-      <Route path="/welcome/:token" component={WelcomePage} />
-      <Route>
-        <LayoutRouter />
-      </Route>
-    </Switch>
+    <Suspense fallback={<PageLoader />}>
+      <Switch>
+        <Route path="/welcome/:token" component={WelcomePage} />
+        <Route>
+          <LayoutRouter />
+        </Route>
+      </Switch>
+    </Suspense>
   );
 }
 
