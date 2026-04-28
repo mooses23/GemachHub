@@ -1255,9 +1255,14 @@ export async function ensureSchemaUpgrades(): Promise<void> {
         id SERIAL PRIMARY KEY,
         key TEXT NOT NULL UNIQUE,
         value TEXT NOT NULL,
+        is_enabled BOOLEAN NOT NULL DEFAULT true,
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    // Older deployments may have created the table without is_enabled.
+    // Add it idempotently so getGlobalSetting/setGlobalSetting (which
+    // reference the column via Drizzle) don't throw on existing DBs.
+    await db.execute(sql`ALTER TABLE global_settings ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN NOT NULL DEFAULT true`);
   } catch (err: any) {
     schemaUpgradesRun = false;
     console.error('[ensureSchemaUpgrades] Failed to apply transactions reminder columns:', err?.message || err);

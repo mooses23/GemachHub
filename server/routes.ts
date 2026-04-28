@@ -4032,15 +4032,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/operator/transactions/:id/request-new-card", async (req, res) => {
     try {
       const transactionId = parseInt(req.params.id);
-      const operatorLocationId = (req.session as any).operatorLocationId;
-      if (!req.isAuthenticated() && !operatorLocationId) {
-        return res.status(401).json({ message: "Authentication required" });
+      // Task #39: tighten authz. Use the same operator-resolution helper as
+      // every other /api/operator/* route so we can't be tricked by a
+      // logged-in non-operator user with no locationId (which the previous
+      // `if (allowedLocId && ...)` guard would silently allow through).
+      // getOperatorLocationId returns:
+      //   - null    → not an operator at all → 401
+      //   - -1      → admin → unrestricted
+      //   - number  → that operator's locationId → must match tx.locationId
+      const allowedLocId = getOperatorLocationId(req);
+      if (allowedLocId === null) {
+        return res.status(401).json({ message: "Operator authentication required" });
       }
       const tx = await storage.getTransaction(transactionId);
       if (!tx) return res.status(404).json({ message: "Transaction not found" });
-
-      const allowedLocId = operatorLocationId || (req.user as any)?.locationId;
-      if (allowedLocId && allowedLocId !== tx.locationId && !((req.user as any)?.isAdmin)) {
+      if (allowedLocId !== -1 && allowedLocId !== tx.locationId) {
         return res.status(403).json({ message: "Not your location" });
       }
 

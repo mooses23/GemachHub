@@ -1,5 +1,5 @@
 import { storage } from './storage.js';
-import { PaymentMethod } from '@shared/schema';
+import { PaymentMethod } from '../shared/schema.js';
 
 /**
  * Payment System Synchronization Service

@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { regions, cityCategories, locations } from "@shared/schema";
+import { regions, cityCategories, locations } from "../shared/schema.js";
 import { eq, sql } from "drizzle-orm";
 
 const FORCE = process.argv.includes("--force");
