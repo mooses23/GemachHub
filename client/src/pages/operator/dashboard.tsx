@@ -955,6 +955,9 @@ function LendWizard({
           <StripeSetupCheckout
             clientSecret={stripeClientSecret}
             publishableKey={stripePublishableKey}
+            gemachName={location.name}
+            maxChargeAmount={parseFloat(depositAmount) || 0}
+            currency={(location as any).currency || "usd"}
             onSuccess={async () => {
               try {
                 // For card deposit, we need to assign the headband and update inventory

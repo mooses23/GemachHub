@@ -17,6 +17,11 @@ interface UniversalPaymentProcessorProps {
   borrowerEmail: string;
   borrowerPhone?: string;
   paymentMethod: string;
+  // Task #39: pass per-location fee config (basis points + fixed cents)
+  // so the displayed total matches the actual server-side charge.
+  // Defaults match the global Stripe defaults if a location is missing them.
+  processingFeePercent?: number;
+  processingFeeFixedCents?: number;
   onSuccess: () => void;
 }
 
@@ -27,6 +32,8 @@ export default function UniversalPaymentProcessor({
   borrowerEmail,
   borrowerPhone,
   paymentMethod,
+  processingFeePercent = 290,
+  processingFeeFixedCents = 30,
   onSuccess
 }: UniversalPaymentProcessorProps) {
   const { toast } = useToast();
@@ -41,9 +48,13 @@ export default function UniversalPaymentProcessor({
   } | null>(null);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const isInitiatingRef = useRef(false);
-  
-  const processingFeePercent = 300;
-  const processingFee = paymentMethod === "cash" ? 0 : Math.ceil((depositAmount * processingFeePercent) / 10000);
+
+  // Task #39: % + fixed cents fee math, mirrors server/depositFees.ts.
+  const depositCents = Math.round(depositAmount * 100);
+  const processingFeeCents = paymentMethod === "cash"
+    ? 0
+    : Math.ceil((depositCents * processingFeePercent) / 10000) + processingFeeFixedCents;
+  const processingFee = processingFeeCents / 100;
   const totalAmount = depositAmount + processingFee;
 
   const initiateDepositMutation = useMutation({
@@ -159,7 +170,9 @@ export default function UniversalPaymentProcessor({
           </div>
           {processingFee > 0 && (
             <div className="flex justify-between text-sm text-gray-600">
-              <span>{t("processingFeeLabel")} ({(processingFeePercent / 100).toFixed(1)}%):</span>
+              <span>
+                {t("processingFeeLabel")} ({(processingFeePercent / 100).toFixed(2)}% + ${(processingFeeFixedCents / 100).toFixed(2)}):
+              </span>
               <span>${processingFee.toFixed(2)}</span>
             </div>
           )}

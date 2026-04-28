@@ -7,17 +7,25 @@ import { useLanguage } from "@/hooks/use-language";
 interface FeeCalculatorProps {
   depositAmount: number;
   processingFeePercent: number;
+  processingFeeFixedCents?: number;
   selectedPaymentMethod: string;
 }
 
 export function FeeCalculator({
   depositAmount,
   processingFeePercent,
+  processingFeeFixedCents = 30,
   selectedPaymentMethod,
 }: FeeCalculatorProps) {
   const { t } = useLanguage();
   const isCash = selectedPaymentMethod === "cash";
-  const feeAmount = isCash ? 0 : Math.ceil((depositAmount * processingFeePercent) / 10000);
+  // Task #39: fee = % of deposit + fixed cents. Match server math
+  // (server/depositFees.ts) so the UI quote and the actual charge agree.
+  const depositCents = Math.round(depositAmount * 100);
+  const feeCents = isCash
+    ? 0
+    : Math.ceil((depositCents * processingFeePercent) / 10000) + processingFeeFixedCents;
+  const feeAmount = feeCents / 100;
   const totalAmount = depositAmount + feeAmount;
 
   const getPaymentMethodName = (method: string) => {

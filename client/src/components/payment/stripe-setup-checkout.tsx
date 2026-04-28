@@ -3,31 +3,49 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, CreditCard, CheckCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, CreditCard, CheckCircle, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 const OPERATOR_DASHBOARD_URL = "/operator/dashboard";
 
+function buildConsentText(gemachName: string, maxChargeAmount: number, currency: string) {
+  const symbol = currency.toUpperCase() === "USD" ? "$" : `${currency.toUpperCase()} `;
+  return `By saving this card, I authorize ${gemachName} to charge up to ${symbol}${maxChargeAmount.toFixed(2)} plus a small processing fee if I do not return the borrowed item.`;
+}
+
 interface StripeSetupCheckoutFormProps {
   clientSecret: string;
+  gemachName: string;
+  maxChargeAmount: number;
+  currency: string;
   onSuccess: () => void;
   onError: (error: string) => void;
 }
 
-function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSetupCheckoutFormProps) {
+function StripeSetupCheckoutForm({
+  clientSecret,
+  gemachName,
+  maxChargeAmount,
+  currency,
+  onSuccess,
+  onError,
+}: StripeSetupCheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [setupStatus, setSetupStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [consentChecked, setConsentChecked] = useState(false);
   const { toast } = useToast();
+
+  const consentText = buildConsentText(gemachName, maxChargeAmount, currency);
+  const consentMaxChargeCents = Math.round(maxChargeAmount * 100);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!stripe || !elements) {
-      return;
-    }
+    if (!stripe || !elements) return;
+    if (!consentChecked) return;
 
     setIsProcessing(true);
     setSetupStatus('processing');
@@ -50,17 +68,21 @@ function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSet
       onError(error.message || "Card setup failed");
       setIsProcessing(false);
     } else if (setupIntent && setupIntent.status === 'succeeded') {
-      // Confirm the setup with backend (updates status immediately without waiting for webhook)
       if (setupIntent.id) {
         try {
           await apiRequest("POST", "/api/deposits/confirm-setup", {
             setupIntentId: setupIntent.id,
+            // Task #39: persist consent alongside setup-intent confirmation so
+            // PayLaterService.chargeTransaction's consent guard doesn't block
+            // future off-session charges initiated from this on-site flow.
+            consentText,
+            consentMaxChargeCents,
           });
         } catch (confirmError) {
           console.warn("Backend confirmation failed, webhook will handle status update:", confirmError);
         }
       }
-      
+
       setSetupStatus('success');
       toast({
         title: "Card Setup Successful",
@@ -86,7 +108,6 @@ function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSet
           <h3 className="text-xl font-bold text-green-800 mb-2">Card Saved Successfully!</h3>
           <p className="text-green-700">
             The card has been saved securely and the headband has been lent.
-            The card has been saved securely.
           </p>
         </CardContent>
       </Card>
@@ -98,11 +119,37 @@ function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSet
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <PaymentElement />
-          
-          <div className="pt-4">
+
+          <div
+            data-testid="block-consent"
+            className="rounded-lg border border-amber-300 bg-amber-50 p-4"
+          >
+            <div className="flex items-start gap-2">
+              <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="space-y-3 flex-1">
+                <p className="text-sm text-amber-900 font-medium leading-relaxed">
+                  {consentText}
+                </p>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <Checkbox
+                    data-testid="checkbox-consent"
+                    checked={consentChecked}
+                    onCheckedChange={(v) => setConsentChecked(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-amber-900">
+                    I understand and agree.
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2">
             <Button
+              data-testid="button-submit-card"
               type="submit"
-              disabled={!stripe || isProcessing}
+              disabled={!stripe || isProcessing || !consentChecked}
               className="w-full"
               size="lg"
             >
@@ -114,14 +161,14 @@ function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSet
               ) : (
                 <>
                   <CreditCard className="mr-2 h-4 w-4" />
-                  Save Card & Lend Headband
+                  Save Card &amp; Lend Headband
                 </>
               )}
             </Button>
           </div>
 
           <p className="text-xs text-muted-foreground text-center">
-            Your card will be saved securely. You won't be charged until the operator approves the charge when you return the headband.
+            Your card will be saved securely. You won&apos;t be charged until the operator approves the charge when you return the headband.
           </p>
         </form>
       </CardContent>
@@ -132,17 +179,31 @@ function StripeSetupCheckoutForm({ clientSecret, onSuccess, onError }: StripeSet
 interface StripeSetupCheckoutProps {
   clientSecret: string;
   publishableKey: string;
+  gemachName: string;
+  maxChargeAmount: number;
+  currency?: string;
   onSuccess: () => void;
   onError: (error: string) => void;
 }
 
-export default function StripeSetupCheckout({ clientSecret, publishableKey, onSuccess, onError }: StripeSetupCheckoutProps) {
+export default function StripeSetupCheckout({
+  clientSecret,
+  publishableKey,
+  gemachName,
+  maxChargeAmount,
+  currency = "usd",
+  onSuccess,
+  onError,
+}: StripeSetupCheckoutProps) {
   const stripePromise = loadStripe(publishableKey);
 
   return (
     <Elements stripe={stripePromise} options={{ clientSecret }}>
       <StripeSetupCheckoutForm
         clientSecret={clientSecret}
+        gemachName={gemachName}
+        maxChargeAmount={maxChargeAmount}
+        currency={currency}
         onSuccess={onSuccess}
         onError={onError}
       />
