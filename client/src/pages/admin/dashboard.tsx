@@ -131,31 +131,47 @@ function StripeSettingsCard() {
               <div>
                 <p className="text-xs font-medium mb-2">Per-location processing fee (applied to card deposits)</p>
                 <div className="space-y-2">
-                  {(data?.locationFees ?? []).map(loc => (
-                    <div key={loc.locationId} className="grid grid-cols-3 gap-2 items-center">
-                      <span className="text-sm truncate">{loc.name}</span>
-                      <div>
-                        <label className="text-xs text-muted-foreground">% (basis pts)</label>
-                        <input
-                          type="number" min={0} max={10000}
-                          className="w-full border rounded px-2 py-1 text-sm"
-                          value={feeEdits[loc.locationId]?.processingFeePercent ?? ""}
-                          onChange={e => setFeeEdits(prev => ({ ...prev, [loc.locationId]: { ...prev[loc.locationId], processingFeePercent: e.target.value } }))}
-                          title="Basis points: 290 = 2.90%"
-                        />
+                  {(data?.locationFees ?? []).map(loc => {
+                    const bpRaw = feeEdits[loc.locationId]?.processingFeePercent ?? "";
+                    const centsRaw = feeEdits[loc.locationId]?.processingFeeFixed ?? "";
+                    const bp = parseFloat(bpRaw);
+                    const cents = parseFloat(centsRaw);
+                    const feePreview = Number.isFinite(bp) && Number.isFinite(cents)
+                      ? `${(bp / 100).toFixed(2)}% + $${(cents / 100).toFixed(2)} per transaction`
+                      : null;
+                    return (
+                      <div key={loc.locationId} className="space-y-1">
+                        <div className="grid grid-cols-3 gap-2 items-center">
+                          <span className="text-sm truncate">{loc.name}</span>
+                          <div>
+                            <label className="text-xs text-muted-foreground">% (basis pts)</label>
+                            <input
+                              type="number" min={0} max={10000}
+                              className="w-full border rounded px-2 py-1 text-sm"
+                              value={bpRaw}
+                              onChange={e => setFeeEdits(prev => ({ ...prev, [loc.locationId]: { ...prev[loc.locationId], processingFeePercent: e.target.value } }))}
+                              title="Basis points: 290 = 2.90%"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Fixed (¢)</label>
+                            <input
+                              type="number" min={0} max={9999}
+                              className="w-full border rounded px-2 py-1 text-sm"
+                              value={centsRaw}
+                              onChange={e => setFeeEdits(prev => ({ ...prev, [loc.locationId]: { ...prev[loc.locationId], processingFeeFixed: e.target.value } }))}
+                              title="Cents: 30 = $0.30"
+                            />
+                          </div>
+                        </div>
+                        {feePreview && (
+                          <p className="text-xs text-muted-foreground pl-0">
+                            Current fee: <span className="font-medium text-foreground">{feePreview}</span>
+                          </p>
+                        )}
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Fixed (¢)</label>
-                        <input
-                          type="number" min={0} max={9999}
-                          className="w-full border rounded px-2 py-1 text-sm"
-                          value={feeEdits[loc.locationId]?.processingFeeFixed ?? ""}
-                          onChange={e => setFeeEdits(prev => ({ ...prev, [loc.locationId]: { ...prev[loc.locationId], processingFeeFixed: e.target.value } }))}
-                          title="Cents: 30 = $0.30"
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
