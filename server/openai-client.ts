@@ -7,6 +7,7 @@ import type {
   KbEmbedding, KbSourceKind, Region, CityCategory, Transaction, Contact,
   GemachApplication,
 } from '../shared/schema.js';
+import { siblingsForSeed, type FormItemForGrouping } from '../shared/form-thread-grouping.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -572,11 +573,38 @@ async function gatherContext(
         };
       });
     } else if (senderEmail) {
-      const normSubj = normalizeSubject(emailSubject);
       const allContacts = await storage.getContactsByEmail(senderEmail).catch(() => [] as Contact[]);
       const currentId = currentMessageId ? Number(currentMessageId) : NaN;
+      // Project Contact rows down to the minimal shape the grouping
+      // helper needs. Doing this once up front means the seed and pool
+      // share a single concrete type and nothing downstream needs casts.
+      const contactToFormItem = (c: Contact): FormItemForGrouping => ({
+        id: c.id,
+        email: c.email,
+        subject: c.subject,
+        date: c.submittedAt,
+      });
+      // Pick a "seed" contact representing the current message so the
+      // grouping helper can find every sibling (same loose conversation)
+      // even when the borrower changed the subject between submissions.
+      // Falls back to a synthetic seed (id -1) when the current message
+      // isn't a form contact (e.g. Gmail with no threadId on a fresh
+      // inquiry) — that synthetic seed gets prepended to the pool so the
+      // helper still computes the cluster relative to it.
+      const seedFromContacts = !Number.isNaN(currentId)
+        ? allContacts.find(c => c.id === currentId)
+        : undefined;
+      const SYNTHETIC_SEED_ID = -1;
+      const seedItem: FormItemForGrouping = seedFromContacts
+        ? contactToFormItem(seedFromContacts)
+        : { id: SYNTHETIC_SEED_ID, email: senderEmail, subject: emailSubject || '', date: new Date() };
+      const pool: FormItemForGrouping[] = seedFromContacts
+        ? allContacts.map(contactToFormItem)
+        : [seedItem, ...allContacts.map(contactToFormItem)];
+      const inGroup = siblingsForSeed(seedItem, pool);
+      const inGroupIds = new Set(inGroup.map(g => String(g.id)));
       const siblings = allContacts.filter(c =>
-        normalizeSubject(c.subject) === normSubj && c.id !== currentId
+        c.id !== currentId && inGroupIds.has(String(c.id))
       );
       if (siblings.length) {
         const repliesPerSibling = await Promise.all(
@@ -600,7 +628,7 @@ async function gatherContext(
             });
           }
         });
-        headerLabel = 'PRIOR MESSAGES IN THIS CONVERSATION (same sender + subject)';
+        headerLabel = 'PRIOR MESSAGES IN THIS CONVERSATION (same sender, related submissions)';
       }
     }
 

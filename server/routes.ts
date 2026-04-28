@@ -2883,7 +2883,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const norm = (s: string) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      const normSubject = (s: string) => norm(String(s || '').replace(/^\s*((re|fw|fwd|aw|tr)\s*:\s*)+/i, ''));
+      const { groupFormContacts, normalizeFormSubject } = await import('../shared/form-thread-grouping.js');
 
       type ThreadEntry = {
         id: string;
@@ -2950,9 +2950,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!seedContact) {
         return res.status(404).json({ message: "Contact not found" });
       }
-      const seedNormSubj = normSubject(seedContact.subject);
       const allContacts = await storage.getContactsByEmail(seedContact.email).catch(() => []);
-      const siblings = allContacts.filter((c) => normSubject(c.subject) === seedNormSubj);
+      // Loose grouping: same sender + (identical | fuzzy-similar | empty
+      // subject within 14d | any subject within 3d). See
+      // shared/form-thread-grouping.ts for the full link rules — that
+      // helper is also used by the inbox list and the AI context builder
+      // so all three views agree on what counts as one conversation.
+      const grouping = groupFormContacts(
+        allContacts.map((c) => ({
+          id: c.id,
+          email: c.email,
+          subject: c.subject,
+          date: c.submittedAt,
+        }))
+      );
+      const seedKey = grouping.keyByContactId.get(String(seedContact.id));
+      const memberIdSet = new Set(
+        seedKey ? grouping.membersByKey.get(seedKey) ?? [String(seedContact.id)] : [String(seedContact.id)]
+      );
+      const siblings = allContacts.filter((c) => memberIdSet.has(String(c.id)));
+      const seedNormSubj = normalizeFormSubject(seedContact.subject);
       const repliesArrays = await Promise.all(
         siblings.map((c) => storage.getReplyExamplesByRef('form', String(c.id)).catch(() => []))
       );

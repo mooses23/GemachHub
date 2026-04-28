@@ -62,6 +62,7 @@ import {
 import { Link } from "wouter";
 import DOMPurify from "dompurify";
 import type { Contact } from "@shared/schema";
+import { groupFormContacts } from "@shared/form-thread-grouping";
 import type { TranslationKey } from "@/lib/translations";
 
 type SourceFilter = "all" | "email" | "form";
@@ -160,11 +161,16 @@ function normalizeSubject(s: string): string {
 }
 
 // Stable per-conversation key. Email items thread by Gmail's native threadId
-// (with id fallback when threadId is missing). Form items thread by the
-// (lowercased sender email + normalized subject) tuple — the closest analog
-// to Gmail threading we can compute without any schema changes.
-function groupKey(item: UnifiedItem): string {
+// (with id fallback when threadId is missing). Form items thread loosely:
+// same sender + (identical | fuzzy-similar subject | empty subject within a
+// time window | any subject within a tight time window). The clustering
+// happens up front in `buildGroups` via `groupFormContacts` so this lookup
+// just maps a single item to its precomputed canonical key.
+function groupKey(item: UnifiedItem, formKeys: Map<string, string>): string {
   if (item.source === "email") return `email::${item.threadId || item.id}`;
+  const precomputed = formKeys.get(String(item.id));
+  if (precomputed) return precomputed;
+  // Fallback (shouldn't normally hit): old key shape so the row still renders.
   const email = (item.fromEmail || "").toLowerCase();
   return `form::${email}::${normalizeSubject(item.subject)}`;
 }
@@ -403,9 +409,24 @@ export default function AdminInbox() {
   // user has a folder/search/unread filter active that hides some of
   // them).
   const buildGroups = (items: UnifiedItem[]): InboxThread[] => {
+    // Precompute the loose conversation key for every form item up front so
+    // sibling submissions with rewritten subjects collapse onto a single
+    // row. The same helper runs server-side in /api/admin/inbox/thread so
+    // opening any row pulls the matching expanded transcript.
+    const formGrouping = groupFormContacts(
+      items
+        .filter((it) => it.source === "form")
+        .map((it) => ({
+          id: String(it.id),
+          email: it.fromEmail,
+          subject: it.subject,
+          date: it.date,
+        })),
+    );
+    const formKeys = formGrouping.keyByContactId;
     const groups = new Map<string, InboxThread>();
     for (const it of items) {
-      const k = groupKey(it);
+      const k = groupKey(it, formKeys);
       const existing = groups.get(k);
       if (!existing) {
         groups.set(k, {
@@ -515,9 +536,25 @@ export default function AdminInbox() {
     return map;
   }, [unified]);
 
+  // Form-grouping map computed against the FULL unified set so any form
+  // item can be resolved back to its canonical conversation key, even when
+  // the visible (`filtered`) set hides some siblings.
+  const allFormKeys: Map<string, string> = useMemo(() => {
+    return groupFormContacts(
+      unified
+        .filter((it) => it.source === "form")
+        .map((it) => ({
+          id: String(it.id),
+          email: it.fromEmail,
+          subject: it.subject,
+          date: it.date,
+        })),
+    ).keyByContactId;
+  }, [unified]);
+
   const groupMembersFor = (item: UnifiedItem | null | undefined): UnifiedItem[] => {
     if (!item) return [];
-    const g = allThreadGroupsByKey.get(groupKey(item));
+    const g = allThreadGroupsByKey.get(groupKey(item, allFormKeys));
     return g?.members ?? [item];
   };
 
