@@ -882,6 +882,35 @@ export class DatabaseStorage implements IStorage {
     return result.length === 0 ? null : result[0];
   }
 
+  async recordTransactionRefund(args: {
+    id: number;
+    expectedPriorStatus: PayLaterStatus;
+    expectedPriorRefundAmount: number | null;
+    newStatus: PayLaterStatus;
+    newRefundAmount: number;
+    stripeRefundId: string;
+  }): Promise<Transaction | null> {
+    // CAS on (status, refundAmount). Treat NULL prior refund as equivalent to 0
+    // so a never-refunded row matches when the caller passes 0/null.
+    const expectedAmt = args.expectedPriorRefundAmount ?? 0;
+    const priorAmtCondition = expectedAmt === 0
+      ? sql`(${transactions.refundAmount} IS NULL OR ${transactions.refundAmount} = 0)`
+      : sql`${transactions.refundAmount} = ${expectedAmt}`;
+    const result = await db.update(transactions)
+      .set({
+        payLaterStatus: args.newStatus,
+        refundAmount: args.newRefundAmount,
+        stripeRefundId: args.stripeRefundId,
+      })
+      .where(and(
+        eq(transactions.id, args.id),
+        eq(transactions.payLaterStatus, args.expectedPriorStatus),
+        priorAmtCondition,
+      ))
+      .returning();
+    return result.length === 0 ? null : result[0];
+  }
+
   // Audit Log operations
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
     const result = await db.insert(auditLogs).values({

@@ -4027,14 +4027,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(502).json({ message: stripeErr.message || "Stripe refund failed" });
       }
 
-      // Persist cumulative total, latest refund id, and updated status.
+      // Persist cumulative total, latest refund id, and updated status via an
+      // atomic compare-and-swap on (payLaterStatus, refundAmount). If a
+      // concurrent refund slipped in between our read and this write, the CAS
+      // returns null and we surface a 409 — Stripe has already deduped its
+      // side via the deterministic idempotency key, so the worst case is the
+      // operator retrying with the now-current remaining balance.
       const newRefundedCents = alreadyRefundedCents + requestedCents;
       const newStatus: PayLaterStatus =
         newRefundedCents >= maxRefundCents ? "REFUNDED" : "PARTIALLY_REFUNDED";
-      const updated = await storage.updateTransactionPayLaterStatus(transactionId, newStatus, {
-        refundAmount: newRefundedCents / 100,
+      const updated = await storage.recordTransactionRefund({
+        id: transactionId,
+        expectedPriorStatus: transaction.payLaterStatus as PayLaterStatus,
+        expectedPriorRefundAmount: (transaction.refundAmount ?? null) as number | null,
+        newStatus,
+        newRefundAmount: newRefundedCents / 100,
         stripeRefundId: stripeRefund.id,
       });
+      if (!updated) {
+        // Stripe has the refund recorded under our deterministic key and will
+        // not double-charge on retry. We log a critical audit so an admin can
+        // reconcile manually if the totals look off.
+        await storage.createAuditLog({
+          actorUserId: operatorUserId,
+          actorType: operatorUserId ? "operator" : "system",
+          action: "refund_pay_later_cas_conflict",
+          entityType: "transaction",
+          entityId: transactionId,
+          metadata: JSON.stringify({
+            stripeRefundId: stripeRefund.id,
+            requestedCents,
+            expectedPriorStatus: transaction.payLaterStatus,
+            expectedPriorRefundCents: alreadyRefundedCents,
+          }),
+        });
+        return res.status(409).json({
+          message: "Another refund was processed for this transaction at the same moment. Please refresh and try again with the now-current remaining balance.",
+          stripeRefundId: stripeRefund.id,
+        });
+      }
 
       // Inventory restock is opt-in: only when the operator confirms the item
       // is physically being returned alongside the refund.

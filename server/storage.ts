@@ -164,6 +164,19 @@ export interface IStorage {
   // Returns the updated transaction, or null if the row no longer matches (e.g., already
   // refunded by a concurrent request). Used to make refund/charge transitions race-safe.
   transitionTransactionPayLaterStatus(id: number, fromStatus: PayLaterStatus, toStatus: PayLaterStatus, additionalData?: Partial<Transaction>): Promise<Transaction | null>;
+  // Atomic compare-and-swap for refund persistence: only updates the row if the
+  // current (payLaterStatus, refundAmount) match the expected prior values.
+  // This guarantees that two concurrent refund requests cannot overwrite each
+  // other's cumulative totals — the loser sees null and 409s out at the route
+  // layer (Stripe will dedupe its side via the deterministic idempotency key).
+  recordTransactionRefund(args: {
+    id: number;
+    expectedPriorStatus: PayLaterStatus;
+    expectedPriorRefundAmount: number | null;
+    newStatus: PayLaterStatus;
+    newRefundAmount: number;
+    stripeRefundId: string;
+  }): Promise<Transaction | null>;
 
   // Audit Log operations
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
@@ -3037,6 +3050,33 @@ export class MemStorage implements IStorage {
     }
     const updated = { ...transaction, payLaterStatus: toStatus, ...additionalData };
     this.transactions.set(id, updated);
+    return updated;
+  }
+
+  async recordTransactionRefund(args: {
+    id: number;
+    expectedPriorStatus: PayLaterStatus;
+    expectedPriorRefundAmount: number | null;
+    newStatus: PayLaterStatus;
+    newRefundAmount: number;
+    stripeRefundId: string;
+  }): Promise<Transaction | null> {
+    const t = this.transactions.get(args.id);
+    if (!t) return null;
+    // Treat null and 0 as equivalent priors (a never-refunded row).
+    const priorAmt = (t.refundAmount ?? 0) as number;
+    const expectedAmt = (args.expectedPriorRefundAmount ?? 0) as number;
+    // Tolerate sub-cent floating-point noise.
+    if (t.payLaterStatus !== args.expectedPriorStatus || Math.abs(priorAmt - expectedAmt) > 0.005) {
+      return null;
+    }
+    const updated: Transaction = {
+      ...t,
+      payLaterStatus: args.newStatus,
+      refundAmount: args.newRefundAmount,
+      stripeRefundId: args.stripeRefundId,
+    };
+    this.transactions.set(args.id, updated);
     return updated;
   }
 

@@ -525,12 +525,185 @@ function ReturnReminderButton({ tx, locationId }: { tx: Transaction; locationId:
   );
 }
 
+// Standalone refund dialog reachable from Recent Activity. Used for charged
+// transactions that have already been auto-marked returned (which the
+// ReturnWizard filters out), and for follow-up partial refunds against rows
+// already in PARTIALLY_REFUNDED status.
+function RefundChargedDialog({
+  tx,
+  open,
+  onOpenChange,
+  locationId,
+}: {
+  tx: Transaction;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  locationId: number;
+}) {
+  const { t } = useLanguage();
+  const { toast } = useToast();
+  const depositCents = Math.round((tx.depositAmount || 0) * 100);
+  const alreadyRefundedCents = Math.round(((tx.refundAmount ?? 0) as number) * 100);
+  const remainingCents = Math.max(0, depositCents - alreadyRefundedCents);
+  const remaining = remainingCents / 100;
+  const [isPartial, setIsPartial] = useState(false);
+  const [amount, setAmount] = useState(remaining.toFixed(2));
+  const [reason, setReason] = useState("");
+  const [physicallyReturned, setPhysicallyReturned] = useState(!tx.isReturned);
+
+  useEffect(() => {
+    if (open) {
+      setIsPartial(false);
+      setAmount(remaining.toFixed(2));
+      setReason("");
+      setPhysicallyReturned(!tx.isReturned);
+    }
+  }, [open, remaining, tx.isReturned]);
+
+  const refundMutation = useMutation({
+    mutationFn: async () => {
+      const refundAmount = isPartial ? parseFloat(amount) : undefined;
+      const res = await apiRequest("POST", `/api/operator/transactions/${tx.id}/refund-pay-later`, {
+        refundAmount,
+        reason: reason.trim() || undefined,
+        itemPhysicallyReturned: physicallyReturned,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: t("success"), description: t("stripeRefundProcessed").replace("${amount}", (isPartial ? parseFloat(amount) : remaining).toFixed(2)) });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", locationId, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", locationId, "inventory"] });
+      onOpenChange(false);
+    },
+    onError: (err: Error) => {
+      toast({ title: t("error"), description: err.message, variant: "destructive" });
+    },
+  });
+
+  const partialAmt = parseFloat(amount);
+  const validPartial = !isPartial || (Number.isFinite(partialAmt) && partialAmt > 0 && partialAmt <= remaining);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="glass-card max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-white">{t("refundDeposit")}</DialogTitle>
+          <DialogDescription className="text-slate-400">
+            {tx.borrowerName} · {t("txNumber")}{tx.id}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="text-sm text-slate-300">
+            <div>{(t as any)("originalChargeLabel") || "Original charge"}: <span className="text-white font-medium">${(depositCents / 100).toFixed(2)}</span></div>
+            {alreadyRefundedCents > 0 && (
+              <div>{(t as any)("alreadyRefundedLabel") || "Already refunded"}: <span className="text-amber-300 font-medium">${(alreadyRefundedCents / 100).toFixed(2)}</span></div>
+            )}
+            <div>{(t as any)("remainingRefundableLabel") || "Refundable now"}: <span className="text-white font-medium">${remaining.toFixed(2)}</span></div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={isPartial ? "outline" : "default"}
+              onClick={() => { setIsPartial(false); setAmount(remaining.toFixed(2)); }}
+              data-testid="button-refund-full"
+            >
+              {(t as any)("fullRefund") || "Full"}
+            </Button>
+            <Button
+              size="sm"
+              variant={isPartial ? "default" : "outline"}
+              onClick={() => { setIsPartial(true); setAmount(""); }}
+              data-testid="button-refund-partial"
+            >
+              {(t as any)("partialRefund") || "Partial"}
+            </Button>
+          </div>
+
+          {isPartial && (
+            <div>
+              <Label className="text-slate-300 text-sm">{t("refundAmountLabel")}</Label>
+              <Input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                max={remaining}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="bg-white/5 border-white/10 text-white"
+                data-testid="input-refund-amount"
+              />
+            </div>
+          )}
+
+          <div>
+            <Label className="text-slate-300 text-sm">{(t as any)("reasonLabel") || "Reason (optional)"}</Label>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={(t as any)("reasonPlaceholder") || "e.g. borrower returned item late"}
+              maxLength={500}
+              className="bg-white/5 border-white/10 text-white"
+              data-testid="input-refund-reason"
+            />
+          </div>
+
+          <label className="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={physicallyReturned}
+              onChange={(e) => setPhysicallyReturned(e.target.checked)}
+              className="mt-1"
+              data-testid="checkbox-item-physically-returned"
+            />
+            <span>{(t as any)("itemPhysicallyReturnedLabel") || "Item is being physically returned now (restock inventory)"}</span>
+          </label>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("cancel")}</Button>
+          <Button
+            onClick={() => refundMutation.mutate()}
+            disabled={!validPartial || refundMutation.isPending || remaining <= 0}
+            data-testid="button-confirm-refund"
+          >
+            {refundMutation.isPending ? (t as any)("processing") || "..." : (t as any)("confirmRefund") || t("refundDeposit")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RecentActivity({ transactions, locationId, locationCode }: { transactions: Transaction[]; locationId: number; locationCode?: string }) {
   const { t, language } = useLanguage();
-  const recentTransactions = [...transactions]
-    .filter(tx => tx.locationId === locationId)
+  const [refundTx, setRefundTx] = useState<Transaction | null>(null);
+  const [showFindPast, setShowFindPast] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const locationTxns = [...transactions].filter(tx => tx.locationId === locationId);
+  const recentTransactions = locationTxns
     .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime())
     .slice(0, 5);
+
+  // Charged or partially-refunded transactions for the "Find past" dialog —
+  // these are the ones eligible for refund regardless of their isReturned flag.
+  const chargedTransactions = locationTxns
+    .filter(tx => tx.payLaterStatus === "CHARGED" || tx.payLaterStatus === "PARTIALLY_REFUNDED")
+    .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime());
+
+  const filteredCharged = searchQuery.trim()
+    ? chargedTransactions.filter(tx =>
+        tx.borrowerName.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+        String(tx.id).includes(searchQuery.trim())
+      )
+    : chargedTransactions;
+
+  const isRefundable = (tx: Transaction) =>
+    tx.payLaterStatus === "CHARGED" || tx.payLaterStatus === "PARTIALLY_REFUNDED";
   
   return (
     <Card className="glass-card">
@@ -578,19 +751,111 @@ function RecentActivity({ transactions, locationId, locationCode }: { transactio
                 <div className="flex items-center gap-3 sm:flex-row-reverse">
                   <div className="text-right">
                     <Badge variant={tx.isReturned ? "outline" : "default"} className={tx.isReturned ? "mb-1 border-white/20 text-slate-300" : "mb-1"}>
-                      {tx.isReturned ? t('returned') : t('activeBorrow')}
+                      {tx.payLaterStatus === "REFUNDED"
+                        ? ((t as any)("refundedLabel") || t("returned"))
+                        : tx.payLaterStatus === "PARTIALLY_REFUNDED"
+                          ? ((t as any)("partiallyRefundedLabel") || "Partially refunded")
+                          : tx.isReturned ? t("returned") : t("activeBorrow")}
                     </Badge>
                     <div className="text-xs font-medium text-white">${tx.depositAmount.toFixed(2)}</div>
                   </div>
                   {!tx.isReturned && (
                     <ReturnReminderButton tx={tx} locationId={locationId} />
                   )}
+                  {isRefundable(tx) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setRefundTx(tx)}
+                      data-testid={`button-refund-${tx.id}`}
+                    >
+                      {t("refundDeposit") || "Refund"}
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
+        <div className="mt-3 text-right">
+          <Button
+            variant="link"
+            size="sm"
+            className="text-slate-300"
+            onClick={() => setShowFindPast(true)}
+            data-testid="button-find-past-charged"
+          >
+            {(t as any)("findPastChargedTransaction") || "Find a past charged transaction to refund →"}
+          </Button>
+        </div>
       </CardContent>
+
+      {refundTx && (
+        <RefundChargedDialog
+          tx={refundTx}
+          open={!!refundTx}
+          onOpenChange={(v) => !v && setRefundTx(null)}
+          locationId={locationId}
+        />
+      )}
+
+      <Dialog open={showFindPast} onOpenChange={setShowFindPast}>
+        <DialogContent className="glass-card max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white">{(t as any)("findPastChargedTitle") || "Find a past charged transaction"}</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {(t as any)("findPastChargedDescription") || "Search by borrower name or transaction ID to refund older charges."}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder={(t as any)("searchBorrowerOrId") || "Borrower name or #ID"}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-white/5 border-white/10 text-white"
+            data-testid="input-find-past-search"
+          />
+          <div className="max-h-80 overflow-y-auto space-y-2 mt-2">
+            {filteredCharged.length === 0 ? (
+              <div className="text-center py-4 text-slate-400">
+                {(t as any)("noChargedTransactionsFound") || "No matching charged transactions."}
+              </div>
+            ) : (
+              filteredCharged.map(tx => {
+                const refundedCents = Math.round(((tx.refundAmount ?? 0) as number) * 100);
+                const depositCents = Math.round((tx.depositAmount || 0) * 100);
+                const remaining = Math.max(0, depositCents - refundedCents) / 100;
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between p-2 bg-white/5 border border-white/10 rounded hover:bg-white/10"
+                    data-testid={`row-past-charged-${tx.id}`}
+                  >
+                    <div className="text-sm">
+                      <div className="text-white font-medium">{tx.borrowerName} <span className="text-slate-400 text-xs">#{tx.id}</span></div>
+                      <div className="text-xs text-slate-400">
+                        {formatLocalizedDate(new Date(tx.borrowDate), language)} · ${tx.depositAmount.toFixed(2)}
+                        {refundedCents > 0 && <span className="text-amber-300"> · refunded ${(refundedCents / 100).toFixed(2)}</span>}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={remaining <= 0}
+                      onClick={() => {
+                        setShowFindPast(false);
+                        setRefundTx(tx);
+                      }}
+                      data-testid={`button-past-charged-refund-${tx.id}`}
+                    >
+                      {t("refundDeposit") || "Refund"}
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -1273,8 +1538,11 @@ function ReturnWizard({
             }
           });
         }
-      } else if (selectedTransaction?.payLaterStatus === "CHARGED") {
-        // Already-charged card: refund via Stripe
+      } else if (
+        selectedTransaction?.payLaterStatus === "CHARGED" ||
+        selectedTransaction?.payLaterStatus === "PARTIALLY_REFUNDED"
+      ) {
+        // Already-charged card (possibly with prior partial refunds): refund via Stripe.
         const refund = isPartialRefund ? parseFloat(refundAmount) : undefined;
         refundPayLaterMutation.mutate(
           { transactionId: selectedTransaction.id, refundAmount: refund },
