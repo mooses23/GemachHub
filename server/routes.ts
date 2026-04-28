@@ -3615,8 +3615,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         borrowerEmail,
         borrowerPhone,
         amountCents,
-        // Task #39: explicit borrower consent. We persist the exact text the
-        // borrower agreed to so we can replay it back to Stripe in a dispute.
         consentText,
         consentMaxChargeCents,
       } = req.body;
@@ -3632,10 +3630,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const amount = amountCents || (location.depositAmount || 20) * 100;
 
-      // Task #39: borrower consent is required before we can charge a saved
-      // card off-session. There are two valid moments to capture it:
-      //   (a) self-service borrower flow: the client sends consentText + cap
-      //       up-front (e.g. SetupIntentForm), so we persist verbatim now.
+      // Consent is captured at two points:
+      //   (a) self-service flow: client sends consentText + cap up-front.
       //   (b) operator-initiated flow: operator triggers card setup, then the
       //       borrower sees /status/<id> and ticks the consent box THERE
       //       (StripeSetupIntentForm in status.tsx) before the card is sent
@@ -3697,9 +3693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No payment method attached to SetupIntent" });
       }
 
-      // Task #39: persist consent on the existing transaction (magic-link
-      // flow where the borrower sees the consent block on /status/:id, not
-      // at transaction creation time).
+      // Persist consent from the magic-link flow (borrower accepted on /status/:id).
       if (consentText && typeof consentText === 'string') {
         const tx = await storage.getTransactionBySetupIntentId(setupIntentId);
         if (tx) {
@@ -3749,10 +3743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentIntentClientSecret = await PayLaterService.getPaymentIntentClientSecret(transactionId);
       }
 
-      // Task #39: when the borrower lands here via the operator's magic link
-      // before they've saved their card, surface the SetupIntent client_secret
-      // + the consent disclosure fields so the page can render the consent
-      // block + card input.
+      // Surface SetupIntent client_secret when the borrower hasn't saved their card yet.
       let setupIntentClientSecret: string | null = null;
       if (transaction.payLaterStatus === 'CARD_SETUP_PENDING' && transaction.stripeSetupIntentId) {
         try {
@@ -3921,7 +3912,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // ===========================================================================
-  // Task #39: Stripe risk hardening — admin/operator settings, dispute summary,
+  // Stripe risk hardening — admin/operator settings, dispute summary,
   // request-new-card, and the Stripe operations runbook.
   // ===========================================================================
 
@@ -4073,14 +4064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/operator/transactions/:id/request-new-card", async (req, res) => {
     try {
       const transactionId = parseInt(req.params.id);
-      // Task #39: tighten authz. Use the same operator-resolution helper as
-      // every other /api/operator/* route so we can't be tricked by a
-      // logged-in non-operator user with no locationId (which the previous
-      // `if (allowedLocId && ...)` guard would silently allow through).
-      // getOperatorLocationId returns:
-      //   - null    → not an operator at all → 401
-      //   - -1      → admin → unrestricted
-      //   - number  → that operator's locationId → must match tx.locationId
+      // getOperatorLocationId: null=not operator(401), -1=admin(any), n=location-scoped
       const allowedLocId = getOperatorLocationId(req);
       if (allowedLocId === null) {
         return res.status(401).json({ message: "Operator authentication required" });
@@ -4091,10 +4075,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not your location" });
       }
 
-      // Task #39: pass the BASE deposit (in cents), not amountPlannedCents.
-      // amountPlannedCents already includes the Stripe fee, and
-      // createSetupIntent recomputes the fee — passing it back in would
-      // double-charge the fee on every re-request.
+      // Pass base deposit only — createSetupIntent recomputes the fee, so
+      // passing amountPlannedCents (which already includes the fee) would double it.
       const baseDepositCents = Math.round((tx.depositAmount || 0) * 100);
       const result = await PayLaterService.createSetupIntent({
         locationId: tx.locationId,

@@ -5,15 +5,13 @@ import type { Transaction, PayLaterStatus } from '../shared/schema.js';
 import { computeFeeForLocation, computeFeeForPaymentMethod } from './depositFees.js';
 import { notifyBorrowerBeforeCharge, notifyBorrowerAfterCharge } from './chargeNotifications.js';
 
-// Task #39: stale-card guardrail. Default: 90 days. Admin can override
-// via global_settings('stripe.maxCardAgeDays', '<n>').
+// Stale-card guardrail: refuse off-session charges on cards older than this.
+// Configurable via global_settings('stripe.maxCardAgeDays').
 const DEFAULT_MAX_CARD_AGE_DAYS = 90;
 const MAX_CARD_AGE_SETTING_KEY = 'stripe.maxCardAgeDays';
 
-// Task #39: pre-charge notification gate. When enabled (default: false), the
-// off-session charge is blocked if the borrower cannot be notified (no phone,
-// no email, or send failed). Set stripe.requirePreChargeNotification = 'true'
-// in global_settings to enforce this policy.
+// Pre-charge notification gate: when true (default), blocks charges if the
+// borrower cannot be notified. Configurable via global_settings.
 const REQUIRE_NOTIFY_SETTING_KEY = 'stripe.requirePreChargeNotification';
 
 export async function getMaxCardAgeDays(): Promise<number> {
@@ -106,11 +104,8 @@ export class PayLaterService {
     const { raw: rawToken, hashed: hashedToken } = generateMagicToken();
     const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    // Task #39: compute the actual amount we will charge if the item is not
-    // returned (deposit + Stripe fee). This is what we both DISCLOSE in the
-    // consent text and what we will USE as amountPlannedCents at charge time
-    // — keeping disclosure and reality in lockstep.
-    // Fee hierarchy: Stripe payment-method config > location defaults > hard defaults.
+    // Compute deposit + Stripe fee (disclosed as consent max and charged at settle time).
+    // Fee priority: payment_methods row (provider='stripe') > location defaults > hard defaults.
     const location = await storage.getLocation(data.locationId);
     const allPaymentMethods = await storage.getAllPaymentMethods();
     const stripePaymentMethod = allPaymentMethods.find(pm => pm.provider === 'stripe' && pm.isActive);
@@ -129,7 +124,6 @@ export class PayLaterService {
       currency: data.currency || 'usd',
       magicToken: hashedToken,
       magicTokenExpiresAt: tokenExpiresAt,
-      // Task #39: consent + fee breakdown
       consentText: data.consentText,
       consentAcceptedAt: data.consentText ? new Date() : undefined,
       consentMaxChargeCents: consentMax,
@@ -284,10 +278,7 @@ export class PayLaterService {
       };
     }
 
-    // Task #39: stale-card guardrail. If the saved card is older than the
-    // configured maximum, refuse the off-session charge. Stripe is much more
-    // tolerant of recent cards; old saved cards fail at higher rates and the
-    // failures are more likely to surface as disputes.
+    // Stale-card guardrail: refuse charges on cards older than maxCardAgeDays.
     const maxCardAgeDays = await getMaxCardAgeDays();
     const cardSavedAt = transaction.cardSavedAt ? new Date(transaction.cardSavedAt) : null;
     if (cardSavedAt) {
@@ -313,11 +304,8 @@ export class PayLaterService {
     const beforeJson = JSON.stringify(transaction);
     const stripe = getStripeClient();
 
-    // Task #39: pre-charge heads-up notification.
-    // If the global setting stripe.requirePreChargeNotification='true', we
-    // BLOCK the charge when notification fails (no contact channel or send
-    // error). When the setting is false/absent (the default) we still attempt
-    // notification but allow the charge to proceed regardless of outcome.
+    // Send pre-charge notification. When requirePreChargeNotification=true,
+    // the charge is blocked if notification fails.
     const location = await storage.getLocation(transaction.locationId);
     const amountToChargeCents =
       transaction.amountPlannedCents || Math.round(transaction.depositAmount * 100);

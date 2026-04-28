@@ -70,9 +70,11 @@ communication" evidence field along with the timestamp.
   Sustained breach = monitoring program → fines → account termination.
 - **Our internal warning threshold**: 0.5%. The admin dashboard "Stripe risk"
   card highlights any location whose 30-day rate is at or above this.
-- The denominator is "successful pay-later charges in the same 30-day window"
-  per location. Direct-Deposit charges are not (yet) counted because the
-  Direct-Deposit path is on-session and almost never disputed.
+- The denominator is **all Stripe card charges** in the same 30-day window per
+  location — both Pay Later (`pay_later_status='CHARGED'`) and Direct Deposit
+  (`deposit_payment_method='card'` with a Stripe PaymentIntent). Using both
+  flows keeps numerator and denominator from the same population and prevents
+  a single-flow dispute from inflating the rate when the other flow is active.
 
 When a location is flagged:
 1. Pause new Pay-Later card setups at that location.

@@ -947,23 +947,33 @@ export class DatabaseStorage implements IStorage {
 
   async getRecentDisputeStats(sinceDays: number): Promise<{ locationId: number; disputeCount: number; chargedCount: number; rate: number; }[]> {
     const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
-    // Per-location disputes in window
+    // Numerator: all disputes received in window (covers both direct-deposit
+    // and pay-later Stripe charges — dispute.location_id is the source).
     const disputeRows = await db.execute(sql`
       SELECT location_id, COUNT(*)::int AS count
       FROM disputes
       WHERE created_at >= ${since}
       GROUP BY location_id
     `);
-    // Per-location successful charges in window (denominator). Use the
-    // charged_at timestamp stamped when the off-session PaymentIntent
-    // succeeded — this is the true "charges in this window" count and
-    // matches what Stripe's dispute rate metric measures.
+    // Denominator: all Stripe card charges in window regardless of flow.
+    //   - Pay Later: pay_later_status='CHARGED' with charged_at in window.
+    //   - Direct Deposit: deposit_payment_method='card' with stripe_payment_intent_id
+    //     set and created_at in window (no charged_at column for that flow).
+    // Using UNION ALL keeps the populations consistent with the dispute numerator.
     const chargedRows = await db.execute(sql`
       SELECT location_id, COUNT(*)::int AS count
-      FROM transactions
-      WHERE pay_later_status = 'CHARGED'
-        AND charged_at IS NOT NULL
-        AND charged_at >= ${since}
+      FROM (
+        SELECT location_id FROM transactions
+          WHERE pay_later_status = 'CHARGED'
+            AND charged_at IS NOT NULL
+            AND charged_at >= ${since}
+        UNION ALL
+        SELECT location_id FROM transactions
+          WHERE deposit_payment_method = 'card'
+            AND stripe_payment_intent_id IS NOT NULL
+            AND pay_later_status IS NULL
+            AND created_at >= ${since}
+      ) combined
       GROUP BY location_id
     `);
     const disputeMap = new Map<number, number>();
