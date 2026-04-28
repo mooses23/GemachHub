@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLocations, getRegions, updateLocation, deleteLocation } from "@/lib/api";
 import { Region, Location, OPERATOR_WELCOME_CHANNELS, type OperatorWelcomeChannel } from "@shared/schema";
@@ -63,7 +63,6 @@ import {
   ArrowLeft,
   Home,
   Trash2,
-  Filter,
   Building2,
   CheckCircle,
   XCircle,
@@ -74,7 +73,10 @@ import {
   MessageSquare,
   MessageCircle,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -83,8 +85,9 @@ export default function AdminLocations() {
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [regionFilter, setRegionFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [expandedRegions, setExpandedRegions] = useState<Set<number>>(new Set());
+  const regionRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -470,7 +473,7 @@ export default function AdminLocations() {
     return language === "he" && loc[heKey] ? loc[heKey] : loc[base];
   };
 
-  const filteredLocations = locations.filter(location => {
+  const filteredLocations = useMemo(() => locations.filter(location => {
     // Search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
@@ -484,17 +487,61 @@ export default function AdminLocations() {
       if (!matchesSearch) return false;
     }
     
-    // Region filter
-    if (regionFilter !== "all" && location.regionId.toString() !== regionFilter) {
-      return false;
-    }
-    
     // Status filter
     if (statusFilter === "active" && !location.isActive) return false;
     if (statusFilter === "inactive" && location.isActive) return false;
     
     return true;
-  });
+  }), [locations, searchTerm, statusFilter, regions, language]);
+
+  // Group filtered locations by region, ordered by region displayOrder
+  const groupedLocations = useMemo(() => {
+    const sortedRegions = [...regions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    return sortedRegions
+      .map(region => ({
+        region,
+        locations: filteredLocations.filter(l => l.regionId === region.id),
+      }))
+      .filter(g => g.locations.length > 0);
+  }, [regions, filteredLocations]);
+
+  // Initialize all regions expanded once when region data first loads
+  const hasInitializedExpandedRef = useRef(false);
+  useEffect(() => {
+    if (!hasInitializedExpandedRef.current && regions.length > 0) {
+      hasInitializedExpandedRef.current = true;
+      setExpandedRegions(new Set(regions.map(r => r.id)));
+    }
+  }, [regions]);
+
+  // When a filter/search is active, isExpanded is derived directly as:
+  // isFilterActive || expandedRegions.has(id)
+  // so all sections with visible results stay open automatically — no extra effect needed.
+  const isFilterActive = searchTerm !== "" || statusFilter !== "all";
+
+  const toggleRegion = useCallback((regionId: number) => {
+    setExpandedRegions(prev => {
+      const next = new Set(prev);
+      if (next.has(regionId)) next.delete(regionId);
+      else next.add(regionId);
+      return next;
+    });
+  }, []);
+
+  const allExpanded = groupedLocations.length > 0 && groupedLocations.every(g => expandedRegions.has(g.region.id));
+  const toggleAll = () => {
+    if (allExpanded) setExpandedRegions(new Set());
+    else setExpandedRegions(new Set(groupedLocations.map(g => g.region.id)));
+  };
+
+  const scrollToRegion = (regionId: number) => {
+    const el = regionRefs.current[regionId];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      // ensure the section is expanded
+      setExpandedRegions(prev => { const next = new Set(prev); next.add(regionId); return next; });
+    }
+  };
 
   // Stats
   const totalLocations = locations.length;
@@ -600,7 +647,7 @@ export default function AdminLocations() {
             </CardDescription>
             
             {/* Filters */}
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -610,20 +657,6 @@ export default function AdminLocations() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Select value={regionFilter} onValueChange={setRegionFilter}>
-                <SelectTrigger>
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder={t('filterByRegion')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('allRegions')}</SelectItem>
-                  {regions.map((region) => (
-                    <SelectItem key={region.id} value={region.id.toString()}>
-                      {language === "he" && region.nameHe ? region.nameHe : region.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('filterByStatus')} />
@@ -637,19 +670,13 @@ export default function AdminLocations() {
             </div>
             
             {/* Active filters display */}
-            {(regionFilter !== "all" || statusFilter !== "all" || searchTerm) && (
+            {(statusFilter !== "all" || searchTerm) && (
               <div className="mt-3 flex flex-wrap gap-2 items-center">
                 <span className="text-sm text-muted-foreground">{t('activeFilters')}:</span>
                 {searchTerm && (
                   <Badge variant="secondary" className="flex items-center gap-1">
                     {t('search')}: {searchTerm}
                     <button onClick={() => setSearchTerm("")} className="ml-1 hover:text-destructive">×</button>
-                  </Badge>
-                )}
-                {regionFilter !== "all" && (
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    {t('region')}: {getRegionNameById(parseInt(regionFilter))}
-                    <button onClick={() => setRegionFilter("all")} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 )}
                 {statusFilter !== "all" && (
@@ -661,7 +688,7 @@ export default function AdminLocations() {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => { setSearchTerm(""); setRegionFilter("all"); setStatusFilter("all"); }}
+                  onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}
                   className="text-xs"
                 >
                   {t('clearAll')}
@@ -669,117 +696,187 @@ export default function AdminLocations() {
               </div>
             )}
           </CardHeader>
-          <CardContent>
-            <div className="text-sm text-muted-foreground mb-3">
-              {t('showing')} {filteredLocations.length} / {totalLocations} {t('locations')}
+          <CardContent className="px-0 pb-0">
+            {/* Summary + expand/collapse all */}
+            <div className="flex items-center justify-between px-6 pb-3">
+              <div className="text-sm text-muted-foreground">
+                {t('showing')} {filteredLocations.length} / {totalLocations} {t('locations')}
+              </div>
+              {groupedLocations.length > 1 && (
+                <button
+                  onClick={toggleAll}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                >
+                  <ChevronsUpDown className="h-3 w-3" />
+                  {allExpanded ? t('collapseAll') : t('expandAll')}
+                </button>
+              )}
             </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[200px]">{t('name')}</TableHead>
-                    <TableHead className="min-w-[180px] hidden md:table-cell">{t('coordinatorName')}</TableHead>
-                    <TableHead className="min-w-[120px] hidden lg:table-cell">{t('region')}</TableHead>
-                    <TableHead className="min-w-[80px]">{t('status')}</TableHead>
-                    <TableHead className="min-w-[80px]">{t('actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLocations.length > 0 ? (
-                    filteredLocations.map((location) => (
-                      <TableRow key={location.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <span>{localized(location, "name")}</span>
-                            {location.locationCode && (
-                              <Badge variant="outline" className="text-xs">{location.locationCode}</Badge>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center mt-1">
-                            <MapPin className="h-3 w-3 mr-1" />
-                            {localized(location, "address")}
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <div>{localized(location, "contactPerson")}</div>
-                          <div className="text-xs text-muted-foreground flex items-center">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {location.phone}
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center">
-                            <Mail className="h-3 w-3 mr-1" />
-                            {location.email}
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <Badge variant="outline">{getRegionNameById(location.regionId)}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={Boolean(location.isActive)}
-                            onCheckedChange={() => toggleLocationStatus(location.id, Boolean(location.isActive))}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>{t('actions')}</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleEditLocation(location)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                {t('editLocation')}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleChangePinForLocation(location)}>
-                                <KeyRound className="mr-2 h-4 w-4" />
-                                Change PIN
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDeleteLocation(location)}
-                                className="text-red-600 focus:text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                {t('deleteLocationConfirm')}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
-                        {searchTerm || regionFilter !== "all" || statusFilter !== "all" ? (
-                          <div className="space-y-2">
-                            <p className="text-muted-foreground">{t('noLocationsMatch')}</p>
-                            <p className="text-sm text-gray-500">{t('tryAdjustingSearch')}</p>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => { setSearchTerm(""); setRegionFilter("all"); setStatusFilter("all"); }}
-                            >
-                              {t('clearAll')}
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <p className="text-muted-foreground">{t('noLocationsFound')}</p>
-                            <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
-                              {t('addNewLocation')}
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+
+            {/* Region quick-jump pill bar — sticky */}
+            {groupedLocations.length > 1 && (
+              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-6 py-2 flex flex-wrap gap-2">
+                {groupedLocations.map(({ region }) => {
+                  const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
+                  return (
+                    <button
+                      key={region.id}
+                      onClick={() => scrollToRegion(region.id)}
+                      className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                    >
+                      {regionName}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Region-grouped sections */}
+            {groupedLocations.length === 0 ? (
+              <div className="px-6 py-8 text-center">
+                {isFilterActive ? (
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground">{t('noLocationsMatch')}</p>
+                    <p className="text-sm text-gray-500">{t('tryAdjustingSearch')}</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => { setSearchTerm(""); setStatusFilter("all"); }}
+                    >
+                      {t('clearAll')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground">{t('noLocationsFound')}</p>
+                    <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
+                      {t('addNewLocation')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y">
+                {groupedLocations.map(({ region, locations: regionLocs }) => {
+                  const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
+                  // While a filter is active, always keep sections visible so results are never hidden
+                  const isExpanded = isFilterActive || expandedRegions.has(region.id);
+                  return (
+                    <div
+                      key={region.id}
+                      ref={(el) => { regionRefs.current[region.id] = el; }}
+                    >
+                      {/* Section header */}
+                      <button
+                        className={`w-full flex items-center justify-between px-6 py-3 transition-colors text-left ${isFilterActive ? "cursor-default" : "hover:bg-muted/40"}`}
+                        onClick={() => { if (!isFilterActive) toggleRegion(region.id); }}
+                        aria-expanded={isExpanded}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isExpanded
+                            ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                            : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                          }
+                          <span className="font-semibold text-sm">{regionName}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {regionLocs.length} {regionLocs.length === 1 ? t('locationSingular') : t('locations')}
+                          </Badge>
+                          {isFilterActive && (
+                            <span className="text-xs text-muted-foreground">
+                              — {regionLocs.length} {regionLocs.length === 1 ? t('resultSingular') : t('results')}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+
+                      {/* Collapsible table */}
+                      {isExpanded && (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="min-w-[200px]">{t('name')}</TableHead>
+                                <TableHead className="min-w-[180px] hidden md:table-cell">{t('coordinatorName')}</TableHead>
+                                <TableHead className="min-w-[120px] hidden lg:table-cell">{t('region')}</TableHead>
+                                <TableHead className="min-w-[80px]">{t('status')}</TableHead>
+                                <TableHead className="min-w-[80px]">{t('actions')}</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {regionLocs.map((location) => (
+                                <TableRow key={location.id}>
+                                  <TableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                      <span>{localized(location, "name")}</span>
+                                      {location.locationCode && (
+                                        <Badge variant="outline" className="text-xs">{location.locationCode}</Badge>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground flex items-center mt-1">
+                                      <MapPin className="h-3 w-3 mr-1" />
+                                      {localized(location, "address")}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="hidden md:table-cell">
+                                    <div>{localized(location, "contactPerson")}</div>
+                                    <div className="text-xs text-muted-foreground flex items-center">
+                                      <Phone className="h-3 w-3 mr-1" />
+                                      {location.phone}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground flex items-center">
+                                      <Mail className="h-3 w-3 mr-1" />
+                                      {location.email}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="hidden lg:table-cell">
+                                    <Badge variant="outline">{getRegionNameById(location.regionId)}</Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Switch
+                                      checked={Boolean(location.isActive)}
+                                      onCheckedChange={() => toggleLocationStatus(location.id, Boolean(location.isActive))}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                          <span className="sr-only">Open menu</span>
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>{t('actions')}</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => handleEditLocation(location)}>
+                                          <Edit className="mr-2 h-4 w-4" />
+                                          {t('editLocation')}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleChangePinForLocation(location)}>
+                                          <KeyRound className="mr-2 h-4 w-4" />
+                                          Change PIN
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem 
+                                          onClick={() => handleDeleteLocation(location)}
+                                          className="text-red-600 focus:text-red-600"
+                                        >
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          {t('deleteLocationConfirm')}
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
