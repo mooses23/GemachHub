@@ -96,6 +96,7 @@ Preferred communication style: Simple, everyday language.
 - **Gmail API**: `server/gmail-client.ts` for reading and sending emails (supports Replit connector and Vercel OAuth). Header values are CRLF-sanitized and recipient emails validated to prevent header injection.
 - **OpenAI**: `server/openai-client.ts` returns `{ draft, classification, needsHumanReview, reviewReason }` using a built-in PLAYBOOK + DB context (sender → application/location). Inbox shows a "Human review recommended" banner when escalation triggers fire.
 - Unified inbox at `/admin/inbox` merges Gmail + web-form contact messages.
+- **Reply examples (training memory)**: Every admin reply is captured in `reply_examples` and indexed into `kb_embeddings` (sourceKind=`reply_example`) for semantic retrieval into future drafts. Admins can review and prune them on `/admin/glossary` under the **Replies** tab (sender, classification, language, "Edited by admin" / "Sent as drafted" flag, expand-to-see-bodies). Removing an example via `DELETE /api/admin/reply-examples/:id` also drops the matching `kb_embeddings` row so it stops biasing drafts.
 
 ### Operator Onboarding
 - `POST /api/admin/locations/:id/send-welcome` and `POST /api/admin/locations/send-welcome-all` send a plaintext setup email (location code + default PIN `1234` + dashboard URL + "change PIN" instructions) via `sendOperatorWelcomeEmail` in `server/email-notifications.ts`.

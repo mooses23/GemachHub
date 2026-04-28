@@ -11,12 +11,13 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Trash2, Plus, BookOpen, Save, Sparkles } from "lucide-react";
-import type { PlaybookFact, FaqEntry, KnowledgeDoc } from "@shared/schema";
+import { Trash2, Plus, BookOpen, Save, Sparkles, MessageSquareText } from "lucide-react";
+import type { PlaybookFact, FaqEntry, KnowledgeDoc, ReplyExample } from "@shared/schema";
 
 const FACT_KEY = ["/api/admin/playbook-facts"] as const;
 const FAQ_KEY = ["/api/admin/faq-entries"] as const;
 const DOCS_KEY = ["/api/admin/knowledge-docs"] as const;
+const REPLIES_KEY = ["/api/admin/reply-examples"] as const;
 
 function FactsTab() {
   const { toast } = useToast();
@@ -531,6 +532,156 @@ function DocsTab() {
   );
 }
 
+function formatDate(d: string | Date | null | undefined): string {
+  if (!d) return "";
+  const date = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString();
+}
+
+function truncate(s: string, n: number): string {
+  if (!s) return "";
+  return s.length > n ? `${s.slice(0, n)}…` : s;
+}
+
+function RepliesTab() {
+  const { toast } = useToast();
+  const { data: replies = [], isLoading } = useQuery<ReplyExample[]>({ queryKey: REPLIES_KEY });
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/admin/reply-examples/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: REPLIES_KEY });
+      toast({
+        title: "Removed",
+        description: "The AI will no longer learn from this reply.",
+      });
+    },
+    onError: (e: unknown) =>
+      toast({
+        title: "Delete failed",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      }),
+  });
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="py-4 text-sm text-muted-foreground">
+          Every reply you send from the inbox is saved here as a training example for the AI.
+          Delete any reply that should not be reused so it stops biasing future drafts. Removing
+          an example also pulls it out of the AI's semantic search index.
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      ) : replies.length === 0 ? (
+        <div className="text-sm text-muted-foreground">No reply examples captured yet.</div>
+      ) : (
+        <div className="space-y-2">
+          {replies.map((r) => {
+            const isOpen = !!expanded[r.id];
+            const senderLabel = r.senderName
+              ? `${r.senderName}${r.senderEmail ? ` <${r.senderEmail}>` : ""}`
+              : (r.senderEmail || "(unknown sender)");
+            return (
+              <Card key={r.id} data-testid={`card-reply-${r.id}`}>
+                <CardContent className="space-y-2 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      {r.sourceType === "email" ? "Email" : "Form"}
+                    </Badge>
+                    {r.classification ? (
+                      <Badge variant="secondary" data-testid={`badge-reply-classification-${r.id}`}>
+                        {r.classification}
+                      </Badge>
+                    ) : null}
+                    {r.wasEdited ? (
+                      <Badge data-testid={`badge-reply-edited-${r.id}`}>Edited by admin</Badge>
+                    ) : (
+                      <Badge variant="outline" data-testid={`badge-reply-asdrafted-${r.id}`}>
+                        Sent as drafted
+                      </Badge>
+                    )}
+                    <Badge variant="outline">{r.language === "he" ? "Hebrew" : "English"}</Badge>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {formatDate(r.createdAt)}
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-medium" data-testid={`text-reply-sender-${r.id}`}>
+                      {senderLabel}
+                    </div>
+                    <div className="text-muted-foreground">
+                      <span className="font-medium">Subject:</span> {r.incomingSubject || "(no subject)"}
+                    </div>
+                  </div>
+                  {isOpen ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Incoming message</Label>
+                        <div
+                          className="rounded-md border bg-muted/40 p-2 text-sm whitespace-pre-wrap"
+                          data-testid={`text-reply-incoming-${r.id}`}
+                        >
+                          {r.incomingBody}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Reply that was sent</Label>
+                        <div
+                          className="rounded-md border bg-muted/40 p-2 text-sm whitespace-pre-wrap"
+                          data-testid={`text-reply-sent-${r.id}`}
+                        >
+                          {r.sentReply}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground" data-testid={`text-reply-preview-${r.id}`}>
+                      {truncate(r.sentReply.replace(/\s+/g, " ").trim(), 200)}
+                    </div>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setExpanded((p) => ({ ...p, [r.id]: !p[r.id] }))}
+                      data-testid={`button-toggle-reply-${r.id}`}
+                    >
+                      {isOpen ? "Hide details" : "Show details"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            "Remove this reply example? The AI will stop learning from it.",
+                          )
+                        ) {
+                          deleteMut.mutate(r.id);
+                        }
+                      }}
+                      disabled={deleteMut.isPending}
+                      data-testid={`button-delete-reply-${r.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> Remove
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GlossaryContent() {
   return (
     <Tabs defaultValue="facts">
@@ -538,6 +689,10 @@ export function GlossaryContent() {
         <TabsTrigger value="facts" data-testid="tab-facts">Facts</TabsTrigger>
         <TabsTrigger value="faqs" data-testid="tab-faqs">FAQs</TabsTrigger>
         <TabsTrigger value="docs" data-testid="tab-docs">Documents</TabsTrigger>
+        <TabsTrigger value="replies" data-testid="tab-replies">
+          <MessageSquareText className="h-4 w-4 mr-1" />
+          Replies
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="facts" className="mt-4">
         <FactsTab />
@@ -547,6 +702,9 @@ export function GlossaryContent() {
       </TabsContent>
       <TabsContent value="docs" className="mt-4">
         <DocsTab />
+      </TabsContent>
+      <TabsContent value="replies" className="mt-4">
+        <RepliesTab />
       </TabsContent>
     </Tabs>
   );

@@ -1007,6 +1007,10 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async deleteReplyExample(id: number): Promise<void> {
+    await db.delete(replyExamples).where(eq(replyExamples.id, id));
+  }
+
   // KB embeddings
   async upsertKbEmbedding(rec: InsertKbEmbedding): Promise<KbEmbedding> {
     const chunkIdx = rec.chunkIdx ?? 0;

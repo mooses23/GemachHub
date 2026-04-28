@@ -3145,6 +3145,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  // Delete a captured reply example so it stops biasing future AI drafts.
+  // Also removes the matching kb_embeddings row (sourceKind='reply_example')
+  // so semantic retrieval can't surface it again. The embedding cleanup is
+  // awaited (not fire-and-forget) so the response accurately reflects whether
+  // the example is fully gone from both the training table AND the semantic
+  // index. If only the embedding cleanup fails, we report partial success so
+  // the admin knows to retry or re-index.
+  app.delete("/api/admin/reply-examples/:id", requireAdminMW, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isFinite(id) || id <= 0) {
+        return res.status(400).json({ message: "Invalid id" });
+      }
+      await storage.deleteReplyExample(id);
+      try {
+        await storage.deleteKbEmbedding('reply_example', id);
+        res.json({ success: true });
+      } catch (embErr) {
+        const msg = embErr instanceof Error ? embErr.message : String(embErr);
+        console.warn(`Reply example ${id} deleted, but kb_embeddings cleanup failed:`, msg);
+        res.status(207).json({
+          success: true,
+          embeddingDeleted: false,
+          warning: `Reply example removed, but its semantic-index row could not be deleted: ${msg}. Use Re-index all to repair.`,
+        });
+      }
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   // Which inbox items have already been replied to? Returns one row per
   // (sourceType, sourceRef). For email, sourceRef is the Gmail threadId.
   // Combines two sources so the list badge stays accurate even when the
