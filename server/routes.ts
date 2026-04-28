@@ -13,7 +13,7 @@ import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService, prepareBorrowerStatusToken, commitBorrowerStatusToken } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
-import { getTwilioConfigStatus, sendReturnReminderSMS, normalizePhoneForSms } from "./twilio-client.js";
+import { getTwilioConfigStatus, sendReturnReminderSMS, normalizePhoneForSms, validateTwilioSignature } from "./twilio-client.js";
 import {
   buildWelcomePreview,
   getOnboardingTwilioStatus,
@@ -729,19 +729,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // SMS + WhatsApp welcome flow. Routes are admin-gated except the public
   // /api/welcome/:token claim/complete endpoints.
 
-  function requireOnboardingAdmin(req: any, res: any): boolean {
-    if (!req.isAuthenticated || !req.isAuthenticated() || !req.user?.isAdmin) {
+  function requireOnboardingAdmin(req: Request, res: Response): boolean {
+    if (!req.isAuthenticated || !req.isAuthenticated() || !(req.user as { isAdmin?: boolean } | undefined)?.isAdmin) {
       res.status(403).json({ message: "Admin access required" });
       return false;
     }
     return true;
   }
 
-  function getOnboardingBaseUrl(req: any): string {
+  function getOnboardingBaseUrl(req: Request): string {
     return process.env.APP_URL || process.env.SITE_URL || `${req.protocol}://${req.get('host')}`;
   }
-  function getOnboardingStatusCallbackUrl(req: any): string {
+  function getOnboardingStatusCallbackUrl(req: Request): string {
     return `${getOnboardingBaseUrl(req).replace(/\/$/, '')}/api/twilio/onboarding-status`;
+  }
+  /**
+   * Personal sign-off appended to operator welcome messages. The spec calls
+   * for a heimish, named-human voice (e.g. "— Chaya, Earmuffs Gemach").
+   * Configurable via env so the gemach owner can update without a redeploy;
+   * if unset we fall back to "Chaya, Earmuffs Gemach" (the gemach owner's
+   * name) instead of the generic org name.
+   */
+  function getOperatorWelcomeSigner(): string {
+    const fromEnv = (process.env.OPERATOR_WELCOME_SIGNER || '').trim();
+    return fromEnv || 'Chaya, Earmuffs Gemach';
   }
 
   const onboardingChannelSchema = z.enum(OPERATOR_WELCOME_CHANNELS);
@@ -751,6 +762,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // always reply 200 so Twilio doesn't retry storms — failures are logged.
   app.post('/api/twilio/onboarding-status', async (req, res) => {
     try {
+      // Verify Twilio's HMAC-SHA1 signature so attackers can't forge status
+      // updates and poison admin delivery visibility. We always reply 200
+      // so Twilio doesn't enter retry storms even when we reject.
+      const sigStatus = validateTwilioSignature(req, getOnboardingStatusCallbackUrl(req));
+      if (sigStatus === 'invalid' || sigStatus === 'missing') {
+        // In production with TWILIO_AUTH_TOKEN configured, missing/invalid
+        // signature means the caller isn't Twilio. Drop silently with 200.
+        if (process.env.NODE_ENV === 'production') {
+          console.warn('[twilio-status] dropping unsigned/forged callback:', sigStatus, 'sid:', req.body?.MessageSid);
+          return res.status(200).send('');
+        }
+        // Dev: log but accept so local Twilio CLI replays still work.
+        console.warn('[twilio-status] signature', sigStatus, '(dev mode, accepting)');
+      }
       const result = await ingestTwilioStatusCallback(req.body || {});
       if (!result.matched) {
         // Could be a status callback for a non-onboarding message, or an
@@ -780,7 +805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const loc = await storage.getLocation(id);
       if (!loc) return res.status(404).json({ message: 'Location not found' });
       const baseUrl = getOnboardingBaseUrl(req);
-      res.json(buildWelcomePreview(loc, baseUrl));
+      res.json(buildWelcomePreview(loc, baseUrl, getOperatorWelcomeSigner()));
     } catch (e: any) {
       res.status(500).json({ message: e?.message || 'Failed to build preview' });
     }
@@ -805,6 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         baseUrl,
         rememberAsDefault: parsed.data.rememberAsDefault,
         statusCallbackUrl: getOnboardingStatusCallbackUrl(req),
+        signOff: getOperatorWelcomeSigner(),
       });
       // Response shape kept stable for the FE: results.{sms,whatsapp,anySuccess}.
       res.json({
@@ -846,6 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         baseUrl,
         rememberAsDefault: parsed.data.rememberAsDefault,
         statusCallbackUrl: getOnboardingStatusCallbackUrl(req),
+        signOff: getOperatorWelcomeSigner(),
       });
       res.json({ success: true, summary: summarizeResults(results), results });
     } catch (e: any) {
@@ -882,6 +909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         baseUrl,
         rememberAsDefault: parsed.data.rememberAsDefault,
         statusCallbackUrl: getOnboardingStatusCallbackUrl(req),
+        signOff: getOperatorWelcomeSigner(),
       });
       res.json({ success: true, eligible: candidateIds.length, summary: summarizeResults(results), results });
     } catch (e: any) {

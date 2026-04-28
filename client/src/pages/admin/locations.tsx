@@ -97,7 +97,8 @@ export default function AdminLocations() {
   const [isPinManagementOpen, setIsPinManagementOpen] = useState(false);
 
   // ===== Onboarding (SMS / WhatsApp welcome) =====
-  const [onboardingFilter, setOnboardingFilter] = useState<"all" | "not-sent" | "sent" | "failed" | "onboarded">("all");
+  type OnboardingFilter = "all" | "not-sent" | "sent" | "failed" | "onboarded";
+  const [onboardingFilter, setOnboardingFilter] = useState<OnboardingFilter>("all");
   const [selectedOnboardingIds, setSelectedOnboardingIds] = useState<Set<number>>(new Set());
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const [welcomeTarget, setWelcomeTarget] = useState<{ kind: "single"; id: number; loc: Location } | { kind: "selected" } | { kind: "all-not-onboarded" } | null>(null);
@@ -139,12 +140,29 @@ export default function AdminLocations() {
     enabled: welcomeDialogOpen && welcomeTarget?.kind === "single",
   });
 
-  const sendWelcomeOneMutation = useMutation({
-    mutationFn: async ({ id, channel, rememberAsDefault }: { id: number; channel: OperatorWelcomeChannel; rememberAsDefault?: boolean }) => {
+  type ChannelResult = { ok: boolean; sid?: string; error?: string; hint?: string };
+  type SendOneResponse = {
+    success: boolean;
+    results: {
+      sms?: ChannelResult;
+      whatsapp?: ChannelResult;
+      anySuccess: boolean;
+    };
+  };
+  type SendBulkResponse = {
+    success: boolean;
+    summary: { sent: number; skipped: number; failed: number; total: number };
+  };
+  type SendAllResponse = SendBulkResponse & { eligible: number };
+  const errorMessage = (err: unknown, fallback: string) =>
+    err instanceof Error ? err.message : fallback;
+
+  const sendWelcomeOneMutation = useMutation<SendOneResponse, Error, { id: number; channel: OperatorWelcomeChannel; rememberAsDefault?: boolean }>({
+    mutationFn: async ({ id, channel, rememberAsDefault }) => {
       const res = await apiRequest("POST", `/api/admin/locations/${id}/send-onboarding-welcome`, { channel, rememberAsDefault });
-      return res.json();
+      return res.json() as Promise<SendOneResponse>;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       const sms = data.results?.sms;
       const wa = data.results?.whatsapp;
       const parts: string[] = [];
@@ -161,15 +179,15 @@ export default function AdminLocations() {
         setWelcomeTarget(null);
       }
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message || "Failed to send", variant: "destructive" }),
+    onError: (err) => toast({ title: "Error", description: errorMessage(err, "Failed to send"), variant: "destructive" }),
   });
 
-  const sendBulkOnboardingMutation = useMutation({
-    mutationFn: async ({ locationIds, channel, rememberAsDefault }: { locationIds: number[]; channel: OperatorWelcomeChannel; rememberAsDefault?: boolean }) => {
+  const sendBulkOnboardingMutation = useMutation<SendBulkResponse, Error, { locationIds: number[]; channel: OperatorWelcomeChannel; rememberAsDefault?: boolean }>({
+    mutationFn: async ({ locationIds, channel, rememberAsDefault }) => {
       const res = await apiRequest("POST", `/api/admin/locations/onboarding/send-bulk`, { locationIds, channel, rememberAsDefault });
-      return res.json();
+      return res.json() as Promise<SendBulkResponse>;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       toast({
         title: "Bulk welcome complete",
         description: `Sent: ${data.summary?.sent ?? 0} · Skipped: ${data.summary?.skipped ?? 0} · Failed: ${data.summary?.failed ?? 0}`,
@@ -180,15 +198,15 @@ export default function AdminLocations() {
       setWelcomeTarget(null);
       setSelectedOnboardingIds(new Set());
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message || "Failed", variant: "destructive" }),
+    onError: (err) => toast({ title: "Error", description: errorMessage(err, "Failed"), variant: "destructive" }),
   });
 
-  const sendAllNotOnboardedMutation = useMutation({
-    mutationFn: async ({ channel, rememberAsDefault }: { channel: OperatorWelcomeChannel; rememberAsDefault?: boolean }) => {
+  const sendAllNotOnboardedMutation = useMutation<SendAllResponse, Error, { channel: OperatorWelcomeChannel; rememberAsDefault?: boolean }>({
+    mutationFn: async ({ channel, rememberAsDefault }) => {
       const res = await apiRequest("POST", `/api/admin/locations/onboarding/send-all`, { channel, rememberAsDefault });
-      return res.json();
+      return res.json() as Promise<SendAllResponse>;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       toast({
         title: "All-not-yet-onboarded complete",
         description: `Eligible: ${data.eligible ?? 0} · Sent: ${data.summary?.sent ?? 0} · Failed: ${data.summary?.failed ?? 0}`,
@@ -198,7 +216,7 @@ export default function AdminLocations() {
       setWelcomeDialogOpen(false);
       setWelcomeTarget(null);
     },
-    onError: (err: any) => toast({ title: "Error", description: err?.message || "Failed", variant: "destructive" }),
+    onError: (err) => toast({ title: "Error", description: errorMessage(err, "Failed"), variant: "destructive" }),
   });
 
   const getOnboardingStatus = (loc: Location): "onboarded" | "sent" | "failed" | "not-sent" => {
@@ -294,7 +312,7 @@ export default function AdminLocations() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: t('error'),
         description: `${t('failedToUpdateStatus')} ${error.message}`,
@@ -314,7 +332,7 @@ export default function AdminLocations() {
       setIsDeleteDialogOpen(false);
       setDeletingLocation(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: t('error'),
         description: error.message || t('failedToDelete'),
@@ -323,32 +341,35 @@ export default function AdminLocations() {
     },
   });
 
-  const sendWelcomeMutation = useMutation({
-    mutationFn: async (id: number) => {
+  type WelcomeEmailResponse = { success: boolean; sentTo: string };
+  type WelcomeEmailAllResponse = { success: boolean; sent: number; skipped: number; failed: number };
+
+  const sendWelcomeMutation = useMutation<WelcomeEmailResponse, Error, number>({
+    mutationFn: async (id) => {
       const res = await apiRequest("POST", `/api/admin/locations/${id}/send-welcome`);
-      return res.json();
+      return res.json() as Promise<WelcomeEmailResponse>;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       toast({ title: "Welcome email sent", description: `Sent to ${data.sentTo}` });
     },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err?.message || "Failed to send", variant: "destructive" });
+    onError: (err) => {
+      toast({ title: "Error", description: errorMessage(err, "Failed to send"), variant: "destructive" });
     },
   });
 
-  const sendWelcomeAllMutation = useMutation({
+  const sendWelcomeAllMutation = useMutation<WelcomeEmailAllResponse, Error, void>({
     mutationFn: async () => {
       const res = await apiRequest("POST", `/api/admin/locations/send-welcome-all`);
-      return res.json();
+      return res.json() as Promise<WelcomeEmailAllResponse>;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       toast({
         title: "Bulk welcome emails complete",
         description: `Sent: ${data.sent} • Skipped: ${data.skipped} • Failed: ${data.failed}`,
       });
     },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err?.message || "Failed to bulk-send", variant: "destructive" });
+    onError: (err) => {
+      toast({ title: "Error", description: errorMessage(err, "Failed to bulk-send"), variant: "destructive" });
     },
   });
 
@@ -846,7 +867,7 @@ export default function AdminLocations() {
             {isPinManagementOpen && (
               <div className="mt-3 flex flex-wrap gap-2 items-center">
                 <Label className="text-sm">Status filter:</Label>
-                <Select value={onboardingFilter} onValueChange={(v) => { setOnboardingFilter(v as any); setSelectedOnboardingIds(new Set()); }}>
+                <Select value={onboardingFilter} onValueChange={(v) => { setOnboardingFilter(v as OnboardingFilter); setSelectedOnboardingIds(new Set()); }}>
                   <SelectTrigger className="w-[180px]" data-testid="select-onboarding-filter">
                     <SelectValue />
                   </SelectTrigger>
@@ -1030,33 +1051,51 @@ export default function AdminLocations() {
               </DialogDescription>
             </DialogHeader>
 
-            {/* Recipient list — shown for bulk and send-all so admins can see exactly
-                who will receive a message before they hit Send. */}
+            {/* Recipient list — shown for bulk and send-all so admins can see
+                EXACTLY who will receive a message before they hit Send. We
+                show every send-eligible row (no truncation in this dialog
+                context) and call out skipped rows separately so the admin
+                isn't surprised by "Skipped" counts in the response. */}
             {welcomeTarget && welcomeTarget.kind !== "single" && (() => {
-              const recipients = welcomeTarget.kind === "selected"
+              const candidates = welcomeTarget.kind === "selected"
                 ? locations.filter((l) => selectedOnboardingIds.has(l.id))
-                : eligibleNotOnboarded;
+                : locations.filter((l) => l.isActive !== false && !l.onboardedAt);
+              const sendable = candidates.filter((l) => !!l.phone);
+              const skipped = candidates.filter((l) => !l.phone);
               return (
-                <div className="border rounded-md bg-muted/30 max-h-40 overflow-y-auto p-2" data-testid="recipient-list">
-                  <div className="text-xs font-medium mb-1 text-muted-foreground">
-                    Recipients ({recipients.length})
+                <div className="space-y-2">
+                  <div className="border rounded-md bg-muted/30 max-h-60 overflow-y-auto p-2" data-testid="recipient-list">
+                    <div className="text-xs font-medium mb-1 text-muted-foreground">
+                      Will receive a message ({sendable.length})
+                    </div>
+                    {sendable.length === 0 ? (
+                      <div className="text-xs text-muted-foreground italic">No recipients</div>
+                    ) : (
+                      <ul className="text-xs space-y-0.5">
+                        {sendable.map((r) => (
+                          <li key={r.id} className="flex justify-between gap-2" data-testid={`recipient-${r.id}`}>
+                            <span className="truncate">
+                              {r.name} <span className="text-muted-foreground">· {r.locationCode}</span>
+                            </span>
+                            <span className="text-muted-foreground shrink-0">{r.phone}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                  {recipients.length === 0 ? (
-                    <div className="text-xs text-muted-foreground italic">No recipients</div>
-                  ) : (
-                    <ul className="text-xs space-y-0.5">
-                      {recipients.slice(0, 50).map((r) => (
-                        <li key={r.id} className="flex justify-between gap-2">
-                          <span className="truncate">
-                            {r.name} <span className="text-muted-foreground">· {r.locationCode}</span>
-                          </span>
-                          <span className="text-muted-foreground shrink-0">{r.phone || "no phone"}</span>
-                        </li>
-                      ))}
-                      {recipients.length > 50 && (
-                        <li className="text-muted-foreground italic">…and {recipients.length - 50} more</li>
-                      )}
-                    </ul>
+                  {skipped.length > 0 && (
+                    <div className="border border-amber-300 bg-amber-50 rounded-md max-h-32 overflow-y-auto p-2" data-testid="recipient-skipped-list">
+                      <div className="text-xs font-medium mb-1 text-amber-800">
+                        Will be skipped — no phone on file ({skipped.length})
+                      </div>
+                      <ul className="text-xs space-y-0.5">
+                        {skipped.map((r) => (
+                          <li key={r.id} className="truncate text-amber-900">
+                            {r.name} <span className="opacity-70">· {r.locationCode}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
               );

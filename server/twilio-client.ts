@@ -47,6 +47,42 @@ function getClient(): Twilio {
   return cachedClient;
 }
 
+/**
+ * Verify a Twilio webhook signature so untrusted callers can't forge delivery
+ * status callbacks (which would otherwise let anyone with a guessed Message
+ * SID poison admin delivery visibility). Twilio signs the full public URL
+ * the request was sent to, plus all POST body params, with HMAC-SHA1 keyed
+ * by TWILIO_AUTH_TOKEN.
+ *
+ * Returns:
+ *   - "valid"        signature header present and matches.
+ *   - "invalid"      signature header present but did not match.
+ *   - "missing"      no signature header on the request.
+ *   - "unconfigured" TWILIO_AUTH_TOKEN unset; no validation possible.
+ *
+ * Caller (the route) decides whether to enforce: in production with token
+ * configured we reject "invalid" and "missing"; in dev we log and pass.
+ */
+export function validateTwilioSignature(
+  req: { header: (n: string) => string | undefined; body: unknown; protocol: string; get: (n: string) => string | undefined; originalUrl: string },
+  publicUrl?: string,
+): 'valid' | 'invalid' | 'missing' | 'unconfigured' {
+  const token = (process.env.TWILIO_AUTH_TOKEN || '').trim();
+  if (!token) return 'unconfigured';
+  const sig = req.header('X-Twilio-Signature') || req.header('x-twilio-signature');
+  if (!sig) return 'missing';
+  // Build the URL Twilio used to call us. Prefer the explicit override
+  // (statusCallbackUrl) so we match exactly what we registered with Twilio.
+  const url = publicUrl || `${req.protocol}://${req.get('host') || ''}${req.originalUrl}`;
+  const params = (req.body && typeof req.body === 'object') ? (req.body as Record<string, unknown>) : {};
+  try {
+    const ok = twilio.validateRequest(token, sig, url, params as Record<string, string>);
+    return ok ? 'valid' : 'invalid';
+  } catch {
+    return 'invalid';
+  }
+}
+
 export interface ReturnReminderSmsContext {
   borrowerName: string;
   borrowerPhone: string;

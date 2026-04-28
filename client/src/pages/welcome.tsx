@@ -117,8 +117,8 @@ export default function WelcomePage() {
       setStep("tour");
       setTourIdx(0);
     },
-    onError: (e: any) => {
-      toast({ title: "Could not save", description: e?.message || "Please try again.", variant: "destructive" });
+    onError: (e: Error) => {
+      toast({ title: "Could not save", description: e.message || "Please try again.", variant: "destructive" });
     },
   });
 
