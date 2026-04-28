@@ -1365,6 +1365,21 @@ export async function ensureSchemaUpgrades(): Promise<void> {
     await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_status TEXT`);
     await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_error TEXT`);
     await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_sent_at TIMESTAMP`);
+    // Task #70: data-fix — clear refund_amount that was incorrectly written
+    // when a pay-later lend was closed before the fix to markTransactionReturned.
+    // refundAmount on CHARGED/PARTIALLY_REFUNDED rows must only be set by the
+    // explicit Stripe refund path (recordTransactionRefund). If stripe_refund_id
+    // IS NULL no actual Stripe refund occurred, so the stored value is wrong and
+    // must be cleared so the refund dialog calculates a non-zero remaining balance.
+    // This UPDATE is idempotent: rows already corrected (refund_amount IS NULL) or
+    // genuinely refunded (stripe_refund_id IS NOT NULL) are unaffected.
+    await db.execute(sql`
+      UPDATE transactions
+      SET refund_amount = NULL
+      WHERE pay_later_status IN ('CHARGED', 'PARTIALLY_REFUNDED')
+        AND stripe_refund_id IS NULL
+        AND refund_amount IS NOT NULL
+    `);
   } catch (err: any) {
     schemaUpgradesRun = false;
     console.error('[ensureSchemaUpgrades] Failed to apply transactions reminder columns:', err?.message || err);
