@@ -4145,7 +4145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // an audit-only confirmation — no state change, no double-restock.
           await storage.createAuditLog({
             actorUserId: operatorUserId,
-            actorType: operatorUserId ? "user" : "operator_session",
+            actorType: operatorUserId ? "operator" : "system",
             action: "physical_return_reconfirmed_at_refund",
             entityType: "transaction",
             entityId: transactionId,
