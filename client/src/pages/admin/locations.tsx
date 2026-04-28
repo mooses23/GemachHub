@@ -291,7 +291,13 @@ export default function AdminLocations() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [onboardingFilter, setOnboardingFilter] = useState<string>(() => localStorage.getItem("adminOnboardingFilter") ?? "all");
+  const [onboardingFilter, setOnboardingFilter] = useState<string>(() => {
+    try {
+      return localStorage.getItem("adminOnboardingFilter") ?? "all";
+    } catch {
+      return "all";
+    }
+  });
   const [expandedRegions, setExpandedRegions] = useState<Set<number>>(new Set());
   const regionRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -887,7 +893,7 @@ export default function AdminLocations() {
                     <SelectItem value="inactive">{t('inactiveOnly')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={onboardingFilter} onValueChange={v => { localStorage.setItem("adminOnboardingFilter", v); setOnboardingFilter(v); }}>
+                <Select value={onboardingFilter} onValueChange={v => { try { localStorage.setItem("adminOnboardingFilter", v); } catch {} setOnboardingFilter(v); }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Onboarding status" />
                   </SelectTrigger>
