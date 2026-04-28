@@ -160,6 +160,10 @@ export interface IStorage {
   getTransactionByPaymentIntentId(paymentIntentId: string): Promise<Transaction | undefined>;
   getPendingPayLaterTransactions(locationId?: number): Promise<Transaction[]>;
   updateTransactionPayLaterStatus(id: number, status: PayLaterStatus, additionalData?: Partial<Transaction>): Promise<Transaction>;
+  // Atomic compare-and-swap: only updates if the current status matches `fromStatus`.
+  // Returns the updated transaction, or null if the row no longer matches (e.g., already
+  // refunded by a concurrent request). Used to make refund/charge transitions race-safe.
+  transitionTransactionPayLaterStatus(id: number, fromStatus: PayLaterStatus, toStatus: PayLaterStatus, additionalData?: Partial<Transaction>): Promise<Transaction | null>;
 
   // Audit Log operations
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
@@ -3016,6 +3020,21 @@ export class MemStorage implements IStorage {
       throw new Error(`Transaction ${id} not found`);
     }
     const updated = { ...transaction, payLaterStatus: status, ...additionalData };
+    this.transactions.set(id, updated);
+    return updated;
+  }
+
+  async transitionTransactionPayLaterStatus(
+    id: number,
+    fromStatus: PayLaterStatus,
+    toStatus: PayLaterStatus,
+    additionalData?: Partial<Transaction>
+  ): Promise<Transaction | null> {
+    const transaction = this.transactions.get(id);
+    if (!transaction || transaction.payLaterStatus !== fromStatus) {
+      return null;
+    }
+    const updated = { ...transaction, payLaterStatus: toStatus, ...additionalData };
     this.transactions.set(id, updated);
     return updated;
   }

@@ -868,6 +868,20 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async transitionTransactionPayLaterStatus(
+    id: number,
+    fromStatus: PayLaterStatus,
+    toStatus: PayLaterStatus,
+    additionalData?: Partial<Transaction>
+  ): Promise<Transaction | null> {
+    const updateData: any = { payLaterStatus: toStatus, ...additionalData };
+    const result = await db.update(transactions)
+      .set(updateData)
+      .where(and(eq(transactions.id, id), eq(transactions.payLaterStatus, fromStatus)))
+      .returning();
+    return result.length === 0 ? null : result[0];
+  }
+
   // Audit Log operations
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
     const result = await db.insert(auditLogs).values({

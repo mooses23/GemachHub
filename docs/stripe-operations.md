@@ -153,7 +153,7 @@ threatens the shared account.
 | Setting key                  | Default | Where it lives                                          |
 |------------------------------|---------|---------------------------------------------------------|
 | `stripe.maxCardAgeDays`      | 90      | `global_settings` table; admin UI under Stripe settings |
-| `processingFeePercent`       | 290     | `locations.processingFeePercent` (basis points)         |
+| `processingFeePercent`       | 300     | `locations.processingFeePercent` (basis points)         |
 | `processingFeeFixed`         | 30      | `locations.processingFeeFixed` (cents)                  |
 | Internal dispute warn rate   | 0.5%    | hard-coded in `/api/admin/disputes/summary`             |
 | Stripe-network dispute cap   | 0.7%    | enforced by Stripe                                      |

@@ -3919,12 +3919,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Operator refunds a pay-later charge that already went through
+  // Operator refunds a pay-later charge that already went through.
+  // Race-safe: uses an atomic CHARGED -> REFUNDED transition so concurrent clicks
+  // can't double-refund or double-restock. A deterministic Stripe idempotency key
+  // protects against retries at the Stripe API layer too.
   app.post("/api/operator/transactions/:id/refund-pay-later", async (req, res) => {
     try {
       const transactionId = parseInt(req.params.id);
-      const operatorLocationId = (req.session as any).operatorLocationId;
+      if (!Number.isFinite(transactionId) || transactionId <= 0) {
+        return res.status(400).json({ message: "Invalid transaction id" });
+      }
 
+      const operatorLocationId = (req.session as any).operatorLocationId;
       if (!req.isAuthenticated() && !operatorLocationId) {
         return res.status(401).json({ message: "Authentication required" });
       }
@@ -3938,30 +3944,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (transaction.payLaterStatus !== "CHARGED") {
-        return res.status(400).json({ message: "Transaction has not been charged yet" });
+        return res.status(400).json({ message: "Transaction has not been charged yet, or has already been refunded." });
       }
 
       if (!transaction.stripePaymentIntentId) {
         return res.status(400).json({ message: "No Stripe payment intent found on this transaction" });
       }
 
-      const { refundAmount } = req.body;
       const depositCents = Math.round((transaction.depositAmount || 0) * 100);
       const feeCents = transaction.depositFeeCents ?? 0;
       const maxRefundCents = depositCents + feeCents;
-      const amountCents = refundAmount
-        ? Math.min(Math.round(refundAmount * 100), maxRefundCents)
-        : maxRefundCents;
 
-      const stripe = getStripeClient();
-      await stripe.refunds.create({
-        payment_intent: transaction.stripePaymentIntentId,
-        amount: amountCents,
+      // Validate refundAmount strictly: must be a finite positive number, in dollars,
+      // capped at deposit+fee. Omitting it = full refund.
+      const refundAmountSchema = z.object({
+        refundAmount: z.number().positive().finite().optional(),
       });
+      const parsed = refundAmountSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid refundAmount: must be a positive number" });
+      }
+      const { refundAmount } = parsed.data;
+      const requestedCents = refundAmount !== undefined ? Math.round(refundAmount * 100) : maxRefundCents;
+      if (requestedCents > maxRefundCents) {
+        return res.status(400).json({
+          message: `Refund amount exceeds the original charge of $${(maxRefundCents / 100).toFixed(2)}.`,
+        });
+      }
+      const amountCents = requestedCents;
 
-      await storage.updateTransactionPayLaterStatus(transactionId, "REFUNDED");
+      // Atomic CAS: only one concurrent caller can flip CHARGED -> REFUNDED.
+      // The other caller(s) get null and we 409 them out before touching Stripe or inventory.
+      const transitioned = await storage.transitionTransactionPayLaterStatus(
+        transactionId,
+        "CHARGED",
+        "REFUNDED",
+      );
+      if (!transitioned) {
+        return res.status(409).json({ message: "Transaction is no longer in CHARGED state (concurrent refund?)" });
+      }
 
-      // Add headband back to inventory if applicable
+      try {
+        const stripe = getStripeClient();
+        await stripe.refunds.create(
+          {
+            payment_intent: transaction.stripePaymentIntentId,
+            amount: amountCents,
+          },
+          {
+            // Deterministic key per (transaction, amount) so retries dedupe on Stripe.
+            idempotencyKey: `refund_${transactionId}_${amountCents}`,
+          },
+        );
+      } catch (stripeErr: any) {
+        // Roll the status back so the operator can retry. Inventory hasn't moved yet.
+        await storage.updateTransactionPayLaterStatus(transactionId, "CHARGED");
+        console.error("Stripe refund error:", stripeErr);
+        return res.status(502).json({ message: stripeErr.message || "Stripe refund failed" });
+      }
+
+      // Restore inventory: charge flow does not decrement inventory (lend does), so
+      // a refund signals the borrower returned the item -> +1 to stock.
       if (transaction.headbandColor && transaction.locationId) {
         await storage.adjustInventory(transaction.locationId, transaction.headbandColor, 1);
       }

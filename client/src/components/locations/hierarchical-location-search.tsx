@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package } from "lucide-react";
+import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package, Mail, Star, User } from "lucide-react";
 import { ContactActions } from "@/components/ui/contact-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -638,10 +638,34 @@ function LocationCard({ location, region }: LocationCardProps) {
             <p className="text-sm text-slate-300">{locAddress}</p>
           </div>
           
-          <div className="flex items-center">
-            <Phone className="h-4 w-4 text-slate-400 mr-2 flex-shrink-0" />
-            <a href={`tel:${location.phone?.replace(/[^+\d]/g, "")}`} className="text-sm text-slate-300 hover:text-white transition-colors">{location.phone}</a>
-          </div>
+          {location.phone && (
+            <div className="flex items-center">
+              <Phone className={`h-4 w-4 mr-2 flex-shrink-0 ${location.contactPreference === "phone" || location.contactPreference === "whatsapp" ? "text-blue-400" : "text-slate-400"}`} />
+              <a href={`tel:${location.phone.replace(/[^+\d]/g, "")}`} className="text-sm text-slate-300 hover:text-white transition-colors">{location.phone}</a>
+              {(location.contactPreference === "phone" || location.contactPreference === "whatsapp") && (
+                <span className="ml-2 text-xs text-blue-400 font-medium flex items-center gap-0.5">
+                  <Star className="w-3 h-3 fill-current" /> {t("preferred")}
+                </span>
+              )}
+            </div>
+          )}
+          {location.email && (
+            <div className="flex items-center">
+              <Mail className={`h-4 w-4 mr-2 flex-shrink-0 ${location.contactPreference === "email" ? "text-blue-400" : "text-slate-400"}`} />
+              <a href={`mailto:${location.email}`} className="text-sm text-slate-300 hover:text-white transition-colors truncate">{location.email}</a>
+              {location.contactPreference === "email" && (
+                <span className="ml-2 text-xs text-blue-400 font-medium flex items-center gap-0.5 flex-shrink-0">
+                  <Star className="w-3 h-3 fill-current" /> {t("preferred")}
+                </span>
+              )}
+            </div>
+          )}
+          {locContact && (
+            <div className="flex items-center">
+              <User className="h-4 w-4 text-slate-400 mr-2 flex-shrink-0" />
+              <span className="text-sm text-slate-300">{locContact}</span>
+            </div>
+          )}
           <div data-contact-actions>
             <ContactActions phone={location.phone} locationName={locName} compact />
           </div>
