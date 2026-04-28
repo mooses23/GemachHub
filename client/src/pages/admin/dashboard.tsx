@@ -461,7 +461,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              <StripeSettingsCard />
               <StripeRiskCard />
 
               <Card>
@@ -492,35 +491,42 @@ export default function Dashboard() {
           </TabsContent>
 
           <TabsContent value="locations">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('locationManagementTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <p>{t('manageAllGemachLocations')}</p>
-                    <Link href="/admin/locations">
-                      <Button>{t('viewAllLocations')}</Button>
-                    </Link>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold">{locations.length}</p>
-                      <p className="text-sm text-muted-foreground">{t('totalLocations')}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('locationManagementTitle')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <p>{t('manageAllGemachLocations')}</p>
+                        <Link href="/admin/locations">
+                          <Button>{t('viewAllLocations')}</Button>
+                        </Link>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="text-center p-4 border rounded-lg">
+                          <p className="text-2xl font-bold">{locations.length}</p>
+                          <p className="text-sm text-muted-foreground">{t('totalLocations')}</p>
+                        </div>
+                        <div className="text-center p-4 border rounded-lg">
+                          <p className="text-2xl font-bold">{activeLocations}</p>
+                          <p className="text-sm text-muted-foreground">{t('active')}</p>
+                        </div>
+                        <div className="text-center p-4 border rounded-lg">
+                          <p className="text-2xl font-bold">{locations.length - activeLocations}</p>
+                          <p className="text-sm text-muted-foreground">{t('inactive')}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold">{activeLocations}</p>
-                      <p className="text-sm text-muted-foreground">{t('active')}</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold">{locations.length - activeLocations}</p>
-                      <p className="text-sm text-muted-foreground">{t('inactive')}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="lg:col-span-1">
+                <StripeSettingsCard />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="transactions">
