@@ -1170,6 +1170,8 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   try {
     await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS last_return_reminder_at TIMESTAMP`);
     await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_reminder_count INTEGER NOT NULL DEFAULT 0`);
+    // Task #38: store the latest Stripe refund id for traceability + audit lookups.
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS stripe_refund_id TEXT`);
     // Inbox: archived/spam flags for web-form contacts (Task #22)
     await db.execute(sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE`);
     await db.execute(sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_spam BOOLEAN NOT NULL DEFAULT FALSE`);

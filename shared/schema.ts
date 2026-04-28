@@ -14,6 +14,7 @@ export const PAY_LATER_STATUSES = [
   "CHARGE_FAILED",
   "DECLINED",
   "EXPIRED",
+  "PARTIALLY_REFUNDED",
   "REFUNDED"
 ] as const;
 export type PayLaterStatus = typeof PAY_LATER_STATUSES[number];
@@ -260,7 +261,8 @@ export const transactions = pgTable("transactions", {
   headbandColor: text("headband_color"), // Color of headband borrowed
   depositAmount: doublePrecision("deposit_amount").notNull().default(20), // Default $20
   depositPaymentMethod: text("deposit_payment_method").default("cash"), // "cash" or "card"
-  refundAmount: doublePrecision("refund_amount"), // Amount actually refunded (for partial refunds)
+  refundAmount: doublePrecision("refund_amount"), // Cumulative amount refunded (supports partial refunds)
+  stripeRefundId: text("stripe_refund_id"), // re_* — most recent Stripe refund id
   isReturned: boolean("is_returned").default(false),
   borrowDate: timestamp("borrow_date").notNull().defaultNow(),
   expectedReturnDate: timestamp("expected_return_date"),

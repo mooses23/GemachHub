@@ -2668,6 +2668,7 @@ export class MemStorage implements IStorage {
       headbandColor: insertTransaction.headbandColor ?? null,
       depositPaymentMethod: insertTransaction.depositPaymentMethod ?? "cash",
       refundAmount: null,
+      stripeRefundId: null,
       notes: insertTransaction.notes ?? null,
       // Pay Later fields
       payLaterStatus: insertTransaction.payLaterStatus ?? null,

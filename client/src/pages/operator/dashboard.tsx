@@ -1155,9 +1155,23 @@ function ReturnWizard({
   });
   
   const refundPayLaterMutation = useMutation({
-    mutationFn: async ({ transactionId, refundAmount }: { transactionId: number; refundAmount?: number }) => {
+    mutationFn: async ({
+      transactionId,
+      refundAmount,
+      reason,
+      itemPhysicallyReturned,
+    }: {
+      transactionId: number;
+      refundAmount?: number;
+      reason?: string;
+      itemPhysicallyReturned?: boolean;
+    }) => {
       const res = await apiRequest("POST", `/api/operator/transactions/${transactionId}/refund-pay-later`, {
         refundAmount,
+        reason,
+        // The return wizard implies the item is being physically returned, so
+        // restock by default. Future UI can expose a toggle for money-only refunds.
+        itemPhysicallyReturned: itemPhysicallyReturned ?? true,
       });
       return res.json();
     },

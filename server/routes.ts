@@ -23,7 +23,7 @@ import {
   summarizeResults,
   ingestTwilioStatusCallback,
 } from "./operatorOnboardingService.js";
-import { OPERATOR_WELCOME_CHANNELS, OPERATOR_CONTACT_PREFERENCES } from "../shared/schema.js";
+import { OPERATOR_WELCOME_CHANNELS, OPERATOR_CONTACT_PREFERENCES, type PayLaterStatus } from "../shared/schema.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
 import { groupContactsByThread } from "./inbox-threading.js";
 import {
@@ -3920,9 +3920,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Operator refunds a pay-later charge that already went through.
-  // Race-safe: uses an atomic CHARGED -> REFUNDED transition so concurrent clicks
-  // can't double-refund or double-restock. A deterministic Stripe idempotency key
-  // protects against retries at the Stripe API layer too.
+  //
+  // Transactional safety: we call Stripe FIRST (with a deterministic idempotency
+  // key) and only persist refund metadata + status flip after Stripe confirms.
+  // If the server crashes mid-call, a retry uses the same key and Stripe returns
+  // the prior refund — we then persist normally on the second attempt. This
+  // avoids the "marked refunded but Stripe never refunded" data-corruption
+  // risk that a CAS-then-Stripe ordering has.
+  //
+  // Cumulative partial refunds: we track a running refundAmount on the row.
+  // Each call is capped to (max - alreadyRefunded). Status flips to
+  // PARTIALLY_REFUNDED on the first partial and to REFUNDED only when the full
+  // charged amount has been returned across one or more refunds.
+  //
+  // Inventory: opt-in. The operator must pass itemPhysicallyReturned=true to
+  // restock; otherwise the refund is treated as a money-only correction and
+  // stock is left alone. The original charge does not adjust inventory.
+  //
+  // Audit: every refund (success path) writes an audit_log row capturing the
+  // operator, amount, cumulative total, optional reason note, and Stripe refund id.
   app.post("/api/operator/transactions/:id/refund-pay-later", async (req, res) => {
     try {
       const transactionId = parseInt(req.params.id);
@@ -3935,16 +3951,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
 
+      const operatorUserId = req.isAuthenticated() ? (req.user as any).id : undefined;
+      const locationId = operatorLocationId || (req.user as any)?.locationId;
+
       const transaction = await storage.getTransaction(transactionId);
       if (!transaction) return res.status(404).json({ message: "Transaction not found" });
 
-      const locationId = operatorLocationId || (req.user as any)?.locationId;
       if (transaction.locationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
 
-      if (transaction.payLaterStatus !== "CHARGED") {
-        return res.status(400).json({ message: "Transaction has not been charged yet, or has already been refunded." });
+      // Accept refunds against fully-CHARGED rows and against rows that have
+      // already had one or more partial refunds (PARTIALLY_REFUNDED).
+      const refundableStatuses = ["CHARGED", "PARTIALLY_REFUNDED"];
+      if (!refundableStatuses.includes(transaction.payLaterStatus || "")) {
+        return res.status(400).json({
+          message: "Transaction has not been charged yet, or has already been fully refunded.",
+        });
       }
 
       if (!transaction.stripePaymentIntentId) {
@@ -3954,62 +3977,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const depositCents = Math.round((transaction.depositAmount || 0) * 100);
       const feeCents = transaction.depositFeeCents ?? 0;
       const maxRefundCents = depositCents + feeCents;
-
-      // Validate refundAmount strictly: must be a finite positive number, in dollars,
-      // capped at deposit+fee. Omitting it = full refund.
-      const refundAmountSchema = z.object({
-        refundAmount: z.number().positive().finite().optional(),
-      });
-      const parsed = refundAmountSchema.safeParse(req.body ?? {});
-      if (!parsed.success) {
-        return res.status(400).json({ message: "Invalid refundAmount: must be a positive number" });
+      const alreadyRefundedCents = Math.round(((transaction.refundAmount ?? 0) as number) * 100);
+      const remainingCents = maxRefundCents - alreadyRefundedCents;
+      if (remainingCents <= 0) {
+        return res.status(400).json({ message: "This transaction has already been fully refunded." });
       }
-      const { refundAmount } = parsed.data;
-      const requestedCents = refundAmount !== undefined ? Math.round(refundAmount * 100) : maxRefundCents;
-      if (requestedCents > maxRefundCents) {
+
+      // Validate request body. refundAmount omitted => refund the remainder.
+      // reason: optional free-text operator note, persisted to audit log.
+      // itemPhysicallyReturned: opt-in flag controlling inventory restock.
+      const refundBodySchema = z.object({
+        refundAmount: z.number().positive().finite().optional(),
+        reason: z.string().trim().max(500).optional(),
+        itemPhysicallyReturned: z.boolean().optional(),
+      });
+      const parsed = refundBodySchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid refund body: " + parsed.error.message });
+      }
+      const { refundAmount, reason, itemPhysicallyReturned } = parsed.data;
+      const requestedCents = refundAmount !== undefined ? Math.round(refundAmount * 100) : remainingCents;
+      if (requestedCents <= 0) {
+        return res.status(400).json({ message: "Refund amount must be greater than zero." });
+      }
+      if (requestedCents > remainingCents) {
         return res.status(400).json({
-          message: `Refund amount exceeds the original charge of $${(maxRefundCents / 100).toFixed(2)}.`,
+          message: `Refund amount exceeds the remaining refundable balance of $${(remainingCents / 100).toFixed(2)}.`,
         });
       }
-      const amountCents = requestedCents;
 
-      // Atomic CAS: only one concurrent caller can flip CHARGED -> REFUNDED.
-      // The other caller(s) get null and we 409 them out before touching Stripe or inventory.
-      const transitioned = await storage.transitionTransactionPayLaterStatus(
-        transactionId,
-        "CHARGED",
-        "REFUNDED",
-      );
-      if (!transitioned) {
-        return res.status(409).json({ message: "Transaction is no longer in CHARGED state (concurrent refund?)" });
-      }
-
+      // Stripe-first call. Deterministic idempotency key keyed on
+      // (transaction, prior cumulative, this amount) — replays after a crash
+      // dedupe at Stripe and return the same refund object. Two simultaneous
+      // identical clicks therefore produce ONE Stripe refund.
+      let stripeRefund: { id: string };
       try {
         const stripe = getStripeClient();
-        await stripe.refunds.create(
+        stripeRefund = await stripe.refunds.create(
           {
             payment_intent: transaction.stripePaymentIntentId,
-            amount: amountCents,
+            amount: requestedCents,
           },
           {
-            // Deterministic key per (transaction, amount) so retries dedupe on Stripe.
-            idempotencyKey: `refund_${transactionId}_${amountCents}`,
+            idempotencyKey: `refund_${transactionId}_${alreadyRefundedCents}_${requestedCents}`,
           },
         );
       } catch (stripeErr: any) {
-        // Roll the status back so the operator can retry. Inventory hasn't moved yet.
-        await storage.updateTransactionPayLaterStatus(transactionId, "CHARGED");
         console.error("Stripe refund error:", stripeErr);
         return res.status(502).json({ message: stripeErr.message || "Stripe refund failed" });
       }
 
-      // Restore inventory: charge flow does not decrement inventory (lend does), so
-      // a refund signals the borrower returned the item -> +1 to stock.
-      if (transaction.headbandColor && transaction.locationId) {
+      // Persist cumulative total, latest refund id, and updated status.
+      const newRefundedCents = alreadyRefundedCents + requestedCents;
+      const newStatus: PayLaterStatus =
+        newRefundedCents >= maxRefundCents ? "REFUNDED" : "PARTIALLY_REFUNDED";
+      const updated = await storage.updateTransactionPayLaterStatus(transactionId, newStatus, {
+        refundAmount: newRefundedCents / 100,
+        stripeRefundId: stripeRefund.id,
+      });
+
+      // Inventory restock is opt-in: only when the operator confirms the item
+      // is physically being returned alongside the refund.
+      if (itemPhysicallyReturned && transaction.headbandColor && transaction.locationId) {
         await storage.adjustInventory(transaction.locationId, transaction.headbandColor, 1);
       }
 
-      res.json({ success: true, refundedCents: amountCents });
+      // Audit log: actor, amount, cumulative, status, reason, Stripe id, restock.
+      await storage.createAuditLog({
+        actorUserId: operatorUserId,
+        actorType: operatorUserId ? "operator" : "system",
+        action: "refund_pay_later",
+        entityType: "transaction",
+        entityId: transactionId,
+        beforeJson: JSON.stringify({
+          payLaterStatus: transaction.payLaterStatus,
+          refundAmountCents: alreadyRefundedCents,
+        }),
+        afterJson: JSON.stringify({
+          payLaterStatus: newStatus,
+          refundAmountCents: newRefundedCents,
+          stripeRefundId: stripeRefund.id,
+        }),
+        metadata: JSON.stringify({
+          requestedCents,
+          maxRefundCents,
+          remainingBeforeCents: remainingCents,
+          reason: reason ?? null,
+          itemPhysicallyReturned: !!itemPhysicallyReturned,
+        }),
+      });
+
+      res.json({
+        success: true,
+        refundedCents: requestedCents,
+        cumulativeRefundedCents: newRefundedCents,
+        status: newStatus,
+        stripeRefundId: stripeRefund.id,
+      });
     } catch (error: any) {
       console.error("Refund pay-later error:", error);
       res.status(500).json({ message: error.message || "Refund failed" });
