@@ -70,6 +70,62 @@ type ReadFilter = "all" | "unread" | "read";
 type ReplyFilter = "all" | "unreplied" | "replied";
 type Folder = "inbox" | "spam" | "trash";
 
+// Persisted-filter state (Task #36). Saved to localStorage so an admin who
+// leaves the inbox to open a transaction or refresh the page returns to the
+// SAME triage view (e.g. "Needs reply" filter still active) instead of
+// resetting to All / All / All every time. The bump suffix lets us safely
+// invalidate stale shapes if the persisted format ever changes.
+const FILTER_STORAGE_KEY = "admin-inbox-filters-v1";
+
+interface PersistedFilterState {
+  folder: Folder;
+  sourceFilter: SourceFilter;
+  readFilter: ReadFilter;
+  replyFilter: ReplyFilter;
+  search: string;
+}
+
+const DEFAULT_FILTER_STATE: PersistedFilterState = {
+  folder: "inbox",
+  sourceFilter: "all",
+  readFilter: "all",
+  replyFilter: "all",
+  search: "",
+};
+
+// Read once on mount. Defensive against missing localStorage (SSR/private
+// mode), malformed JSON, and out-of-range enum values from older builds —
+// any unrecognized field falls back to its default. Strings (search) are
+// length-capped so a malicious/legacy huge value can't blow up state.
+function loadPersistedFilters(): PersistedFilterState {
+  if (typeof window === "undefined") return DEFAULT_FILTER_STATE;
+  try {
+    const raw = window.localStorage.getItem(FILTER_STORAGE_KEY);
+    if (!raw) return DEFAULT_FILTER_STATE;
+    const parsed = JSON.parse(raw) as Partial<PersistedFilterState>;
+    const folder: Folder =
+      parsed.folder === "inbox" || parsed.folder === "spam" || parsed.folder === "trash"
+        ? parsed.folder
+        : DEFAULT_FILTER_STATE.folder;
+    const sourceFilter: SourceFilter =
+      parsed.sourceFilter === "all" || parsed.sourceFilter === "email" || parsed.sourceFilter === "form"
+        ? parsed.sourceFilter
+        : DEFAULT_FILTER_STATE.sourceFilter;
+    const readFilter: ReadFilter =
+      parsed.readFilter === "all" || parsed.readFilter === "unread" || parsed.readFilter === "read"
+        ? parsed.readFilter
+        : DEFAULT_FILTER_STATE.readFilter;
+    const replyFilter: ReplyFilter =
+      parsed.replyFilter === "all" || parsed.replyFilter === "unreplied" || parsed.replyFilter === "replied"
+        ? parsed.replyFilter
+        : DEFAULT_FILTER_STATE.replyFilter;
+    const search = typeof parsed.search === "string" ? parsed.search.slice(0, 500) : DEFAULT_FILTER_STATE.search;
+    return { folder, sourceFilter, readFilter, replyFilter, search };
+  } catch {
+    return DEFAULT_FILTER_STATE;
+  }
+}
+
 interface GmailEmail {
   id: string;
   threadId: string;
@@ -220,11 +276,37 @@ export default function AdminInbox() {
   const queryClient = useQueryClient();
 
   const [selected, setSelected] = useState<UnifiedItem | null>(null);
-  const [search, setSearch] = useState("");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
-  const [readFilter, setReadFilter] = useState<ReadFilter>("all");
-  const [replyFilter, setReplyFilter] = useState<ReplyFilter>("all");
-  const [folder, setFolder] = useState<Folder>("inbox");
+  // Seed every filter from the persisted snapshot using LAZY useState
+  // initializers — React invokes these functions exactly once per state
+  // slot (on the very first render, never again), so localStorage is read
+  // only on mount and never on subsequent re-renders even though the
+  // surrounding component re-renders dozens of times as queries resolve.
+  const [search, setSearch] = useState<string>(() => loadPersistedFilters().search);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(() => loadPersistedFilters().sourceFilter);
+  const [readFilter, setReadFilter] = useState<ReadFilter>(() => loadPersistedFilters().readFilter);
+  const [replyFilter, setReplyFilter] = useState<ReplyFilter>(() => loadPersistedFilters().replyFilter);
+  const [folder, setFolder] = useState<Folder>(() => loadPersistedFilters().folder);
+
+  // Mirror filter state to localStorage on every change. Whenever the admin
+  // toggles a filter — including the clear-filters button (which calls the
+  // setters and so flows through this effect) — the new snapshot is written.
+  // Quietly swallows errors: storage may be full or unavailable in private
+  // browsing, and a failure here should never break the inbox.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const snapshot: PersistedFilterState = {
+        folder,
+        sourceFilter,
+        readFilter,
+        replyFilter,
+        search,
+      };
+      window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // localStorage write failed — non-fatal, ignore.
+    }
+  }, [folder, sourceFilter, readFilter, replyFilter, search]);
   // Bulk-select mode lets the admin tick multiple rows and apply a single
   // batch action (Archive / Trash / Report-spam / Mark read) instead of
   // swiping each row individually.

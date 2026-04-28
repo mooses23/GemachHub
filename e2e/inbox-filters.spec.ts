@@ -57,6 +57,107 @@ async function cleanup(api: APIRequestContext): Promise<void> {
   }
 }
 
+test.describe("admin inbox — filter persistence (Task #36)", () => {
+  // The active variant of the filter button uses shadcn's "default" style
+  // (solid `bg-primary`); inactive buttons use the "outline" variant.
+  // Asserting on `bg-primary` therefore proves the saved enum value made
+  // it back into state, not just that *some* non-default filter is active.
+  const ACTIVE_RE = /bg-primary/;
+
+  test("folder/source/read/reply/search all survive a page reload", async ({ page }) => {
+    const loginRes = await page.request.post("/api/login", {
+      data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD },
+    });
+    expect(loginRes.ok()).toBeTruthy();
+
+    // Each Playwright test gets a fresh browser context with empty
+    // localStorage, so we can land on the inbox without pre-seeded state.
+    await page.goto("/admin/inbox");
+    await expect(page.getByTestId("input-search")).toBeVisible({ timeout: 15_000 });
+
+    // Pick a non-default selection in EVERY filter dimension so we can prove
+    // each one is restored independently, not just whichever one happens to
+    // also flip the clear-filters button into view.
+    await page.getByTestId("filter-source-form").click();
+    await page.getByTestId("filter-read-unread").click();
+    await page.getByTestId("filter-reply-unreplied").click();
+    await page.getByTestId("input-search").fill("triage-needle");
+
+    // Reload — without persistence, all four would snap back to defaults.
+    await page.reload();
+    await expect(page.getByTestId("input-search")).toBeVisible({ timeout: 15_000 });
+
+    // Search input has a directly observable controlled value.
+    await expect(page.getByTestId("input-search")).toHaveValue("triage-needle");
+    // Each restored enum filter must be the ACTIVE one in its row …
+    await expect(page.getByTestId("filter-source-form")).toHaveClass(ACTIVE_RE);
+    await expect(page.getByTestId("filter-read-unread")).toHaveClass(ACTIVE_RE);
+    await expect(page.getByTestId("filter-reply-unreplied")).toHaveClass(ACTIVE_RE);
+    // … and the OTHER options in the same row must NOT be active. Without
+    // this negative check, a bug that left every button "active" would slip
+    // past us.
+    await expect(page.getByTestId("filter-source-all")).not.toHaveClass(ACTIVE_RE);
+    await expect(page.getByTestId("filter-read-all")).not.toHaveClass(ACTIVE_RE);
+    await expect(page.getByTestId("filter-reply-all")).not.toHaveClass(ACTIVE_RE);
+
+    // Cleanup so saved state doesn't leak into the rest of the run.
+    await page.getByTestId("button-clear-filters").click();
+    await expect(page.getByTestId("input-search")).toHaveValue("");
+  });
+
+  test("clear-filters wipes the saved state so a reload returns to defaults", async ({ page }) => {
+    const loginRes = await page.request.post("/api/login", {
+      data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD },
+    });
+    expect(loginRes.ok()).toBeTruthy();
+
+    await page.goto("/admin/inbox");
+    await expect(page.getByTestId("input-search")).toBeVisible({ timeout: 15_000 });
+
+    // Set a non-default state, persist it, then clear and reload — the
+    // page must come back with the defaults restored, not the cleared-
+    // and-rewritten state. This guards against accidentally NOT writing
+    // defaults to localStorage on clear.
+    await page.getByTestId("filter-reply-unreplied").click();
+    await page.getByTestId("input-search").fill("triage-needle");
+    await page.getByTestId("button-clear-filters").click();
+
+    await page.reload();
+    await expect(page.getByTestId("input-search")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("input-search")).toHaveValue("");
+    await expect(page.getByTestId("filter-reply-all")).toHaveClass(ACTIVE_RE);
+    // The clear button only appears when at least one filter is non-default;
+    // its absence here confirms we're on a fully default state.
+    await expect(page.getByTestId("button-clear-filters")).toHaveCount(0);
+  });
+
+  test("malformed localStorage falls back to defaults without crashing", async ({ page }) => {
+    const loginRes = await page.request.post("/api/login", {
+      data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD },
+    });
+    expect(loginRes.ok()).toBeTruthy();
+
+    // Pre-seed localStorage with a garbage value BEFORE the inbox script
+    // ever runs. addInitScript fires on every navigation, so we explicitly
+    // remove itself after the first goto via an inline guard so subsequent
+    // reloads (none in this test, but good hygiene) get clean state.
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem("admin-inbox-filters-v1", "{not valid json{");
+      } catch {}
+    });
+
+    await page.goto("/admin/inbox");
+    await expect(page.getByTestId("input-search")).toBeVisible({ timeout: 15_000 });
+    // Garbage parse → fallback to DEFAULT_FILTER_STATE: empty search and
+    // every "all" option is the active one.
+    await expect(page.getByTestId("input-search")).toHaveValue("");
+    await expect(page.getByTestId("filter-source-all")).toHaveClass(ACTIVE_RE);
+    await expect(page.getByTestId("filter-read-all")).toHaveClass(ACTIVE_RE);
+    await expect(page.getByTestId("filter-reply-all")).toHaveClass(ACTIVE_RE);
+  });
+});
+
 test.describe("admin inbox — thread search & reply filter (Task #31)", () => {
   let api: APIRequestContext;
 
