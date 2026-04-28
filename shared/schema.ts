@@ -633,7 +633,7 @@ export type InsertKbEmbedding = z.infer<typeof insertKbEmbeddingSchema>;
 // Task #39: Stripe disputes (per-gemach 30-day risk monitoring)
 export const disputes = pgTable('disputes', {
   id: serial('id').primaryKey(),
-  locationId: integer('location_id').notNull(),
+  locationId: integer('location_id'), // nullable: unmatched disputes are preserved but not attributed
   transactionId: integer('transaction_id'), // nullable: dispute may not match a known tx
   stripeDisputeId: text('stripe_dispute_id').notNull().unique(), // dp_*
   stripeChargeId: text('stripe_charge_id').notNull(),

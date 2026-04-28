@@ -1247,7 +1247,7 @@ export async function ensureSchemaUpgrades(): Promise<void> {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS disputes (
         id SERIAL PRIMARY KEY,
-        location_id INTEGER NOT NULL,
+        location_id INTEGER,
         transaction_id INTEGER,
         stripe_dispute_id TEXT NOT NULL UNIQUE,
         stripe_charge_id TEXT NOT NULL,
@@ -1261,6 +1261,8 @@ export async function ensureSchemaUpgrades(): Promise<void> {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    // Drop NOT NULL on location_id for existing DBs created before it became nullable.
+    await db.execute(sql`ALTER TABLE disputes ALTER COLUMN location_id DROP NOT NULL`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS disputes_location_created_idx ON disputes (location_id, created_at DESC)`);
     await db.execute(sql`CREATE INDEX IF NOT EXISTS disputes_charge_idx ON disputes (stripe_charge_id)`);
     // Task #39: global_settings holds runtime-configurable knobs like

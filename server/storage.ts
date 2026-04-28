@@ -3161,7 +3161,7 @@ export class MemStorage implements IStorage {
     if (existing) return existing;
     const row: Dispute = {
       id: this.disputesCounter++,
-      locationId: dispute.locationId,
+      locationId: dispute.locationId ?? null,
       transactionId: dispute.transactionId ?? null,
       stripeDisputeId: dispute.stripeDisputeId,
       stripeChargeId: dispute.stripeChargeId,
@@ -3195,7 +3195,7 @@ export class MemStorage implements IStorage {
     for (const t of txs) chargedByLoc.set(t.locationId, (chargedByLoc.get(t.locationId) || 0) + 1);
     const dispByLoc = new Map<number, number>();
     for (const d of Array.from(this.disputesMap.values())) {
-      if (d.createdAt >= since) dispByLoc.set(d.locationId, (dispByLoc.get(d.locationId) || 0) + 1);
+      if (d.createdAt >= since && d.locationId !== null) dispByLoc.set(d.locationId, (dispByLoc.get(d.locationId) || 0) + 1);
     }
     const allLocIds = new Set<number>([...Array.from(chargedByLoc.keys()), ...Array.from(dispByLoc.keys())]);
     return Array.from(allLocIds).map(locationId => {

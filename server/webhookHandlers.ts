@@ -197,9 +197,10 @@ export class WebhookHandlers {
             const tx = txs.find((t: any) => t.stripePaymentIntentId === piId);
             if (tx) { txLocationId = tx.locationId; txId = tx.id; }
           }
-          // Last resort: read locationId embedded in charge metadata (both flows write it).
+          // Last resort: read locationId from charge metadata.
+          // Pay Later uses snake_case 'location_id'; Direct Deposit uses camelCase 'locationId'.
           if (!txLocationId) {
-            const metaLocId = charge.metadata?.locationId;
+            const metaLocId = charge.metadata?.location_id ?? charge.metadata?.locationId;
             if (metaLocId) txLocationId = parseInt(metaLocId, 10) || null;
           }
         } catch (lookupErr) {
@@ -207,22 +208,14 @@ export class WebhookHandlers {
         }
       }
 
-      // If we still cannot resolve a locationId, persist under a placeholder
-      // (locationId=0) and alert so an operator can investigate manually.
-      // We never silently drop a dispute — the record is needed for rate calculations.
+      // If we still cannot resolve a locationId, persist with locationId=null.
+      // disputes.location_id is nullable for exactly this case — the dispute is
+      // preserved for audit/count purposes but not attributed to any gemach.
       if (!txLocationId) {
         console.error(
           `[webhook] charge.dispute.created: cannot resolve location for dispute ${dispute.id} ` +
           `(payment_intent=${paymentIntentId}, charge=${chargeId}). Persisting unlinked.`
         );
-        // Attempt to find any valid location to avoid a NOT NULL constraint failure.
-        const allLocations = await storage.getAllLocations();
-        txLocationId = allLocations[0]?.id ?? null;
-      }
-
-      if (!txLocationId) {
-        console.error(`[webhook] No locations exist — dropping dispute ${dispute.id}`);
-        return;
       }
 
       await storage.createDispute({
