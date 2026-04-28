@@ -30,16 +30,25 @@ function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
-// Mints a fresh borrower status token (30-day expiry) on an existing
-// transaction and returns the raw token. Used by the reminder flow so
-// SMS/email can include a working status link.
-export async function mintBorrowerStatusToken(transactionId: number): Promise<string> {
+export interface PreparedBorrowerStatusToken {
+  raw: string;
+  hashed: string;
+  expiresAt: Date;
+}
+
+// Generates a token in memory without touching the DB. Pair with
+// commitBorrowerStatusToken so a failed downstream send (e.g. Twilio)
+// doesn't invalidate a previously-working borrower link.
+export function prepareBorrowerStatusToken(): PreparedBorrowerStatusToken {
   const { raw, hashed } = generateMagicToken();
+  return { raw, hashed, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) };
+}
+
+export async function commitBorrowerStatusToken(transactionId: number, prepared: PreparedBorrowerStatusToken): Promise<void> {
   await storage.updateTransaction(transactionId, {
-    magicToken: hashed,
-    magicTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    magicToken: prepared.hashed,
+    magicTokenExpiresAt: prepared.expiresAt,
   });
-  return raw;
 }
 
 export class PayLaterService {

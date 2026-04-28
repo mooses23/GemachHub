@@ -10,7 +10,7 @@ import { AuditTrailService } from "./audit-trail.js";
 import { PaymentAnalyticsEngine } from "./analytics-engine.js";
 import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
-import { PayLaterService, mintBorrowerStatusToken } from "./payLaterService.js";
+import { PayLaterService, prepareBorrowerStatusToken, commitBorrowerStatusToken } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
 import { getTwilioConfigStatus, sendReturnReminderSMS, normalizePhoneForSms } from "./twilio-client.js";
@@ -2601,8 +2601,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(500).json({ message: 'APP_URL or SITE_URL must be set to send SMS reminders.' });
         }
         const baseUrl = (envBase || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
-        const rawToken = await mintBorrowerStatusToken(transactionId);
-        const statusUrl = `${baseUrl}/status/${transactionId}?token=${rawToken}`;
+        // Two-step token rotation: prepare in memory, send first, then
+        // commit. A failed Twilio send leaves any prior link untouched.
+        const prepared = prepareBorrowerStatusToken();
+        const statusUrl = `${baseUrl}/status/${transactionId}?token=${prepared.raw}`;
 
         try {
           await sendReturnReminderSMS({
@@ -2617,6 +2619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Failed to send return reminder SMS:", sendErr);
           return res.status(502).json({ message: sendErr?.message || "Failed to send reminder SMS" });
         }
+        await commitBorrowerStatusToken(transactionId, prepared);
       }
 
       const sentByUserId = req.isAuthenticated() ? ((req.user as any)?.id ?? null) : null;
