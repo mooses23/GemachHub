@@ -171,6 +171,7 @@ export default function AdminLocations() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [onboardingFilter, setOnboardingFilter] = useState<string>("all");
   const [expandedRegions, setExpandedRegions] = useState<Set<number>>(new Set());
   const regionRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -569,8 +570,15 @@ export default function AdminLocations() {
     }
     if (statusFilter === "active" && !location.isActive) return false;
     if (statusFilter === "inactive" && location.isActive) return false;
+    if (onboardingFilter !== "all") {
+      const obStatus = getOnboardingStatus(location);
+      if (onboardingFilter === "not-sent" && obStatus !== "not-sent") return false;
+      if (onboardingFilter === "sent" && obStatus !== "sent") return false;
+      if (onboardingFilter === "failed" && obStatus !== "failed") return false;
+      if (onboardingFilter === "onboarded" && obStatus !== "onboarded") return false;
+    }
     return true;
-  }), [locations, searchTerm, statusFilter, regions, language]);
+  }), [locations, searchTerm, statusFilter, onboardingFilter, regions, language]);
 
   const groupedLocations = useMemo(() => {
     const sortedRegions = [...regions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
@@ -593,7 +601,7 @@ export default function AdminLocations() {
     }
   }, [regions]);
 
-  const isFilterActive = searchTerm !== "" || statusFilter !== "all";
+  const isFilterActive = searchTerm !== "" || statusFilter !== "all" || onboardingFilter !== "all";
 
   const toggleRegion = useCallback((regionId: number) => {
     setExpandedRegions(prev => {
@@ -739,7 +747,7 @@ export default function AdminLocations() {
               <ServiceStatusBar status={serviceStatusQuery.data} loading={serviceStatusQuery.isLoading} />
 
               {/* Filters */}
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -759,9 +767,21 @@ export default function AdminLocations() {
                     <SelectItem value="inactive">{t('inactiveOnly')}</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={onboardingFilter} onValueChange={setOnboardingFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Onboarding status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All onboarding</SelectItem>
+                    <SelectItem value="not-sent">Not sent</SelectItem>
+                    <SelectItem value="sent">Sent (awaiting)</SelectItem>
+                    <SelectItem value="failed">Failed delivery</SelectItem>
+                    <SelectItem value="onboarded">Onboarded</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {(statusFilter !== "all" || searchTerm) && (
+              {(statusFilter !== "all" || searchTerm || onboardingFilter !== "all") && (
                 <div className="mt-1 flex flex-wrap gap-2 items-center">
                   <span className="text-sm text-muted-foreground">{t('activeFilters')}:</span>
                   {searchTerm && (
@@ -776,7 +796,13 @@ export default function AdminLocations() {
                       <button onClick={() => setStatusFilter("all")} className="ml-1 hover:text-destructive">×</button>
                     </Badge>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setStatusFilter("all"); }} className="text-xs">
+                  {onboardingFilter !== "all" && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                      Onboarding: {onboardingFilter === "not-sent" ? "Not sent" : onboardingFilter === "sent" ? "Sent (awaiting)" : onboardingFilter === "failed" ? "Failed" : "Onboarded"}
+                      <button onClick={() => setOnboardingFilter("all")} className="ml-1 hover:text-destructive">×</button>
+                    </Badge>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); }} className="text-xs">
                     {t('clearAll')}
                   </Button>
                 </div>
