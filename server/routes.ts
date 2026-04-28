@@ -67,6 +67,43 @@ import {
 } from "../shared/schema.js";
 import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth.js";
 
+/**
+ * Per-transaction in-process mutex for refund operations.
+ *
+ * Prevents the over-refund-at-Stripe race where two concurrent operator
+ * refund requests for the same transaction both pass the
+ * remaining-refundable-amount validation (computed from an initial DB read),
+ * then both create Stripe refunds, causing total refunded > original charge.
+ *
+ * The DB-side CAS retry loop in /refund-pay-later only reconciles DB state
+ * AFTER Stripe succeeds, so it cannot prevent the over-refund at Stripe
+ * itself. Serializing per-transaction at the route entry closes that race.
+ *
+ * Sufficient because the Express server runs as a single Node process. If we
+ * ever scale horizontally, swap this for a Stripe-side idempotency key
+ * scheme + a DB-row advisory lock (e.g., pg_advisory_xact_lock(transactionId)).
+ */
+const refundLocks = new Map<number, Promise<void>>();
+async function withRefundLock<T>(transactionId: number, fn: () => Promise<T>): Promise<T> {
+  // Wait for any in-flight refund on this transaction to finish first.
+  while (refundLocks.has(transactionId)) {
+    try {
+      await refundLocks.get(transactionId);
+    } catch {
+      // Predecessor failed — that's fine, we just need it to be done.
+    }
+  }
+  let release!: () => void;
+  const lock = new Promise<void>((resolve) => { release = resolve; });
+  refundLocks.set(transactionId, lock);
+  try {
+    return await fn();
+  } finally {
+    refundLocks.delete(transactionId);
+    release();
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
@@ -3941,11 +3978,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Audit: every refund (success path) writes an audit_log row capturing the
   // operator, amount, cumulative total, optional reason note, and Stripe refund id.
   app.post("/api/operator/transactions/:id/refund-pay-later", async (req, res) => {
+    const transactionId = parseInt(req.params.id);
+    if (!Number.isFinite(transactionId) || transactionId <= 0) {
+      return res.status(400).json({ message: "Invalid transaction id" });
+    }
+    // Serialize per-transaction: prevents two concurrent refund requests both
+    // passing remaining-amount validation and both calling Stripe, which would
+    // refund more than was originally charged.
+    return withRefundLock(transactionId, async () => {
     try {
-      const transactionId = parseInt(req.params.id);
-      if (!Number.isFinite(transactionId) || transactionId <= 0) {
-        return res.status(400).json({ message: "Invalid transaction id" });
-      }
 
       const operatorLocationId = (req.session as any).operatorLocationId;
       if (!req.isAuthenticated() && !operatorLocationId) {
@@ -4112,12 +4153,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // repeated refund retries (e.g., a network-flaky operator clicking twice)
       // double-restocking inventory or overwriting an earlier actualReturnDate.
       if (itemPhysicallyReturned && !transaction.isReturned) {
-        // markTransactionReturned() flips isReturned + sets actualReturnDate
-        // and is the same code path used by the normal return flow, so the
-        // resulting transaction state is indistinguishable from a wizard
-        // return. Inventory restock is also done by that helper, so we do
-        // NOT also call adjustInventory here (which would double-restock).
-        await storage.markTransactionReturned(transactionId);
+        // Use the dedicated refund-flow helper that flips isReturned +
+        // actualReturnDate AND (when restock=true) restocks inventory in one
+        // atomic step. Critically, this helper does NOT touch refundAmount,
+        // so the cumulative partial refund total we just persisted via
+        // recordTransactionRefund is preserved. Idempotent on isReturned=true:
+        // returns null without mutating if the row was already returned.
+        await storage.markPhysicallyReturnedForRefund(transactionId, true);
       }
 
       // Audit log: actor, amount, cumulative, status, reason, Stripe id, restock.
@@ -4156,6 +4198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Refund pay-later error:", error);
       res.status(500).json({ message: error.message || "Refund failed" });
     }
+    });
   });
 
   // Operator declines a transaction (no charge)

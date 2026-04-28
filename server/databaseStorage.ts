@@ -593,6 +593,28 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async markPhysicallyReturnedForRefund(id: number, restock: boolean): Promise<Transaction | null> {
+    const transaction = await this.getTransaction(id);
+    if (!transaction) return null;
+    if (transaction.isReturned) return null;
+    // CAS on isReturned=false guards against concurrent return-marking. We
+    // intentionally do NOT touch refundAmount — the route has just persisted
+    // the cumulative partial refund total via recordTransactionRefund and
+    // overwriting it would corrupt partial-refund accounting.
+    const result = await db.update(transactions)
+      .set({
+        isReturned: true,
+        actualReturnDate: new Date(),
+      })
+      .where(and(eq(transactions.id, id), eq(transactions.isReturned, false)))
+      .returning();
+    if (result.length === 0) return null;
+    if (restock && transaction.headbandColor && transaction.locationId) {
+      await this.adjustInventory(transaction.locationId, transaction.headbandColor, 1);
+    }
+    return result[0];
+  }
+
   async recordReturnReminderSent(id: number, opts?: { channel?: string; language?: string; sentByUserId?: number | null }): Promise<Transaction> {
     return await db.transaction(async (tx) => {
       const existing = await tx.select().from(transactions).where(eq(transactions.id, id));
@@ -855,8 +877,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTransactionPayLaterStatus(id: number, status: PayLaterStatus, additionalData?: Partial<Transaction>): Promise<Transaction> {
-    const updateData: any = { payLaterStatus: status, ...additionalData };
-    
+    const updateData: Partial<Transaction> = { payLaterStatus: status, ...additionalData };
+
     const result = await db.update(transactions)
       .set(updateData)
       .where(eq(transactions.id, id))
@@ -874,7 +896,7 @@ export class DatabaseStorage implements IStorage {
     toStatus: PayLaterStatus,
     additionalData?: Partial<Transaction>
   ): Promise<Transaction | null> {
-    const updateData: any = { payLaterStatus: toStatus, ...additionalData };
+    const updateData: Partial<Transaction> = { payLaterStatus: toStatus, ...additionalData };
     const result = await db.update(transactions)
       .set(updateData)
       .where(and(eq(transactions.id, id), eq(transactions.payLaterStatus, fromStatus)))

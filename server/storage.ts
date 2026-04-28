@@ -123,6 +123,19 @@ export interface IStorage {
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction>;
   markTransactionReturned(id: number, refundAmount?: number): Promise<Transaction>;
+  /**
+   * Task #38 refund flow: when an operator issues a refund AND simultaneously
+   * confirms the borrower physically handed the item back, we need to flip
+   * isReturned + actualReturnDate AND restock inventory — but we MUST NOT
+   * touch refundAmount (the route has just persisted the cumulative partial
+   * refund total via recordTransactionRefund and overwriting it would corrupt
+   * partial-refund accounting).
+   *
+   * Idempotent: returns null without mutating anything if the transaction is
+   * already returned (caller should treat null as "no-op, item was already
+   * returned earlier"). Restock is opt-in via the `restock` flag.
+   */
+  markPhysicallyReturnedForRefund(id: number, restock: boolean): Promise<Transaction | null>;
   recordReturnReminderSent(id: number, opts?: { channel?: string; language?: string; sentByUserId?: number | null }): Promise<Transaction>;
   getReturnReminderEvents(transactionId: number): Promise<ReturnReminderEventWithSender[]>;
 
@@ -2736,6 +2749,22 @@ export class MemStorage implements IStorage {
       refundAmount: refundAmount ?? transaction.depositAmount
     };
     this.transactions.set(id, updatedTransaction);
+    return updatedTransaction;
+  }
+
+  async markPhysicallyReturnedForRefund(id: number, restock: boolean): Promise<Transaction | null> {
+    const transaction = this.transactions.get(id);
+    if (!transaction) return null;
+    if (transaction.isReturned) return null;
+    const updatedTransaction: Transaction = {
+      ...transaction,
+      isReturned: true,
+      actualReturnDate: new Date(),
+    };
+    this.transactions.set(id, updatedTransaction);
+    if (restock && transaction.headbandColor && transaction.locationId) {
+      await this.adjustInventory(transaction.locationId, transaction.headbandColor, 1);
+    }
     return updatedTransaction;
   }
 
