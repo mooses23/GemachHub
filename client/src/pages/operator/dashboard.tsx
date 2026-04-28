@@ -652,14 +652,32 @@ function RefundChargedDialog({
           </div>
 
           {/*
-            Physical-return toggle is only meaningful when the item has NOT
-            already been marked returned. If it is already returned (the
-            common "borrower brought item back AFTER charge" case), the
-            inventory was already restocked at return time, so the toggle
-            is hidden and physicallyReturned stays false to avoid
-            double-restocking.
+            Physical-return state is shown for every refund so operators always
+            see whether the item is back. Two modes:
+              1. tx.isReturned=false: an actionable, unchecked checkbox the
+                 operator can tick to record that the item came back NOW.
+                 Submitting with this checked flips isReturned=true AND
+                 restocks inventory (server-side, single helper call).
+              2. tx.isReturned=true: a read-only, pre-checked indicator.
+                 Inventory was already restocked when the row was first
+                 marked returned, so we never resend itemPhysicallyReturned;
+                 even if we did, the server idempotently no-ops on
+                 already-returned rows so there's no double-restock risk.
           */}
-          {!tx.isReturned && (
+          {tx.isReturned ? (
+            <label className="flex items-start gap-2 text-sm text-slate-400">
+              <input
+                type="checkbox"
+                checked
+                disabled
+                className="mt-1"
+                data-testid="checkbox-item-physically-returned-already"
+              />
+              <span data-testid="text-already-returned-notice">
+                {t("itemAlreadyReturnedNotice")}
+              </span>
+            </label>
+          ) : (
             <label className="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
               <input
                 type="checkbox"
