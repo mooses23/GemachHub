@@ -67,13 +67,17 @@ interface PublicLocationInfo {
   id: number;
   name: string;
   depositAmount: number;
-  processingFeePercent: number;
-  processingFeeFixed: number;
 }
 
-function buildConsentText(gemachName: string, maxChargeCents: number): string {
-  const dollars = (maxChargeCents / 100).toFixed(2);
-  return `By saving this card, I authorize ${gemachName} to charge up to $${dollars} plus a small processing fee if I do not return the borrowed item.`;
+interface FeeQuote {
+  depositCents: number;
+  feeCents: number;
+  totalCents: number;
+}
+
+function buildConsentText(gemachName: string, totalCents: number): string {
+  const dollars = (totalCents / 100).toFixed(2);
+  return `By saving this card, I authorize ${gemachName} to charge up to $${dollars} (deposit + processing fee) if I do not return the borrowed item.`;
 }
 
 type SetupIntentFormValues = z.infer<typeof setupIntentFormSchema>;
@@ -97,9 +101,9 @@ function SetupIntentFormInner({
   const [successUrl, setSuccessUrl] = useState("");
 
   const [locationInfo, setLocationInfo] = useState<PublicLocationInfo | null>(null);
+  const [feeQuote, setFeeQuote] = useState<FeeQuote | null>(null);
 
-  // Task #39: fetch public location info so we can name the gemach + show the
-  // exact maximum charge amount inside the consent text.
+  // Fetch location info and server-authoritative fee quote together.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -108,26 +112,26 @@ function SetupIntentFormInner({
         if (!r.ok) return;
         const loc = await r.json();
         if (cancelled) return;
-        setLocationInfo({
+        const locInfo: PublicLocationInfo = {
           id: loc.id,
           name: loc.name,
           depositAmount: loc.depositAmount ?? 20,
-          processingFeePercent: loc.processingFeePercent ?? 290,
-          processingFeeFixed: loc.processingFeeFixed ?? 30,
-        });
+        };
+        setLocationInfo(locInfo);
+        const depositCentsLocal = (locInfo.depositAmount) * 100;
+        const qr = await fetch(`/api/deposits/fee-quote?locationId=${locationId}&depositCents=${depositCentsLocal}`);
+        if (!qr.ok || cancelled) return;
+        const quote: FeeQuote = await qr.json();
+        if (!cancelled) setFeeQuote(quote);
       } catch (e) {
-        // Best-effort — the consent block will fall back to a generic name.
-        console.warn("Failed to load location info for consent:", e);
+        console.warn("Failed to load location/fee info:", e);
       }
     })();
     return () => { cancelled = true; };
   }, [locationId]);
 
   const depositCents = (locationInfo?.depositAmount ?? 20) * 100;
-  const feePct = locationInfo?.processingFeePercent ?? 290;
-  const feeFixed = locationInfo?.processingFeeFixed ?? 30;
-  const feeCents = Math.ceil((depositCents * feePct) / 10000) + feeFixed;
-  const maxChargeCents = depositCents + feeCents;
+  const maxChargeCents = feeQuote?.totalCents ?? (depositCents + 90); // fallback: 3% + $0.30 on $20
   const gemachName = locationInfo?.name ?? "this gemach";
   const consentText = buildConsentText(gemachName, maxChargeCents);
 

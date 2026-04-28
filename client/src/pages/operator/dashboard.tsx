@@ -657,6 +657,7 @@ function LendWizard({
   
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
   const [stripePublishableKey, setStripePublishableKey] = useState<string | null>(null);
+  const [serverFeeQuote, setServerFeeQuote] = useState<{ depositCents: number; feeCents: number; totalCents: number } | null>(null);
   const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
   
   const handleDepositChange = (newValue: string) => {
@@ -735,6 +736,12 @@ function LendWizard({
       if (data.clientSecret && data.publishableKey) {
         setStripeClientSecret(data.clientSecret);
         setStripePublishableKey(data.publishableKey);
+        // Fetch server-authoritative fee quote so the displayed max-charge amount
+        // matches what the server will actually charge.
+        try {
+          const qr = await fetch(`/api/deposits/fee-quote?locationId=${location.id}&depositCents=${amountCents}`);
+          if (qr.ok) setServerFeeQuote(await qr.json());
+        } catch { /* non-fatal — UI falls back to location defaults */ }
         setStep(5);
       } else {
         throw new Error(data.message || "Failed to initialize card setup");
@@ -956,14 +963,12 @@ function LendWizard({
             clientSecret={stripeClientSecret}
             publishableKey={stripePublishableKey}
             gemachName={location.name}
-            maxChargeAmount={(() => {
-              const depositCents = Math.round((parseFloat(depositAmount) || 0) * 100);
-              const feeCents = Math.ceil(
-                (depositCents * (location.processingFeePercent ?? 300) / 10000) +
-                (location.processingFeeFixed ?? 30)
-              );
-              return (depositCents + feeCents) / 100;
-            })()}
+            maxChargeAmount={serverFeeQuote
+              ? serverFeeQuote.totalCents / 100
+              : (() => {
+                  const dc = Math.round((parseFloat(depositAmount) || 0) * 100);
+                  return (dc + Math.ceil(dc * (location.processingFeePercent ?? 300) / 10000) + (location.processingFeeFixed ?? 30)) / 100;
+                })()}
             currency="usd"
             onSuccess={async () => {
               try {

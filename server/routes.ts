@@ -11,6 +11,7 @@ import { PaymentAnalyticsEngine } from "./analytics-engine.js";
 import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService, prepareBorrowerStatusToken, commitBorrowerStatusToken, getMaxCardAgeDays, setMaxCardAgeDays, getRequirePreChargeNotification, setRequirePreChargeNotification } from "./payLaterService.js";
+import { computeFeeForPaymentMethod } from "./depositFees.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
 import { getTwilioConfigStatus, sendReturnReminderSMS, normalizePhoneForSms, validateTwilioSignature } from "./twilio-client.js";
@@ -3605,6 +3606,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
   // PAY LATER (SETUP INTENT) ROUTES
   // ============================================
+
+  // Server-authoritative fee quote — used by all UIs to display and consent to the
+  // exact same amount the server will charge (payment-method > location > default).
+  app.get("/api/deposits/fee-quote", async (req, res) => {
+    try {
+      const locationId = parseInt(req.query.locationId as string);
+      const depositCents = parseInt(req.query.depositCents as string);
+      if (!locationId || !depositCents || depositCents <= 0) {
+        return res.status(400).json({ message: "locationId and depositCents required" });
+      }
+      const location = await storage.getLocation(locationId);
+      if (!location) return res.status(404).json({ message: "Location not found" });
+      const allPMs = await storage.getAllPaymentMethods();
+      const stripePM = allPMs.find(pm => pm.provider === 'stripe' && pm.isActive);
+      const { feeCents, totalCents } = computeFeeForPaymentMethod(depositCents, stripePM, location);
+      return res.json({
+        depositCents,
+        feeCents,
+        totalCents,
+        percentBp: stripePM?.processingFeePercent ?? location?.processingFeePercent ?? 300,
+        fixedCents: stripePM?.fixedFee ?? location?.processingFeeFixed ?? 30,
+      });
+    } catch (err) {
+      console.error("fee-quote error:", err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   // Create SetupIntent for card verification without charging
   app.post("/api/deposits/setup-intent", async (req, res) => {
