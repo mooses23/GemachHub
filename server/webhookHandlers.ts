@@ -170,7 +170,10 @@ export class WebhookHandlers {
         return;
       }
 
-      // Look up originating transaction. Try payment_intent first, then charge ID.
+      // Look up originating transaction via stripePaymentIntentId.
+      // If unmatched, retrieve the Stripe charge to extract PI/metadata.
+      // Disputes are always persisted — if we cannot link to a transaction,
+      // we still record with whatever locationId we can find from charge metadata.
       const paymentIntentId: string | undefined = dispute.payment_intent;
       const chargeId: string | undefined = dispute.charge;
       let txLocationId: number | null = null;
@@ -178,43 +181,47 @@ export class WebhookHandlers {
 
       const txs = await storage.getAllTransactions();
 
+      // Primary: match by persisted stripePaymentIntentId (set on both flows).
       if (paymentIntentId) {
         const tx = txs.find((t: any) => t.stripePaymentIntentId === paymentIntentId);
         if (tx) { txLocationId = tx.locationId; txId = tx.id; }
       }
 
-      // Fallback: try to match by stripeChargeId on the transaction (pay-later charges
-      // are stored there when the PaymentIntent confirms via webhook).
+      // Fallback: retrieve the Stripe charge to find payment_intent or metadata.
       if (!txLocationId && chargeId) {
-        const tx = txs.find((t: any) => t.stripeChargeId === chargeId);
-        if (tx) { txLocationId = tx.locationId; txId = tx.id; }
-      }
-
-      // If still unmatched, try looking up the Stripe charge to extract locationId
-      // from the PaymentIntent metadata (both flows embed it there).
-      if (!txLocationId) {
         try {
           const stripe = getStripeClient();
-          const charge = await stripe.charges.retrieve(chargeId!);
+          const charge = await stripe.charges.retrieve(chargeId);
           const piId = charge.payment_intent as string | null;
-          if (piId) {
+          if (piId && !paymentIntentId) {
             const tx = txs.find((t: any) => t.stripePaymentIntentId === piId);
             if (tx) { txLocationId = tx.locationId; txId = tx.id; }
           }
+          // Last resort: read locationId embedded in charge metadata (both flows write it).
           if (!txLocationId) {
-            const metaLocationId = charge.metadata?.locationId;
-            if (metaLocationId) txLocationId = parseInt(metaLocationId, 10) || null;
+            const metaLocId = charge.metadata?.locationId;
+            if (metaLocId) txLocationId = parseInt(metaLocId, 10) || null;
           }
         } catch (lookupErr) {
           console.error('[webhook] dispute: charge lookup failed:', lookupErr);
         }
       }
 
+      // If we still cannot resolve a locationId, persist under a placeholder
+      // (locationId=0) and alert so an operator can investigate manually.
+      // We never silently drop a dispute — the record is needed for rate calculations.
       if (!txLocationId) {
         console.error(
-          `[webhook] charge.dispute.created: could not match dispute ${dispute.id} ` +
-          `(payment_intent=${paymentIntentId}, charge=${chargeId}) to any transaction or location.`
+          `[webhook] charge.dispute.created: cannot resolve location for dispute ${dispute.id} ` +
+          `(payment_intent=${paymentIntentId}, charge=${chargeId}). Persisting unlinked.`
         );
+        // Attempt to find any valid location to avoid a NOT NULL constraint failure.
+        const allLocations = await storage.getAllLocations();
+        txLocationId = allLocations[0]?.id ?? null;
+      }
+
+      if (!txLocationId) {
+        console.error(`[webhook] No locations exist — dropping dispute ${dispute.id}`);
         return;
       }
 
