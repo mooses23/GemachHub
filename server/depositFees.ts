@@ -40,3 +40,28 @@ export function computeFeeForLocation(
   const fixedCents = location?.processingFeeFixed ?? 30;
   return computeProcessingFeeCents({ depositCents, percentBp, fixedCents });
 }
+
+/**
+ * Compute fee using the payment-method configuration as the source of truth,
+ * with a location fallback. This mirrors how Stripe's actual cost is structured:
+ * fee is owned by the payment method (e.g., the Stripe row in payment_methods),
+ * and the location can override. Priority: paymentMethod > location > defaults.
+ *
+ * @param depositCents - Deposit amount in cents
+ * @param paymentMethod - Row from payment_methods table (provider='stripe')
+ * @param location - Location row (fallback)
+ */
+export function computeFeeForPaymentMethod(
+  depositCents: number,
+  paymentMethod: { processingFeePercent?: number | null; fixedFee?: number | null } | null | undefined,
+  location: { processingFeePercent?: number | null; processingFeeFixed?: number | null } | null | undefined
+): ComputeFeeResult {
+  // Payment method config takes precedence over location config.
+  const percentBp = paymentMethod?.processingFeePercent
+    ?? location?.processingFeePercent
+    ?? 300;
+  const fixedCents = paymentMethod?.fixedFee
+    ?? location?.processingFeeFixed
+    ?? 30;
+  return computeProcessingFeeCents({ depositCents, percentBp, fixedCents });
+}

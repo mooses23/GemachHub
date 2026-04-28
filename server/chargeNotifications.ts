@@ -180,13 +180,15 @@ function buildReceiptSmsBody(
   transaction: Transaction,
   location: Location,
   amountCents: number,
+  operatorNote?: string,
 ): string {
   const firstName = (transaction.borrowerName || '').trim().split(/\s+/)[0] || 'Hi';
   const dollars = (amountCents / 100).toFixed(2);
   const statusUrl = buildStatusUrl(transaction);
+  const noteLine = operatorNote ? ` Note: "${operatorNote}"` : '';
   const linkLine = statusUrl ? ` View receipt: ${statusUrl}` : '';
   return (
-    `Hi ${firstName} — your $${dollars} deposit has been charged by the ${location.name} Baby Banz Earmuffs Gemach. Questions? Call ${location.phone}.${linkLine}`
+    `Hi ${firstName} — your $${dollars} deposit has been charged by the ${location.name} Baby Banz Earmuffs Gemach.${noteLine} Questions? Call ${location.phone}.${linkLine}`
   );
 }
 
@@ -198,10 +200,14 @@ function buildReceiptEmailBody(
   transaction: Transaction,
   location: Location,
   amountCents: number,
+  operatorNote?: string,
 ): string {
   const firstName = (transaction.borrowerName || '').trim().split(/\s+/)[0] || 'Hi';
   const dollars = (amountCents / 100).toFixed(2);
   const statusUrl = buildStatusUrl(transaction);
+  const noteSection = operatorNote
+    ? `\nNote from the gemach coordinator:\n  "${operatorNote}"\n`
+    : '';
   const linkSection = statusUrl
     ? `\nYou can view the details of your loan at any time:\n  ${statusUrl}\n`
     : '';
@@ -213,7 +219,7 @@ This charge was collected because the borrowed earmuffs were not returned. If yo
 
   Phone: ${location.phone}
   Email: ${location.email}
-${linkSection}
+${noteSection}${linkSection}
 Thank you,
 ${location.name} Baby Banz Earmuffs Gemach
 `;
@@ -221,12 +227,14 @@ ${location.name} Baby Banz Earmuffs Gemach
 
 /**
  * Send a post-charge receipt notification to the borrower confirming the charge landed.
+ * Includes the same operator note/reason as the pre-charge notification for context.
  * Tries SMS first, falls back to email. Never throws.
  */
 export async function notifyBorrowerAfterCharge(
   transaction: Transaction,
   location: Location,
   amountCents: number,
+  operatorNote?: string,
 ): Promise<ChargeNotificationResult> {
   // Try SMS
   const smsStatus = getTwilioConfigStatus();
@@ -240,7 +248,7 @@ export async function notifyBorrowerAfterCharge(
         await client.messages.create({
           to,
           from: process.env.TWILIO_FROM_NUMBER!,
-          body: buildReceiptSmsBody(transaction, location, amountCents),
+          body: buildReceiptSmsBody(transaction, location, amountCents, operatorNote),
         });
         return { channel: 'sms', sent: true };
       } catch (e: any) {
@@ -255,7 +263,7 @@ export async function notifyBorrowerAfterCharge(
       await sendNewEmail(
         transaction.borrowerEmail,
         buildReceiptEmailSubject(location),
-        buildReceiptEmailBody(transaction, location, amountCents),
+        buildReceiptEmailBody(transaction, location, amountCents, operatorNote),
       );
       return { channel: 'email', sent: true };
     } catch (e: any) {

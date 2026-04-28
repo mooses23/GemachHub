@@ -2,7 +2,7 @@ import { getStripeClient } from './stripeClient.js';
 import { storage } from './storage.js';
 import { randomBytes, createHash } from 'crypto';
 import type { Transaction, PayLaterStatus } from '../shared/schema.js';
-import { computeFeeForLocation } from './depositFees.js';
+import { computeFeeForLocation, computeFeeForPaymentMethod } from './depositFees.js';
 import { notifyBorrowerBeforeCharge, notifyBorrowerAfterCharge } from './chargeNotifications.js';
 
 // Task #39: stale-card guardrail. Default: 90 days. Admin can override
@@ -30,7 +30,11 @@ export async function setMaxCardAgeDays(days: number): Promise<void> {
 
 export async function getRequirePreChargeNotification(): Promise<boolean> {
   const row = await storage.getGlobalSetting(REQUIRE_NOTIFY_SETTING_KEY);
-  return row?.value === 'true';
+  // Default is TRUE: every off-session charge must be preceded by a successful
+  // borrower notification. Operators can disable via admin settings if their
+  // borrowers reliably lack contact details.
+  if (row?.value === undefined || row?.value === null) return true;
+  return row.value !== 'false';
 }
 
 export async function setRequirePreChargeNotification(required: boolean): Promise<void> {
@@ -106,8 +110,11 @@ export class PayLaterService {
     // returned (deposit + Stripe fee). This is what we both DISCLOSE in the
     // consent text and what we will USE as amountPlannedCents at charge time
     // — keeping disclosure and reality in lockstep.
+    // Fee hierarchy: Stripe payment-method config > location defaults > hard defaults.
     const location = await storage.getLocation(data.locationId);
-    const { feeCents, totalCents } = computeFeeForLocation(data.amountCents, location);
+    const allPaymentMethods = await storage.getAllPaymentMethods();
+    const stripePaymentMethod = allPaymentMethods.find(pm => pm.provider === 'stripe' && pm.isActive);
+    const { feeCents, totalCents } = computeFeeForPaymentMethod(data.amountCents, stripePaymentMethod, location);
     const consentMax = data.consentMaxChargeCents ?? totalCents;
 
     const transaction = await storage.createTransaction({
@@ -392,9 +399,11 @@ export class PayLaterService {
         });
 
         // Task #39: post-charge receipt — let borrower know the charge landed.
+        // Include the same operatorNote used in the pre-charge notification so the
+        // borrower can see the reason in both messages.
         try {
           if (location) {
-            await notifyBorrowerAfterCharge(transaction, location, amountToChargeCents);
+            await notifyBorrowerAfterCharge(transaction, location, amountToChargeCents, operatorNote);
           }
         } catch (err) {
           console.error('Post-charge receipt notification failed (non-fatal):', err);

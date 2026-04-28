@@ -52,7 +52,7 @@ function StripeSettingsCard() {
   });
 
   const [maxCardAgeDays, setMaxCardAgeDays] = useState<string>("");
-  const [requireNotify, setRequireNotify] = useState<boolean>(false);
+  const [requireNotify, setRequireNotify] = useState<boolean>(true);
   const [feeEdits, setFeeEdits] = useState<Record<number, { processingFeePercent: string; processingFeeFixed: string }>>({});
 
   // Seed local state once data loads
@@ -121,7 +121,7 @@ function StripeSettingsCard() {
                 <label className="block text-xs font-medium mb-1">Require pre-charge notification</label>
                 <div className="flex items-center gap-2 mt-2">
                   <Switch checked={requireNotify} onCheckedChange={setRequireNotify} data-testid="switch-require-notify" />
-                  <span className="text-sm">{requireNotify ? "Enforced" : "Best-effort (default)"}</span>
+                  <span className="text-sm">{requireNotify ? "Enforced (default)" : "Best-effort (disabled)"}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">When on, charges are blocked if the borrower cannot be notified.</p>
               </div>
