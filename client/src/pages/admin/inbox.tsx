@@ -1876,11 +1876,21 @@ export default function AdminInbox() {
                       : t("inboxFilterReplied")}
                 </Button>
               ))}
-              {(sourceFilter !== "all" || readFilter !== "all" || replyFilter !== "all" || search) && (
+              {(folder !== "inbox" || sourceFilter !== "all" || readFilter !== "all" || replyFilter !== "all" || search) && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => { setSourceFilter("all"); setReadFilter("all"); setReplyFilter("all"); setSearch(""); }}
+                  onClick={() => {
+                    // Reset every persisted filter dimension so the admin
+                    // returns to the default view (Inbox / All / All / All
+                    // / empty search) in one click. The persist effect
+                    // mirrors these defaults to localStorage immediately.
+                    setFolder("inbox");
+                    setSourceFilter("all");
+                    setReadFilter("all");
+                    setReplyFilter("all");
+                    setSearch("");
+                  }}
                   data-testid="button-clear-filters"
                 >
                   {t("inboxClearFilters")}

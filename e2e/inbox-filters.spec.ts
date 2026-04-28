@@ -78,24 +78,27 @@ test.describe("admin inbox — filter persistence (Task #36)", () => {
     // Pick a non-default selection in EVERY filter dimension so we can prove
     // each one is restored independently, not just whichever one happens to
     // also flip the clear-filters button into view.
+    await page.getByTestId("tab-folder-spam").click();
     await page.getByTestId("filter-source-form").click();
     await page.getByTestId("filter-read-unread").click();
     await page.getByTestId("filter-reply-unreplied").click();
     await page.getByTestId("input-search").fill("triage-needle");
 
-    // Reload — without persistence, all four would snap back to defaults.
+    // Reload — without persistence, all five would snap back to defaults.
     await page.reload();
     await expect(page.getByTestId("input-search")).toBeVisible({ timeout: 15_000 });
 
     // Search input has a directly observable controlled value.
     await expect(page.getByTestId("input-search")).toHaveValue("triage-needle");
     // Each restored enum filter must be the ACTIVE one in its row …
+    await expect(page.getByTestId("tab-folder-spam")).toHaveClass(ACTIVE_RE);
     await expect(page.getByTestId("filter-source-form")).toHaveClass(ACTIVE_RE);
     await expect(page.getByTestId("filter-read-unread")).toHaveClass(ACTIVE_RE);
     await expect(page.getByTestId("filter-reply-unreplied")).toHaveClass(ACTIVE_RE);
     // … and the OTHER options in the same row must NOT be active. Without
     // this negative check, a bug that left every button "active" would slip
     // past us.
+    await expect(page.getByTestId("tab-folder-inbox")).not.toHaveClass(ACTIVE_RE);
     await expect(page.getByTestId("filter-source-all")).not.toHaveClass(ACTIVE_RE);
     await expect(page.getByTestId("filter-read-all")).not.toHaveClass(ACTIVE_RE);
     await expect(page.getByTestId("filter-reply-all")).not.toHaveClass(ACTIVE_RE);
@@ -105,7 +108,7 @@ test.describe("admin inbox — filter persistence (Task #36)", () => {
     await expect(page.getByTestId("input-search")).toHaveValue("");
   });
 
-  test("clear-filters wipes the saved state so a reload returns to defaults", async ({ page }) => {
+  test("clear-filters wipes the saved state so a reload returns to defaults (including folder)", async ({ page }) => {
     const loginRes = await page.request.post("/api/login", {
       data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD },
     });
@@ -114,10 +117,10 @@ test.describe("admin inbox — filter persistence (Task #36)", () => {
     await page.goto("/admin/inbox");
     await expect(page.getByTestId("input-search")).toBeVisible({ timeout: 15_000 });
 
-    // Set a non-default state, persist it, then clear and reload — the
-    // page must come back with the defaults restored, not the cleared-
-    // and-rewritten state. This guards against accidentally NOT writing
-    // defaults to localStorage on clear.
+    // Set non-default state in BOTH the folder tab and a filter button so
+    // the test guards against the historical bug where clear-filters reset
+    // the filter row but left the folder on Spam/Trash.
+    await page.getByTestId("tab-folder-spam").click();
     await page.getByTestId("filter-reply-unreplied").click();
     await page.getByTestId("input-search").fill("triage-needle");
     await page.getByTestId("button-clear-filters").click();
@@ -125,6 +128,10 @@ test.describe("admin inbox — filter persistence (Task #36)", () => {
     await page.reload();
     await expect(page.getByTestId("input-search")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("input-search")).toHaveValue("");
+    // Folder must be back on Inbox, and every filter row's "All" option
+    // must be the active one.
+    await expect(page.getByTestId("tab-folder-inbox")).toHaveClass(ACTIVE_RE);
+    await expect(page.getByTestId("tab-folder-spam")).not.toHaveClass(ACTIVE_RE);
     await expect(page.getByTestId("filter-reply-all")).toHaveClass(ACTIVE_RE);
     // The clear button only appears when at least one filter is non-default;
     // its absence here confirms we're on a fully default state.
