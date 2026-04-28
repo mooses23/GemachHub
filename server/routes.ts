@@ -67,31 +67,13 @@ import {
 } from "../shared/schema.js";
 import { setupAuth, requireRole, requireOperatorForLocation, createTestUsers } from "./auth.js";
 
-/**
- * Per-transaction in-process mutex for refund operations.
- *
- * Prevents the over-refund-at-Stripe race where two concurrent operator
- * refund requests for the same transaction both pass the
- * remaining-refundable-amount validation (computed from an initial DB read),
- * then both create Stripe refunds, causing total refunded > original charge.
- *
- * The DB-side CAS retry loop in /refund-pay-later only reconciles DB state
- * AFTER Stripe succeeds, so it cannot prevent the over-refund at Stripe
- * itself. Serializing per-transaction at the route entry closes that race.
- *
- * Sufficient because the Express server runs as a single Node process. If we
- * ever scale horizontally, swap this for a Stripe-side idempotency key
- * scheme + a DB-row advisory lock (e.g., pg_advisory_xact_lock(transactionId)).
- */
+// Per-transaction in-process mutex: serializes concurrent /refund-pay-later
+// requests on the same transaction so they cannot both pass remaining-amount
+// validation and both create Stripe refunds (over-refund). Single-process only.
 const refundLocks = new Map<number, Promise<void>>();
 async function withRefundLock<T>(transactionId: number, fn: () => Promise<T>): Promise<T> {
-  // Wait for any in-flight refund on this transaction to finish first.
   while (refundLocks.has(transactionId)) {
-    try {
-      await refundLocks.get(transactionId);
-    } catch {
-      // Predecessor failed — that's fine, we just need it to be done.
-    }
+    try { await refundLocks.get(transactionId); } catch { /* predecessor failed — proceed */ }
   }
   let release!: () => void;
   const lock = new Promise<void>((resolve) => { release = resolve; });
@@ -4152,14 +4134,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // the transaction was NOT already marked returned. This guards against
       // repeated refund retries (e.g., a network-flaky operator clicking twice)
       // double-restocking inventory or overwriting an earlier actualReturnDate.
-      if (itemPhysicallyReturned && !transaction.isReturned) {
-        // Use the dedicated refund-flow helper that flips isReturned +
-        // actualReturnDate AND (when restock=true) restocks inventory in one
-        // atomic step. Critically, this helper does NOT touch refundAmount,
-        // so the cumulative partial refund total we just persisted via
-        // recordTransactionRefund is preserved. Idempotent on isReturned=true:
-        // returns null without mutating if the row was already returned.
-        await storage.markPhysicallyReturnedForRefund(transactionId, true);
+      if (itemPhysicallyReturned) {
+        if (!transaction.isReturned) {
+          // First-time physical return: flip isReturned + restock inventory
+          // (helper does both atomically, never touches refundAmount).
+          await storage.markPhysicallyReturnedForRefund(transactionId, true);
+        } else {
+          // Already-returned row: operator is confirming again at refund
+          // time. Inventory was restocked at original return, so we record
+          // an audit-only confirmation — no state change, no double-restock.
+          await storage.createAuditLog({
+            actorUserId: operatorUserId,
+            actorType: operatorUserId ? "user" : "operator_session",
+            action: "physical_return_reconfirmed_at_refund",
+            entityType: "transaction",
+            entityId: transactionId,
+            beforeJson: null,
+            afterJson: null,
+            metadata: JSON.stringify({
+              originalActualReturnDate: transaction.actualReturnDate,
+              stripeRefundId: stripeRefund.id,
+            }),
+          });
+        }
       }
 
       // Audit log: actor, amount, cumulative, status, reason, Stripe id, restock.

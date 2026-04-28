@@ -658,43 +658,27 @@ function RefundChargedDialog({
             />
           </div>
 
-          {/*
-            Physical-return state is shown for every refund so operators always
-            see whether the item is back. Two modes:
-              1. tx.isReturned=false: an actionable, unchecked checkbox the
-                 operator can tick to record that the item came back NOW.
-                 Submitting with this checked flips isReturned=true AND
-                 restocks inventory (server-side, single helper call).
-              2. tx.isReturned=true: a read-only, pre-checked indicator.
-                 Inventory was already restocked when the row was first
-                 marked returned, so we never resend itemPhysicallyReturned;
-                 even if we did, the server idempotently no-ops on
-                 already-returned rows so there's no double-restock risk.
-          */}
-          {tx.isReturned ? (
-            <label className="flex items-start gap-2 text-sm text-slate-400">
-              <input
-                type="checkbox"
-                checked
-                disabled
-                className="mt-1"
-                data-testid="checkbox-item-physically-returned-already"
-              />
-              <span data-testid="text-already-returned-notice">
-                {t("itemAlreadyReturnedNotice")}
-              </span>
-            </label>
-          ) : (
-            <label className="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={physicallyReturned}
-                onChange={(e) => setPhysicallyReturned(e.target.checked)}
-                className="mt-1"
-                data-testid="checkbox-item-physically-returned"
-              />
-              <span>{t("itemPhysicallyReturnedLabel")}</span>
-            </label>
+          {/* Physical-return checkbox is always actionable. When isReturned is
+              already true, the server records an audit-only confirmation
+              (no inventory change). When false, server flips state + restocks. */}
+          <label className="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={physicallyReturned}
+              onChange={(e) => setPhysicallyReturned(e.target.checked)}
+              className="mt-1"
+              data-testid="checkbox-item-physically-returned"
+            />
+            <span>
+              {tx.isReturned
+                ? t("itemPhysicallyReturnedConfirmLabel")
+                : t("itemPhysicallyReturnedLabel")}
+            </span>
+          </label>
+          {tx.isReturned && tx.actualReturnDate && (
+            <div className="text-xs text-slate-400" data-testid="text-already-returned-notice">
+              {t("itemAlreadyReturnedNotice")}
+            </div>
           )}
         </div>
 
@@ -858,7 +842,8 @@ function RecentActivity({ transactions, locationId, locationCode }: { transactio
               filteredCharged.map(tx => {
                 const refundedCents = Math.round(((tx.refundAmount ?? 0) as number) * 100);
                 const depositCents = Math.round((tx.depositAmount || 0) * 100);
-                const remaining = Math.max(0, depositCents - refundedCents) / 100;
+                const feeCents = (tx.depositFeeCents ?? 0) as number;
+                const remaining = Math.max(0, (depositCents + feeCents) - refundedCents) / 100;
                 return (
                   <div
                     key={tx.id}
