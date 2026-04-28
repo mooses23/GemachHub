@@ -543,8 +543,15 @@ function RefundChargedDialog({
   const { t } = useLanguage();
   const { toast } = useToast();
   const depositCents = Math.round((tx.depositAmount || 0) * 100);
+  // Mirror server formula in /refund-pay-later: maxRefundCents = depositCents
+  // + depositFeeCents. Including the processing fee here keeps the dialog's
+  // "Remaining refundable" total in sync with what the server will accept;
+  // otherwise borrowers paying via Stripe (where a fee was added on top of
+  // the deposit) would see a smaller cap than what's actually refundable.
+  const feeCents = (tx.depositFeeCents ?? 0) as number;
+  const maxRefundCents = depositCents + feeCents;
   const alreadyRefundedCents = Math.round(((tx.refundAmount ?? 0) as number) * 100);
-  const remainingCents = Math.max(0, depositCents - alreadyRefundedCents);
+  const remainingCents = Math.max(0, maxRefundCents - alreadyRefundedCents);
   const remaining = remainingCents / 100;
   const [isPartial, setIsPartial] = useState(false);
   const [amount, setAmount] = useState(remaining.toFixed(2));
