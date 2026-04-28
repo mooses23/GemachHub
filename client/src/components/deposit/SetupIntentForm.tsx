@@ -54,7 +54,27 @@ const setupIntentFormSchema = z.object({
     .regex(/^\d{10,}$/, "Please enter a valid phone number (at least 10 digits)")
     .optional()
     .or(z.literal("")),
+  // Task #39: Borrower MUST tick the consent box before we send the card to
+  // Stripe. We capture both the boolean and the exact text shown to them.
+  consentAgreed: z
+    .boolean()
+    .refine((v) => v === true, {
+      message: "You must agree to the authorization above before saving your card",
+    }),
 });
+
+interface PublicLocationInfo {
+  id: number;
+  name: string;
+  depositAmount: number;
+  processingFeePercent: number;
+  processingFeeFixed: number;
+}
+
+function buildConsentText(gemachName: string, maxChargeCents: number): string {
+  const dollars = (maxChargeCents / 100).toFixed(2);
+  return `By saving this card, I authorize ${gemachName} to charge up to $${dollars} plus a small processing fee if I do not return the borrowed item.`;
+}
 
 type SetupIntentFormValues = z.infer<typeof setupIntentFormSchema>;
 
@@ -76,12 +96,48 @@ function SetupIntentFormInner({
   const [showSuccess, setShowSuccess] = useState(false);
   const [successUrl, setSuccessUrl] = useState("");
 
+  const [locationInfo, setLocationInfo] = useState<PublicLocationInfo | null>(null);
+
+  // Task #39: fetch public location info so we can name the gemach + show the
+  // exact maximum charge amount inside the consent text.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/locations/${locationId}`);
+        if (!r.ok) return;
+        const loc = await r.json();
+        if (cancelled) return;
+        setLocationInfo({
+          id: loc.id,
+          name: loc.name,
+          depositAmount: loc.depositAmount ?? 20,
+          processingFeePercent: loc.processingFeePercent ?? 290,
+          processingFeeFixed: loc.processingFeeFixed ?? 30,
+        });
+      } catch (e) {
+        // Best-effort — the consent block will fall back to a generic name.
+        console.warn("Failed to load location info for consent:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [locationId]);
+
+  const depositCents = (locationInfo?.depositAmount ?? 20) * 100;
+  const feePct = locationInfo?.processingFeePercent ?? 290;
+  const feeFixed = locationInfo?.processingFeeFixed ?? 30;
+  const feeCents = Math.ceil((depositCents * feePct) / 10000) + feeFixed;
+  const maxChargeCents = depositCents + feeCents;
+  const gemachName = locationInfo?.name ?? "this gemach";
+  const consentText = buildConsentText(gemachName, maxChargeCents);
+
   const form = useForm<SetupIntentFormValues>({
     resolver: zodResolver(setupIntentFormSchema),
     defaultValues: {
       borrowerName: "",
       borrowerEmail: "",
       borrowerPhone: "",
+      consentAgreed: false,
     },
   });
 
@@ -117,6 +173,9 @@ function SetupIntentFormInner({
           borrowerName: values.borrowerName,
           borrowerEmail: values.borrowerEmail || undefined,
           borrowerPhone: values.borrowerPhone || undefined,
+          // Task #39: send the EXACT consent text the borrower saw + agreed to.
+          consentText,
+          consentMaxChargeCents: maxChargeCents,
         }
       );
 
@@ -327,16 +386,54 @@ function SetupIntentFormInner({
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Your card information is securely processed by Stripe. Your card
-                will only be charged after explicit approval.
+                will only be charged if you do not return the borrowed item.
               </AlertDescription>
             </Alert>
+
+            {/* Task #39: Explicit borrower consent block. The exact text below
+                is what we persist on the transaction and replay back to Stripe
+                in any dispute response. */}
+            <FormField
+              control={form.control}
+              name="consentAgreed"
+              render={({ field }) => (
+                <FormItem className="rounded-md border-2 border-amber-300 bg-amber-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-5 w-5 cursor-pointer accent-amber-600"
+                        checked={!!field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        disabled={isProcessing}
+                        data-testid="checkbox-consent"
+                      />
+                    </FormControl>
+                    <div className="flex-1 space-y-2">
+                      <FormLabel className="text-sm font-semibold leading-tight cursor-pointer">
+                        I agree to the following authorization:
+                      </FormLabel>
+                      <p className="text-sm text-amber-900 leading-relaxed">
+                        {consentText}
+                      </p>
+                      <p className="text-xs text-amber-800">
+                        You will receive a heads-up notification before any
+                        charge is run.
+                      </p>
+                      <FormMessage />
+                    </div>
+                  </div>
+                </FormItem>
+              )}
+            />
 
             {/* Submit Button */}
             <Button
               type="submit"
-              disabled={!stripe || isProcessing}
+              disabled={!stripe || isProcessing || !form.watch("consentAgreed")}
               className="w-full"
               size="lg"
+              data-testid="button-submit-card"
             >
               {isProcessing ? (
                 <>
@@ -346,17 +443,12 @@ function SetupIntentFormInner({
               ) : (
                 <>
                   <CreditCard className="mr-2 h-4 w-4" />
-                  Verify Card
+                  Save Card
                 </>
               )}
             </Button>
           </form>
         </Form>
-
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          By submitting, you agree to save this card for future deposits. Charges
-          will only be made after approval.
-        </p>
       </CardContent>
     </Card>
   );

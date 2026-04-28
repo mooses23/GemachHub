@@ -19,6 +19,8 @@ import {
   replyExamples, type ReplyExample, type InsertReplyExample,
   returnReminderEvents, type ReturnReminderEvent, type InsertReturnReminderEvent, type ReturnReminderEventWithSender,
   kbEmbeddings, type KbEmbedding, type InsertKbEmbedding,
+  globalSettings, type GlobalSetting, type InsertGlobalSetting,
+  disputes, type Dispute, type InsertDispute,
   type KbSourceKind,
   type PayLaterStatus
 } from "../shared/schema.js";
@@ -166,6 +168,22 @@ export interface IStorage {
   // Webhook Event operations (for idempotency)
   getWebhookEvent(eventId: string): Promise<WebhookEvent | undefined>;
   createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent>;
+
+  // Task #39: Global Settings (key/value, primarily Stripe risk knobs)
+  getGlobalSetting(key: string): Promise<GlobalSetting | undefined>;
+  setGlobalSetting(key: string, value: string): Promise<GlobalSetting>;
+
+  // Task #39: Stripe Disputes (per-gemach 30-day risk monitoring)
+  createDispute(dispute: InsertDispute): Promise<Dispute>;
+  getDisputeByStripeId(stripeDisputeId: string): Promise<Dispute | undefined>;
+  getDisputesByLocationSince(locationId: number, since: Date): Promise<Dispute[]>;
+  getAllDisputes(): Promise<Dispute[]>;
+  getRecentDisputeStats(sinceDays: number): Promise<{
+    locationId: number;
+    disputeCount: number;
+    chargedCount: number;
+    rate: number;
+  }[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -2451,6 +2469,7 @@ export class MemStorage implements IStorage {
       depositAmount: insertLocation.depositAmount ?? null,
       paymentMethods: insertLocation.paymentMethods ?? null,
       processingFeePercent: insertLocation.processingFeePercent ?? null,
+      processingFeeFixed: (insertLocation as any).processingFeeFixed ?? 30,
       cityCategoryId: insertLocation.cityCategoryId ?? null,
       operatorPin: insertLocation.operatorPin ?? null,
       nameHe: insertLocation.nameHe ?? null,
@@ -2659,7 +2678,15 @@ export class MemStorage implements IStorage {
       lastReturnReminderAt: null,
       returnReminderCount: 0,
       chargeErrorCode: insertTransaction.chargeErrorCode ?? null,
-      chargeErrorMessage: insertTransaction.chargeErrorMessage ?? null
+      chargeErrorMessage: insertTransaction.chargeErrorMessage ?? null,
+      // Task #39: consent + fee + notification + card-age fields
+      consentText: (insertTransaction as any).consentText ?? null,
+      consentAcceptedAt: (insertTransaction as any).consentAcceptedAt ?? null,
+      consentMaxChargeCents: (insertTransaction as any).consentMaxChargeCents ?? null,
+      cardSavedAt: (insertTransaction as any).cardSavedAt ?? null,
+      chargeNotificationSentAt: (insertTransaction as any).chargeNotificationSentAt ?? null,
+      chargeNotificationChannel: (insertTransaction as any).chargeNotificationChannel ?? null,
+      depositFeeCents: (insertTransaction as any).depositFeeCents ?? null,
     };
     
     this.transactions.set(id, transaction);
@@ -3105,6 +3132,77 @@ export class MemStorage implements IStorage {
 
   async deleteCityCategory(id: number): Promise<void> {
     this.cityCategories.delete(id);
+  }
+
+  // Task #39: Global Settings (in-memory shim)
+  private globalSettingsMap = new Map<string, GlobalSetting>();
+  async getGlobalSetting(key: string): Promise<GlobalSetting | undefined> {
+    return this.globalSettingsMap.get(key);
+  }
+  async setGlobalSetting(key: string, value: string): Promise<GlobalSetting> {
+    const existing = this.globalSettingsMap.get(key);
+    const setting: GlobalSetting = {
+      id: existing?.id ?? this.globalSettingsMap.size + 1,
+      key,
+      value,
+      isEnabled: true,
+      updatedAt: new Date(),
+    };
+    this.globalSettingsMap.set(key, setting);
+    return setting;
+  }
+
+  // Task #39: Disputes (in-memory shim)
+  private disputesMap = new Map<number, Dispute>();
+  private disputesCounter = 1;
+  async createDispute(dispute: InsertDispute): Promise<Dispute> {
+    const existing = Array.from(this.disputesMap.values()).find(d => d.stripeDisputeId === dispute.stripeDisputeId);
+    if (existing) return existing;
+    const row: Dispute = {
+      id: this.disputesCounter++,
+      locationId: dispute.locationId,
+      transactionId: dispute.transactionId ?? null,
+      stripeDisputeId: dispute.stripeDisputeId,
+      stripeChargeId: dispute.stripeChargeId,
+      stripePaymentIntentId: dispute.stripePaymentIntentId ?? null,
+      amountCents: dispute.amountCents,
+      currency: dispute.currency ?? 'usd',
+      status: dispute.status,
+      reason: dispute.reason,
+      evidenceDueBy: dispute.evidenceDueBy ?? null,
+      rawPayloadJson: dispute.rawPayloadJson ?? null,
+      createdAt: new Date(),
+    };
+    this.disputesMap.set(row.id, row);
+    return row;
+  }
+  async getDisputeByStripeId(stripeDisputeId: string): Promise<Dispute | undefined> {
+    return Array.from(this.disputesMap.values()).find(d => d.stripeDisputeId === stripeDisputeId);
+  }
+  async getDisputesByLocationSince(locationId: number, since: Date): Promise<Dispute[]> {
+    return Array.from(this.disputesMap.values())
+      .filter(d => d.locationId === locationId && d.createdAt >= since)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  async getAllDisputes(): Promise<Dispute[]> {
+    return Array.from(this.disputesMap.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  async getRecentDisputeStats(sinceDays: number): Promise<{ locationId: number; disputeCount: number; chargedCount: number; rate: number; }[]> {
+    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+    const txs = Array.from(this.transactions.values()).filter(t => (t as any).borrowDate && new Date((t as any).borrowDate) >= since && (t as any).payLaterStatus === 'CHARGED');
+    const chargedByLoc = new Map<number, number>();
+    for (const t of txs) chargedByLoc.set(t.locationId, (chargedByLoc.get(t.locationId) || 0) + 1);
+    const dispByLoc = new Map<number, number>();
+    for (const d of Array.from(this.disputesMap.values())) {
+      if (d.createdAt >= since) dispByLoc.set(d.locationId, (dispByLoc.get(d.locationId) || 0) + 1);
+    }
+    const allLocIds = new Set<number>([...Array.from(chargedByLoc.keys()), ...Array.from(dispByLoc.keys())]);
+    return Array.from(allLocIds).map(locationId => {
+      const disputeCount = dispByLoc.get(locationId) || 0;
+      const chargedCount = chargedByLoc.get(locationId) || 0;
+      const rate = chargedCount > 0 ? disputeCount / chargedCount : 0;
+      return { locationId, disputeCount, chargedCount, rate };
+    });
   }
 }
 

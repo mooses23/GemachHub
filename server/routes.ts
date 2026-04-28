@@ -10,7 +10,7 @@ import { AuditTrailService } from "./audit-trail.js";
 import { PaymentAnalyticsEngine } from "./analytics-engine.js";
 import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
-import { PayLaterService, prepareBorrowerStatusToken, commitBorrowerStatusToken } from "./payLaterService.js";
+import { PayLaterService, prepareBorrowerStatusToken, commitBorrowerStatusToken, getMaxCardAgeDays, setMaxCardAgeDays } from "./payLaterService.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
 import { getTwilioConfigStatus, sendReturnReminderSMS, normalizePhoneForSms, validateTwilioSignature } from "./twilio-client.js";
@@ -22,7 +22,7 @@ import {
   summarizeResults,
   ingestTwilioStatusCallback,
 } from "./operatorOnboardingService.js";
-import { OPERATOR_WELCOME_CHANNELS, OPERATOR_CONTACT_PREFERENCES } from "@shared/schema";
+import { OPERATOR_WELCOME_CHANNELS, OPERATOR_CONTACT_PREFERENCES } from "../shared/schema.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
 import { groupContactsByThread } from "./inbox-threading.js";
 import {
@@ -3612,7 +3612,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create SetupIntent for card verification without charging
   app.post("/api/deposits/setup-intent", async (req, res) => {
     try {
-      const { locationId, borrowerName, borrowerEmail, borrowerPhone, amountCents } = req.body;
+      const {
+        locationId,
+        borrowerName,
+        borrowerEmail,
+        borrowerPhone,
+        amountCents,
+        // Task #39: explicit borrower consent. We persist the exact text the
+        // borrower agreed to so we can replay it back to Stripe in a dispute.
+        consentText,
+        consentMaxChargeCents,
+      } = req.body;
 
       if (!locationId || !borrowerName) {
         return res.status(400).json({ message: "Location ID and borrower name are required" });
@@ -3625,12 +3635,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const amount = amountCents || (location.depositAmount || 20) * 100;
 
+      // Task #39: borrower consent is required before we can charge a saved
+      // card off-session. There are two valid moments to capture it:
+      //   (a) self-service borrower flow: the client sends consentText + cap
+      //       up-front (e.g. SetupIntentForm), so we persist verbatim now.
+      //   (b) operator-initiated flow: operator triggers card setup, then the
+      //       borrower sees /status/<id> and ticks the consent box THERE
+      //       (StripeSetupIntentForm in status.tsx) before the card is sent
+      //       to Stripe. In that case consentText arrives at /confirm-setup.
+      // Either way: by the time PayLaterService.chargeTransaction runs, the
+      // consent_text column MUST be populated. Path (b) is enforced by the
+      // borrower UI (button disabled) + server persists on confirm-setup.
+      const trimmedConsent =
+        typeof consentText === 'string' && consentText.trim().length >= 10
+          ? String(consentText).trim()
+          : undefined;
+
       const result = await PayLaterService.createSetupIntent({
         locationId,
         borrowerName,
         borrowerEmail,
         borrowerPhone,
         amountCents: amount,
+        consentText: trimmedConsent,
+        consentMaxChargeCents:
+          typeof consentMaxChargeCents === 'number' ? consentMaxChargeCents : undefined,
       });
 
       res.json({
@@ -3649,7 +3678,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // This provides immediate status update without waiting for webhooks
   app.post("/api/deposits/confirm-setup", async (req, res) => {
     try {
-      const { setupIntentId, transactionId } = req.body;
+      const { setupIntentId, transactionId, consentText, consentMaxChargeCents } = req.body;
 
       if (!setupIntentId) {
         return res.status(400).json({ message: "SetupIntent ID is required" });
@@ -3669,6 +3698,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentMethodId = setupIntent.payment_method as string;
       if (!paymentMethodId) {
         return res.status(400).json({ message: "No payment method attached to SetupIntent" });
+      }
+
+      // Task #39: persist consent on the existing transaction (magic-link
+      // flow where the borrower sees the consent block on /status/:id, not
+      // at transaction creation time).
+      if (consentText && typeof consentText === 'string') {
+        const tx = await storage.getTransactionBySetupIntentId(setupIntentId);
+        if (tx) {
+          await storage.updateTransaction(tx.id, {
+            consentText,
+            consentAcceptedAt: new Date(),
+            consentMaxChargeCents: typeof consentMaxChargeCents === 'number' ? consentMaxChargeCents : tx.consentMaxChargeCents,
+          } as any);
+        }
       }
 
       // Update the transaction status to CARD_SETUP_COMPLETE
@@ -3709,6 +3752,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentIntentClientSecret = await PayLaterService.getPaymentIntentClientSecret(transactionId);
       }
 
+      // Task #39: when the borrower lands here via the operator's magic link
+      // before they've saved their card, surface the SetupIntent client_secret
+      // + the consent disclosure fields so the page can render the consent
+      // block + card input.
+      let setupIntentClientSecret: string | null = null;
+      if (transaction.payLaterStatus === 'CARD_SETUP_PENDING' && transaction.stripeSetupIntentId) {
+        try {
+          const stripe = getStripeClient();
+          const si = await stripe.setupIntents.retrieve(transaction.stripeSetupIntentId);
+          setupIntentClientSecret = si.client_secret ?? null;
+        } catch (e) {
+          console.warn(`Failed to retrieve SetupIntent for tx ${transaction.id}:`, e);
+        }
+      }
+
+      const needsStripe =
+        transaction.payLaterStatus === 'CHARGE_REQUIRES_ACTION' ||
+        transaction.payLaterStatus === 'CARD_SETUP_PENDING';
+
       res.json({
         id: transaction.id,
         status: transaction.payLaterStatus,
@@ -3724,7 +3786,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         returnReminderCount: transaction.returnReminderCount ?? 0,
         requiresAction: transaction.payLaterStatus === 'CHARGE_REQUIRES_ACTION',
         paymentIntentClientSecret,
-        publishableKey: transaction.payLaterStatus === 'CHARGE_REQUIRES_ACTION' ? getStripePublishableKey() : undefined,
+        // Task #39: setup-intent path (borrower saving card via magic link)
+        setupIntentClientSecret,
+        setupIntentId: transaction.stripeSetupIntentId,
+        depositAmount: transaction.depositAmount,
+        depositFeeCents: (transaction as any).depositFeeCents ?? null,
+        consentMaxChargeCents:
+          (transaction as any).consentMaxChargeCents ?? transaction.amountPlannedCents ?? null,
+        publishableKey: needsStripe ? getStripePublishableKey() : undefined,
       });
     } catch (error: any) {
       console.error("Status page error:", error);
@@ -3847,6 +3916,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Decline transaction error:", error);
       res.status(500).json({ message: error.message || "Failed to decline transaction" });
+    }
+  });
+
+
+  // ===========================================================================
+  // Task #39: Stripe risk hardening — admin/operator settings, dispute summary,
+  // request-new-card, and the Stripe operations runbook.
+  // ===========================================================================
+
+  // Operator-readable Stripe settings (no secrets, just policy values).
+  app.get("/api/operator/stripe-settings", async (req, res) => {
+    try {
+      const operatorLocationId = (req.session as any).operatorLocationId;
+      if (!req.isAuthenticated() && !operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const maxCardAgeDays = await getMaxCardAgeDays();
+      res.json({ maxCardAgeDays });
+    } catch (error: any) {
+      console.error("operator/stripe-settings error:", error);
+      res.status(500).json({ message: error.message || "Failed to load Stripe settings" });
+    }
+  });
+
+  // Admin: read Stripe-policy settings.
+  app.get("/api/admin/settings/stripe", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const maxCardAgeDays = await getMaxCardAgeDays();
+    res.json({ maxCardAgeDays });
+  });
+
+  // Admin: update Stripe-policy settings (currently just stale-card threshold).
+  app.patch("/api/admin/settings/stripe", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    try {
+      const { maxCardAgeDays } = req.body || {};
+      const n = Number(maxCardAgeDays);
+      if (!Number.isFinite(n) || n <= 0 || n > 365) {
+        return res.status(400).json({ message: "maxCardAgeDays must be 1-365" });
+      }
+      await setMaxCardAgeDays(Math.floor(n));
+      res.json({ maxCardAgeDays: Math.floor(n) });
+    } catch (error: any) {
+      console.error("admin/settings/stripe PATCH error:", error);
+      res.status(500).json({ message: error.message || "Failed to update settings" });
+    }
+  });
+
+  // Admin: 30-day per-location dispute summary. Highlights any location whose
+  // dispute rate is approaching Stripe's 0.7% network threshold (we warn at 0.5%).
+  app.get("/api/admin/disputes/summary", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    try {
+      const WARN_THRESHOLD = 0.005;
+      const stats = await storage.getRecentDisputeStats(30);
+      const locations = await storage.getAllLocations();
+      const locById = new Map(locations.map((l: any) => [l.id, l]));
+      const rows = stats.map(s => ({
+        ...s,
+        locationName: (locById.get(s.locationId) as any)?.name || `Location #${s.locationId}`,
+        flagged: s.rate >= WARN_THRESHOLD,
+      })).sort((a, b) => b.rate - a.rate);
+      res.json({ warnThreshold: WARN_THRESHOLD, windowDays: 30, rows });
+    } catch (error: any) {
+      console.error("admin/disputes/summary error:", error);
+      res.status(500).json({ message: error.message || "Failed to load dispute summary" });
+    }
+  });
+
+  // Admin: list all disputes (most-recent first) for the /admin/disputes detail page.
+  app.get("/api/admin/disputes", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    try {
+      const allDisputes = await storage.getAllDisputes();
+      const locations = await storage.getAllLocations();
+      const locById = new Map(locations.map((l: any) => [l.id, l]));
+      res.json(allDisputes.map(d => ({
+        ...d,
+        locationName: (locById.get(d.locationId) as any)?.name || `Location #${d.locationId}`,
+      })));
+    } catch (error: any) {
+      console.error("admin/disputes error:", error);
+      res.status(500).json({ message: error.message || "Failed to load disputes" });
+    }
+  });
+
+  // Admin: serve the Stripe operations runbook (markdown) for the dashboard link.
+  app.get("/api/admin/docs/stripe-operations", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const filePath = path.join(process.cwd(), 'docs', 'stripe-operations.md');
+      const md = await fs.readFile(filePath, 'utf8');
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.send(md);
+    } catch (error: any) {
+      console.error("admin/docs/stripe-operations error:", error);
+      res.status(404).json({ message: "Runbook not found" });
+    }
+  });
+
+  // Operator: re-request a new card from the borrower when the saved card is
+  // stale. Spawns a fresh SetupIntent (new transaction) reusing the original
+  // borrower contact + amount. Returns the public status URL the operator can
+  // SMS/email to the borrower.
+  app.post("/api/operator/transactions/:id/request-new-card", async (req, res) => {
+    try {
+      const transactionId = parseInt(req.params.id);
+      const operatorLocationId = (req.session as any).operatorLocationId;
+      if (!req.isAuthenticated() && !operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const tx = await storage.getTransaction(transactionId);
+      if (!tx) return res.status(404).json({ message: "Transaction not found" });
+
+      const allowedLocId = operatorLocationId || (req.user as any)?.locationId;
+      if (allowedLocId && allowedLocId !== tx.locationId && !((req.user as any)?.isAdmin)) {
+        return res.status(403).json({ message: "Not your location" });
+      }
+
+      // Task #39: pass the BASE deposit (in cents), not amountPlannedCents.
+      // amountPlannedCents already includes the Stripe fee, and
+      // createSetupIntent recomputes the fee — passing it back in would
+      // double-charge the fee on every re-request.
+      const baseDepositCents = Math.round((tx.depositAmount || 0) * 100);
+      const result = await PayLaterService.createSetupIntent({
+        locationId: tx.locationId,
+        borrowerName: tx.borrowerName,
+        borrowerEmail: tx.borrowerEmail || undefined,
+        borrowerPhone: tx.borrowerPhone || undefined,
+        amountCents: baseDepositCents,
+        currency: tx.currency || 'usd',
+      });
+
+      await storage.createAuditLog({
+        actorUserId: req.isAuthenticated() ? (req.user as any).id : undefined,
+        actorType: req.isAuthenticated() ? 'operator' : 'system',
+        action: 'request_new_card',
+        entityType: 'transaction',
+        entityId: tx.id,
+        afterJson: JSON.stringify({ newTransactionId: result.transactionId }),
+      });
+
+      res.json({
+        newTransactionId: result.transactionId,
+        statusUrl: result.publicStatusUrl,
+        clientSecret: result.clientSecret,
+      });
+    } catch (error: any) {
+      console.error("operator/request-new-card error:", error);
+      res.status(500).json({ message: error.message || "Failed to request new card" });
     }
   });
 

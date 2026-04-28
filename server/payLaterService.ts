@@ -2,6 +2,25 @@ import { getStripeClient } from './stripeClient.js';
 import { storage } from './storage.js';
 import { randomBytes, createHash } from 'crypto';
 import type { Transaction, PayLaterStatus } from '../shared/schema.js';
+import { computeFeeForLocation } from './depositFees.js';
+import { notifyBorrowerBeforeCharge } from './chargeNotifications.js';
+
+// Task #39: stale-card guardrail. Default: 90 days. Admin can override
+// via global_settings('stripe.maxCardAgeDays', '<n>').
+const DEFAULT_MAX_CARD_AGE_DAYS = 90;
+const MAX_CARD_AGE_SETTING_KEY = 'stripe.maxCardAgeDays';
+
+export async function getMaxCardAgeDays(): Promise<number> {
+  const row = await storage.getGlobalSetting(MAX_CARD_AGE_SETTING_KEY);
+  if (!row?.value) return DEFAULT_MAX_CARD_AGE_DAYS;
+  const n = parseInt(row.value, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_MAX_CARD_AGE_DAYS;
+}
+
+export async function setMaxCardAgeDays(days: number): Promise<void> {
+  if (!Number.isFinite(days) || days <= 0) throw new Error('maxCardAgeDays must be a positive number');
+  await storage.setGlobalSetting(MAX_CARD_AGE_SETTING_KEY, String(Math.floor(days)));
+}
 
 interface CreateSetupIntentResult {
   transactionId: number;
@@ -59,10 +78,22 @@ export class PayLaterService {
     borrowerPhone?: string;
     amountCents: number;
     currency?: string;
+    /** Task #39: exact consent text the borrower agreed to. Persisted verbatim. */
+    consentText?: string;
+    /** Task #39: max amount disclosed at consent (deposit + fee, in cents). */
+    consentMaxChargeCents?: number;
   }): Promise<CreateSetupIntentResult> {
     const stripe = getStripeClient();
     const { raw: rawToken, hashed: hashedToken } = generateMagicToken();
     const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    // Task #39: compute the actual amount we will charge if the item is not
+    // returned (deposit + Stripe fee). This is what we both DISCLOSE in the
+    // consent text and what we will USE as amountPlannedCents at charge time
+    // — keeping disclosure and reality in lockstep.
+    const location = await storage.getLocation(data.locationId);
+    const { feeCents, totalCents } = computeFeeForLocation(data.amountCents, location);
+    const consentMax = data.consentMaxChargeCents ?? totalCents;
 
     const transaction = await storage.createTransaction({
       locationId: data.locationId,
@@ -72,11 +103,16 @@ export class PayLaterService {
       depositAmount: data.amountCents / 100,
       depositPaymentMethod: 'card',
       payLaterStatus: 'CARD_SETUP_PENDING',
-      amountPlannedCents: data.amountCents,
+      amountPlannedCents: totalCents,
       currency: data.currency || 'usd',
       magicToken: hashedToken,
       magicTokenExpiresAt: tokenExpiresAt,
-    });
+      // Task #39: consent + fee breakdown
+      consentText: data.consentText,
+      consentAcceptedAt: data.consentText ? new Date() : undefined,
+      consentMaxChargeCents: consentMax,
+      depositFeeCents: feeCents,
+    } as any);
 
     const customer = await stripe.customers.create({
       email: data.borrowerEmail || undefined,
@@ -146,9 +182,11 @@ export class PayLaterService {
 
     const beforeJson = JSON.stringify(transaction);
 
+    // Task #39: stamp cardSavedAt so the stale-card guardrail can age it.
     await storage.updateTransactionPayLaterStatus(transaction.id, 'CARD_SETUP_COMPLETE', {
       stripePaymentMethodId: paymentMethodId,
-    });
+      cardSavedAt: new Date(),
+    } as any);
 
     const stripe = getStripeClient();
     if (transaction.stripeCustomerId) {
@@ -200,14 +238,92 @@ export class PayLaterService {
       return { success: false, status: 'CHARGE_FAILED', errorMessage: 'Missing Stripe payment details' };
     }
 
+    // Task #39: refuse to charge a card that has no recorded borrower consent.
+    // The borrower UI on /status/<id> requires checking the consent box before
+    // confirmCardSetup runs and POSTs the consent text to /confirm-setup, so a
+    // missing consent_text by charge time means an off-session charge with no
+    // documented authorization — exactly the dispute risk we're trying to
+    // avoid. Better to fail loudly here than to argue with Stripe later.
+    if (!(transaction as any).consentText || !(transaction as any).consentAcceptedAt) {
+      await storage.createAuditLog({
+        actorUserId: operatorUserId,
+        actorType: operatorUserId ? 'operator' : 'system',
+        action: 'charge_blocked_no_consent',
+        entityType: 'transaction',
+        entityId: transaction.id,
+        afterJson: JSON.stringify({ reason: 'consent_text or consent_accepted_at missing' }),
+      });
+      return {
+        success: false,
+        status: transaction.payLaterStatus as PayLaterStatus,
+        errorCode: 'consent_missing',
+        errorMessage: 'No borrower consent recorded for this card. Ask the borrower to re-enter their card via the status link.',
+      };
+    }
+
+    // Task #39: stale-card guardrail. If the saved card is older than the
+    // configured maximum, refuse the off-session charge. Stripe is much more
+    // tolerant of recent cards; old saved cards fail at higher rates and the
+    // failures are more likely to surface as disputes.
+    const maxCardAgeDays = await getMaxCardAgeDays();
+    const cardSavedAt = (transaction as any).cardSavedAt
+      ? new Date((transaction as any).cardSavedAt)
+      : null;
+    if (cardSavedAt) {
+      const ageDays = (Date.now() - cardSavedAt.getTime()) / (1000 * 60 * 60 * 24);
+      if (ageDays > maxCardAgeDays) {
+        await storage.createAuditLog({
+          actorUserId: operatorUserId,
+          actorType: operatorUserId ? 'operator' : 'system',
+          action: 'charge_blocked_card_too_old',
+          entityType: 'transaction',
+          entityId: transaction.id,
+          afterJson: JSON.stringify({ cardAgeDays: Math.round(ageDays), maxCardAgeDays }),
+        });
+        return {
+          success: false,
+          status: transaction.payLaterStatus as PayLaterStatus,
+          errorCode: 'card_too_old',
+          errorMessage: `Saved card is ${Math.round(ageDays)} days old (max ${maxCardAgeDays}). Ask the borrower to re-enter their card before charging.`,
+        };
+      }
+    }
+
     const beforeJson = JSON.stringify(transaction);
     const stripe = getStripeClient();
+
+    // Task #39: pre-charge heads-up notification. Best effort, never blocks.
+    // Reduces "I don't recognize this charge" disputes by giving the borrower
+    // a calm warning + a number to call before the charge actually runs.
+    const location = await storage.getLocation(transaction.locationId);
+    const amountToChargeCents =
+      transaction.amountPlannedCents || Math.round(transaction.depositAmount * 100);
+    if (location) {
+      try {
+        const notice = await notifyBorrowerBeforeCharge(transaction, location, amountToChargeCents);
+        await storage.updateTransaction(transaction.id, {
+          chargeNotificationSentAt: notice.sent ? new Date() : null,
+          chargeNotificationChannel: notice.channel,
+        } as any);
+        await storage.createAuditLog({
+          actorUserId: operatorUserId,
+          actorType: operatorUserId ? 'operator' : 'system',
+          action: 'pre_charge_notification',
+          entityType: 'transaction',
+          entityId: transaction.id,
+          afterJson: JSON.stringify(notice),
+        });
+      } catch (notifyErr: any) {
+        // Logged, swallowed — never block a legitimate charge on a notify failure.
+        console.error('[payLaterService] pre-charge notification failed:', notifyErr?.message || notifyErr);
+      }
+    }
 
     try {
       await storage.updateTransactionPayLaterStatus(transaction.id, 'CHARGE_ATTEMPTED');
 
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: transaction.amountPlannedCents || Math.round(transaction.depositAmount * 100),
+        amount: amountToChargeCents,
         currency: transaction.currency || 'usd',
         customer: transaction.stripeCustomerId,
         payment_method: transaction.stripePaymentMethodId,

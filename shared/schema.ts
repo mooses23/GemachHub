@@ -148,6 +148,8 @@ export const locations = pgTable("locations", {
   depositAmount: integer("deposit_amount").default(20),
   paymentMethods: text("payment_methods").array().default(["cash"]),
   processingFeePercent: integer("processing_fee_percent").default(300), // 3.00% stored as 300 basis points
+  // Task #39: per-location fixed processing fee in cents (default = $0.30 to cover Stripe per-tx fee)
+  processingFeeFixed: integer("processing_fee_fixed").default(30),
   operatorPin: text("operator_pin"),
   // Operator onboarding (Task #35): SMS+WhatsApp claim flow
   claimToken: text("claim_token").unique(),
@@ -193,6 +195,7 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   depositAmount: true,
   paymentMethods: true,
   processingFeePercent: true,
+  processingFeeFixed: true,
   operatorPin: true,
 });
 
@@ -277,6 +280,17 @@ export const transactions = pgTable("transactions", {
   // Return reminder tracking (fast summary; detailed history lives in returnReminderEvents)
   lastReturnReminderAt: timestamp("last_return_reminder_at"),
   returnReminderCount: integer("return_reminder_count").notNull().default(0),
+  // Task #39: explicit borrower consent captured at card setup
+  consentText: text("consent_text"), // exact text borrower agreed to
+  consentAcceptedAt: timestamp("consent_accepted_at"),
+  consentMaxChargeCents: integer("consent_max_charge_cents"), // disclosed max (deposit + fee)
+  // Task #39: when card was attached to customer (used for stale-card guardrail)
+  cardSavedAt: timestamp("card_saved_at"),
+  // Task #39: pre-charge heads-up notification audit
+  chargeNotificationSentAt: timestamp("charge_notification_sent_at"),
+  chargeNotificationChannel: text("charge_notification_channel"), // 'sms' | 'whatsapp' | 'email' | 'none'
+  // Task #39: fee component included in amountPlannedCents (so operator UI can show breakdown)
+  depositFeeCents: integer("deposit_fee_cents"),
 });
 
 // Per-send history of return reminders for each transaction.
@@ -604,3 +618,24 @@ export const kbEmbeddings = pgTable("kb_embeddings", {
 export const insertKbEmbeddingSchema = createInsertSchema(kbEmbeddings).omit({ id: true, updatedAt: true });
 export type KbEmbedding = typeof kbEmbeddings.$inferSelect;
 export type InsertKbEmbedding = z.infer<typeof insertKbEmbeddingSchema>;
+
+// Task #39: Stripe disputes (per-gemach 30-day risk monitoring)
+export const disputes = pgTable('disputes', {
+  id: serial('id').primaryKey(),
+  locationId: integer('location_id').notNull(),
+  transactionId: integer('transaction_id'), // nullable: dispute may not match a known tx
+  stripeDisputeId: text('stripe_dispute_id').notNull().unique(), // dp_*
+  stripeChargeId: text('stripe_charge_id').notNull(),
+  stripePaymentIntentId: text('stripe_payment_intent_id'),
+  amountCents: integer('amount_cents').notNull(),
+  currency: text('currency').notNull().default('usd'),
+  status: text('status').notNull(), // 'warning_needs_response' | 'needs_response' | 'won' | 'lost' | etc.
+  reason: text('reason').notNull(), // Stripe's reason code
+  evidenceDueBy: timestamp('evidence_due_by'),
+  rawPayloadJson: text('raw_payload_json'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+export const insertDisputeSchema = createInsertSchema(disputes).omit({ id: true, createdAt: true });
+export type Dispute = typeof disputes.$inferSelect;
+export type InsertDispute = z.infer<typeof insertDisputeSchema>;
+

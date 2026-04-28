@@ -53,6 +53,11 @@ export class WebhookHandlers {
       case 'charge.refunded':
         await this.handleChargeRefunded(event.data.object);
         break;
+      case 'charge.dispute.created':
+        // Task #39: persist disputes so the admin dispute-rate widget can flag
+        // gemachs that are at risk of breaching Stripe's 0.7% threshold.
+        await this.handleChargeDisputeCreated(event.data.object);
+        break;
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -144,6 +149,83 @@ export class WebhookHandlers {
       }
     } catch (error) {
       console.error('Error handling charge.refunded:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Task #39: Persist a Stripe dispute so the admin dispute-rate widget can
+   * surface it. We MUST be idempotent on stripe_dispute_id because Stripe
+   * frequently re-delivers webhooks (and we want to honor that without
+   * double-counting). We attempt to back-link the dispute to the originating
+   * pay-later transaction via payment_intent → stripePaymentIntentId; if we
+   * cannot, we still record the dispute against the location's "unmatched"
+   * bucket (locationId is required so we infer from the linked tx; if we
+   * truly can't match, we drop with a loud log so an operator can investigate).
+   */
+  private static async handleChargeDisputeCreated(dispute: any): Promise<void> {
+    console.log(`Charge dispute created: ${dispute.id} (charge: ${dispute.charge})`);
+
+    try {
+      // Idempotency: skip if we've already inserted this dispute.
+      const existing = await storage.getDisputeByStripeId(dispute.id);
+      if (existing) {
+        console.log(`Dispute ${dispute.id} already recorded, skipping.`);
+        return;
+      }
+
+      // Look up originating transaction via payment_intent (set on the charge).
+      const paymentIntentId: string | undefined = dispute.payment_intent;
+      let txLocationId: number | null = null;
+      let txId: number | null = null;
+      if (paymentIntentId) {
+        const txs = await storage.getAllTransactions();
+        const tx = txs.find((t: any) => t.stripePaymentIntentId === paymentIntentId);
+        if (tx) {
+          txLocationId = tx.locationId;
+          txId = tx.id;
+        }
+      }
+
+      if (!txLocationId) {
+        console.error(
+          `[webhook] charge.dispute.created: could not match dispute ${dispute.id} ` +
+          `(payment_intent=${paymentIntentId}) to a transaction. Dropping for manual review.`
+        );
+        return;
+      }
+
+      await storage.createDispute({
+        locationId: txLocationId,
+        transactionId: txId,
+        stripeDisputeId: dispute.id,
+        stripeChargeId: dispute.charge,
+        stripePaymentIntentId: paymentIntentId,
+        amountCents: dispute.amount,
+        currency: dispute.currency || 'usd',
+        status: dispute.status,
+        reason: dispute.reason,
+        evidenceDueBy: dispute.evidence_details?.due_by
+          ? new Date(dispute.evidence_details.due_by * 1000)
+          : undefined,
+        rawPayloadJson: JSON.stringify(dispute),
+      });
+
+      // Surface in audit log so admins notice during their normal review.
+      await storage.createAuditLog({
+        actorType: 'system',
+        action: 'stripe_dispute_received',
+        entityType: 'transaction',
+        entityId: txId ?? 0,
+        afterJson: JSON.stringify({
+          locationId: txLocationId,
+          stripeDisputeId: dispute.id,
+          amountCents: dispute.amount,
+          reason: dispute.reason,
+        }),
+      });
+    } catch (error) {
+      console.error('Error handling charge.dispute.created:', error);
       throw error;
     }
   }

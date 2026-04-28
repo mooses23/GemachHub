@@ -1,4 +1,4 @@
-import type { Contact } from "@shared/schema";
+import type { Contact } from "../shared/schema.js";
 
 export function normalizeSubject(s: string): string {
   return String(s || "")

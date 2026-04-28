@@ -15,10 +15,111 @@ import { useQuery } from "@tanstack/react-query";
 import { Location, Transaction, GemachApplication, Contact } from "@/lib/types";
 import { 
   Users, MapPin, FileText, Package, Settings, Grid, List, 
-  DollarSign, RefreshCw, AlarmClock, CreditCard, CheckCircle, BarChart3, Mail, MessageSquare
+  DollarSign, RefreshCw, AlarmClock, CreditCard, CheckCircle, BarChart3, Mail, MessageSquare,
+  Shield, AlertTriangle, BookOpen
 } from "lucide-react";
 import { Link } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
+
+interface DisputeSummaryRow {
+  locationId: number;
+  locationName: string;
+  disputeCount: number;
+  chargedCount: number;
+  rate: number;
+  flagged: boolean;
+}
+interface DisputeSummary {
+  warnThreshold: number;
+  windowDays: number;
+  rows: DisputeSummaryRow[];
+}
+
+function StripeRiskCard() {
+  const { data: summary, isLoading } = useQuery<DisputeSummary>({
+    queryKey: ["/api/admin/disputes/summary"],
+  });
+
+  const fmtPct = (n: number) => `${(n * 100).toFixed(2)}%`;
+  const flagged = summary?.rows?.filter(r => r.flagged) ?? [];
+  const totalDisputes = summary?.rows?.reduce((acc, r) => acc + r.disputeCount, 0) ?? 0;
+
+  return (
+    <Card data-testid="card-stripe-risk">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Shield className="h-5 w-5" />
+          Stripe risk (last {summary?.windowDays ?? 30} days)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading dispute data…</p>
+        ) : !summary || summary.rows.length === 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm">No disputes in the last {summary?.windowDays ?? 30} days.</p>
+            <p className="text-xs text-muted-foreground">
+              Stripe enforces a network-wide 0.7% dispute ceiling. We warn at {fmtPct(summary?.warnThreshold ?? 0.005)}.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span>Total disputes</span>
+              <Badge variant={flagged.length > 0 ? "destructive" : "secondary"}>
+                {totalDisputes}
+              </Badge>
+            </div>
+            {flagged.length > 0 && (
+              <div className="rounded-md border border-red-300 bg-red-50 p-3">
+                <div className="flex items-start gap-2 text-red-900">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-semibold mb-1">
+                      {flagged.length} location(s) over the {fmtPct(summary.warnThreshold)} warning threshold
+                    </p>
+                    <ul className="space-y-1">
+                      {flagged.slice(0, 5).map(r => (
+                        <li key={r.locationId} data-testid={`row-flagged-location-${r.locationId}`}>
+                          {r.locationName} — {r.disputeCount} disputes / {r.chargedCount} charges ({fmtPct(r.rate)})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground">View all locations</summary>
+              <ul className="mt-2 space-y-1">
+                {summary.rows.map(r => (
+                  <li key={r.locationId} className="flex justify-between">
+                    <span>{r.locationName}</span>
+                    <span className={r.flagged ? "text-red-700 font-semibold" : ""}>
+                      {r.disputeCount}/{r.chargedCount} ({fmtPct(r.rate)})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </div>
+        )}
+        <div className="mt-4 pt-3 border-t">
+          <a
+            href="/api/admin/docs/stripe-operations"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+            data-testid="link-stripe-runbook"
+          >
+            <BookOpen className="h-4 w-4" />
+            Stripe operations runbook
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 type ViewMode = 'grid' | 'list' | 'compact';
 type DashboardSection = 'overview' | 'locations' | 'transactions' | 'applications' | 'analytics';
@@ -223,6 +324,8 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+
+              <StripeRiskCard />
 
               <Card>
                 <CardHeader>

@@ -21,6 +21,8 @@ import {
   replyExamples, type ReplyExample, type InsertReplyExample,
   returnReminderEvents, type ReturnReminderEvent, type InsertReturnReminderEvent, type ReturnReminderEventWithSender,
   kbEmbeddings, type KbEmbedding, type InsertKbEmbedding,
+  globalSettings, type GlobalSetting, type InsertGlobalSetting,
+  disputes, type Dispute, type InsertDispute,
   type KbSourceKind,
   type PayLaterStatus
 } from '../shared/schema.js';
@@ -898,6 +900,81 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  // Task #39: Global Settings (key/value)
+  async getGlobalSetting(key: string): Promise<GlobalSetting | undefined> {
+    const result = await db.select().from(globalSettings).where(eq(globalSettings.key, key));
+    return result[0];
+  }
+
+  async setGlobalSetting(key: string, value: string): Promise<GlobalSetting> {
+    const existing = await this.getGlobalSetting(key);
+    if (existing) {
+      const updated = await db.update(globalSettings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(globalSettings.key, key))
+        .returning();
+      return updated[0];
+    }
+    const inserted = await db.insert(globalSettings)
+      .values({ key, value, isEnabled: true, updatedAt: new Date() })
+      .returning();
+    return inserted[0];
+  }
+
+  // Task #39: Stripe Disputes
+  async createDispute(dispute: InsertDispute): Promise<Dispute> {
+    // Idempotent on stripe_dispute_id (UNIQUE in schema). On conflict, return existing row.
+    const existing = await this.getDisputeByStripeId(dispute.stripeDisputeId);
+    if (existing) return existing;
+    const result = await db.insert(disputes).values(dispute).returning();
+    return result[0];
+  }
+
+  async getDisputeByStripeId(stripeDisputeId: string): Promise<Dispute | undefined> {
+    const result = await db.select().from(disputes).where(eq(disputes.stripeDisputeId, stripeDisputeId));
+    return result[0];
+  }
+
+  async getDisputesByLocationSince(locationId: number, since: Date): Promise<Dispute[]> {
+    return db.select().from(disputes).where(
+      and(eq(disputes.locationId, locationId), sql`${disputes.createdAt} >= ${since}`)
+    ).orderBy(desc(disputes.createdAt));
+  }
+
+  async getAllDisputes(): Promise<Dispute[]> {
+    return db.select().from(disputes).orderBy(desc(disputes.createdAt));
+  }
+
+  async getRecentDisputeStats(sinceDays: number): Promise<{ locationId: number; disputeCount: number; chargedCount: number; rate: number; }[]> {
+    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+    // Per-location disputes in window
+    const disputeRows = await db.execute(sql`
+      SELECT location_id, COUNT(*)::int AS count
+      FROM disputes
+      WHERE created_at >= ${since}
+      GROUP BY location_id
+    `);
+    // Per-location successful charges in window (denominator). We use
+    // pay-later 'CHARGED' transactions as the proxy for "card charges run".
+    const chargedRows = await db.execute(sql`
+      SELECT location_id, COUNT(*)::int AS count
+      FROM transactions
+      WHERE pay_later_status = 'CHARGED' AND borrow_date >= ${since}
+      GROUP BY location_id
+    `);
+    const disputeMap = new Map<number, number>();
+    for (const r of (disputeRows as any).rows ?? []) disputeMap.set(Number(r.location_id), Number(r.count));
+    const chargedMap = new Map<number, number>();
+    for (const r of (chargedRows as any).rows ?? []) chargedMap.set(Number(r.location_id), Number(r.count));
+    const allLocationIds = new Set<number>([...Array.from(disputeMap.keys()), ...Array.from(chargedMap.keys())]);
+    return Array.from(allLocationIds).map(locationId => {
+      const disputeCount = disputeMap.get(locationId) || 0;
+      const chargedCount = chargedMap.get(locationId) || 0;
+      const rate = chargedCount > 0 ? disputeCount / chargedCount : 0;
+      return { locationId, disputeCount, chargedCount, rate };
+    });
+  }
+
   // Playbook Fact operations (admin-editable AI facts)
   async getAllPlaybookFacts(): Promise<PlaybookFact[]> {
     return db.select().from(playbookFacts).orderBy(playbookFacts.category, playbookFacts.factKey);
@@ -1142,6 +1219,45 @@ export async function ensureSchemaUpgrades(): Promise<void> {
     await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS contact_preference_set_at TIMESTAMP`);
     await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMP`);
     await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS locations_claim_token_uq ON locations (claim_token) WHERE claim_token IS NOT NULL`);
+    // Task #39: card-on-file hardening (consent, notification audit, fee math, disputes)
+    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS processing_fee_fixed INTEGER DEFAULT 30`);
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_text TEXT`);
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMP`);
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_max_charge_cents INTEGER`);
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS card_saved_at TIMESTAMP`);
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS charge_notification_sent_at TIMESTAMP`);
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS charge_notification_channel TEXT`);
+    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS deposit_fee_cents INTEGER`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS disputes (
+        id SERIAL PRIMARY KEY,
+        location_id INTEGER NOT NULL,
+        transaction_id INTEGER,
+        stripe_dispute_id TEXT NOT NULL UNIQUE,
+        stripe_charge_id TEXT NOT NULL,
+        stripe_payment_intent_id TEXT,
+        amount_cents INTEGER NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'usd',
+        status TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        evidence_due_by TIMESTAMP,
+        raw_payload_json TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS disputes_location_created_idx ON disputes (location_id, created_at DESC)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS disputes_charge_idx ON disputes (stripe_charge_id)`);
+    // Task #39: global_settings holds runtime-configurable knobs like
+    // max_card_age_days for the stale-card guardrail. Created idempotently
+    // here so existing DBs (no drizzle push) pick it up automatically.
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS global_settings (
+        id SERIAL PRIMARY KEY,
+        key TEXT NOT NULL UNIQUE,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
   } catch (err: any) {
     schemaUpgradesRun = false;
     console.error('[ensureSchemaUpgrades] Failed to apply transactions reminder columns:', err?.message || err);

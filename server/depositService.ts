@@ -1,5 +1,6 @@
 import { getUncachableStripeClient, getStripePublishableKey } from './stripeClient.js';
 import { storage } from './storage.js';
+import { computeFeeForLocation } from './depositFees.js';
 import type { Payment, Transaction, Location } from '../shared/schema.js';
 
 export interface DepositRequest {
@@ -66,9 +67,12 @@ export class DepositService {
       }
 
       const depositAmount = location.depositAmount || 20;
-      const processingFeePercent = location.processingFeePercent || 300;
-      const processingFee = Math.ceil((depositAmount * 100 * processingFeePercent) / 10000);
-      const totalAmount = (depositAmount * 100) + processingFee;
+      // Task #39: fee math now includes BOTH percent + per-tx fixed fee
+      // (default $0.30) so the gemach is always made whole on small deposits.
+      const { feeCents: processingFee, totalCents: totalAmount } = computeFeeForLocation(
+        depositAmount * 100,
+        location
+      );
 
       const stripe = await getUncachableStripeClient();
 

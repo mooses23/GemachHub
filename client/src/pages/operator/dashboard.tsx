@@ -1770,6 +1770,60 @@ function PayLaterTransactions({ location }: { location: Location }) {
   const [declineReason, setDeclineReason] = useState("");
   const [selectedTransactionForDecline, setSelectedTransactionForDecline] = useState<Transaction | null>(null);
 
+  // Task #39: stale-card guardrail policy (admin-configurable, default 90).
+  const { data: stripeSettings } = useQuery<{ maxCardAgeDays: number }>({
+    queryKey: ["/api/operator/stripe-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/operator/stripe-settings", { credentials: "include" });
+      if (!res.ok) return { maxCardAgeDays: 90 };
+      return res.json();
+    },
+  });
+  const maxCardAgeDays = stripeSettings?.maxCardAgeDays ?? 90;
+
+  const cardAgeDays = (tx: Transaction): number | null => {
+    const saved = (tx as any).cardSavedAt;
+    if (!saved) return null;
+    return Math.floor((Date.now() - new Date(saved).getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  const isStale = (tx: Transaction): boolean => {
+    const a = cardAgeDays(tx);
+    return a !== null && a > maxCardAgeDays;
+  };
+
+  const preferredChannel = (tx: Transaction): string => {
+    if (tx.borrowerPhone) return "SMS";
+    if (tx.borrowerEmail) return "email";
+    return "no contact on file";
+  };
+
+  const requestNewCardMutation = useMutation({
+    mutationFn: async (transactionId: number) => {
+      const res = await apiRequest(
+        "POST",
+        `/api/operator/transactions/${transactionId}/request-new-card`,
+      );
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const link = `${window.location.origin}${data.statusUrl}`;
+      toast({
+        title: "New card link created",
+        description: `Send this link to the borrower: ${link}`,
+      });
+      navigator.clipboard?.writeText(link).catch(() => {});
+      refetch();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('error'),
+        description: error.message || t('error'),
+        variant: "destructive",
+      });
+    },
+  });
+
   const { 
     data: pendingTransactions = [], 
     isLoading,
@@ -1942,41 +1996,85 @@ function PayLaterTransactions({ location }: { location: Location }) {
                       </Badge>
                     </div>
 
-                    <div className="flex gap-2">
-                      {tx.payLaterStatus === 'CARD_SETUP_COMPLETE' ? (
+                    <div className="flex flex-col items-end gap-2">
+                      {/* Task #39: stale-card guardrail. If the saved card is
+                          older than the configured threshold, refuse to accept
+                          and offer to ask the borrower for a fresh card. */}
+                      {tx.payLaterStatus === 'CARD_SETUP_COMPLETE' && isStale(tx) && (
+                        <div className="text-xs bg-amber-100 text-amber-900 border border-amber-300 rounded px-2 py-1 max-w-xs text-right">
+                          Card saved {cardAgeDays(tx)} days ago — older than {maxCardAgeDays}-day limit. Ask the borrower for a new card before charging.
+                        </div>
+                      )}
+                      {tx.payLaterStatus === 'CARD_SETUP_COMPLETE' && !isStale(tx) && cardAgeDays(tx) !== null && (
+                        <div className="text-[11px] text-slate-400">
+                          Card on file • {cardAgeDays(tx)}d old • Heads-up will go via {preferredChannel(tx)} before any charge
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        {tx.payLaterStatus === 'CARD_SETUP_COMPLETE' && !isStale(tx) ? (
+                          <Button
+                            size="sm"
+                            onClick={() => acceptMutation.mutate(tx.id)}
+                            disabled={acceptMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700"
+                            data-testid={`button-accept-${tx.id}`}
+                          >
+                            {acceptMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                {t('acceptAndLend')}
+                              </>
+                            )}
+                          </Button>
+                        ) : tx.payLaterStatus === 'CARD_SETUP_COMPLETE' && isStale(tx) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => requestNewCardMutation.mutate(tx.id)}
+                            disabled={requestNewCardMutation.isPending}
+                            data-testid={`button-request-new-card-${tx.id}`}
+                          >
+                            {requestNewCardMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <CreditCard className="h-4 w-4 mr-1" />
+                                Request new card
+                              </>
+                            )}
+                          </Button>
+                        ) : tx.payLaterStatus === 'CARD_SETUP_PENDING' ? (
+                          <Button
+                            size="sm"
+                            disabled
+                            variant="secondary"
+                          >
+                            <Clock className="h-4 w-4 mr-1" />
+                            {t('awaitingCardSetup')}
+                          </Button>
+                        ) : null}
                         <Button
                           size="sm"
-                          onClick={() => acceptMutation.mutate(tx.id)}
-                          disabled={acceptMutation.isPending}
-                          className="bg-green-600 hover:bg-green-700"
+                          variant="destructive"
+                          onClick={() => handleDeclineClick(tx)}
                         >
-                          {acceptMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              {t('acceptAndLend')}
-                            </>
+                          <XCircle className="h-4 w-4 mr-1" />
+                          {t('decline')}
+                        </Button>
+                      </div>
+                      {(tx as any).consentText && (
+                        <details className="text-[10px] text-slate-500 max-w-xs">
+                          <summary className="cursor-pointer">View borrower consent</summary>
+                          <p className="mt-1 italic">"{(tx as any).consentText}"</p>
+                          {(tx as any).consentAcceptedAt && (
+                            <p className="mt-1">
+                              Agreed {formatLocalizedDate(new Date((tx as any).consentAcceptedAt), language)}
+                            </p>
                           )}
-                        </Button>
-                      ) : tx.payLaterStatus === 'CARD_SETUP_PENDING' ? (
-                        <Button
-                          size="sm"
-                          disabled
-                          variant="secondary"
-                        >
-                          <Clock className="h-4 w-4 mr-1" />
-                          {t('awaitingCardSetup')}
-                        </Button>
-                      ) : null}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeclineClick(tx)}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        {t('decline')}
-                      </Button>
+                        </details>
+                      )}
                     </div>
                   </div>
                 </div>

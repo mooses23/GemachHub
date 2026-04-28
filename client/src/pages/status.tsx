@@ -46,6 +46,12 @@ interface StatusPageData {
   requiresAction: boolean;
   paymentIntentClientSecret?: string;
   publishableKey?: string;
+  // Task #39: setup-intent (save-card) flow
+  setupIntentClientSecret?: string | null;
+  setupIntentId?: string | null;
+  depositAmount?: number;
+  depositFeeCents?: number | null;
+  consentMaxChargeCents?: number | null;
 }
 
 type PayLaterStatus =
@@ -95,6 +101,162 @@ function useStatusInfo() {
         return { badge: t("statusUnknown"), icon: <AlertCircle {...iconProps} />, color: "outline", message: t("statusUnknownMsg") };
     }
   };
+}
+
+// Task #39: Borrower-facing card-on-file setup form. Renders an explicit
+// consent block (named gemach + max charge amount) ABOVE the submit button
+// and disables submission until the borrower acknowledges. Sends the exact
+// consent text + max charge to the server so we have a verbatim record of
+// what they agreed to.
+function buildConsentText(gemachName: string, maxChargeCents: number): string {
+  const dollars = (maxChargeCents / 100).toFixed(2);
+  return `By saving this card, I authorize ${gemachName} to charge up to $${dollars} plus a small processing fee if I do not return the borrowed item.`;
+}
+
+function StripeSetupIntentForm({
+  clientSecret,
+  setupIntentId,
+  gemachName,
+  maxChargeCents,
+  borrowerName,
+  onSuccess,
+  onError,
+}: {
+  clientSecret: string;
+  setupIntentId: string;
+  gemachName: string;
+  maxChargeCents: number;
+  borrowerName: string;
+  onSuccess: () => void;
+  onError: (error: string) => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { t } = useLanguage();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const consentText = buildConsentText(gemachName, maxChargeCents);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) {
+      onError("Stripe is not loaded");
+      return;
+    }
+    if (!consentChecked) {
+      onError("You must agree to the authorization above before saving your card");
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) throw new Error("Card element not found");
+
+      const result = await stripe.confirmCardSetup(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: { name: borrowerName },
+        },
+      });
+
+      if (result.error) {
+        onError(result.error.message || "Card setup failed");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Persist consent + flip status to CARD_SETUP_COMPLETE without waiting
+      // for the webhook.
+      try {
+        await fetch("/api/deposits/confirm-setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            setupIntentId,
+            consentText,
+            consentMaxChargeCents: maxChargeCents,
+          }),
+        });
+      } catch (e) {
+        console.warn("confirm-setup callback failed; webhook will catch up:", e);
+      }
+
+      onSuccess();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "An error occurred");
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} data-testid="form-setup-intent">
+      <Card className="border-blue-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            Save your card
+          </CardTitle>
+          <CardDescription>
+            Maximum authorization: ${(maxChargeCents / 100).toFixed(2)} (only charged if item is not returned)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="border rounded-lg p-4 bg-white">
+            <CardElement
+              options={{
+                style: {
+                  base: {
+                    fontSize: "16px",
+                    color: "#424242",
+                    "::placeholder": { color: "#9e9e9e" },
+                  },
+                  invalid: { color: "#d32f2f" },
+                },
+              }}
+            />
+          </div>
+
+          <div
+            className="rounded-md border border-amber-300 bg-amber-50 p-3"
+            data-testid="block-consent"
+          >
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => setConsentChecked(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-amber-600 text-amber-700 focus:ring-amber-500"
+                data-testid="checkbox-consent"
+              />
+              <span className="text-sm text-amber-900" data-testid="text-consent">
+                {consentText}
+              </span>
+            </label>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={!stripe || isProcessing || !consentChecked}
+            className="w-full"
+            data-testid="button-submit-card"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving card...
+              </>
+            ) : (
+              <>
+                Save card
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    </form>
+  );
 }
 
 function StripePaymentForm({
@@ -418,6 +580,31 @@ function StatusPageContent({
                     amountCents={data.amountCents}
                     currency={data.currency}
                     transactionId={data.id}
+                    onSuccess={() => {
+                      setPaymentSuccess(true);
+                      setTimeout(() => refetch(), 1000);
+                    }}
+                    onError={(error) => {
+                      setPaymentError(error);
+                    }}
+                  />
+                </Elements>
+              )}
+
+            {/* Task #39: Card-on-file setup with explicit consent */}
+            {data.status === "CARD_SETUP_PENDING" &&
+              !paymentSuccess &&
+              stripePromise &&
+              data.setupIntentClientSecret &&
+              data.setupIntentId &&
+              data.publishableKey && (
+                <Elements stripe={stripePromise}>
+                  <StripeSetupIntentForm
+                    clientSecret={data.setupIntentClientSecret}
+                    setupIntentId={data.setupIntentId}
+                    gemachName={data.locationName || "this gemach"}
+                    maxChargeCents={data.consentMaxChargeCents ?? data.amountCents}
+                    borrowerName={data.borrowerName}
                     onSuccess={() => {
                       setPaymentSuccess(true);
                       setTimeout(() => refetch(), 1000);
