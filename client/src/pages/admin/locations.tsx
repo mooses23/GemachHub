@@ -85,6 +85,8 @@ import {
   ChevronsUpDown,
   Wifi,
   WifiOff,
+  CreditCard,
+  Save,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -95,6 +97,113 @@ function OnboardingStatusBadge({ status }: { status: "onboarded" | "sent" | "fai
   if (status === "sent") return <Badge variant="secondary" className="text-xs">Sent</Badge>;
   if (status === "failed") return <Badge variant="destructive" className="text-xs">Failed</Badge>;
   return <Badge variant="outline" className="text-xs text-muted-foreground">Not sent</Badge>;
+}
+
+interface StripeAdminSettings {
+  maxCardAgeDays: number;
+  requirePreChargeNotification: boolean;
+  locationFees: { locationId: number; name: string; processingFeePercent: number; processingFeeFixed: number }[];
+}
+
+function LocationStripeFeeSection({ locationId }: { locationId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading, isError } = useQuery<StripeAdminSettings>({
+    queryKey: ["/api/admin/settings/stripe"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/settings/stripe", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load Stripe settings");
+      return res.json();
+    },
+  });
+
+  const locationFee = data?.locationFees?.find(f => f.locationId === locationId);
+
+  const [feePercent, setFeePercent] = useState<string>("");
+  const [feeFixed, setFeeFixed] = useState<string>("");
+
+  useEffect(() => {
+    if (locationFee) {
+      setFeePercent(String(locationFee.processingFeePercent));
+      setFeeFixed(String(locationFee.processingFeeFixed));
+    } else {
+      setFeePercent("");
+      setFeeFixed("");
+    }
+  }, [locationFee?.processingFeePercent, locationFee?.processingFeeFixed, locationId]);
+
+  const feePercentNum = Number(feePercent);
+  const feeFixedNum = Number(feeFixed);
+  const isInvalid = !Number.isFinite(feePercentNum) || !Number.isFinite(feeFixedNum) || feePercent === "" || feeFixed === "";
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", "/api/admin/settings/stripe", {
+        locationFees: [{
+          locationId,
+          processingFeePercent: feePercentNum,
+          processingFeeFixed: feeFixedNum,
+        }],
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings/stripe"] });
+      toast({ title: "Saved", description: "Processing fee updated." });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="mt-6 rounded-lg border p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <CreditCard className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">Stripe processing fee</span>
+      </div>
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Loading fee…</p>
+      ) : isError ? (
+        <p className="text-xs text-destructive">Could not load fee settings. Refresh and try again.</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">% rate (basis points)</label>
+            <Input
+              type="number"
+              min={0}
+              max={10000}
+              value={feePercent}
+              onChange={e => setFeePercent(e.target.value)}
+              title="Basis points: 290 = 2.90%"
+            />
+            <p className="text-xs text-muted-foreground mt-0.5">e.g. 290 = 2.90%</p>
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Fixed fee (cents)</label>
+            <Input
+              type="number"
+              min={0}
+              max={9999}
+              value={feeFixed}
+              onChange={e => setFeeFixed(e.target.value)}
+              title="Cents: 30 = $0.30"
+            />
+            <p className="text-xs text-muted-foreground mt-0.5">e.g. 30 = $0.30</p>
+          </div>
+        </div>
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => saveMutation.mutate()}
+        disabled={saveMutation.isPending || isLoading || isError || isInvalid}
+      >
+        <Save className="h-3.5 w-3.5 mr-1.5" />
+        {saveMutation.isPending ? "Saving…" : "Save fee"}
+      </Button>
+    </div>
+  );
 }
 
 function ServiceStatusBar({
@@ -1052,7 +1161,10 @@ export default function AdminLocations() {
               <DialogDescription>{t('editLocationDescription')}</DialogDescription>
             </DialogHeader>
             {editingLocation && (
-              <LocationForm location={editingLocation} regions={regions} onSuccess={closeEditDialog} />
+              <>
+                <LocationForm location={editingLocation} regions={regions} onSuccess={closeEditDialog} />
+                <LocationStripeFeeSection locationId={editingLocation.id} />
+              </>
             )}
           </DialogContent>
         </Dialog>
