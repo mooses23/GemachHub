@@ -301,14 +301,31 @@ export class PayLaterService {
       }
     }
 
+    // Consent cap guard: the charge must not exceed the amount the borrower agreed to.
+    const amountToChargeCents = transaction.amountPlannedCents || Math.round(transaction.depositAmount * 100);
+    if (transaction.consentMaxChargeCents && amountToChargeCents > transaction.consentMaxChargeCents) {
+      await storage.createAuditLog({
+        actorUserId: operatorUserId,
+        actorType: operatorUserId ? 'operator' : 'system',
+        action: 'charge_blocked_exceeds_consent',
+        entityType: 'transaction',
+        entityId: transaction.id,
+        afterJson: JSON.stringify({ amountToChargeCents, consentMaxChargeCents: transaction.consentMaxChargeCents }),
+      });
+      return {
+        success: false,
+        status: transaction.payLaterStatus as PayLaterStatus,
+        errorCode: 'exceeds_consent_cap',
+        errorMessage: `Charge amount (${amountToChargeCents}¢) exceeds consented maximum (${transaction.consentMaxChargeCents}¢). Re-obtain consent before charging.`,
+      };
+    }
+
     const beforeJson = JSON.stringify(transaction);
     const stripe = getStripeClient();
 
     // Send pre-charge notification. When requirePreChargeNotification=true,
     // the charge is blocked if notification fails.
     const location = await storage.getLocation(transaction.locationId);
-    const amountToChargeCents =
-      transaction.amountPlannedCents || Math.round(transaction.depositAmount * 100);
     const requireNotification = await getRequirePreChargeNotification();
 
     if (location) {

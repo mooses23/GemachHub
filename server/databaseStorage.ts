@@ -969,7 +969,7 @@ export class DatabaseStorage implements IStorage {
             AND charged_at >= ${since}
         UNION ALL
         SELECT location_id FROM transactions
-          WHERE deposit_payment_method = 'card'
+          WHERE deposit_payment_method IN ('card', 'stripe')
             AND stripe_payment_intent_id IS NOT NULL
             AND pay_later_status IS NULL
             AND created_at >= ${since}

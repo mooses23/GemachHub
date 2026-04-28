@@ -92,6 +92,12 @@ export class DepositService {
         },
       });
 
+      // Persist the payment intent ID on the transaction so dispute webhooks can
+      // back-link to the originating transaction and location.
+      await storage.updateTransaction(transactionId, {
+        stripePaymentIntentId: paymentIntent.id,
+      });
+
       const payment = await storage.createPayment({
         transactionId,
         paymentMethod: 'stripe',

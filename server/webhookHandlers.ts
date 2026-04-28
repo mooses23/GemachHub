@@ -154,14 +154,10 @@ export class WebhookHandlers {
   }
 
   /**
-   * Task #39: Persist a Stripe dispute so the admin dispute-rate widget can
-   * surface it. We MUST be idempotent on stripe_dispute_id because Stripe
-   * frequently re-delivers webhooks (and we want to honor that without
-   * double-counting). We attempt to back-link the dispute to the originating
-   * pay-later transaction via payment_intent → stripePaymentIntentId; if we
-   * cannot, we still record the dispute against the location's "unmatched"
-   * bucket (locationId is required so we infer from the linked tx; if we
-   * truly can't match, we drop with a loud log so an operator can investigate).
+   * Persist a Stripe dispute row for the admin dispute-rate widget.
+   * Idempotent on stripe_dispute_id. Back-links to the originating transaction
+   * via payment_intent → stripePaymentIntentId, with fallbacks via stripeChargeId
+   * and Stripe charge metadata. Drops with a log if truly unmatched.
    */
   private static async handleChargeDisputeCreated(dispute: any): Promise<void> {
     console.log(`Charge dispute created: ${dispute.id} (charge: ${dispute.charge})`);
@@ -174,23 +170,50 @@ export class WebhookHandlers {
         return;
       }
 
-      // Look up originating transaction via payment_intent (set on the charge).
+      // Look up originating transaction. Try payment_intent first, then charge ID.
       const paymentIntentId: string | undefined = dispute.payment_intent;
+      const chargeId: string | undefined = dispute.charge;
       let txLocationId: number | null = null;
       let txId: number | null = null;
+
+      const txs = await storage.getAllTransactions();
+
       if (paymentIntentId) {
-        const txs = await storage.getAllTransactions();
         const tx = txs.find((t: any) => t.stripePaymentIntentId === paymentIntentId);
-        if (tx) {
-          txLocationId = tx.locationId;
-          txId = tx.id;
+        if (tx) { txLocationId = tx.locationId; txId = tx.id; }
+      }
+
+      // Fallback: try to match by stripeChargeId on the transaction (pay-later charges
+      // are stored there when the PaymentIntent confirms via webhook).
+      if (!txLocationId && chargeId) {
+        const tx = txs.find((t: any) => t.stripeChargeId === chargeId);
+        if (tx) { txLocationId = tx.locationId; txId = tx.id; }
+      }
+
+      // If still unmatched, try looking up the Stripe charge to extract locationId
+      // from the PaymentIntent metadata (both flows embed it there).
+      if (!txLocationId) {
+        try {
+          const stripe = getStripeClient();
+          const charge = await stripe.charges.retrieve(chargeId!);
+          const piId = charge.payment_intent as string | null;
+          if (piId) {
+            const tx = txs.find((t: any) => t.stripePaymentIntentId === piId);
+            if (tx) { txLocationId = tx.locationId; txId = tx.id; }
+          }
+          if (!txLocationId) {
+            const metaLocationId = charge.metadata?.locationId;
+            if (metaLocationId) txLocationId = parseInt(metaLocationId, 10) || null;
+          }
+        } catch (lookupErr) {
+          console.error('[webhook] dispute: charge lookup failed:', lookupErr);
         }
       }
 
       if (!txLocationId) {
         console.error(
           `[webhook] charge.dispute.created: could not match dispute ${dispute.id} ` +
-          `(payment_intent=${paymentIntentId}) to a transaction. Dropping for manual review.`
+          `(payment_intent=${paymentIntentId}, charge=${chargeId}) to any transaction or location.`
         );
         return;
       }
