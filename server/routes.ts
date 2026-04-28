@@ -2646,6 +2646,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "Operator authentication required" });
     }
     const status = getTwilioConfigStatus();
+    // In production, the SMS body needs a public status link built from
+    // a configured base URL. Reflect that prerequisite here so the UI
+    // doesn't offer SMS only for the send to fail with 500.
+    if (status.configured && process.env.NODE_ENV === 'production') {
+      const envBase = (process.env.APP_URL || process.env.SITE_URL || '').trim();
+      if (!envBase) {
+        return res.json({ configured: false, reason: 'APP_URL or SITE_URL must be set so reminder SMS can include a borrower status link.' });
+      }
+    }
     res.json(status);
   });
 
