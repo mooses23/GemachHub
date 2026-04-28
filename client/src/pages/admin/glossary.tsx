@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Trash2, Plus, BookOpen, Save } from "lucide-react";
+import { Trash2, Plus, BookOpen, Save, Sparkles } from "lucide-react";
 import type { PlaybookFact, FaqEntry, KnowledgeDoc } from "@shared/schema";
 
 const FACT_KEY = ["/api/admin/playbook-facts"] as const;
@@ -364,15 +364,45 @@ function DocsTab() {
         variant: "destructive",
       }),
   });
+  const seedMut = useMutation({
+    mutationFn: async (): Promise<{ created: number; skipped: number; indexScanned: number; indexCreated: number }> =>
+      (await apiRequest("POST", "/api/admin/knowledge-docs/seed", {})).json(),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: DOCS_KEY });
+      toast({
+        title: "Seed complete",
+        description: `Created ${r?.created ?? 0} docs (${r?.skipped ?? 0} already present); indexed ${r?.indexCreated ?? 0} new sources.`,
+      });
+    },
+    onError: (e: unknown) =>
+      toast({
+        title: "Seed failed",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      }),
+  });
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-2">
           <CardTitle className="text-base">Add a knowledge document</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => backfillMut.mutate()} disabled={backfillMut.isPending} data-testid="button-backfill-embeddings">
-            {backfillMut.isPending ? "Indexing…" : "Re-index all"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => seedMut.mutate()}
+              disabled={seedMut.isPending}
+              data-testid="button-seed-default-docs"
+              title="Insert the bundled /rules + common-scenarios docs (EN + HE) and rebuild embeddings"
+            >
+              <Sparkles className="h-4 w-4 mr-1" />
+              {seedMut.isPending ? "Seeding…" : "Seed default docs"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => backfillMut.mutate()} disabled={backfillMut.isPending} data-testid="button-backfill-embeddings">
+              {backfillMut.isPending ? "Indexing…" : "Re-index all"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 md:grid-cols-[1fr_140px_140px] items-end">

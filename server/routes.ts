@@ -3099,6 +3099,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  // Re-seed the bundled /rules + common-scenarios knowledge docs (EN + HE) and
+  // rebuild embeddings so retrieval works immediately. Idempotent — won't
+  // duplicate existing seeded docs.
+  app.post("/api/admin/knowledge-docs/seed", requireAdminMW, async (_req, res) => {
+    try {
+      const seedResult = await seedKnowledgeDocs();
+      const indexResult = await backfillEmbeddings();
+      res.json({
+        created: seedResult.created,
+        skipped: seedResult.skipped,
+        indexScanned: indexResult.scanned,
+        indexCreated: indexResult.created,
+      });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   // Send reply to an email
   app.post("/api/admin/emails/:id/reply", async (req, res) => {
     try {

@@ -170,37 +170,83 @@ export async function reindexReplyExample(r: ReplyExample): Promise<void> {
 
 // Seeded long-form docs that mirror the public /rules page and the most common
 // scenarios admins answer over and over. Idempotent: only inserts if a doc with
-// the same title doesn't already exist.
-const SEED_DOCS: Array<{ title: string; category: string; body: string }> = [
+// the same title doesn't already exist (per language).
+//
+// Both EN and HE versions are seeded so Hebrew-speaking senders pull Hebrew
+// retrieval context and English senders pull English context. The body copy
+// mirrors the live /rules page (see client/src/lib/translations.ts: depositPolicy*,
+// borrowingPeriod*, careInstruction1-4, returnInstruction1-4, responsibility*).
+const SEED_DOCS: Array<{ title: string; category: string; language: 'en' | 'he'; body: string }> = [
   {
     title: 'Borrowing Rules (from /rules page)',
     category: 'borrowing',
-    body: `These are the standing rules for borrowing Baby Banz earmuffs from any gemach in our network.
+    language: 'en',
+    body: `These are the standing rules for borrowing Baby Banz earmuffs from any gemach in our network. Source: ${SITE_URL}/rules
 
-DEPOSIT
-- A small refundable deposit of $20 is required at pickup.
-- The full deposit is returned when the earmuffs come back in good condition.
-- Some locations accept "pay later" via a saved card; if the earmuffs are not returned on time, the operator may charge the deposit.
+ABOUT THE DEPOSIT
+- We kindly ask for a small $20 refundable deposit when you borrow our earmuffs.
+- You'll get the full deposit back when you return the earmuffs in good condition.
+- Some locations accept "pay later" via a saved card; if the earmuffs are not returned, the operator may charge the deposit.
 
-GENTLE HANDLING
-- Earmuffs are for babies and young children. Please handle them gently and keep them away from food, drinks, sticky hands, and pets.
-- Do not stretch, bend, or pull the headband apart.
+HOW LONG YOU CAN BORROW
+- Borrow the earmuffs for up to 2 weeks.
+- Need a little more time? Message the operator first — most are happy to extend if there is enough stock.
 
-CLEAN RETURN
-- Wipe the earmuffs with a soft, slightly damp cloth before returning. Do not submerge them or use harsh cleaners.
-- If a pair gets damaged or stained, tell the operator — we'd rather know than be surprised.
+A FEW GENTLE REMINDERS (CARE)
+- Please keep the earmuffs clean and dry.
+- Store them safely when not in use.
+- Handle with care so they last for the next family.
+- Please don't take them apart or modify them.
 
-ON-TIME RETURN
-- Please return on or before the agreed-upon date so the next family can use them.
-- If you need extra time, message the operator first — most are flexible if you ask.
+WHEN YOU'RE DONE (RETURN)
+- Please return to the same location where you borrowed.
+- A quick check for any damage is appreciated before returning.
+- If something happens to them (lost / damaged / stained), please let the operator know — we'll work it out together.
+- Running late? No problem — just give the operator a heads up.
 
-SHARING THE GEMACH
-- Borrow only what you need. If you need multiple pairs (siblings, twins, family event), say so up front so the operator can plan.
-- The gemach is a free-loan service. Please don't sublend or pass the earmuffs to a third party — direct the next family to the operator instead.`,
+THANK YOU
+- Taking good care of the earmuffs and returning them on time is what keeps the gemach running for the next family. Thank you for being part of the gemach community.
+
+QUESTIONS
+- For clarifications, point the writer to ${SITE_URL}/contact. Never invent rules that aren't on this page.`,
+  },
+  {
+    title: 'Borrowing Rules (Hebrew — מהדף /rules)',
+    category: 'borrowing',
+    language: 'he',
+    body: `אלו הכללים הקבועים להשאלת אוזניות Baby Banz מכל גמ״ח ברשת שלנו. מקור: ${SITE_URL}/rules
+
+לגבי הפיקדון
+- אנחנו מבקשים פיקדון קטן של $20 כשמשאילים את האוזניות.
+- מקבלים את כל הפיקדון בחזרה כשמחזירים את האוזניות במצב טוב.
+- חלק מהסניפים מקבלים "תשלום מאוחר יותר" עם כרטיס שמור; אם האוזניות לא מוחזרות, המפעיל רשאי לחייב את הפיקדון.
+
+כמה זמן אפשר להשאיל
+- אפשר להשאיל את האוזניות עד שבועיים.
+- צריכים עוד קצת זמן? פשוט צרו קשר עם המפעיל מראש — רובם ישמחו להאריך אם יש מספיק במלאי.
+
+כמה תזכורות נעימות (טיפול)
+- בבקשה שמרו על האוזניות נקיות ויבשות.
+- אחסנו אותן בבטחה כשלא בשימוש.
+- טפלו בעדינות — ככה הן יחזיקו מעמד למשפחה הבאה.
+- בבקשה אל תפרקו או תשנו אותן.
+
+כשסיימתם (החזרה)
+- בבקשה החזירו לאותו סניף שממנו השאלתם.
+- בדיקה קצרה לנזק לפני החזרה תתקבל בברכה.
+- אם משהו קורה להן (אבדה / נזק / כתם), בבקשה ספרו למפעיל — נסתדר ביחד.
+- מאחרים? אין בעיה — פשוט תנו למפעיל הודעה מראש.
+
+תודה רבה
+- שמירה טובה על האוזניות והחזרה בזמן הם מה שמאפשר לגמ״ח להמשיך לעזור למשפחה הבאה. תודה שאתם חלק מקהילת הגמ״ח.
+
+שאלות
+- להבהרות, הפנו את הפונה אל ${SITE_URL}/contact. אין להמציא כללים שאינם מופיעים בדף הזה.`,
   },
   {
     title: 'Common Scenarios (FAQ playbook)',
     category: 'general',
+    language: 'en',
     body: `Quick reference for the email scenarios that come up most often. Use these as the basis for replies; never invent details that contradict them.
 
 1. "How do I borrow a pair?"
@@ -210,34 +256,86 @@ SHARING THE GEMACH
    - Reassure them, ask them to message the operator directly to arrange a return time. Mention that the deposit is held until return.
 
 3. "I lost / damaged a pair."
-   - Thank them for letting us know, ask them to contact the local operator. The operator will decide on a deposit deduction or replacement on a case-by-case basis.
+   - Thank them for letting us know, ask them to contact the local operator. The operator decides on a deposit deduction or replacement on a case-by-case basis. Flag for human review when money is involved.
 
 4. "Can I open a gemach in my city?"
-   - Point them to the application at ${SITE_URL}/apply. We typically follow up within a week. Don't promise approval.
+   - Point them to the application at ${SITE_URL}/apply. We typically follow up within a week. Don't promise approval. Do NOT tell them to use the contact form for this.
 
-5. "How can I donate?"
-   - Donations help us send earmuffs to new gemachs. Direct them to ${SITE_URL}/donate or ask if they'd like to be connected to a coordinator.
+5. "How can I donate / can I send earmuffs?"
+   - Thank them warmly. Explain donations help us send earmuffs to new gemachs. Offer to connect them to a coordinator via ${SITE_URL}/contact.
 
 6. "What ages / how many decibels?"
-   - Earmuffs are sized for babies up to ~2 years old; older toddlers may also fit. They reduce loud event noise (weddings, concerts, fireworks). Don't quote a specific dB rating unless it's in the FAQ.
+   - Earmuffs are sized for babies up to ~2 years old; older toddlers may also fit. They reduce loud-event noise (weddings, concerts, fireworks). Don't quote a specific dB rating unless it's in the FAQ.
 
-7. "Operator complaint or hand-off."
-   - Acknowledge, do NOT share operator contact info publicly. Tell the writer the admin will follow up directly with the operator. Flag for human review.`,
+7. "I can't reach my local operator."
+   - Apologize, offer to nudge the operator. Do NOT share operator phone or email publicly. Tell the writer the admin will follow up. Flag for human review.
+
+8. "Refund / double-charge / chargeback."
+   - Acknowledge, do not promise an outcome, escalate. Always flag for human review.`,
+  },
+  {
+    title: 'Common Scenarios (Hebrew — תרחישים נפוצים)',
+    category: 'general',
+    language: 'he',
+    body: `מדריך מהיר לתרחישים הנפוצים ביותר במייל. השתמשו בהם כבסיס לתשובות; אל תמציאו פרטים שסותרים אותם.
+
+1. "איך משאילים זוג?"
+   - הפנו את המשפחה אל ${SITE_URL}/locations למצוא את הגמ״ח הקרוב, ואז אל ${SITE_URL}/borrow להתחיל את תהליך ההשאלה. המפעיל המקומי יאשר את פרטי האיסוף.
+
+2. "אני מאחר/ת בהחזרה — מה לעשות?"
+   - הרגיעו, בקשו לפנות ישירות למפעיל לתאם זמן החזרה. הזכירו שהפיקדון מוחזק עד החזרה.
+
+3. "אבדה / נזק לזוג."
+   - הודו על העדכון, בקשו ליצור קשר עם המפעיל המקומי. המפעיל מחליט על ניכוי פיקדון או החלפה לפי כל מקרה. סמנו לבדיקה אנושית כשמדובר בכסף.
+
+4. "אפשר לפתוח גמ״ח בעיר שלי?"
+   - הפנו לטופס בקשה ${SITE_URL}/apply. בדרך כלל נחזור תוך שבוע. אין להבטיח אישור. אל תפנו אותם לטופס "צור קשר" לבקשה הזו.
+
+5. "איך אפשר לתרום / לשלוח אוזניות?"
+   - הודו בחום. הסבירו שתרומות עוזרות לנו לשלוח אוזניות לגמ״חים חדשים. הציעו לקשר עם רכז/ת דרך ${SITE_URL}/contact.
+
+6. "לאיזה גילאים / כמה דציבלים?"
+   - האוזניות מתאימות לתינוקות עד גיל ~2; ילדים גדולים יותר עשויים גם להתאים. הן מפחיתות רעש מאירועים רועשים (חתונות, זיקוקים, מופעים). אין לצטט ערך דציבלים אלא אם מופיע ב‑FAQ.
+
+7. "לא מצליח/ה להשיג את המפעיל המקומי."
+   - התנצלו, הציעו לדחוף את המפעיל. אין לשתף טלפון או מייל של המפעיל בפומבי. אמרו שהמנהל יחזור. סמנו לבדיקה אנושית.
+
+8. "החזר כספי / חיוב כפול / ביטול עסקה."
+   - אשרו קבלה, אל תבטיחו תוצאה, העלו לטיפול אנושי. תמיד לסמן לבדיקה אנושית.`,
   },
 ];
 
-export async function seedKnowledgeDocs(): Promise<{ created: number }> {
+// SEED_DOC_IDENTITY is the dedup key the seeder uses so EN and HE seeds with
+// the same logical title don't collide, and so a re-seed after rename of the
+// EN-only legacy seed doesn't create duplicates.
+function seedKey(s: { title: string; language: string }): string {
+  return `${s.language}::${s.title.trim().toLowerCase()}`;
+}
+
+export async function seedKnowledgeDocs(): Promise<{ created: number; skipped: number }> {
   let created = 0;
+  let skipped = 0;
   try {
     const existing = await storage.getAllKnowledgeDocs().catch(() => [] as KnowledgeDoc[]);
-    const haveTitles = new Set(existing.map(d => d.title.trim().toLowerCase()));
+    const haveKeys = new Set(
+      existing.map(d => seedKey({ title: d.title, language: d.language || 'en' })),
+    );
+    // Backwards-compat: the original seed only inserted EN docs without the
+    // language qualifier in the title. Treat any existing doc with a matching
+    // title (regardless of language) as already-present for the EN seed so we
+    // don't re-create it.
+    const haveTitlesAnyLang = new Set(existing.map(d => d.title.trim().toLowerCase()));
+
     for (const seed of SEED_DOCS) {
-      if (haveTitles.has(seed.title.trim().toLowerCase())) continue;
+      const k = seedKey(seed);
+      const titleAlreadyPresent =
+        seed.language === 'en' && haveTitlesAnyLang.has(seed.title.trim().toLowerCase());
+      if (haveKeys.has(k) || titleAlreadyPresent) { skipped++; continue; }
       const d = await storage.createKnowledgeDoc({
         title: seed.title,
         body: seed.body,
         category: seed.category,
-        language: 'en',
+        language: seed.language,
         isActive: true,
       });
       // Best-effort indexing; don't block startup on embedding latency.
@@ -247,7 +345,7 @@ export async function seedKnowledgeDocs(): Promise<{ created: number }> {
   } catch (err) {
     console.warn('seedKnowledgeDocs failed:', err instanceof Error ? err.message : String(err));
   }
-  return { created };
+  return { created, skipped };
 }
 
 export async function backfillEmbeddings(): Promise<{ scanned: number; created: number }> {
