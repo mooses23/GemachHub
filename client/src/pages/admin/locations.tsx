@@ -1030,7 +1030,7 @@ export default function AdminLocations() {
     if (statusFilter === "inactive" && location.isActive) return false;
     if (onboardingFilter !== "all") {
       if (onboardingFilter === "no-phone") {
-        if (!!location.phone) return false;
+        if (!!location.phone || !!location.onboardedAt) return false;
       } else {
         const obStatus = getOnboardingStatus(location);
         if (onboardingFilter === "not-sent" && obStatus !== "not-sent") return false;

@@ -16,7 +16,7 @@ import { Location, Transaction, GemachApplication, Contact } from "@/lib/types";
 import { 
   Users, MapPin, FileText, Package, Settings, Grid, List, 
   DollarSign, RefreshCw, AlarmClock, CheckCircle, BarChart3, Mail, MessageSquare,
-  Shield, AlertTriangle, BookOpen
+  Shield, AlertTriangle, BookOpen, Phone
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
@@ -152,6 +152,10 @@ export default function Dashboard() {
   const unreadContacts = contacts.filter(c => !c.isRead).length;
   const depositTotal = transactions.reduce((acc, tx) => acc + tx.depositAmount, 0);
 
+  const phonelessCount = locations.filter(
+    loc => loc.isActive !== false && !loc.phone && !loc.onboardedAt
+  ).length;
+
   const StatsCard = ({ title, value, subtitle, icon: Icon, className = "" }: {
     title: string;
     value: string | number;
@@ -274,6 +278,39 @@ export default function Dashboard() {
                 icon={AlarmClock}
               />
             </div>
+
+            {/* Phone-less locations warning */}
+            {phonelessCount > 0 && (
+              <div className="mb-8" data-testid="card-phoneless-locations">
+                <Card className="border-orange-300 bg-orange-50">
+                  <CardContent className="pt-5">
+                    <div className="flex items-start gap-3">
+                      <Phone className="h-5 w-5 text-orange-600 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-orange-900">
+                          {phonelessCount} location{phonelessCount !== 1 ? "s" : ""} without a phone number
+                        </p>
+                        <p className="text-sm text-orange-800 mt-0.5">
+                          {phonelessCount !== 1 ? "These locations" : "This location"} cannot receive SMS onboarding messages until a phone number is added.
+                        </p>
+                      </div>
+                      <Link
+                        href="/admin/locations"
+                        onClick={() => {
+                          try {
+                            localStorage.setItem("adminOnboardingFilter", "no-phone");
+                          } catch {}
+                        }}
+                        className="text-sm font-medium text-orange-700 hover:text-orange-900 hover:underline whitespace-nowrap"
+                        data-testid="link-phoneless-locations"
+                      >
+                        View affected locations →
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
