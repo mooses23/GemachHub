@@ -993,10 +993,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results: Awaited<ReturnType<typeof sendWelcomeForLocation>>[] = [];
       for (let i = 0; i < ids.length; i++) {
         const locId = ids[i];
-        const r = await sendWelcomeForLocation(locId, options);
+        let r: Awaited<ReturnType<typeof sendWelcomeForLocation>>;
+        try {
+          r = await sendWelcomeForLocation(locId, options);
+        } catch (e: any) {
+          console.error(`[onboarding] unexpected error for location ${locId}:`, e?.message);
+          r = {
+            locationId: locId,
+            locationName: `Location ${locId}`,
+            channel: options.channel,
+            ok: false,
+            sms: options.channel !== 'email' ? { ok: false, error: e?.message || 'Unexpected error' } : undefined,
+            email: options.channel === 'email' ? { ok: false, error: e?.message || 'Unexpected error' } : undefined,
+          };
+        }
         results.push(r);
         const locName = r.locationName ?? `Location ${locId}`;
-        emit({ type: 'progress', n: i + 1, total, name: locName, ok: r.ok, skipped: !!r.skipped });
+        const errorMsg = !r.ok && !r.skipped
+          ? (r.sms?.error || r.whatsapp?.error || r.email?.error || 'Send failed')
+          : undefined;
+        emit({ type: 'progress', n: i + 1, total, name: locName, ok: r.ok, skipped: !!r.skipped, error: errorMsg });
         if (i < ids.length - 1) await new Promise((resolve) => setTimeout(resolve, 200));
       }
 
@@ -1115,9 +1131,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results: Awaited<ReturnType<typeof sendWelcomeForLocation>>[] = [];
       for (let i = 0; i < candidates.length; i++) {
         const loc = candidates[i];
-        const r = await sendWelcomeForLocation(loc.id, options);
+        let r: Awaited<ReturnType<typeof sendWelcomeForLocation>>;
+        try {
+          r = await sendWelcomeForLocation(loc.id, options);
+        } catch (e: any) {
+          console.error(`[onboarding] unexpected error for location ${loc.id}:`, e?.message);
+          r = {
+            locationId: loc.id,
+            locationName: loc.name,
+            channel: options.channel,
+            ok: false,
+            sms: options.channel !== 'email' ? { ok: false, error: e?.message || 'Unexpected error' } : undefined,
+            email: options.channel === 'email' ? { ok: false, error: e?.message || 'Unexpected error' } : undefined,
+          };
+        }
         results.push(r);
-        emit({ type: 'progress', n: i + 1, total, name: loc.name, ok: r.ok, skipped: !!r.skipped });
+        const errorMsg = !r.ok && !r.skipped
+          ? (r.sms?.error || r.whatsapp?.error || r.email?.error || 'Send failed')
+          : undefined;
+        emit({ type: 'progress', n: i + 1, total, name: loc.name, ok: r.ok, skipped: !!r.skipped, error: errorMsg });
         if (i < candidates.length - 1) await new Promise((resolve) => setTimeout(resolve, 200));
       }
 

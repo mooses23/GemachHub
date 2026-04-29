@@ -595,6 +595,8 @@ export default function AdminLocations() {
   // When false → server uses its own built-in template. When true → server uses messageBody with token substitution.
   const [isCustomMessage, setIsCustomMessage] = useState(false);
   const [streamState, setStreamState] = useState<{ log: string; n: number; total: number } | null>(null);
+  const [sendFailures, setSendFailures] = useState<Array<{ name: string; error: string }>>([]);
+  const [sendReport, setSendReport] = useState<{ sent: number; failed: number; skipped: number; eligible?: number } | null>(null);
 
   // Wraps all ADMIN-initiated edits to the message body (textarea onChanges).
   // Programmatic updates (preview load, channel change, template reset) call setMessageBody directly.
@@ -761,6 +763,9 @@ export default function AdminLocations() {
 
   const sendBulkStream = async (payload: { locationIds: number[]; channel: OperatorWelcomeChannel; rememberAsDefault?: boolean; messageBody?: string; customMessage?: boolean }) => {
     setStreamState({ log: "Starting…", n: 0, total: 0 });
+    setSendFailures([]);
+    setSendReport(null);
+    const collectedFailures: Array<{ name: string; error: string }> = [];
     try {
       const res = await fetch("/api/admin/locations/onboarding/send-bulk-stream", {
         method: "POST",
@@ -796,6 +801,9 @@ export default function AdminLocations() {
           } else if (data.type === "progress") {
             const icon = data.skipped ? "↩" : data.ok ? "✓" : "✗";
             setStreamState({ log: `${icon} ${data.name}`, n: data.n, total: data.total });
+            if (!data.ok && !data.skipped && data.error) {
+              collectedFailures.push({ name: data.name, error: data.error });
+            }
           } else if (data.type === "done") {
             doneSummary = data.summary;
           } else if (data.type === "error") {
@@ -807,17 +815,22 @@ export default function AdminLocations() {
 
       if (streamError) throw new Error(streamError);
 
-      if (doneSummary) {
-        toast({
-          title: "Bulk messages sent",
-          description: `Sent: ${doneSummary.sent} · Skipped: ${doneSummary.skipped} · Failed: ${doneSummary.failed}`,
-          variant: doneSummary.failed > 0 ? "destructive" : "default",
-        });
-      }
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
-      setWelcomeDialogOpen(false);
-      setWelcomeTarget(null);
       setSelectedIds(new Set());
+
+      if (doneSummary && doneSummary.failed > 0 && collectedFailures.length > 0) {
+        setSendFailures(collectedFailures);
+        setSendReport({ sent: doneSummary.sent, failed: doneSummary.failed, skipped: doneSummary.skipped });
+      } else {
+        if (doneSummary) {
+          toast({
+            title: "Bulk messages sent",
+            description: `Sent: ${doneSummary.sent} · Skipped: ${doneSummary.skipped} · Failed: ${doneSummary.failed}`,
+          });
+        }
+        setWelcomeDialogOpen(false);
+        setWelcomeTarget(null);
+      }
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Send failed", variant: "destructive" });
     } finally {
@@ -827,6 +840,9 @@ export default function AdminLocations() {
 
   const sendAllStream = async (payload: { channel: OperatorWelcomeChannel; rememberAsDefault?: boolean; messageBody?: string; customMessage?: boolean }) => {
     setStreamState({ log: "Starting…", n: 0, total: 0 });
+    setSendFailures([]);
+    setSendReport(null);
+    const collectedFailures: Array<{ name: string; error: string }> = [];
     try {
       const res = await fetch("/api/admin/locations/onboarding/send-all-stream", {
         method: "POST",
@@ -856,35 +872,43 @@ export default function AdminLocations() {
           try {
             data = JSON.parse(line.slice(6));
           } catch {
-            continue; // skip malformed events
+            continue;
           }
           if (data.type === "start") {
             setStreamState({ log: `Preparing to send to ${data.total} location(s)…`, n: 0, total: data.total });
           } else if (data.type === "progress") {
             const icon = data.skipped ? "↩" : data.ok ? "✓" : "✗";
             setStreamState({ log: `${icon} ${data.name}`, n: data.n, total: data.total });
+            if (!data.ok && !data.skipped && data.error) {
+              collectedFailures.push({ name: data.name, error: data.error });
+            }
           } else if (data.type === "done") {
             doneSummary = data.summary;
             eligible = data.eligible;
           } else if (data.type === "error") {
             streamError = data.message || "Send failed";
-            break outer; // stop reading; surface below
+            break outer;
           }
         }
       }
 
       if (streamError) throw new Error(streamError);
 
-      if (doneSummary) {
-        toast({
-          title: "Messages sent to all contacts",
-          description: `Eligible: ${eligible} · Sent: ${doneSummary.sent} · Failed: ${doneSummary.failed}`,
-          variant: doneSummary.failed > 0 ? "destructive" : "default",
-        });
-      }
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
-      setWelcomeDialogOpen(false);
-      setWelcomeTarget(null);
+
+      if (doneSummary && doneSummary.failed > 0 && collectedFailures.length > 0) {
+        setSendFailures(collectedFailures);
+        setSendReport({ sent: doneSummary.sent, failed: doneSummary.failed, skipped: doneSummary.skipped, eligible });
+      } else {
+        if (doneSummary) {
+          toast({
+            title: "Messages sent to all contacts",
+            description: `Eligible: ${eligible} · Sent: ${doneSummary.sent} · Failed: ${doneSummary.failed}`,
+          });
+        }
+        setWelcomeDialogOpen(false);
+        setWelcomeTarget(null);
+      }
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Send failed", variant: "destructive" });
     } finally {
@@ -917,6 +941,8 @@ export default function AdminLocations() {
     setMessageBody("");
     setMessageBodyInitialized(false);
     setIsCustomMessage(false);
+    setSendFailures([]);
+    setSendReport(null);
     setWelcomeDialogOpen(true);
   };
 
@@ -928,6 +954,8 @@ export default function AdminLocations() {
     setMessageBody(getBulkTemplateEN(defaultChannel));
     setMessageBodyInitialized(true);
     setIsCustomMessage(false);
+    setSendFailures([]);
+    setSendReport(null);
     setWelcomeDialogOpen(true);
   };
 
@@ -938,6 +966,8 @@ export default function AdminLocations() {
     setMessageBody(getBulkTemplateEN(defaultChannel));
     setMessageBodyInitialized(true);
     setIsCustomMessage(false);
+    setSendFailures([]);
+    setSendReport(null);
     setWelcomeDialogOpen(true);
   };
 
@@ -2288,14 +2318,47 @@ export default function AdminLocations() {
               </div>
             )}
 
+            {sendReport && (
+              <div className="mx-1 mb-2 space-y-3 rounded border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                      Send complete — {sendReport.sent} sent, {sendReport.failed} failed
+                      {sendReport.skipped > 0 && `, ${sendReport.skipped} skipped`}
+                    </p>
+                    <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+                      The following locations could not be reached (landlines, out-of-region restrictions, or invalid numbers). All others were sent successfully.
+                    </p>
+                  </div>
+                </div>
+                <div className="max-h-48 overflow-y-auto rounded border border-amber-200 bg-white dark:border-amber-800 dark:bg-background">
+                  {sendFailures.map((f, i) => (
+                    <div key={i} className={`flex min-w-0 gap-2 px-3 py-2 text-xs ${i > 0 ? "border-t border-amber-100 dark:border-amber-900" : ""}`}>
+                      <span className="shrink-0 font-medium text-foreground">{f.name}</span>
+                      <span className="min-w-0 truncate text-muted-foreground">{f.error}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
-              <Button variant="outline" onClick={() => setWelcomeDialogOpen(false)} disabled={dialogIsPending}>Cancel</Button>
-              <Button onClick={sendFromDialog} disabled={dialogIsPending} data-testid="button-send-welcome-confirm">
-                {dialogIsPending
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending…</>
-                  : <><Send className="h-4 w-4 mr-2" />Send Message</>
-                }
-              </Button>
+              {sendReport ? (
+                <Button onClick={() => { setSendReport(null); setSendFailures([]); setWelcomeDialogOpen(false); setWelcomeTarget(null); }}>
+                  Dismiss
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setWelcomeDialogOpen(false)} disabled={dialogIsPending}>Cancel</Button>
+                  <Button onClick={sendFromDialog} disabled={dialogIsPending} data-testid="button-send-welcome-confirm">
+                    {dialogIsPending
+                      ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending…</>
+                      : <><Send className="h-4 w-4 mr-2" />Send Message</>
+                    }
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

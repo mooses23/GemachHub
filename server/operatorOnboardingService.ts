@@ -292,13 +292,18 @@ export async function sendWelcomeForLocation(
     }
   }
 
-  // Record the attempt in storage
-  await storage.recordOperatorWelcomeAttempt(loc.id, {
-    sms: wantsSms && !!smsResult ? { ok: !!smsResult.ok, error: smsResult.error, sid: smsResult.sid } : undefined,
-    whatsapp: wantsWhatsapp && !!whatsappResult ? { ok: !!whatsappResult.ok, error: whatsappResult.error, sid: whatsappResult.sid } : undefined,
-    email: wantsEmail && !!emailResult ? { ok: !!emailResult.ok, error: emailResult.error } : undefined,
-    defaultWelcomeChannel: options.rememberAsDefault ? options.channel : undefined,
-  });
+  // Record the attempt in storage — wrapped so a DB hiccup never aborts the
+  // caller's batch loop; message sends have already completed at this point.
+  try {
+    await storage.recordOperatorWelcomeAttempt(loc.id, {
+      sms: wantsSms && !!smsResult ? { ok: !!smsResult.ok, error: smsResult.error, sid: smsResult.sid } : undefined,
+      whatsapp: wantsWhatsapp && !!whatsappResult ? { ok: !!whatsappResult.ok, error: whatsappResult.error, sid: whatsappResult.sid } : undefined,
+      email: wantsEmail && !!emailResult ? { ok: !!emailResult.ok, error: emailResult.error } : undefined,
+      defaultWelcomeChannel: options.rememberAsDefault ? options.channel : undefined,
+    });
+  } catch (e: any) {
+    console.error('[onboarding] failed to record attempt for location', loc.id, ':', e?.message);
+  }
 
   const ok =
     (!wantsSms || !loc.phone || !!smsResult?.ok) &&
