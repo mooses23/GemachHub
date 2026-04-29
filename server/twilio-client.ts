@@ -188,7 +188,10 @@ function whatsappFrom(): string {
 export interface OperatorWelcomeMessageContext {
   locationName: string;
   locationCode: string;
+  locationId?: number;
   claimUrl: string;
+  /** Direct login URL (e.g. https://app.example.com/login). Used in SMS instead of the claim URL. */
+  loginUrl?: string;
   language: 'en' | 'he';
   defaultPin?: string;
   /** Optional named human signing the message. Defaults to "Earmuffs Gemach". */
@@ -200,10 +203,12 @@ export interface OperatorWelcomeMessageContext {
 export function buildOperatorWelcomeMessageBody(ctx: OperatorWelcomeMessageContext): string {
   const signOff = (ctx.signOff || '').trim() || 'Earmuffs Gemach';
   const pin = (ctx.defaultPin || '1234').trim();
+  const loginUrl = ctx.loginUrl || ctx.claimUrl;
+  const numberTag = ctx.locationId != null ? ` #${ctx.locationId}` : '';
   if (ctx.language === 'he') {
-    return `שלום ${ctx.locationName}, הוזמנת לנהל את דשבורד הגמ"ח שלך (${ctx.locationCode}). קוד הכניסה: ${pin}. להתחלה:\n${ctx.claimUrl}\n— ${signOff}`;
+    return `תודה שאתה מנהל גמ"ח${numberTag}! קוד הכניסה שלך: ${pin}. התחבר כאן:\n${loginUrl}\n— ${signOff}`;
   }
-  return `Hi ${ctx.locationName}, your ${ctx.locationCode} gemach dashboard is ready. PIN: ${pin}. Get started here:\n${ctx.claimUrl}\n— ${signOff}`;
+  return `Thank you for running gemach${numberTag}! Your PIN is ${pin}. Log in at:\n${loginUrl}\n— ${signOff}`;
 }
 
 // WhatsApp welcome body — more conversational, uses line breaks for readability.

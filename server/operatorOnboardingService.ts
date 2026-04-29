@@ -102,11 +102,14 @@ export async function buildWelcomePreview(loc: Location, baseUrl: string, signOf
     ? { token: loc.claimToken }
     : await storage.ensureLocationClaimToken(loc.id, generateClaimToken);
   const claimUrlPreview = buildClaimUrl(baseUrl, ensured.token);
+  const loginUrlPreview = `${baseUrl.replace(/\/$/, '')}/login`;
   const language = detectLanguage(loc);
   const enBody = buildOperatorWelcomeMessageBody({
     locationName: loc.name,
     locationCode: loc.locationCode,
+    locationId: loc.id,
     claimUrl: claimUrlPreview,
+    loginUrl: loginUrlPreview,
     language: 'en',
     defaultPin: loc.operatorPin || '1234',
     signOff,
@@ -114,7 +117,9 @@ export async function buildWelcomePreview(loc: Location, baseUrl: string, signOf
   const heBody = buildOperatorWelcomeMessageBody({
     locationName: loc.nameHe || loc.name,
     locationCode: loc.locationCode,
+    locationId: loc.id,
     claimUrl: claimUrlPreview,
+    loginUrl: loginUrlPreview,
     language: 'he',
     defaultPin: loc.operatorPin || '1234',
     signOff,
@@ -213,11 +218,15 @@ export async function sendWelcomeForLocation(
       ? applyMessageTemplate(options.messageBody, templateValues)
       : undefined;
 
+  const loginUrl = `${options.baseUrl.replace(/\/$/, '')}/login`;
+
   const sharedCtx = {
     toPhone: loc.phone!,
     locationName: localizedName,
     locationCode: loc.locationCode,
+    locationId: loc.id,
     claimUrl,
+    loginUrl,
     language,
     defaultPin: loc.operatorPin || '1234',
     signOff: options.signOff,
