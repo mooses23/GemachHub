@@ -1389,10 +1389,6 @@ export default function AdminLocations() {
                                           : null;
                                         const hasFailure = sms === "failed" || em === "failed" || location.welcomeWhatsappStatus === "failed";
                                         // Per-channel tooltip rows
-                                        const fmtDate = (d: Date) => {
-                                          const ago = Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
-                                          return ago === 0 ? "Today" : ago === 1 ? "1 day ago" : `${ago} days ago`;
-                                        };
                                         type ChannelRow = { key: "sms" | "whatsapp" | "email"; label: string; sentAt: Date | null; status: string | null; error: string | null };
                                         const channelRows: ChannelRow[] = [
                                           { key: "sms", label: "SMS", sentAt: location.welcomeSmsSentAt ? new Date(location.welcomeSmsSentAt as string) : null, status: location.welcomeSmsStatus ?? null, error: location.welcomeSmsError ?? null },
@@ -1400,7 +1396,9 @@ export default function AdminLocations() {
                                           { key: "email", label: "Email", sentAt: location.welcomeEmailSentAt ? new Date(location.welcomeEmailSentAt as string) : null, status: location.welcomeEmailStatus ?? null, error: location.welcomeEmailError ?? null },
                                         ];
                                         const hasAnyAttempt = candidates.length > 0;
-                                        const tooltipRows = channelRows.filter(r => r.sentAt || r.status);
+                                        // Always show all 3 channels; non-attempted ones show "Not sent"
+                                        const tooltipRows = channelRows;
+                                        const fmtTimestamp = (d: Date) => d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
                                         const statusColor = (s: string | null) => {
                                           if (!s) return "text-muted-foreground";
                                           if (s === "delivered") return "text-green-500";
@@ -1467,14 +1465,14 @@ export default function AdminLocations() {
                                                     <div className="flex flex-col min-w-0">
                                                       <div className="flex items-center gap-1.5">
                                                         <span className="text-[11px] font-medium text-foreground">{row.label}</span>
-                                                        {row.status && (
-                                                          <span className={`text-[10px] font-medium ${statusColor(row.status)}`}>
-                                                            {row.status}
-                                                          </span>
-                                                        )}
+                                                        <span className={`text-[10px] font-medium ${row.status ? statusColor(row.status) : "text-muted-foreground/60"}`}>
+                                                          {row.status ?? "not sent"}
+                                                        </span>
                                                       </div>
-                                                      {row.sentAt && (
-                                                        <span className="text-[10px] text-muted-foreground">{fmtDate(row.sentAt)}</span>
+                                                      {row.sentAt ? (
+                                                        <span className="text-[10px] text-muted-foreground">{fmtTimestamp(row.sentAt)}</span>
+                                                      ) : (
+                                                        <span className="text-[10px] text-muted-foreground/50">—</span>
                                                       )}
                                                       {row.error && (
                                                         <span className="text-[10px] text-red-400 truncate" title={row.error}>Error: {row.error.slice(0, 40)}{row.error.length > 40 ? "…" : ""}</span>
