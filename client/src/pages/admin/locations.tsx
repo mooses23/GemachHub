@@ -1700,12 +1700,12 @@ export default function AdminLocations() {
                         <button
                           type="button"
                           className="text-[10px] px-1.5 py-0.5 rounded border border-input text-muted-foreground hover:text-foreground hover:border-foreground/50"
-                          onClick={() => { setMessageBody(getBulkTemplateEN(welcomeChannel)); setIsCustomMessage(false); }}
+                          onClick={() => { setMessageBody(getBulkTemplateEN(welcomeChannel)); setIsCustomMessage(true); }}
                         >EN template</button>
                         <button
                           type="button"
                           className="text-[10px] px-1.5 py-0.5 rounded border border-input text-muted-foreground hover:text-foreground hover:border-foreground/50"
-                          onClick={() => { setMessageBody(BULK_TEMPLATE_HE); setIsCustomMessage(false); }}
+                          onClick={() => { setMessageBody(BULK_TEMPLATE_HE); setIsCustomMessage(true); }}
                         >עב template</button>
                       </div>
                     </div>
@@ -1722,8 +1722,8 @@ export default function AdminLocations() {
                     />
                     <p className="text-[10px] text-muted-foreground mt-1">
                       {isCustomMessage
-                        ? "Custom message active — each recipient's tokens will be substituted on send."
-                        : "Showing EN template reference. Edit to create a custom message; otherwise each recipient receives the server-generated default for their language."}
+                        ? "Custom message — this body (with tokens substituted) will be sent to each recipient."
+                        : "Each recipient receives a server-generated default for their language. Load EN or HE template above to customize."}
                     </p>
                   </div>
 
