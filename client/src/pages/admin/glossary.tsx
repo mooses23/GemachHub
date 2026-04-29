@@ -366,18 +366,22 @@ function DocsTab() {
       }),
   });
   const seedMut = useMutation({
-    mutationFn: async (): Promise<{ created: number; skipped: number; indexScanned: number; indexCreated: number }> =>
+    mutationFn: async (): Promise<{ created: number; updated: number; skipped: number; indexScanned: number; indexCreated: number }> =>
       (await apiRequest("POST", "/api/admin/knowledge-docs/seed", {})).json(),
     onSuccess: (r) => {
       queryClient.invalidateQueries({ queryKey: DOCS_KEY });
+      const parts: string[] = [];
+      if ((r?.created ?? 0) > 0) parts.push(`${r.created} created`);
+      if ((r?.updated ?? 0) > 0) parts.push(`${r.updated} updated from /rules`);
+      if ((r?.skipped ?? 0) > 0) parts.push(`${r.skipped} already current`);
       toast({
-        title: "Seed complete",
-        description: `Created ${r?.created ?? 0} docs (${r?.skipped ?? 0} already present); indexed ${r?.indexCreated ?? 0} new sources.`,
+        title: "Sync complete",
+        description: `${parts.join(", ")}; indexed ${r?.indexCreated ?? 0} new sources.`,
       });
     },
     onError: (e: unknown) =>
       toast({
-        title: "Seed failed",
+        title: "Sync failed",
         description: e instanceof Error ? e.message : String(e),
         variant: "destructive",
       }),
@@ -395,10 +399,10 @@ function DocsTab() {
               onClick={() => seedMut.mutate()}
               disabled={seedMut.isPending}
               data-testid="button-seed-default-docs"
-              title="Insert the bundled /rules + common-scenarios docs (EN + HE) and rebuild embeddings"
+              title="Sync all bundled seed docs (Borrowing Rules EN + HE, Common Scenarios EN + HE) with their canonical source. Creates missing docs and overwrites any whose body has drifted from the source — including manual edits made in this UI. Then rebuilds embeddings."
             >
               <Sparkles className="h-4 w-4 mr-1" />
-              {seedMut.isPending ? "Seeding…" : "Seed default docs"}
+              {seedMut.isPending ? "Syncing…" : "Sync /rules docs"}
             </Button>
             <Button size="sm" variant="outline" onClick={() => backfillMut.mutate()} disabled={backfillMut.isPending} data-testid="button-backfill-embeddings">
               {backfillMut.isPending ? "Indexing…" : "Re-index all"}

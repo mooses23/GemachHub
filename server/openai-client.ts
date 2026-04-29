@@ -8,6 +8,7 @@ import type {
   GemachApplication,
 } from '../shared/schema.js';
 import { siblingsForSeed, type FormItemForGrouping } from '../shared/form-thread-grouping.js';
+import { buildRulesSeedBody } from '../shared/rules-content.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -196,74 +197,22 @@ export async function reindexReplyExample(r: ReplyExample): Promise<void> {
 //
 // Both EN and HE versions are seeded so Hebrew-speaking senders pull Hebrew
 // retrieval context and English senders pull English context. The body copy
-// mirrors the live /rules page (see client/src/lib/translations.ts: depositPolicy*,
-// borrowingPeriod*, careInstruction1-4, returnInstruction1-4, responsibility*).
+// is generated from shared/rules-content.ts — the same module the /rules page
+// imports — so editing the rules text in one place keeps the AI seed in sync.
 const SEED_DOCS: Array<{ title: string; category: string; language: 'en' | 'he'; body: string }> = [
   {
     title: 'Borrowing Rules (from /rules page)',
     category: 'borrowing',
     language: 'en',
-    body: `These are the standing rules for borrowing Baby Banz earmuffs from any gemach in our network. Source: ${SITE_URL}/rules
-
-ABOUT THE DEPOSIT
-- We kindly ask for a small $20 refundable deposit when you borrow our earmuffs.
-- You'll get the full deposit back when you return the earmuffs in good condition.
-- Some locations accept "pay later" via a saved card; if the earmuffs are not returned, the operator may charge the deposit.
-
-HOW LONG YOU CAN BORROW
-- Borrow the earmuffs for up to 2 weeks.
-- Need a little more time? Message the operator first — most are happy to extend if there is enough stock.
-
-A FEW GENTLE REMINDERS (CARE)
-- Please keep the earmuffs clean and dry.
-- Store them safely when not in use.
-- Handle with care so they last for the next family.
-- Please don't take them apart or modify them.
-
-WHEN YOU'RE DONE (RETURN)
-- Please return to the same location where you borrowed.
-- A quick check for any damage is appreciated before returning.
-- If something happens to them (lost / damaged / stained), please let the operator know — we'll work it out together.
-- Running late? No problem — just give the operator a heads up.
-
-THANK YOU
-- Taking good care of the earmuffs and returning them on time is what keeps the gemach running for the next family. Thank you for being part of the gemach community.
-
-QUESTIONS
-- For clarifications, point the writer to ${SITE_URL}/contact. Never invent rules that aren't on this page.`,
+    // Body is generated from shared/rules-content.ts — the same source the /rules page uses.
+    body: buildRulesSeedBody('en', SITE_URL),
   },
   {
     title: 'Borrowing Rules (Hebrew — מהדף /rules)',
     category: 'borrowing',
     language: 'he',
-    body: `אלו הכללים הקבועים להשאלת אוזניות Baby Banz מכל גמ״ח ברשת שלנו. מקור: ${SITE_URL}/rules
-
-לגבי הפיקדון
-- אנחנו מבקשים פיקדון קטן של $20 כשמשאילים את האוזניות.
-- מקבלים את כל הפיקדון בחזרה כשמחזירים את האוזניות במצב טוב.
-- חלק מהסניפים מקבלים "תשלום מאוחר יותר" עם כרטיס שמור; אם האוזניות לא מוחזרות, המפעיל רשאי לחייב את הפיקדון.
-
-כמה זמן אפשר להשאיל
-- אפשר להשאיל את האוזניות עד שבועיים.
-- צריכים עוד קצת זמן? פשוט צרו קשר עם המפעיל מראש — רובם ישמחו להאריך אם יש מספיק במלאי.
-
-כמה תזכורות נעימות (טיפול)
-- בבקשה שמרו על האוזניות נקיות ויבשות.
-- אחסנו אותן בבטחה כשלא בשימוש.
-- טפלו בעדינות — ככה הן יחזיקו מעמד למשפחה הבאה.
-- בבקשה אל תפרקו או תשנו אותן.
-
-כשסיימתם (החזרה)
-- בבקשה החזירו לאותו סניף שממנו השאלתם.
-- בדיקה קצרה לנזק לפני החזרה תתקבל בברכה.
-- אם משהו קורה להן (אבדה / נזק / כתם), בבקשה ספרו למפעיל — נסתדר ביחד.
-- מאחרים? אין בעיה — פשוט תנו למפעיל הודעה מראש.
-
-תודה רבה
-- שמירה טובה על האוזניות והחזרה בזמן הם מה שמאפשר לגמ״ח להמשיך לעזור למשפחה הבאה. תודה שאתם חלק מקהילת הגמ״ח.
-
-שאלות
-- להבהרות, הפנו את הפונה אל ${SITE_URL}/contact. אין להמציא כללים שאינם מופיעים בדף הזה.`,
+    // Body is generated from shared/rules-content.ts — the same source the /rules page uses.
+    body: buildRulesSeedBody('he', SITE_URL),
   },
   {
     title: 'Common Scenarios (FAQ playbook)',
@@ -334,40 +283,51 @@ function seedKey(s: { title: string; language: string }): string {
   return `${s.language}::${s.title.trim().toLowerCase()}`;
 }
 
-export async function seedKnowledgeDocs(): Promise<{ created: number; skipped: number }> {
+export async function seedKnowledgeDocs(): Promise<{ created: number; skipped: number; updated: number }> {
   let created = 0;
   let skipped = 0;
+  let updated = 0;
   try {
     const existing = await storage.getAllKnowledgeDocs().catch(() => [] as KnowledgeDoc[]);
-    const haveKeys = new Set(
-      existing.map(d => seedKey({ title: d.title, language: d.language || 'en' })),
+    const byKey = new Map(
+      existing.map(d => [seedKey({ title: d.title, language: d.language || 'en' }), d]),
     );
     // Backwards-compat: the original seed only inserted EN docs without the
     // language qualifier in the title. Treat any existing doc with a matching
     // title (regardless of language) as already-present for the EN seed so we
     // don't re-create it.
-    const haveTitlesAnyLang = new Set(existing.map(d => d.title.trim().toLowerCase()));
+    const byTitleAnyLang = new Map(existing.map(d => [d.title.trim().toLowerCase(), d]));
 
     for (const seed of SEED_DOCS) {
       const k = seedKey(seed);
-      const titleAlreadyPresent =
-        seed.language === 'en' && haveTitlesAnyLang.has(seed.title.trim().toLowerCase());
-      if (haveKeys.has(k) || titleAlreadyPresent) { skipped++; continue; }
-      const d = await storage.createKnowledgeDoc({
-        title: seed.title,
-        body: seed.body,
-        category: seed.category,
-        language: seed.language,
-        isActive: true,
-      });
-      // Best-effort indexing; don't block startup on embedding latency.
-      reindexDoc(d).catch(() => {});
-      created++;
+      const existing_en_compat =
+        seed.language === 'en' ? byTitleAnyLang.get(seed.title.trim().toLowerCase()) : undefined;
+      const existingDoc = byKey.get(k) ?? existing_en_compat;
+
+      if (!existingDoc) {
+        const d = await storage.createKnowledgeDoc({
+          title: seed.title,
+          body: seed.body,
+          category: seed.category,
+          language: seed.language,
+          isActive: true,
+        });
+        // Best-effort indexing; don't block startup on embedding latency.
+        reindexDoc(d).catch(() => {});
+        created++;
+      } else if (existingDoc.body.trim() !== seed.body.trim()) {
+        // Body has drifted from the canonical source — update it to stay in sync.
+        const d = await storage.updateKnowledgeDoc(existingDoc.id, { body: seed.body });
+        if (d) reindexDoc(d).catch(() => {});
+        updated++;
+      } else {
+        skipped++;
+      }
     }
   } catch (err) {
     console.warn('seedKnowledgeDocs failed:', err instanceof Error ? err.message : String(err));
   }
-  return { created, skipped };
+  return { created, skipped, updated };
 }
 
 export async function backfillEmbeddings(): Promise<{ scanned: number; created: number }> {

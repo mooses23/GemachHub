@@ -3631,14 +3631,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Re-seed the bundled /rules + common-scenarios knowledge docs (EN + HE) and
-  // rebuild embeddings so retrieval works immediately. Idempotent — won't
-  // duplicate existing seeded docs.
+  // rebuild embeddings so retrieval works immediately. Idempotent — creates
+  // missing docs and updates any whose body has drifted from the canonical source.
   app.post("/api/admin/knowledge-docs/seed", requireAdminMW, async (_req, res) => {
     try {
       const seedResult = await seedKnowledgeDocs();
       const indexResult = await backfillEmbeddings();
       res.json({
         created: seedResult.created,
+        updated: seedResult.updated,
         skipped: seedResult.skipped,
         indexScanned: indexResult.scanned,
         indexCreated: indexResult.created,
