@@ -88,6 +88,7 @@ import {
   CreditCard,
   Save,
   Settings,
+  Bell,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -306,6 +307,87 @@ function GlobalStripeSettingsPanel() {
                 </div>
               </div>
               <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                <Save className="h-4 w-4 mr-2" />
+                {saveMutation.isPending ? "Saving…" : "Save settings"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </details>
+  );
+}
+
+function NotificationSettingsPanel() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery<{ adminEmail: string }>({
+    queryKey: ["/api/admin/settings/notifications"],
+  });
+
+  const [emailValue, setEmailValue] = useState("");
+  const [seeded, setSeeded] = useState(false);
+
+  useEffect(() => {
+    if (data && !seeded) {
+      setEmailValue(data.adminEmail);
+      setSeeded(true);
+    }
+  }, [data, seeded]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", "/api/admin/settings/notifications", {
+        adminEmail: emailValue,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || "Failed to save");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings/notifications"] });
+      setSeeded(false);
+      toast({ title: "Saved", description: "Admin notification email updated." });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <details className="mb-6 group">
+      <summary className="flex items-center gap-2 cursor-pointer list-none rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
+        <Bell className="h-4 w-4 text-muted-foreground" />
+        <span>Notification settings</span>
+        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <Card className="mt-0 rounded-t-none border-t-0">
+        <CardContent className="pt-4 space-y-4">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            <>
+              <div className="max-w-sm">
+                <label className="block text-xs font-medium mb-1">Admin alert email</label>
+                <Input
+                  type="email"
+                  placeholder="admin@example.com"
+                  value={emailValue}
+                  onChange={e => setEmailValue(e.target.value)}
+                  data-testid="input-admin-notification-email"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  New application alerts and system notifications are sent to this address.
+                  Falls back to the <code className="bg-muted px-0.5 rounded">ADMIN_EMAIL</code> environment variable if left empty.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                data-testid="button-save-notification-settings"
+              >
                 <Save className="h-4 w-4 mr-2" />
                 {saveMutation.isPending ? "Saving…" : "Save settings"}
               </Button>
@@ -972,6 +1054,7 @@ export default function AdminLocations() {
         </div>
 
         <GlobalStripeSettingsPanel />
+        <NotificationSettingsPanel />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

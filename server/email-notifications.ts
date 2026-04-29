@@ -7,11 +7,11 @@ export class EmailNotificationService {
   /**
    * Sends email notification for failed deposit confirmation
    */
-  static async notifyFailedDeposit(payment: any, transaction: any): Promise<void> {
+  static async notifyFailedDeposit(payment: any, transaction: any, adminEmail?: string): Promise<void> {
     try {
       // Email configuration would require SMTP credentials from user
       const emailData = {
-        to: process.env.ADMIN_EMAIL || 'admin@gemach.com',
+        to: adminEmail || process.env.ADMIN_EMAIL || 'admin@gemach.com',
         subject: `Failed Deposit Confirmation - Transaction #${transaction.id}`,
         html: `
           <h2>Deposit Confirmation Failed</h2>

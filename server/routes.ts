@@ -1096,7 +1096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         community: application.community,
       }).catch((e) => console.error("Application confirmation email failed:", e));
 
-      const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER || "";
+      const adminEmail = await getAdminNotificationEmail();
       if (adminEmail) {
         sendAdminNewApplicationAlert({
           adminEmail,
@@ -1698,7 +1698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await EmailNotificationService.notifyDepositConfirmed(updatedPayment, transaction);
       } else {
         const transaction = await storage.getTransaction(payment.transactionId);
-        await EmailNotificationService.notifyFailedDeposit(updatedPayment, transaction);
+        await EmailNotificationService.notifyFailedDeposit(updatedPayment, transaction, await getAdminNotificationEmail());
       }
 
       res.json(updatedPayment);
@@ -4506,6 +4506,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // ===========================================================================
+  // Admin notification settings — configurable admin alert email address.
+  // ===========================================================================
+
+  const ADMIN_NOTIFICATION_EMAIL_KEY = "admin_notification_email";
+
+  /** Returns the admin notification email: DB setting → ADMIN_EMAIL env → GMAIL_USER env → "". */
+  async function getAdminNotificationEmail(): Promise<string> {
+    const row = await storage.getGlobalSetting(ADMIN_NOTIFICATION_EMAIL_KEY);
+    if (row?.value) return row.value;
+    return process.env.ADMIN_EMAIL || process.env.GMAIL_USER || "";
+  }
+
+  app.get("/api/admin/settings/notifications", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const adminEmail = await getAdminNotificationEmail();
+    res.json({ adminEmail });
+  });
+
+  app.patch("/api/admin/settings/notifications", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    const { adminEmail } = req.body || {};
+    if (typeof adminEmail !== "string") {
+      return res.status(400).json({ message: "adminEmail must be a string" });
+    }
+    const trimmed = adminEmail.trim();
+    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      return res.status(400).json({ message: "Invalid email address" });
+    }
+    await storage.setGlobalSetting(ADMIN_NOTIFICATION_EMAIL_KEY, trimmed);
+    res.json({ adminEmail: trimmed });
+  });
 
   // ===========================================================================
   // Stripe risk hardening — admin/operator settings, dispute summary,
