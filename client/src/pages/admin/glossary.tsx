@@ -11,7 +11,18 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Trash2, Plus, BookOpen, Save, Sparkles, MessageSquareText } from "lucide-react";
+import { Trash2, Plus, BookOpen, Save, Sparkles, MessageSquareText, RotateCcw } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { PlaybookFact, FaqEntry, KnowledgeDoc, ReplyExample } from "@shared/schema";
 
 const FACT_KEY = ["/api/admin/playbook-facts"] as const;
@@ -365,6 +376,16 @@ function DocsTab() {
         variant: "destructive",
       }),
   });
+  const resetMut = useMutation({
+    mutationFn: async (id: number): Promise<KnowledgeDoc> =>
+      (await apiRequest("POST", `/api/admin/knowledge-docs/${id}/reset-to-default`, {})).json(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DOCS_KEY });
+      toast({ title: "Restored", description: "The doc has been reset to its original wording." });
+    },
+    onError: (e: any) => toast({ title: "Reset failed", description: e.message, variant: "destructive" }),
+  });
+
   const seedMut = useMutation({
     mutationFn: async (): Promise<{ created: number; updated: number; skipped: number; indexScanned: number; indexCreated: number }> =>
       (await apiRequest("POST", "/api/admin/knowledge-docs/seed", {})).json(),
@@ -491,7 +512,7 @@ function DocsTab() {
                     value={merged.body}
                     onChange={(ev) => setEdits((p) => ({ ...p, [d.id]: { ...e, body: ev.target.value } }))}
                   />
-                  <div className="grid gap-2 md:grid-cols-[140px_140px_1fr_auto_auto] items-center">
+                  <div className="grid gap-2 md:grid-cols-[140px_140px_1fr_auto_auto_auto] items-center">
                     <Select
                       value={merged.language}
                       onValueChange={(v) => setEdits((p) => ({ ...p, [d.id]: { ...e, language: v } }))}
@@ -515,6 +536,35 @@ function DocsTab() {
                     >
                       <Save className="h-4 w-4 mr-1" /> Save
                     </Button>
+                    {d.title.includes("Common Scenarios") && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={resetMut.isPending}
+                            data-testid={`button-reset-doc-${d.id}`}
+                            title="Restore original wording"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Restore original wording?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will replace the current body of <strong>{d.title}</strong> with the out-of-the-box default text. Any edits you have made will be lost.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => resetMut.mutate(d.id)}>
+                              Restore default
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                     <Button
                       size="sm"
                       variant="destructive"

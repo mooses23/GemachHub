@@ -594,6 +594,7 @@ export default function AdminLocations() {
   // Tracks whether admin has manually edited the message body.
   // When false → server uses its own built-in template. When true → server uses messageBody with token substitution.
   const [isCustomMessage, setIsCustomMessage] = useState(false);
+  const [streamState, setStreamState] = useState<{ log: string; n: number; total: number } | null>(null);
 
   // Wraps all ADMIN-initiated edits to the message body (textarea onChanges).
   // Programmatic updates (preview load, channel change, template reset) call setMessageBody directly.
@@ -780,6 +781,68 @@ export default function AdminLocations() {
     onError: (err) => toast({ title: "Error", description: errorMessage(err, "Failed"), variant: "destructive" }),
   });
 
+  const sendAllStream = async (payload: { channel: OperatorWelcomeChannel; rememberAsDefault?: boolean; messageBody?: string; customMessage?: boolean }) => {
+    setStreamState({ log: "Starting…", n: 0, total: 0 });
+    try {
+      const res = await fetch("/api/admin/locations/onboarding/send-all-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+      if (!res.ok || !res.body) throw new Error("Failed to start send");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let doneSummary: { sent: number; failed: number; skipped: number; total: number } | null = null;
+      let eligible = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() ?? "";
+        for (const chunk of chunks) {
+          const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+          if (!line) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === "start") {
+              setStreamState({ log: `Preparing to send to ${data.total} location(s)…`, n: 0, total: data.total });
+            } else if (data.type === "progress") {
+              const icon = data.skipped ? "↩" : data.ok ? "✓" : "✗";
+              setStreamState({ log: `${icon} ${data.name}`, n: data.n, total: data.total });
+            } else if (data.type === "done") {
+              doneSummary = data.summary;
+              eligible = data.eligible;
+            } else if (data.type === "error") {
+              throw new Error(data.message || "Send failed");
+            }
+          } catch {
+            // ignore parse errors on individual events
+          }
+        }
+      }
+
+      if (doneSummary) {
+        toast({
+          title: "Messages sent to all contacts",
+          description: `Eligible: ${eligible} · Sent: ${doneSummary.sent} · Failed: ${doneSummary.failed}`,
+          variant: doneSummary.failed > 0 ? "destructive" : "default",
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      setWelcomeDialogOpen(false);
+      setWelcomeTarget(null);
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Send failed", variant: "destructive" });
+    } finally {
+      setStreamState(null);
+    }
+  };
+
   const getOnboardingStatus = (loc: Location): "onboarded" | "sent" | "failed" | "not-sent" => {
     if (loc.onboardedAt) return "onboarded";
     const sms = loc.welcomeSmsStatus?.toLowerCase();
@@ -842,11 +905,11 @@ export default function AdminLocations() {
     } else if (welcomeTarget.kind === "selected") {
       sendBulkOnboardingMutation.mutate({ locationIds: Array.from(selectedIds), channel: welcomeChannel, rememberAsDefault, messageBody: messageBody.trim() || undefined, customMessage: isCustomMessage });
     } else {
-      sendAllNotOnboardedMutation.mutate({ channel: welcomeChannel, rememberAsDefault, messageBody: messageBody.trim() || undefined, customMessage: isCustomMessage });
+      sendAllStream({ channel: welcomeChannel, rememberAsDefault, messageBody: messageBody.trim() || undefined, customMessage: isCustomMessage });
     }
   };
 
-  const dialogIsPending = sendWelcomeOneMutation.isPending || sendBulkOnboardingMutation.isPending || sendAllNotOnboardedMutation.isPending;
+  const dialogIsPending = sendWelcomeOneMutation.isPending || sendBulkOnboardingMutation.isPending || sendAllNotOnboardedMutation.isPending || !!streamState;
 
   const toggleSelectAll = (checked: boolean, visibleIds: number[]) => {
     if (checked) setSelectedIds(new Set(visibleIds));
@@ -2165,6 +2228,16 @@ export default function AdminLocations() {
                 </div>
               )}
             </div>
+
+            {streamState && (
+              <div className="mx-1 mb-2 flex items-center gap-2 rounded border bg-muted/50 px-3 py-1.5 font-mono text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                <span className="min-w-0 flex-1 truncate">{streamState.log}</span>
+                {streamState.total > 0 && (
+                  <span className="shrink-0 tabular-nums">{streamState.n}/{streamState.total}</span>
+                )}
+              </div>
+            )}
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setWelcomeDialogOpen(false)} disabled={dialogIsPending}>Cancel</Button>

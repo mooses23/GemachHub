@@ -25,6 +25,7 @@ import {
   ingestTwilioStatusCallback,
 } from "./operatorOnboardingService.js";
 import { OPERATOR_WELCOME_CHANNELS, OPERATOR_CONTACT_PREFERENCES, type PayLaterStatus } from "../shared/schema.js";
+import { buildScenariosSeedBody } from "../shared/scenarios-content.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
 import { groupContactsByThread } from "./inbox-threading.js";
 import {
@@ -978,6 +979,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e: any) {
       console.error('[onboarding] send-all failed:', e);
       res.status(500).json({ message: e?.message || 'Send-all failed' });
+    }
+  });
+
+  // SSE streaming variant — emits one progress event per location so the UI
+  // can show a live log bar without polling.
+  app.post('/api/admin/locations/onboarding/send-all-stream', async (req, res) => {
+    if (!requireOnboardingAdmin(req, res)) return;
+
+    const parsed = z.object({
+      channel: onboardingChannelSchema,
+      rememberAsDefault: z.boolean().optional(),
+      messageBody: z.string().optional(),
+      customMessage: z.boolean().optional(),
+    }).safeParse(req.body || {});
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Invalid request', errors: parsed.error.errors });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const emit = (data: object) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      if (typeof (res as any).flush === 'function') (res as any).flush();
+    };
+
+    try {
+      const all = await storage.getAllLocations();
+      const ch = parsed.data.channel;
+      const candidates = all.filter((loc) => {
+        if (loc.isActive === false || loc.onboardedAt) return false;
+        if (ch === 'sms') return !!loc.phone;
+        if (ch === 'whatsapp') return !!loc.phone;
+        if (ch === 'email') return !!loc.email;
+        return !!loc.phone || !!loc.email;
+      });
+
+      const total = candidates.length;
+      if (total === 0) {
+        emit({ type: 'done', eligible: 0, summary: { sent: 0, failed: 0, skipped: 0, total: 0 }, results: [] });
+        res.end();
+        return;
+      }
+
+      emit({ type: 'start', total });
+
+      const options = {
+        channel: parsed.data.channel,
+        baseUrl: getOnboardingBaseUrl(req),
+        rememberAsDefault: parsed.data.rememberAsDefault,
+        statusCallbackUrl: getOnboardingStatusCallbackUrl(req),
+        signOff: getOperatorWelcomeSigner(),
+        messageBody: parsed.data.messageBody,
+        customMessage: parsed.data.customMessage,
+      };
+
+      const results: Awaited<ReturnType<typeof sendWelcomeForLocation>>[] = [];
+      for (let i = 0; i < candidates.length; i++) {
+        const loc = candidates[i];
+        const r = await sendWelcomeForLocation(loc.id, options);
+        results.push(r);
+        emit({ type: 'progress', n: i + 1, total, name: loc.name, ok: r.ok, skipped: !!r.skipped });
+        if (i < candidates.length - 1) await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+
+      emit({ type: 'done', eligible: total, summary: summarizeResults(results), results });
+      res.end();
+    } catch (e: any) {
+      console.error('[onboarding] send-all-stream failed:', e);
+      emit({ type: 'error', message: e?.message || 'Send-all failed' });
+      res.end();
     }
   });
 
@@ -3451,6 +3526,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteKnowledgeDoc(id);
       storage.deleteKbEmbedding('doc', id).catch(() => {});
       res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/admin/knowledge-docs/:id/reset-to-default", requireAdminMW, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const doc = await storage.getKnowledgeDoc(id);
+      if (!doc) return res.status(404).json({ message: 'Document not found' });
+      if (!doc.title.includes('Common Scenarios')) {
+        return res.status(400).json({ message: 'This document does not have a resettable default' });
+      }
+      const lang = doc.language === 'he' ? 'he' : 'en';
+      const baseUrl = (process.env.APP_URL || process.env.SITE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+      const defaultBody = buildScenariosSeedBody(lang, baseUrl);
+      const updated = await storage.updateKnowledgeDoc(id, { body: defaultBody });
+      reindexDoc(updated).catch(() => {});
+      res.json(updated);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
