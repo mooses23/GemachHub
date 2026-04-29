@@ -797,8 +797,9 @@ export default function AdminLocations() {
       let buffer = "";
       let doneSummary: { sent: number; failed: number; skipped: number; total: number } | null = null;
       let eligible = 0;
+      let streamError: string | null = null;
 
-      while (true) {
+      outer: while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
@@ -807,24 +808,28 @@ export default function AdminLocations() {
         for (const chunk of chunks) {
           const line = chunk.split("\n").find((l) => l.startsWith("data: "));
           if (!line) continue;
+          let data: Record<string, any>;
           try {
-            const data = JSON.parse(line.slice(6));
-            if (data.type === "start") {
-              setStreamState({ log: `Preparing to send to ${data.total} location(s)…`, n: 0, total: data.total });
-            } else if (data.type === "progress") {
-              const icon = data.skipped ? "↩" : data.ok ? "✓" : "✗";
-              setStreamState({ log: `${icon} ${data.name}`, n: data.n, total: data.total });
-            } else if (data.type === "done") {
-              doneSummary = data.summary;
-              eligible = data.eligible;
-            } else if (data.type === "error") {
-              throw new Error(data.message || "Send failed");
-            }
+            data = JSON.parse(line.slice(6));
           } catch {
-            // ignore parse errors on individual events
+            continue; // skip malformed events
+          }
+          if (data.type === "start") {
+            setStreamState({ log: `Preparing to send to ${data.total} location(s)…`, n: 0, total: data.total });
+          } else if (data.type === "progress") {
+            const icon = data.skipped ? "↩" : data.ok ? "✓" : "✗";
+            setStreamState({ log: `${icon} ${data.name}`, n: data.n, total: data.total });
+          } else if (data.type === "done") {
+            doneSummary = data.summary;
+            eligible = data.eligible;
+          } else if (data.type === "error") {
+            streamError = data.message || "Send failed";
+            break outer; // stop reading; surface below
           }
         }
       }
+
+      if (streamError) throw new Error(streamError);
 
       if (doneSummary) {
         toast({
