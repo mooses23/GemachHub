@@ -9,6 +9,7 @@ import type {
 } from '../shared/schema.js';
 import { siblingsForSeed, type FormItemForGrouping } from '../shared/form-thread-grouping.js';
 import { buildRulesSeedBody } from '../shared/rules-content.js';
+import { buildScenariosSeedBody } from '../shared/scenarios-content.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -199,13 +200,16 @@ export async function reindexReplyExample(r: ReplyExample): Promise<void> {
 // retrieval context and English senders pull English context. The body copy
 // is generated from shared/rules-content.ts — the same module the /rules page
 // imports — so editing the rules text in one place keeps the AI seed in sync.
-const SEED_DOCS: Array<{ title: string; category: string; language: 'en' | 'he'; body: string }> = [
+// seedOnly: true  → create if missing, but do NOT overwrite edits admins make via the UI.
+// seedOnly: false → always sync body with the canonical source (used for /rules-derived docs).
+const SEED_DOCS: Array<{ title: string; category: string; language: 'en' | 'he'; body: string; seedOnly?: boolean }> = [
   {
     title: 'Borrowing Rules (from /rules page)',
     category: 'borrowing',
     language: 'en',
     // Body is generated from shared/rules-content.ts — the same source the /rules page uses.
     body: buildRulesSeedBody('en', SITE_URL),
+    seedOnly: false,
   },
   {
     title: 'Borrowing Rules (Hebrew — מהדף /rules)',
@@ -213,66 +217,27 @@ const SEED_DOCS: Array<{ title: string; category: string; language: 'en' | 'he';
     language: 'he',
     // Body is generated from shared/rules-content.ts — the same source the /rules page uses.
     body: buildRulesSeedBody('he', SITE_URL),
+    seedOnly: false,
   },
   {
     title: 'Common Scenarios (FAQ playbook)',
     category: 'general',
     language: 'en',
-    body: `Quick reference for the email scenarios that come up most often. Use these as the basis for replies; never invent details that contradict them.
-
-1. "How do I borrow a pair?"
-   - Direct the family to ${SITE_URL}/locations to find the closest gemach, then to ${SITE_URL}/borrow to start the borrow flow. The local operator will confirm pickup details.
-
-2. "I'm late returning — what do I do?"
-   - Reassure them, ask them to message the operator directly to arrange a return time. Mention that the deposit is held until return.
-
-3. "I lost / damaged a pair."
-   - Thank them for letting us know, ask them to contact the local operator. The operator decides on a deposit deduction or replacement on a case-by-case basis. Flag for human review when money is involved.
-
-4. "Can I open a gemach in my city?"
-   - Point them to the application at ${SITE_URL}/apply. We typically follow up within a week. Don't promise approval. Do NOT tell them to use the contact form for this.
-
-5. "How can I donate / can I send earmuffs?"
-   - Thank them warmly. Explain donations help us send earmuffs to new gemachs. Offer to connect them to a coordinator via ${SITE_URL}/contact.
-
-6. "What ages / how many decibels?"
-   - Earmuffs are sized for babies up to ~2 years old; older toddlers may also fit. They reduce loud-event noise (weddings, concerts, fireworks). Don't quote a specific dB rating unless it's in the FAQ.
-
-7. "I can't reach my local operator."
-   - Apologize, offer to nudge the operator. Do NOT share operator phone or email publicly. Tell the writer the admin will follow up. Flag for human review.
-
-8. "Refund / double-charge / chargeback."
-   - Acknowledge, do not promise an outcome, escalate. Always flag for human review.`,
+    // Body is generated from shared/scenarios-content.ts so admins can read the defaults there.
+    // seedOnly: true means this doc is seeded once and then editable from the admin Docs tab —
+    // running "Sync /rules docs" will NOT overwrite admin edits.
+    body: buildScenariosSeedBody('en', SITE_URL),
+    seedOnly: true,
   },
   {
     title: 'Common Scenarios (Hebrew — תרחישים נפוצים)',
     category: 'general',
     language: 'he',
-    body: `מדריך מהיר לתרחישים הנפוצים ביותר במייל. השתמשו בהם כבסיס לתשובות; אל תמציאו פרטים שסותרים אותם.
-
-1. "איך משאילים זוג?"
-   - הפנו את המשפחה אל ${SITE_URL}/locations למצוא את הגמ״ח הקרוב, ואז אל ${SITE_URL}/borrow להתחיל את תהליך ההשאלה. המפעיל המקומי יאשר את פרטי האיסוף.
-
-2. "אני מאחר/ת בהחזרה — מה לעשות?"
-   - הרגיעו, בקשו לפנות ישירות למפעיל לתאם זמן החזרה. הזכירו שהפיקדון מוחזק עד החזרה.
-
-3. "אבדה / נזק לזוג."
-   - הודו על העדכון, בקשו ליצור קשר עם המפעיל המקומי. המפעיל מחליט על ניכוי פיקדון או החלפה לפי כל מקרה. סמנו לבדיקה אנושית כשמדובר בכסף.
-
-4. "אפשר לפתוח גמ״ח בעיר שלי?"
-   - הפנו לטופס בקשה ${SITE_URL}/apply. בדרך כלל נחזור תוך שבוע. אין להבטיח אישור. אל תפנו אותם לטופס "צור קשר" לבקשה הזו.
-
-5. "איך אפשר לתרום / לשלוח אוזניות?"
-   - הודו בחום. הסבירו שתרומות עוזרות לנו לשלוח אוזניות לגמ״חים חדשים. הציעו לקשר עם רכז/ת דרך ${SITE_URL}/contact.
-
-6. "לאיזה גילאים / כמה דציבלים?"
-   - האוזניות מתאימות לתינוקות עד גיל ~2; ילדים גדולים יותר עשויים גם להתאים. הן מפחיתות רעש מאירועים רועשים (חתונות, זיקוקים, מופעים). אין לצטט ערך דציבלים אלא אם מופיע ב‑FAQ.
-
-7. "לא מצליח/ה להשיג את המפעיל המקומי."
-   - התנצלו, הציעו לדחוף את המפעיל. אין לשתף טלפון או מייל של המפעיל בפומבי. אמרו שהמנהל יחזור. סמנו לבדיקה אנושית.
-
-8. "החזר כספי / חיוב כפול / ביטול עסקה."
-   - אשרו קבלה, אל תבטיחו תוצאה, העלו לטיפול אנושי. תמיד לסמן לבדיקה אנושית.`,
+    // Body is generated from shared/scenarios-content.ts so admins can read the defaults there.
+    // seedOnly: true means this doc is seeded once and then editable from the admin Docs tab —
+    // running "Sync /rules docs" will NOT overwrite admin edits.
+    body: buildScenariosSeedBody('he', SITE_URL),
+    seedOnly: true,
   },
 ];
 
@@ -315,8 +280,10 @@ export async function seedKnowledgeDocs(): Promise<{ created: number; skipped: n
         // Best-effort indexing; don't block startup on embedding latency.
         reindexDoc(d).catch(() => {});
         created++;
-      } else if (existingDoc.body.trim() !== seed.body.trim()) {
+      } else if (!seed.seedOnly && existingDoc.body.trim() !== seed.body.trim()) {
         // Body has drifted from the canonical source — update it to stay in sync.
+        // seedOnly docs (e.g. Common Scenarios) are intentionally skipped here so
+        // admins can freely edit them from the Docs tab without re-seed overwriting them.
         const d = await storage.updateKnowledgeDoc(existingDoc.id, { body: seed.body });
         if (d) reindexDoc(d).catch(() => {});
         updated++;

@@ -399,7 +399,7 @@ function DocsTab() {
               onClick={() => seedMut.mutate()}
               disabled={seedMut.isPending}
               data-testid="button-seed-default-docs"
-              title="Sync all bundled seed docs (Borrowing Rules EN + HE, Common Scenarios EN + HE) with their canonical source. Creates missing docs and overwrites any whose body has drifted from the source — including manual edits made in this UI. Then rebuilds embeddings."
+              title="Syncs Borrowing Rules (EN + HE) with the canonical /rules page source — overwrites those two docs if they have drifted. Common Scenarios docs are left untouched so admins can edit them freely here. Missing seed docs (any) are created on demand."
             >
               <Sparkles className="h-4 w-4 mr-1" />
               {seedMut.isPending ? "Syncing…" : "Sync /rules docs"}
