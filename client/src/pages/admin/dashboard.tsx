@@ -15,7 +15,7 @@ import { Location, Transaction, GemachApplication, Contact } from "@/lib/types";
 import { 
   Users, MapPin, FileText, Package, Settings, Grid, List, 
   DollarSign, RefreshCw, AlarmClock, CheckCircle, BarChart3, Mail, MessageSquare,
-  Shield, AlertTriangle, BookOpen, Phone
+  Shield, AlertTriangle, BookOpen, Phone, Bell
 } from "lucide-react";
 import { Link } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
@@ -66,6 +66,33 @@ function GmailDisconnectedWarning() {
             >
               {showInstructions ? "Hide instructions" : "How to reconnect →"}
             </button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function NoNotificationEmailWarning() {
+  return (
+    <div className="mb-4" data-testid="card-no-notification-email">
+      <Card className="border-amber-300 bg-amber-50">
+        <CardContent className="pt-5">
+          <div className="flex items-start gap-3">
+            <Bell className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-amber-900">No notification email configured</p>
+              <p className="text-sm text-amber-800 mt-0.5">
+                New application alerts and system notifications will not be delivered until an admin email address is set.
+              </p>
+            </div>
+            <Link
+              href="/admin/locations"
+              className="text-sm font-medium text-amber-700 hover:text-amber-900 hover:underline whitespace-nowrap"
+              data-testid="link-notification-settings"
+            >
+              Configure now →
+            </Link>
           </div>
         </CardContent>
       </Card>
@@ -185,6 +212,11 @@ export default function Dashboard() {
     staleTime: 60_000,
   });
 
+  const { data: notifStatus } = useQuery<{ adminEmail: string; effectiveEmail: string; source: "db" | "env" | "none" }>({
+    queryKey: ["/api/admin/settings/notifications"],
+    staleTime: 60_000,
+  });
+
   const pendingApplications = applications.filter(app => app.status === "pending").length;
   const activeLocations = locations.filter(loc => loc.isActive).length;
   const pendingReturns = transactions.filter(tx => !tx.isReturned).length;
@@ -299,6 +331,11 @@ export default function Dashboard() {
             {/* Gmail disconnected warning */}
             {gmailStatus && !gmailStatus.configured && (
               <GmailDisconnectedWarning />
+            )}
+
+            {/* No notification email warning */}
+            {notifStatus && notifStatus.source === "none" && (
+              <NoNotificationEmailWarning />
             )}
 
             {/* Phone-less locations warning */}
