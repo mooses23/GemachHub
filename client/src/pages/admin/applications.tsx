@@ -69,7 +69,10 @@ import {
   ArrowLeft,
   Home,
   Plus,
-  Loader2
+  Loader2,
+  DollarSign,
+  KeyRound,
+  User
 } from "lucide-react";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
@@ -589,120 +592,83 @@ export default function AdminApplications() {
                 </div>
 
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmitApproval)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('locationName')}</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="e.g., Brooklyn Baby Banz Gemach" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <form onSubmit={form.handleSubmit(onSubmitApproval)} className="space-y-5">
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Location Details section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('locationName')}</span>
+                        <div className="flex-1 border-t border-border/60 ml-1" />
+                      </div>
                       <FormField
                         control={form.control}
-                        name="contactPerson"
+                        name="name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('contactPerson')}</FormLabel>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t('locationName')}</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <Input {...field} className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" placeholder="e.g., Brooklyn Baby Banz Gemach" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-
                       <FormField
                         control={form.control}
-                        name="regionId"
+                        name="address"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('region')}</FormLabel>
-                            <Select 
-                              onValueChange={(value) => {
-                                field.onChange(parseInt(value));
-                                form.setValue("cityCategoryId", null);
-                              }}
-                              value={field.value?.toString()}
-                            >
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t('fullAddress')}</FormLabel>
+                            <FormControl>
+                              <Input {...field} className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" placeholder={t('addressPlaceholder')} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="zipCode"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('zipCode')}</FormLabel>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder={t('selectRegion')} />
-                                </SelectTrigger>
+                                <Input {...field} className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" value={field.value ?? ""} />
                               </FormControl>
-                              <SelectContent>
-                                {regions.map((region) => (
-                                  <SelectItem key={region.id} value={region.id.toString()}>
-                                    {region.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="cityCategoryId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              {t('communityCategory')}
-                              {approveApplication?.community && (
-                                <span className="ml-2 text-xs text-muted-foreground">
-                                  ({t('applicantSelected')}: {approveApplication.community})
-                                </span>
-                              )}
-                            </FormLabel>
-                            <Select 
-                              onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))}
-                              value={field.value?.toString() ?? "none"}
-                            >
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('phoneNumber')}</FormLabel>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder={t('selectCommunityCategory')} />
-                                </SelectTrigger>
+                                <div className="relative">
+                                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                  <Input {...field} type="tel" className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" />
+                                </div>
                               </FormControl>
-                              <SelectContent>
-                                <SelectItem value="none">{t('noCategoryOption')}</SelectItem>
-                                {filteredCityCategories.map((category) => (
-                                  <SelectItem key={category.id} value={category.id.toString()}>
-                                    {category.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                       <FormField
                         control={form.control}
-                        name="operatorPin"
+                        name="email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('operatorPIN')}</FormLabel>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t('email')}</FormLabel>
                             <FormControl>
-                              <Input 
-                                {...field}
-                                placeholder={t('pinPlaceholder')}
-                                value={field.value ?? ""}
-                                maxLength={6}
-                                inputMode="numeric"
-                                onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                              />
+                              <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                <Input {...field} type="email" className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" />
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -710,78 +676,145 @@ export default function AdminApplications() {
                       />
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('fullAddress')}</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder={t('addressPlaceholder')} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="zipCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t('zipCode')}</FormLabel>
-                            <FormControl>
-                              <Input {...field} value={field.value ?? ""} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t('phoneNumber')}</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="tel" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    {/* Operator & Region section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('contactPerson')} &amp; {t('region')}</span>
+                        <div className="flex-1 border-t border-border/60 ml-1" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="contactPerson"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('contactPerson')}</FormLabel>
+                              <FormControl>
+                                <Input {...field} className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="regionId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('region')}</FormLabel>
+                              <Select 
+                                onValueChange={(value) => {
+                                  field.onChange(parseInt(value));
+                                  form.setValue("cityCategoryId", null);
+                                }}
+                                value={field.value?.toString()}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
+                                    <SelectValue placeholder={t('selectRegion')} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {regions.map((region) => (
+                                    <SelectItem key={region.id} value={region.id.toString()}>
+                                      {region.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="cityCategoryId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium text-muted-foreground">
+                                {t('communityCategory')}
+                                {approveApplication?.community && (
+                                  <span className="ml-1.5 text-[10px] text-muted-foreground/70">
+                                    ({t('applicantSelected')}: {approveApplication.community})
+                                  </span>
+                                )}
+                              </FormLabel>
+                              <Select 
+                                onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))}
+                                value={field.value?.toString() ?? "none"}
+                              >
+                                <FormControl>
+                                  <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
+                                    <SelectValue placeholder={t('selectCommunityCategory')} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="none">{t('noCategoryOption')}</SelectItem>
+                                  {filteredCityCategories.map((category) => (
+                                    <SelectItem key={category.id} value={category.id.toString()}>
+                                      {category.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="operatorPin"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('operatorPIN')}</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                  <Input 
+                                    {...field}
+                                    className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                                    placeholder={t('pinPlaceholder')}
+                                    value={field.value ?? ""}
+                                    maxLength={6}
+                                    inputMode="numeric"
+                                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('email')}</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="email" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-1 gap-4">
+                    {/* Deposit section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('depositAmount')}</span>
+                        <div className="flex-1 border-t border-border/60 ml-1" />
+                      </div>
                       <FormField
                         control={form.control}
                         name="depositAmount"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('depositAmount')} ($)</FormLabel>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t('depositAmount')} ($)</FormLabel>
                             <FormControl>
-                              <Input 
-                                {...field} 
-                                type="number" 
-                                value={field.value ?? 20}
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 20)}
-                              />
+                              <div className="relative max-w-[10rem]">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                <Input 
+                                  {...field} 
+                                  type="number"
+                                  className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                                  value={field.value ?? 20}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value) || 20)}
+                                />
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -789,10 +822,11 @@ export default function AdminApplications() {
                       />
                     </div>
 
-                    <div className="flex justify-end space-x-2 pt-4">
+                    <div className="border-t border-border/60 pt-4 flex justify-end gap-3">
                       <Button 
                         type="button"
-                        variant="outline" 
+                        variant="outline"
+                        className="h-11 px-6 text-sm"
                         onClick={() => {
                           setIsApproveDialogOpen(false);
                           setApproveApplication(null);
@@ -803,6 +837,7 @@ export default function AdminApplications() {
                       </Button>
                       <Button 
                         type="submit"
+                        className="h-11 px-6 text-sm"
                         disabled={approveWithLocationMutation.isPending}
                       >
                         {approveWithLocationMutation.isPending ? (

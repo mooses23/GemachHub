@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { GemachApplication, Location } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { 
   Dialog, 
@@ -24,7 +23,6 @@ interface LocationApprovalFormProps {
 }
 
 const labelClass = "text-xs font-medium text-muted-foreground block mb-1.5";
-const inputClass = "h-11 px-3 text-sm border-border/70 transition-colors hover:border-border focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 w-full rounded-md border bg-background";
 
 function SectionHeading({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
