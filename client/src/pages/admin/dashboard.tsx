@@ -88,6 +88,11 @@ function NoNotificationEmailWarning() {
             </div>
             <Link
               href="/admin/locations"
+              onClick={() => {
+                try {
+                  localStorage.setItem("gemachhub:notificationSettingsPanelOpen", "true");
+                } catch {}
+              }}
               className="text-sm font-medium text-amber-700 hover:text-amber-900 hover:underline whitespace-nowrap"
               data-testid="link-notification-settings"
             >
