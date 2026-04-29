@@ -441,8 +441,13 @@ export default function AdminLocations() {
   // Template strings used for bulk sends (placeholder tokens are substituted per-location on the server)
   const BULK_TEMPLATE_EN =
     "Hi {{name}}, you've been invited to manage your {{code}} gemach dashboard. Your one-time login PIN is {{pin}}. Tap here to get started:\n{{url}}\n— Earmuffs Gemach";
+  const BULK_TEMPLATE_EN_EMAIL =
+    "Hi {{name}},\n\nYou've been invited to manage your {{code}} gemach dashboard.\nYour one-time login PIN is: {{pin}}\n\nClick here to get started:\n{{url}}\n\n— Earmuffs Gemach";
   const BULK_TEMPLATE_HE =
     'שלום {{name}}, הוזמנת לנהל את דשבורד הגמ"ח שלך ({{code}}). קוד הכניסה החד-פעמי שלך: {{pin}}. לחץ כאן להתחלה:\n{{url}}\n— גמ"ח אטמי';
+
+  /** Returns the channel-appropriate EN bulk template. */
+  const getBulkTemplateEN = (ch: OperatorWelcomeChannel) => ch === "email" ? BULK_TEMPLATE_EN_EMAIL : BULK_TEMPLATE_EN;
 
   // Client-side substitution for live preview of admin-edited templates
   const applyBulkPreviewTemplate = (template: string, sample: Location, welcomeUrl?: string): string => {
@@ -511,10 +516,10 @@ export default function AdminLocations() {
     }
   }, [welcomeChannel]);
 
-  // When channel changes in bulk mode (and message is NOT customized), reset to the default template.
+  // When channel changes in bulk mode (and message is NOT customized), reset to the channel-appropriate template.
   useEffect(() => {
     if (welcomeTarget && welcomeTarget.kind !== "single" && !isCustomMessage) {
-      setMessageBody(BULK_TEMPLATE_EN);
+      setMessageBody(getBulkTemplateEN(welcomeChannel));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [welcomeChannel]);
@@ -644,7 +649,7 @@ export default function AdminLocations() {
     setWelcomeTarget({ kind: "selected" });
     setWelcomeChannel(defaultChannel);
     setRememberAsDefault(false);
-    setMessageBody(BULK_TEMPLATE_EN);
+    setMessageBody(getBulkTemplateEN(defaultChannel));
     setMessageBodyInitialized(true);
     setIsCustomMessage(false);
     setWelcomeDialogOpen(true);
@@ -654,7 +659,7 @@ export default function AdminLocations() {
     setWelcomeTarget({ kind: "all-not-onboarded" });
     setWelcomeChannel(defaultChannel);
     setRememberAsDefault(false);
-    setMessageBody(BULK_TEMPLATE_EN);
+    setMessageBody(getBulkTemplateEN(defaultChannel));
     setMessageBodyInitialized(true);
     setIsCustomMessage(false);
     setWelcomeDialogOpen(true);
@@ -1292,7 +1297,7 @@ export default function AdminLocations() {
                                                 <span>{daysAgo === 0 ? "Today" : daysAgo === 1 ? "1 day ago" : `${daysAgo} days ago`}</span>
                                               </div>
                                             ) : !location.onboardedAt ? (
-                                              <Badge variant="outline" className="text-xs text-muted-foreground w-fit">Not sent</Badge>
+                                              <Badge variant="outline" className="text-xs text-muted-foreground w-fit">Not messaged</Badge>
                                             ) : null}
                                             {hasFailure && (
                                               <Badge variant="destructive" className="text-xs w-fit">Failed</Badge>
@@ -1695,7 +1700,7 @@ export default function AdminLocations() {
                         <button
                           type="button"
                           className="text-[10px] px-1.5 py-0.5 rounded border border-input text-muted-foreground hover:text-foreground hover:border-foreground/50"
-                          onClick={() => { setMessageBody(BULK_TEMPLATE_EN); setIsCustomMessage(false); }}
+                          onClick={() => { setMessageBody(getBulkTemplateEN(welcomeChannel)); setIsCustomMessage(false); }}
                         >EN template</button>
                         <button
                           type="button"
@@ -1728,10 +1733,13 @@ export default function AdminLocations() {
                     const primaryQuery = bulkPreviewSamples.en ? bulkPreviewEnQuery : bulkPreviewHeQuery;
                     const primaryLang = bulkPreviewSamples.en ? "en" : "he";
                     const hasHe = !!bulkPreviewSamples.he && !!bulkPreviewSamples.en;
-                    // Count total eligible candidates
-                    const totalCandidates = welcomeTarget.kind === "selected"
-                      ? selectedIds.size
-                      : locations.filter((l) => l.isActive !== false && !l.onboardedAt).length;
+                    // Count channel-eligible candidates (must have phone for SMS/WhatsApp, contactEmail for email)
+                    const candidatePool = welcomeTarget.kind === "selected"
+                      ? ([...selectedIds].map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[])
+                      : locations.filter((l) => l.isActive !== false && !l.onboardedAt);
+                    const totalCandidates = candidatePool.filter(l =>
+                      welcomeChannel === "email" ? !!l.contactEmail : !!l.phone
+                    ).length;
                     const moreCount = totalCandidates > 1 ? totalCandidates - 1 : 0;
                     return (
                       <div className="space-y-1">
