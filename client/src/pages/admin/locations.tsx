@@ -564,6 +564,11 @@ export default function AdminLocations() {
   const [emailEditLocation, setEmailEditLocation] = useState<Location | null>(null);
   const [emailEditValue, setEmailEditValue] = useState("");
 
+  // ===== Inline phone editing =====
+  const [isPhoneDialogOpen, setIsPhoneDialogOpen] = useState(false);
+  const [phoneEditLocation, setPhoneEditLocation] = useState<Location | null>(null);
+  const [phoneEditValue, setPhoneEditValue] = useState("");
+
   // ===== Bulk selection (for the main table) =====
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -968,6 +973,29 @@ export default function AdminLocations() {
     setEmailEditLocation(location);
     setEmailEditValue(location.email || "");
     setIsEmailDialogOpen(true);
+  };
+
+  const savePhoneMutation = useMutation({
+    mutationFn: async ({ id, phone }: { id: number; phone: string }) => {
+      const res = await apiRequest("PATCH", `/api/locations/${id}`, { phone });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Phone updated", description: "The operator phone number has been saved." });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      setIsPhoneDialogOpen(false);
+      setPhoneEditLocation(null);
+      setPhoneEditValue("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleEditPhone = (location: Location) => {
+    setPhoneEditLocation(location);
+    setPhoneEditValue(location.phone || "");
+    setIsPhoneDialogOpen(true);
   };
 
   const toggleLocationStatus = (id: number, isActive: boolean) => {
@@ -1462,13 +1490,34 @@ export default function AdminLocations() {
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
                                       <div>{localized(location, "contactPerson")}</div>
-                                      <div className="text-xs text-muted-foreground flex items-center">
-                                        <Phone className="h-3 w-3 mr-1" />
-                                        {location.phone || <span className="italic">No phone</span>}
+                                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <Phone className="h-3 w-3 mr-1 shrink-0" />
+                                        {location.phone ? (
+                                          <button
+                                            className="hover:text-foreground hover:underline transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded"
+                                            onClick={() => handleEditPhone(location)}
+                                            title="Click to edit phone number"
+                                            data-testid={`btn-edit-phone-${location.id}`}
+                                          >
+                                            {location.phone}
+                                          </button>
+                                        ) : (
+                                          <span className="italic">No phone</span>
+                                        )}
                                       </div>
                                       <div className="text-xs text-muted-foreground flex items-center">
                                         <Mail className="h-3 w-3 mr-1" />
-                                        {location.email || <span className="italic">No email</span>}
+                                        {location.email ? (
+                                          <button
+                                            className="hover:text-foreground hover:underline transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded"
+                                            onClick={() => handleEditEmail(location)}
+                                            title="Click to edit email address"
+                                          >
+                                            {location.email}
+                                          </button>
+                                        ) : (
+                                          <span className="italic">No email</span>
+                                        )}
                                       </div>
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell">
@@ -2231,6 +2280,55 @@ export default function AdminLocations() {
                 {saveEmailMutation.isPending
                   ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
                   : <><Save className="h-4 w-4 mr-2" />Save Email</>
+                }
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Phone Dialog */}
+        <Dialog open={isPhoneDialogOpen} onOpenChange={(open) => {
+          setIsPhoneDialogOpen(open);
+          if (!open) { setPhoneEditValue(""); setPhoneEditLocation(null); }
+        }}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5 text-primary" />
+                Edit Operator Phone
+              </DialogTitle>
+              <DialogDescription>
+                {phoneEditLocation ? (
+                  <>Update or clear the phone number for <strong>{phoneEditLocation.name}</strong> ({phoneEditLocation.locationCode}). Leave blank to remove the number.</>
+                ) : ""}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="admin-phone-edit">Phone number (E.164 format, e.g. +15551234567)</Label>
+                <Input
+                  id="admin-phone-edit"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={phoneEditValue}
+                  onChange={(e) => setPhoneEditValue(e.target.value)}
+                  data-testid="input-phone-edit"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPhoneDialogOpen(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (!phoneEditLocation) return;
+                  savePhoneMutation.mutate({ id: phoneEditLocation.id, phone: phoneEditValue.trim() });
+                }}
+                disabled={savePhoneMutation.isPending}
+                data-testid="button-save-phone"
+              >
+                {savePhoneMutation.isPending
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</>
+                  : <><Save className="h-4 w-4 mr-2" />Save Phone</>
                 }
               </Button>
             </DialogFooter>
