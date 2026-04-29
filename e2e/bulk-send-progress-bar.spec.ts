@@ -154,3 +154,73 @@ test.describe("send-all-stream live progress bar — Task #143", () => {
     await expect(logBar).not.toBeVisible({ timeout: 5_000 });
   });
 });
+
+test.describe("Message Locations button disabled when all onboarded — Task #144", () => {
+  test("button is present but disabled and no dialog opens when all locations are onboarded", async ({ page }) => {
+    // Authenticate the browser session
+    const loginRes = await page.request.post("/api/login", {
+      data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD },
+    });
+    expect(loginRes.ok(), `admin login failed (${loginRes.status()})`).toBeTruthy();
+
+    // Fetch all locations so we know which ones to temporarily mark as onboarded
+    const locRes = await page.request.get("/api/locations");
+    expect(locRes.ok(), `failed to fetch locations (${locRes.status()})`).toBeTruthy();
+    const allLocations: Array<{ id: number; onboardedAt: string | null; phone: string | null; email: string | null }> =
+      await locRes.json();
+
+    // Record ALL locations that were NOT originally onboarded so every patched
+    // location is fully restored after the test (symmetric cleanup).
+    const toRestore = allLocations
+      .filter((l) => !l.onboardedAt)
+      .map((l) => l.id);
+
+    // Mark every non-onboarded location as onboarded so eligibleNotOnboarded becomes empty
+    const now = new Date().toISOString();
+    for (const id of toRestore) {
+      const patchRes = await page.request.patch(`/api/locations/${id}`, {
+        data: { onboardedAt: now },
+      });
+      expect(patchRes.ok(), `setup PATCH for location ${id} failed (${patchRes.status()})`).toBeTruthy();
+    }
+
+    try {
+      // Navigate to the admin locations page
+      await page.goto("/admin/locations");
+
+      // Wait for the locations table to load
+      await expect(page.locator('[data-testid^="checkbox-location-"]').first()).toBeVisible({
+        timeout: 20_000,
+      });
+
+      // The "Message Locations (N)" button must be visible
+      const sendAllBtn = page.getByTestId("button-onboarding-all-not-onboarded");
+      await expect(sendAllBtn).toBeVisible({ timeout: 10_000 });
+
+      // The button label must show "(0)" — no eligible un-onboarded locations
+      await expect(sendAllBtn).toContainText("(0)");
+
+      // The button must be disabled
+      await expect(sendAllBtn).toBeDisabled();
+
+      // Force-click the disabled button and confirm no dialog or stream is triggered
+      await sendAllBtn.click({ force: true });
+
+      // The send-welcome dialog confirm button must NOT appear
+      const confirmBtn = page.getByTestId("button-send-welcome-confirm");
+      await expect(confirmBtn).not.toBeVisible({ timeout: 3_000 });
+
+      // No streaming log bar must appear either
+      const logBar = page.getByTestId("bulk-send-log-bar");
+      await expect(logBar).not.toBeVisible({ timeout: 3_000 });
+    } finally {
+      // Restore: clear onboardedAt for every location we patched (symmetric cleanup)
+      for (const id of toRestore) {
+        const restoreRes = await page.request.patch(`/api/locations/${id}`, {
+          data: { onboardedAt: null },
+        });
+        expect(restoreRes.ok(), `teardown PATCH for location ${id} failed (${restoreRes.status()})`).toBeTruthy();
+      }
+    }
+  });
+});

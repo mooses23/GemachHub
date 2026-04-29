@@ -300,8 +300,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!location) {
         return res.status(404).json({ message: "Location not found" });
       }
-      
-      const updatedLocation = await storage.updateLocation(id, req.body);
+
+      // Drizzle timestamp columns require Date objects, not ISO strings.
+      // Convert any known timestamp fields that arrive as strings from JSON.
+      const body = { ...req.body };
+      const timestampFields = ["onboardedAt", "welcomeSentAt", "contactPreferenceSetAt"] as const;
+      for (const field of timestampFields) {
+        if (field in body) {
+          body[field] = body[field] === null ? null : new Date(body[field]);
+        }
+      }
+
+      const updatedLocation = await storage.updateLocation(id, body);
       res.json(updatedLocation);
     } catch (error) {
       console.error("Error updating location:", error);
