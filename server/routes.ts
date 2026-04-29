@@ -534,7 +534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid location code or PIN" });
       }
       
-      if (location.operatorPin !== pin) {
+      if ((location.operatorPin || '1234') !== pin) {
         return res.status(401).json({ message: "Invalid location code or PIN" });
       }
       
@@ -555,7 +555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { operatorPin, ...locationWithoutPin } = location;
         res.json({ 
           success: true, 
-          location: { ...locationWithoutPin, pinIsDefault: operatorPin === '1234' }
+          location: { ...locationWithoutPin, pinIsDefault: !operatorPin || operatorPin === '1234' }
         });
       });
     } catch (error) {
@@ -600,7 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Location not found" });
       }
 
-      if (location.operatorPin !== currentPin) {
+      if ((location.operatorPin || '1234') !== currentPin) {
         return res.status(401).json({ message: "Current PIN is incorrect" });
       }
 

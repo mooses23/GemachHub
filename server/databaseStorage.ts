@@ -1179,7 +1179,7 @@ export class DatabaseStorage implements IStorage {
           WHERE deposit_payment_method IN ('card', 'stripe')
             AND stripe_payment_intent_id IS NOT NULL
             AND pay_later_status IS NULL
-            AND created_at >= ${since}
+            AND borrow_date >= ${since}
       ) combined
       GROUP BY location_id
     `);

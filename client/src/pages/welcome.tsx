@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Check, MapPin, ArrowRight, Phone, MessageCircle, Mail, Package, Repeat2, BellRing, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Loader2, Check, MapPin, ArrowRight, Phone, MessageCircle, Mail, ShieldCheck } from "lucide-react";
 import { Location, OPERATOR_CONTACT_PREFERENCES, type OperatorContactPreference } from "@shared/schema";
 
 interface WelcomeResolveResponse {
@@ -25,7 +25,7 @@ interface WelcomeResolveResponse {
   alreadyOnboarded: boolean;
 }
 
-type Step = "confirm" | "details" | "pin" | "tour" | "done";
+type Step = "confirm" | "details" | "pin" | "done";
 
 export default function WelcomePage() {
   const [, params] = useRoute<{ token: string }>("/welcome/:token");
@@ -54,7 +54,6 @@ export default function WelcomePage() {
   const [contactPreference, setContactPreference] = useState<OperatorContactPreference>("phone");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [tourIdx, setTourIdx] = useState(0);
 
   // Pre-fill name/email if the operator has previously partially-onboarded.
   useEffect(() => {
@@ -114,23 +113,13 @@ export default function WelcomePage() {
       }
       refreshLocation();
       queryClient.invalidateQueries({ queryKey: ["/api/welcome", token] });
-      setStep("tour");
-      setTourIdx(0);
+      setLocation("/operator/dashboard");
     },
     onError: (e: Error) => {
       toast({ title: "Could not save", description: e.message || "Please try again.", variant: "destructive" });
     },
   });
 
-  const tourSlides = useMemo(() => isHebrew ? [
-    { icon: Package, title: "מלאי וחידוש מלאי", body: "במסך הראשי תראי את כמות האוזניות בכל צבע. הוראות ההזמנה החוזרת מ-Banz נמצאות תחת \"הוראות חידוש מלאי\" — עם קוד הנחה ושילוח חינם." },
-    { icon: Repeat2, title: "השאלה והחזרה", body: "להשאלה: \"השאלה חדשה\" → שם, טלפון, צבע, פיקדון. להחזרה: לחצי על \"החזרה\" בעסקה הפתוחה." },
-    { icon: BellRing, title: "תזכורות החזרה", body: "אם משאיל איחר, אפשר לשלוח לו תזכורת ידידותית בלחיצה אחת — באימייל או SMS." },
-  ] : [
-    { icon: Package, title: "Stock & restocking", body: "Your dashboard shows headband stock by color. Restocking instructions (with free shipping + discount codes for the Baby Banz site) live under \"Restocking Instructions\" on the main screen." },
-    { icon: Repeat2, title: "Lend & return wizards", body: "Use \"New Loan\" to record a borrower (name, phone, color, deposit). When they bring it back, hit \"Return\" on that row to wrap up." },
-    { icon: BellRing, title: "Return reminders", body: "If a borrower runs late, you can send them a soft reminder in one tap — by email or SMS, in their language." },
-  ], [isHebrew]);
 
   if (isLoading) {
     return (
@@ -211,12 +200,6 @@ export default function WelcomePage() {
               <CardDescription>4–6 digits. The temporary <strong>1234</strong> stops working once you save.</CardDescription>
             </>
           )}
-          {step === "tour" && (
-            <>
-              <CardTitle className="text-xl">A quick tour</CardTitle>
-              <CardDescription>{tourIdx + 1} of {tourSlides.length}</CardDescription>
-            </>
-          )}
           {step === "done" && (
             <>
               <CardTitle className="text-xl flex items-center gap-2"><Check className="h-5 w-5 text-green-600" /> You're in</CardTitle>
@@ -265,26 +248,6 @@ export default function WelcomePage() {
             />
           )}
 
-          {step === "tour" && (
-            <TourSlide
-              icon={tourSlides[tourIdx].icon}
-              title={tourSlides[tourIdx].title}
-              body={tourSlides[tourIdx].body}
-              isLast={tourIdx === tourSlides.length - 1}
-              onNext={() => {
-                if (tourIdx < tourSlides.length - 1) {
-                  setTourIdx(tourIdx + 1);
-                } else {
-                  // Spec: end of tour lands the operator straight in their
-                  // dashboard. No intermediate "you're in" tap-through.
-                  setStep("done");
-                  setLocation("/operator/dashboard");
-                }
-              }}
-              onBack={tourIdx > 0 ? () => setTourIdx(tourIdx - 1) : undefined}
-            />
-          )}
-
           {step === "done" && (
             <div className="flex items-center gap-2 text-muted-foreground" data-testid="welcome-redirecting">
               <Loader2 className="h-4 w-4 animate-spin" /> Opening your dashboard…
@@ -305,7 +268,7 @@ function FullScreenShell({ children }: { children: React.ReactNode }) {
 }
 
 function ProgressDots({ step }: { step: Step }) {
-  const steps: Step[] = ["confirm", "details", "pin", "tour", "done"];
+  const steps: Step[] = ["confirm", "details", "pin", "done"];
   const idx = steps.indexOf(step);
   return (
     <div className="flex gap-1 mb-3" aria-label="Progress">
@@ -436,27 +399,3 @@ function PinForm({
   );
 }
 
-function TourSlide({
-  icon: Icon, title, body, isLast, onNext, onBack,
-}: {
-  icon: LucideIcon; title: string; body: string; isLast: boolean;
-  onNext: () => void; onBack?: () => void;
-}) {
-  return (
-    <div className="space-y-3" data-testid="welcome-tour-slide">
-      <div className="flex items-center gap-2 text-primary">
-        <Icon className="h-5 w-5" />
-        <span className="font-semibold">{title}</span>
-      </div>
-      <p className="text-sm text-muted-foreground leading-relaxed">{body}</p>
-      <div className="flex gap-2">
-        {onBack && (
-          <Button type="button" variant="outline" onClick={onBack}>Back</Button>
-        )}
-        <Button type="button" className="flex-1" onClick={onNext} data-testid="welcome-tour-next">
-          {isLast ? "Open dashboard" : "Next"} <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
-    </div>
-  );
-}

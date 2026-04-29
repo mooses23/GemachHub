@@ -188,17 +188,30 @@ export interface ApplicationConfirmationContext {
 }
 
 export async function sendApplicationConfirmationEmail(ctx: ApplicationConfirmationContext): Promise<void> {
-  const subject = `We received your Baby Banz Gemach application, ${ctx.firstName}!`;
+  const subject = `${ctx.firstName}, we got your Gemach application — here's what happens next`;
+  const locationStr = [ctx.city, ctx.state, ctx.country && ctx.country !== ctx.state ? ctx.country : null].filter(Boolean).join(", ");
+  const communityStr = ctx.community ? ` in the ${ctx.community} community` : "";
   const body = `Hi ${ctx.firstName},
 
-Thank you for applying to open a Baby Banz Earmuffs Gemach in ${ctx.city}, ${ctx.state}${ctx.country && ctx.country !== ctx.state ? `, ${ctx.country}` : ""}${ctx.community ? ` (${ctx.community})` : ""}.
+Thank you so much for reaching out — we're genuinely excited that you're interested in bringing a Baby Banz Earmuffs Gemach to ${locationStr}${communityStr}!
 
-We've received your application and our team will review it shortly. We'll be in touch once a decision has been made.
+We've received your application and here's what to expect next:
 
-In the meantime, feel free to reply to this email if you have any questions.
+1. Review (usually within a few days)
+   Our team will look over your application and check whether the location is a good fit for the network.
 
-Warm regards,
-— The Baby Banz Gemach Network
+2. We'll reach out
+   If everything looks good, we'll contact you to discuss next steps, answer any questions, and get you set up with your own gemach dashboard.
+
+3. Go live!
+   Once approved, you'll receive a private link to activate your dashboard, set your PIN, and start lending earmuffs to families in your area.
+
+In the meantime, feel free to reply directly to this email if you have any questions — we're happy to help.
+
+Thanks again for wanting to be part of this. It really makes a difference for families!
+
+Warmly,
+The Baby Banz Gemach Network
 `;
   await sendNewEmail(ctx.email, subject, body);
 }

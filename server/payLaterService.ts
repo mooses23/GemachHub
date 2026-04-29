@@ -135,8 +135,12 @@ export class PayLaterService {
       depositFeeCents: feeCents,
     });
 
+    // Strip placeholder emails — Stripe rejects them with email_invalid.
+    const stripeEmail = data.borrowerEmail && !data.borrowerEmail.endsWith('@placeholder.local')
+      ? data.borrowerEmail
+      : undefined;
     const customer = await stripe.customers.create({
-      email: data.borrowerEmail || undefined,
+      email: stripeEmail,
       phone: data.borrowerPhone || undefined,
       name: data.borrowerName,
       metadata: {

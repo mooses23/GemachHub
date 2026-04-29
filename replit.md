@@ -44,6 +44,7 @@ Preferred communication style: Simple, everyday language.
 - **Refund System**: Role-based access control for processing full or partial refunds, aligned with deposit system.
 
 ### Operator Dashboard Features
+- **Operator PIN Logic**: New/dynamic locations start with a null PIN treated as "1234" — both login and PIN-change routes normalise `null` to `"1234"` so operators can set a real PIN on first use.
 - **Inventory Management**: Color-based tracking, low stock alerts, add stock functionality.
 - **Lend Wizard**: Guided process for lending, including color selection, borrower info, and deposit handling.
 - **Self-Deposit Acceptance**: Operators can accept self-deposits from customers who added their own card details. "Accept & Lend" button confirms lending without charging; status transitions from CARD_SETUP_COMPLETE to APPROVED.

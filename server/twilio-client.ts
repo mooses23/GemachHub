@@ -195,16 +195,39 @@ export interface OperatorWelcomeMessageContext {
   signOff?: string;
 }
 
-// Clear, friendly welcome body — one SMS segment where possible.
-// EN uses GSM-7; HE is UCS-2. Both stay well under 320 chars.
+// SMS welcome body — kept short (1–2 segments, GSM-7 for EN, UCS-2 for HE).
 // No emojis, no shouting, no "Reply STOP" footer.
 export function buildOperatorWelcomeMessageBody(ctx: OperatorWelcomeMessageContext): string {
   const signOff = (ctx.signOff || '').trim() || 'Earmuffs Gemach';
   const pin = (ctx.defaultPin || '1234').trim();
   if (ctx.language === 'he') {
-    return `שלום ${ctx.locationName}, הוזמנת לנהל את דשבורד הגמ"ח שלך (${ctx.locationCode}). קוד הכניסה החד-פעמי שלך: ${pin}. לחץ כאן להתחלה:\n${ctx.claimUrl}\n— ${signOff}`;
+    return `שלום ${ctx.locationName}, הוזמנת לנהל את דשבורד הגמ"ח שלך (${ctx.locationCode}). קוד הכניסה: ${pin}. להתחלה:\n${ctx.claimUrl}\n— ${signOff}`;
   }
-  return `Hi ${ctx.locationName}, you've been invited to manage your ${ctx.locationCode} gemach dashboard. Your one-time login PIN is ${pin}. Tap here to get started:\n${ctx.claimUrl}\n— ${signOff}`;
+  return `Hi ${ctx.locationName}, your ${ctx.locationCode} gemach dashboard is ready. PIN: ${pin}. Get started here:\n${ctx.claimUrl}\n— ${signOff}`;
+}
+
+// WhatsApp welcome body — more conversational, uses line breaks for readability.
+// Slightly longer than SMS since WhatsApp supports richer formatting.
+export function buildOperatorWelcomeWhatsAppBody(ctx: OperatorWelcomeMessageContext): string {
+  const signOff = (ctx.signOff || '').trim() || 'The Earmuffs Gemach Team';
+  const pin = (ctx.defaultPin || '1234').trim();
+  if (ctx.language === 'he') {
+    return `שלום ${ctx.locationName}! 👋\n\nהוזמנת לנהל את דשבורד גמ"ח האוזניות שלך (${ctx.locationCode}).\n\nכדי להתחיל:\n1. לחץ על הקישור: ${ctx.claimUrl}\n2. הכנס את קוד הגמ"ח שלך: *${ctx.locationCode}*\n3. הכנס את קוד הכניסה הזמני: *${pin}*\n\nתוכל לשנות את הקוד מיד לאחר הכניסה.\n\n— ${signOff}`;
+  }
+  return `Hi ${ctx.locationName}! 👋\n\nYou've been set up to manage the ${ctx.locationCode} Baby Banz Earmuffs Gemach dashboard.\n\nTo get started:\n1. Open your dashboard: ${ctx.claimUrl}\n2. Enter your location code: *${ctx.locationCode}*\n3. Use this temporary PIN: *${pin}*\n\nYou'll be prompted to set a private PIN right after you log in.\n\nReply to this message if you need any help!\n\n— ${signOff}`;
+}
+
+// WhatsApp return reminder — slightly more personal than the brief SMS version.
+export function buildReturnReminderWhatsAppBody(ctx: ReturnReminderSmsContext): string {
+  const firstName = (ctx.borrowerName || '').trim().split(/\s+/)[0] || ctx.borrowerName || '';
+  const dueStr = ctx.dueDate ? formatDueDate(ctx.dueDate, ctx.language) : '';
+  const link = ctx.statusUrl ? `\n${ctx.statusUrl}` : '';
+  if (ctx.language === 'he') {
+    const dueLine = dueStr ? ` — תאריך ההחזרה היה ${dueStr}` : '';
+    return `שלום ${firstName}!\n\nזוהי תזכורת ידידותית מגמ"ח אוזניות בייבי בנז ${ctx.locationName}${dueLine}.\n\nכשיתאפשר לך, נשמח אם תחזיר את האוזניות כדי שמשפחה נוספת תוכל ליהנות מהן.\n\nאם כבר החזרת — אפשר להתעלם מהודעה זו. תודה רבה!${link}`;
+  }
+  const dueLine = dueStr ? ` (was due ${dueStr})` : '';
+  return `Hi ${firstName}!\n\nThis is a friendly nudge from the ${ctx.locationName} Baby Banz Earmuffs Gemach${dueLine}.\n\nWhenever you get a chance, could you please return the earmuffs so the next family can use them? We really appreciate it!\n\nIf you've already brought them back, just ignore this — and thank you!${link}`;
 }
 
 export interface OperatorWelcomeSendContext extends OperatorWelcomeMessageContext {
@@ -279,8 +302,9 @@ export async function sendOperatorWelcomeWhatsApp(ctx: OperatorWelcomeSendContex
   if (!to) {
     return { ok: false, error: 'Phone number is missing or not a valid WhatsApp-capable number.' };
   }
-  // Use admin-edited custom body when provided; otherwise fall back to the built-in template.
-  const body = ctx.customBody || buildOperatorWelcomeMessageBody(ctx);
+  // Use admin-edited custom body when provided; otherwise use the WhatsApp-optimised template
+  // (longer, more conversational than the brief SMS body).
+  const body = ctx.customBody || buildOperatorWelcomeWhatsAppBody(ctx);
   const client = getClient();
   // If a content template SID is configured for the operator's language,
   // use it (avoids the 24-hour customer-care window restriction). Variables
