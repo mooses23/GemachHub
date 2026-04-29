@@ -1546,7 +1546,7 @@ export default function AdminLocations() {
                                           : (smsStatus === "failed" || smsStatus === "undelivered") ? "text-red-500"
                                           : "text-muted-foreground";
                                         const emailStatus = location.welcomeEmailStatus?.toLowerCase();
-                                        const emailIconColor = (emailStatus === "delivered" || emailStatus === "sent") ? "text-green-600"
+                                        const emailIconColor = emailStatus === "delivered" ? "text-green-600"
                                           : emailStatus === "failed" ? "text-red-500"
                                           : "text-muted-foreground";
                                         const channelIcon = latest?.channel === "sms"
