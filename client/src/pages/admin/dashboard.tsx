@@ -122,7 +122,7 @@ function StripeRiskCard() {
 }
 
 type ViewMode = 'grid' | 'list' | 'compact';
-type DashboardSection = 'overview' | 'analytics';
+type DashboardSection = 'overview';
 
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -232,7 +232,9 @@ export default function Dashboard() {
               <Link href="/admin/applications" className="whitespace-nowrap px-4 inline-flex items-center justify-center rounded-sm py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-muted/50">
                 {t('applications')}
               </Link>
-              <TabsTrigger value="analytics" className="whitespace-nowrap px-4">{t('analytics')}</TabsTrigger>
+              <Link href="/admin/analytics" className="whitespace-nowrap px-4 inline-flex items-center justify-center rounded-sm py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-muted/50">
+                {t('analytics')}
+              </Link>
             </TabsList>
           </div>
           
@@ -360,36 +362,6 @@ export default function Dashboard() {
             </div>
           </TabsContent>
 
-          <TabsContent value="analytics">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('analyticsReports')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p>{t('comprehensiveAnalytics')}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 border rounded-lg">
-                      <h3 className="font-semibold mb-2">{t('usageStatistics')}</h3>
-                      <p className="text-sm text-muted-foreground">{t('trackLocationPerformance')}</p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h3 className="font-semibold mb-2">{t('financialReports')}</h3>
-                      <p className="text-sm text-muted-foreground">{t('monitorDepositsReturns')}</p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h3 className="font-semibold mb-2">{t('regionalAnalysis')}</h3>
-                      <p className="text-sm text-muted-foreground">{t('comparePerformance')}</p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                      <h3 className="font-semibold mb-2">{t('growthMetrics')}</h3>
-                      <p className="text-sm text-muted-foreground">{t('trackExpansion')}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
     </div>

@@ -32,6 +32,7 @@ const PaymentConfirmations = lazy(() => import("@/pages/admin/payment-confirmati
 const PaymentStatusMonitor = lazy(() => import("@/pages/admin/payment-status-monitor"));
 const AdminInbox = lazy(() => import("@/pages/admin/inbox"));
 const AdminGlossary = lazy(() => import("@/pages/admin/glossary"));
+const AdminAnalytics = lazy(() => import("@/pages/admin/analytics"));
 
 const OperatorIndex = lazy(() => import("@/pages/operator/index"));
 const OperatorLogin = lazy(() => import("@/pages/operator/login"));
@@ -84,6 +85,7 @@ function LayoutRouter() {
         <ProtectedRoute path="/admin/payment-status" component={PaymentStatusMonitor} requiredRole="admin" />
         <ProtectedRoute path="/admin/inbox" component={AdminInbox} requiredRole="admin" />
         <ProtectedRoute path="/admin/glossary" component={AdminGlossary} requiredRole="admin" />
+        <ProtectedRoute path="/admin/analytics" component={AdminAnalytics} requiredRole="admin" />
         <Route path="/admin/emails">{() => <Redirect to="/admin/inbox" />}</Route>
         <Route path="/admin/messages">{() => <Redirect to="/admin/inbox" />}</Route>
         
