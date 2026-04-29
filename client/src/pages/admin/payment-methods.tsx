@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ElementType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +21,7 @@ const inputClass =
 
 const labelClass = "text-xs font-medium text-muted-foreground";
 
-function SectionHeading({ icon: Icon, label }: { icon: any; label: string }) {
+function SectionHeading({ icon: Icon, label }: { icon: ElementType; label: string }) {
   return (
     <div className="flex items-center gap-2 pt-1">
       <Icon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -401,15 +402,15 @@ export default function PaymentMethodsAdmin() {
                 </p>
               </div>
 
-              <div className="border-t border-border/60 pt-4 flex gap-2">
-                <Button type="submit" className="flex-1 h-11 text-sm font-medium" disabled={createMutation.isPending}>
+              <div className="border-t border-border/60 pt-4 space-y-2">
+                <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={createMutation.isPending}>
                   <Save className="h-4 w-4 mr-2" />
                   {t('createMethod')}
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-11"
+                  variant="ghost"
+                  className="w-full h-9 text-sm"
                   onClick={() => {
                     setIsCreating(false);
                     form.reset();
@@ -501,15 +502,15 @@ export default function PaymentMethodsAdmin() {
                     </div>
                   </div>
 
-                  <div className="border-t border-border/60 pt-4 flex gap-2">
-                    <Button type="submit" className="flex-1 h-11 text-sm font-medium" disabled={updateMutation.isPending}>
+                  <div className="border-t border-border/60 pt-4 space-y-2">
+                    <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={updateMutation.isPending}>
                       <Save className="h-4 w-4 mr-2" />
                       {t('saveChanges')}
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
-                      className="h-11"
+                      variant="ghost"
+                      className="w-full h-9 text-sm"
                       onClick={() => setEditingId(null)}
                     >
                       <X className="h-4 w-4 mr-2" />
