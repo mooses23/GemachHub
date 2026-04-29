@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -33,12 +33,24 @@ interface LocationFormProps {
   location?: Location;
   regions: { id: number; name: string }[];
   onSuccess?: () => void;
+  focusPhone?: boolean;
 }
 
-export function LocationForm({ location, regions, onSuccess }: LocationFormProps) {
+export function LocationForm({ location, regions, onSuccess, focusPhone }: LocationFormProps) {
   const { toast } = useToast();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusPhone && phoneInputRef.current) {
+      const timer = setTimeout(() => {
+        phoneInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        phoneInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [focusPhone]);
 
   const form = useForm<InsertLocation>({
     resolver: zodResolver(insertLocationSchema.omit({ locationCode: true, operatorPin: true })),
@@ -276,20 +288,27 @@ export function LocationForm({ location, regions, onSuccess }: LocationFormProps
           <FormField
             control={form.control}
             name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("phoneLabel")}</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    className="w-full"
-                    value={field.value || ""}
-                    onChange={(e) => field.onChange(e.target.value)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const mergedRef = (el: HTMLInputElement | null) => {
+                (phoneInputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+                field.ref(el);
+              };
+              return (
+                <FormItem>
+                  <FormLabel>{t("phoneLabel")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      ref={mergedRef}
+                      className={`w-full ${focusPhone ? "ring-2 ring-orange-400 ring-offset-1" : ""}`}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
 
           <FormField

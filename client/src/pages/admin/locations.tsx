@@ -95,18 +95,34 @@ import { Badge } from "@/components/ui/badge";
 // ---- Helper sub-components ----
 
 
-function NoPhoneBadge() {
+function NoPhoneBadge({ onClick }: { onClick?: () => void }) {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge variant="outline" className="text-xs border-orange-400 text-orange-700 bg-orange-50 cursor-help">
+          <Badge
+            variant="outline"
+            className={`text-xs border-orange-400 text-orange-700 bg-orange-50 ${onClick ? "cursor-pointer hover:bg-orange-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400" : "cursor-help"}`}
+            onClick={onClick}
+            {...(onClick ? {
+              role: "button",
+              tabIndex: 0,
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClick();
+                }
+              },
+            } : {})}
+          >
             <Phone className="h-3 w-3 mr-1" />
             No phone
           </Badge>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs text-xs">
-          This location has no phone number. SMS and WhatsApp messages cannot be sent until a phone number is added.
+          {onClick
+            ? "Click to add a phone number to this location."
+            : "This location has no phone number. SMS and WhatsApp messages cannot be sent until a phone number is added."}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -479,6 +495,7 @@ export default function AdminLocations() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [editFocusPhone, setEditFocusPhone] = useState(false);
   const [deletingLocation, setDeletingLocation] = useState<Location | null>(null);
   const [isPinDialogOpen, setIsPinDialogOpen] = useState(false);
   const [pinLocation, setPinLocation] = useState<Location | null>(null);
@@ -897,8 +914,9 @@ export default function AdminLocations() {
     toggleStatusMutation.mutate({ id, isActive: !isActive });
   };
 
-  const handleEditLocation = (location: Location) => {
+  const handleEditLocation = (location: Location, focusPhone = false) => {
     setEditingLocation(location);
+    setEditFocusPhone(focusPhone);
     setIsEditDialogOpen(true);
   };
 
@@ -921,6 +939,7 @@ export default function AdminLocations() {
   const closeEditDialog = () => {
     setIsEditDialogOpen(false);
     setEditingLocation(null);
+    setEditFocusPhone(false);
   };
 
   const getRegionNameById = (regionId: number) => {
@@ -1385,7 +1404,7 @@ export default function AdminLocations() {
                                             {hasFailure && (
                                               <Badge variant="destructive" className="text-xs w-fit">Failed</Badge>
                                             )}
-                                            {!location.phone && <NoPhoneBadge />}
+                                            {!location.phone && <NoPhoneBadge onClick={() => handleEditLocation(location, true)} />}
                                           </div>
                                         );
                                       })()}
@@ -1457,7 +1476,7 @@ export default function AdminLocations() {
             </DialogHeader>
             {editingLocation && (
               <>
-                <LocationForm location={editingLocation} regions={regions} onSuccess={closeEditDialog} />
+                <LocationForm location={editingLocation} regions={regions} onSuccess={closeEditDialog} focusPhone={editFocusPhone} />
                 <LocationStripeFeeSection locationId={editingLocation.id} />
               </>
             )}
