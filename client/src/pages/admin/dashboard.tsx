@@ -122,7 +122,7 @@ function StripeRiskCard() {
 }
 
 type ViewMode = 'grid' | 'list' | 'compact';
-type DashboardSection = 'overview' | 'transactions' | 'applications' | 'analytics';
+type DashboardSection = 'overview' | 'analytics';
 
 export default function Dashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -226,8 +226,12 @@ export default function Dashboard() {
               <Link href="/admin/locations" className="whitespace-nowrap px-4 inline-flex items-center justify-center rounded-sm py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-muted/50">
                 {t('locations')}
               </Link>
-              <TabsTrigger value="transactions" className="whitespace-nowrap px-4">{t('transactions')}</TabsTrigger>
-              <TabsTrigger value="applications" className="whitespace-nowrap px-4">{t('applications')}</TabsTrigger>
+              <Link href="/admin/transactions" className="whitespace-nowrap px-4 inline-flex items-center justify-center rounded-sm py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-muted/50">
+                {t('transactions')}
+              </Link>
+              <Link href="/admin/applications" className="whitespace-nowrap px-4 inline-flex items-center justify-center rounded-sm py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-muted/50">
+                {t('applications')}
+              </Link>
               <TabsTrigger value="analytics" className="whitespace-nowrap px-4">{t('analytics')}</TabsTrigger>
             </TabsList>
           </div>
@@ -354,70 +358,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          <TabsContent value="transactions">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('transactionOverview')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <p>{t('monitorDeposits')}</p>
-                    <Link href="/admin/transactions">
-                      <Button>{t('viewTransactions')}</Button>
-                    </Link>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold">${depositTotal}</p>
-                      <p className="text-sm text-muted-foreground">{t('totalDeposits')}</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold">{pendingReturns}</p>
-                      <p className="text-sm text-muted-foreground">{t('pendingReturns')}</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold">{transactions.filter(tx => tx.isReturned).length}</p>
-                      <p className="text-sm text-muted-foreground">{t('completed')}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="applications">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('applicationManagement')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <p>{t('reviewApproveApplications')}</p>
-                    <Link href="/admin/applications">
-                      <Button>{t('reviewApplications')}</Button>
-                    </Link>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold">{applications.length}</p>
-                      <p className="text-sm text-muted-foreground">{t('totalApplications')}</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold text-orange-600">{pendingApplications}</p>
-                      <p className="text-sm text-muted-foreground">{t('pendingReview')}</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <p className="text-2xl font-bold text-green-600">{applications.filter(app => app.status === "approved").length}</p>
-                      <p className="text-sm text-muted-foreground">{t('approved')}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="analytics">
