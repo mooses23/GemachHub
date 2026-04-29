@@ -3877,7 +3877,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // This provides immediate status update without waiting for webhooks
   app.post("/api/deposits/confirm-setup", async (req, res) => {
     try {
-      const { setupIntentId, transactionId, consentText, consentMaxChargeCents } = req.body;
+      // consentText and consentMaxChargeCents are intentionally not read from the
+      // request body — the server computes both from stored transaction data so
+      // neither the consent wording nor the charge cap are client-influenceable.
+      const { setupIntentId, transactionId } = req.body;
 
       if (!setupIntentId) {
         return res.status(400).json({ message: "SetupIntent ID is required" });
@@ -3919,7 +3922,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateTransaction(tx.id, {
           consentText: serverConsentText,
           consentAcceptedAt: new Date(),
-          consentMaxChargeCents: typeof consentMaxChargeCents === 'number' ? consentMaxChargeCents : (tx.consentMaxChargeCents ?? undefined),
+          // consentMaxChargeCents is kept as stored — the server does not allow
+          // the client to widen or narrow the cap after setup-intent creation.
+          consentMaxChargeCents: tx.consentMaxChargeCents ?? undefined,
         });
       }
 

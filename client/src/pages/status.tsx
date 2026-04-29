@@ -112,6 +112,7 @@ function StripeSetupIntentForm({
   clientSecret,
   setupIntentId,
   consentText,
+  consentMaxChargeCents,
   borrowerName,
   onSuccess,
   onError,
@@ -119,6 +120,7 @@ function StripeSetupIntentForm({
   clientSecret: string;
   setupIntentId: string;
   consentText: string;
+  consentMaxChargeCents: number;
   borrowerName: string;
   onSuccess: () => void;
   onError: (error: string) => void;
@@ -166,8 +168,9 @@ function StripeSetupIntentForm({
           credentials: "include",
           body: JSON.stringify({
             setupIntentId,
-            consentText,
-            consentMaxChargeCents: maxChargeCents,
+            // consentText and consentMaxChargeCents are intentionally omitted —
+            // the server ignores client-provided values and recomputes both from
+            // stored transaction data (Task #53).
           }),
         });
       } catch (e) {
@@ -190,7 +193,7 @@ function StripeSetupIntentForm({
             Save your card
           </CardTitle>
           <CardDescription>
-            Maximum authorization: ${(maxChargeCents / 100).toFixed(2)} (only charged if item is not returned)
+            Maximum authorization: ${(consentMaxChargeCents / 100).toFixed(2)} (only charged if item is not returned)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -595,6 +598,7 @@ function StatusPageContent({
                     clientSecret={data.setupIntentClientSecret}
                     setupIntentId={data.setupIntentId}
                     consentText={data.consentText ?? `By saving this card, I authorize ${data.locationName || "this gemach"} to charge up to $${((data.consentMaxChargeCents ?? data.amountCents) / 100).toFixed(2)} if I do not return the borrowed item.`}
+                    consentMaxChargeCents={data.consentMaxChargeCents ?? data.amountCents}
                     borrowerName={data.borrowerName}
                     onSuccess={() => {
                       setPaymentSuccess(true);
