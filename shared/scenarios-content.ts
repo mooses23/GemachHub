@@ -1,5 +1,10 @@
 export type ScenariosLanguage = 'en' | 'he';
 
+export const SCENARIOS_RESETTABLE_TITLES = [
+  'Common Scenarios (FAQ playbook)',
+  'Common Scenarios (Hebrew — תרחישים נפוצים)',
+] as const;
+
 export function buildScenariosSeedBody(lang: ScenariosLanguage, siteUrl: string): string {
   if (lang === 'he') {
     return `מדריך מהיר לתרחישים הנפוצים ביותר במייל. השתמשו בהם כבסיס לתשובות; אל תמציאו פרטים שסותרים אותם.

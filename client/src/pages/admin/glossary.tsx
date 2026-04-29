@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { PlaybookFact, FaqEntry, KnowledgeDoc, ReplyExample } from "@shared/schema";
+import { SCENARIOS_RESETTABLE_TITLES } from "@shared/scenarios-content";
 
 const FACT_KEY = ["/api/admin/playbook-facts"] as const;
 const FAQ_KEY = ["/api/admin/faq-entries"] as const;
@@ -379,7 +380,12 @@ function DocsTab() {
   const resetMut = useMutation({
     mutationFn: async (id: number): Promise<KnowledgeDoc> =>
       (await apiRequest("POST", `/api/admin/knowledge-docs/${id}/reset-to-default`, {})).json(),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      setEdits((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: DOCS_KEY });
       toast({ title: "Restored", description: "The doc has been reset to its original wording." });
     },
@@ -536,7 +542,7 @@ function DocsTab() {
                     >
                       <Save className="h-4 w-4 mr-1" /> Save
                     </Button>
-                    {d.title.includes("Common Scenarios") && (
+                    {(SCENARIOS_RESETTABLE_TITLES as readonly string[]).includes(d.title) && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button

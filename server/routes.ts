@@ -25,7 +25,7 @@ import {
   ingestTwilioStatusCallback,
 } from "./operatorOnboardingService.js";
 import { OPERATOR_WELCOME_CHANNELS, OPERATOR_CONTACT_PREFERENCES, type PayLaterStatus } from "../shared/schema.js";
-import { buildScenariosSeedBody } from "../shared/scenarios-content.js";
+import { buildScenariosSeedBody, SCENARIOS_RESETTABLE_TITLES } from "../shared/scenarios-content.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
 import { groupContactsByThread } from "./inbox-threading.js";
 import {
@@ -3534,7 +3534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id, 10);
       const doc = await storage.getKnowledgeDoc(id);
       if (!doc) return res.status(404).json({ message: 'Document not found' });
-      if (!doc.title.includes('Common Scenarios')) {
+      if (!(SCENARIOS_RESETTABLE_TITLES as readonly string[]).includes(doc.title)) {
         return res.status(400).json({ message: 'This document does not have a resettable default' });
       }
       const lang = doc.language === 'he' ? 'he' : 'en';
