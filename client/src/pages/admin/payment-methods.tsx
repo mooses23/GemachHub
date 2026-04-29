@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Edit, Trash2, Save, X, CreditCard, ArrowLeft, Home } from "lucide-react";
+import { Plus, Edit, Trash2, Save, X, CreditCard, ArrowLeft, Home, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,23 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertPaymentMethodSchema } from "@shared/schema";
+
+const inputClass =
+  "h-11 px-3 text-sm border-border/70 transition-colors hover:border-border focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0";
+
+const labelClass = "text-xs font-medium text-muted-foreground";
+
+function SectionHeading({ icon: Icon, label }: { icon: any; label: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex-1 border-t border-border/60 ml-1" />
+    </div>
+  );
+}
 
 const formSchema = insertPaymentMethodSchema.extend({
   processingFeePercent: z.number().min(0).max(1000),
@@ -271,46 +288,51 @@ export default function PaymentMethodsAdmin() {
             <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="name">{t('methodName')}</Label>
+                  <Label htmlFor="name" className={labelClass}>{t('methodName')}</Label>
                   <Input
                     id="name"
                     {...form.register("name")}
                     placeholder={t('methodNamePlaceholder')}
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="displayName">{t('displayName')}</Label>
+                  <Label htmlFor="displayName" className={labelClass}>{t('displayName')}</Label>
                   <Input
                     id="displayName"
                     {...form.register("displayName")}
                     placeholder={t('displayNamePlaceholder')}
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="provider">{t('provider')}</Label>
+                  <Label htmlFor="provider" className={labelClass}>{t('provider')}</Label>
                   <Input
                     id="provider"
                     {...form.register("provider")}
                     placeholder={t('providerPlaceholder')}
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="processingFeePercent">{t('processingFeePercent')}</Label>
+                  <Label htmlFor="processingFeePercent" className={labelClass}>{t('processingFeePercent')}</Label>
                   <Input
                     id="processingFeePercent"
                     type="number"
                     step="0.01"
                     {...form.register("processingFeePercent", { valueAsNumber: true })}
                     placeholder={t('processingFeePlaceholder')}
+                    className={inputClass}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="fixedFee">{t('fixedFeeCents')}</Label>
+                  <Label htmlFor="fixedFee" className={labelClass}>{t('fixedFeeCents')}</Label>
                   <Input
                     id="fixedFee"
                     type="number"
                     {...form.register("fixedFee", { valueAsNumber: true })}
                     placeholder={t('fixedFeePlaceholder')}
+                    className={inputClass}
                   />
                 </div>
               </div>
@@ -321,69 +343,73 @@ export default function PaymentMethodsAdmin() {
                     id="isActive"
                     {...form.register("isActive")}
                   />
-                  <Label htmlFor="isActive">{t('active')}</Label>
+                  <Label htmlFor="isActive" className={labelClass}>{t('active')}</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="isAvailableToLocations"
                     {...form.register("isAvailableToLocations")}
                   />
-                  <Label htmlFor="isAvailableToLocations">{t('availableToLocations')}</Label>
+                  <Label htmlFor="isAvailableToLocations" className={labelClass}>{t('availableToLocations')}</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="requiresApi"
                     {...form.register("requiresApi")}
                   />
-                  <Label htmlFor="requiresApi">{t('requiresApi')}</Label>
+                  <Label htmlFor="requiresApi" className={labelClass}>{t('requiresApi')}</Label>
                 </div>
               </div>
 
               {/* API Credentials Section */}
-              <div className="border-t pt-4">
-                <h4 className="text-sm font-medium mb-3">{t('apiConfigurationOptional')}</h4>
+              <div className="space-y-3">
+                <SectionHeading icon={Key} label={t('apiConfigurationOptional')} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="apiKey">{t('apiKey')}</Label>
+                    <Label htmlFor="apiKey" className={labelClass}>{t('apiKey')}</Label>
                     <Input
                       id="apiKey"
                       type="password"
                       {...form.register("apiKey")}
                       placeholder={t('apiKeyPlaceholder')}
+                      className={inputClass}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="apiSecret">{t('apiSecret')}</Label>
+                    <Label htmlFor="apiSecret" className={labelClass}>{t('apiSecret')}</Label>
                     <Input
                       id="apiSecret"
                       type="password"
                       {...form.register("apiSecret")}
                       placeholder={t('apiSecretPlaceholder')}
+                      className={inputClass}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="webhookSecret">{t('webhookSecretOptional')}</Label>
+                    <Label htmlFor="webhookSecret" className={labelClass}>{t('webhookSecretOptional')}</Label>
                     <Input
                       id="webhookSecret"
                       type="password"
                       {...form.register("webhookSecret")}
                       placeholder={t('webhookSecretPlaceholder')}
+                      className={inputClass}
                     />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground">
                   {t('apiCredentialsAutoActivate')}
                 </p>
               </div>
 
-              <div className="flex gap-2">
-                <Button type="submit" disabled={createMutation.isPending}>
+              <div className="border-t border-border/60 pt-4 flex gap-2">
+                <Button type="submit" className="flex-1 h-11 text-sm font-medium" disabled={createMutation.isPending}>
                   <Save className="h-4 w-4 mr-2" />
                   {t('createMethod')}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
+                  className="h-11"
                   onClick={() => {
                     setIsCreating(false);
                     form.reset();
@@ -407,41 +433,46 @@ export default function PaymentMethodsAdmin() {
                 <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor={`name-${method.id}`}>{t('methodName')}</Label>
+                      <Label htmlFor={`name-${method.id}`} className={labelClass}>{t('methodName')}</Label>
                       <Input
                         id={`name-${method.id}`}
                         {...form.register("name")}
+                        className={inputClass}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`displayName-${method.id}`}>{t('displayName')}</Label>
+                      <Label htmlFor={`displayName-${method.id}`} className={labelClass}>{t('displayName')}</Label>
                       <Input
                         id={`displayName-${method.id}`}
                         {...form.register("displayName")}
+                        className={inputClass}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`provider-${method.id}`}>{t('provider')}</Label>
+                      <Label htmlFor={`provider-${method.id}`} className={labelClass}>{t('provider')}</Label>
                       <Input
                         id={`provider-${method.id}`}
                         {...form.register("provider")}
+                        className={inputClass}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`processingFeePercent-${method.id}`}>{t('processingFeePercent')}</Label>
+                      <Label htmlFor={`processingFeePercent-${method.id}`} className={labelClass}>{t('processingFeePercent')}</Label>
                       <Input
                         id={`processingFeePercent-${method.id}`}
                         type="number"
                         step="0.01"
                         {...form.register("processingFeePercent", { valueAsNumber: true })}
+                        className={inputClass}
                       />
                     </div>
                     <div>
-                      <Label htmlFor={`fixedFee-${method.id}`}>{t('fixedFeeCents')}</Label>
+                      <Label htmlFor={`fixedFee-${method.id}`} className={labelClass}>{t('fixedFeeCents')}</Label>
                       <Input
                         id={`fixedFee-${method.id}`}
                         type="number"
                         {...form.register("fixedFee", { valueAsNumber: true })}
+                        className={inputClass}
                       />
                     </div>
                   </div>
@@ -452,32 +483,33 @@ export default function PaymentMethodsAdmin() {
                         id={`isActive-${method.id}`}
                         {...form.register("isActive")}
                       />
-                      <Label htmlFor={`isActive-${method.id}`}>{t('active')}</Label>
+                      <Label htmlFor={`isActive-${method.id}`} className={labelClass}>{t('active')}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Switch
                         id={`isAvailableToLocations-${method.id}`}
                         {...form.register("isAvailableToLocations")}
                       />
-                      <Label htmlFor={`isAvailableToLocations-${method.id}`}>{t('availableToLocations')}</Label>
+                      <Label htmlFor={`isAvailableToLocations-${method.id}`} className={labelClass}>{t('availableToLocations')}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Switch
                         id={`requiresApi-${method.id}`}
                         {...form.register("requiresApi")}
                       />
-                      <Label htmlFor={`requiresApi-${method.id}`}>{t('requiresApi')}</Label>
+                      <Label htmlFor={`requiresApi-${method.id}`} className={labelClass}>{t('requiresApi')}</Label>
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button type="submit" disabled={updateMutation.isPending}>
+                  <div className="border-t border-border/60 pt-4 flex gap-2">
+                    <Button type="submit" className="flex-1 h-11 text-sm font-medium" disabled={updateMutation.isPending}>
                       <Save className="h-4 w-4 mr-2" />
                       {t('saveChanges')}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
+                      className="h-11"
                       onClick={() => setEditingId(null)}
                     >
                       <X className="h-4 w-4 mr-2" />
