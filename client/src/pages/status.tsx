@@ -52,6 +52,7 @@ interface StatusPageData {
   depositAmount?: number;
   depositFeeCents?: number | null;
   consentMaxChargeCents?: number | null;
+  consentText?: string | null;
 }
 
 type PayLaterStatus =
@@ -103,29 +104,21 @@ function useStatusInfo() {
   };
 }
 
-// Task #39: Borrower-facing card-on-file setup form. Renders an explicit
-// consent block (named gemach + max charge amount) ABOVE the submit button
-// and disables submission until the borrower acknowledges. Sends the exact
-// consent text + max charge to the server so we have a verbatim record of
-// what they agreed to.
-function buildConsentText(gemachName: string, maxChargeCents: number): string {
-  const dollars = (maxChargeCents / 100).toFixed(2);
-  return `By saving this card, I authorize ${gemachName} to charge up to $${dollars} plus a small processing fee if I do not return the borrowed item.`;
-}
-
+// Task #39 / Task #53: Borrower-facing card-on-file setup form. Renders an
+// explicit consent block ABOVE the submit button and disables submission until
+// the borrower acknowledges. The consent text comes from the server (/api/status
+// consentText field) so what the borrower sees is byte-identical to what is stored.
 function StripeSetupIntentForm({
   clientSecret,
   setupIntentId,
-  gemachName,
-  maxChargeCents,
+  consentText,
   borrowerName,
   onSuccess,
   onError,
 }: {
   clientSecret: string;
   setupIntentId: string;
-  gemachName: string;
-  maxChargeCents: number;
+  consentText: string;
   borrowerName: string;
   onSuccess: () => void;
   onError: (error: string) => void;
@@ -135,7 +128,6 @@ function StripeSetupIntentForm({
   const { t } = useLanguage();
   const [isProcessing, setIsProcessing] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
-  const consentText = buildConsentText(gemachName, maxChargeCents);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -602,8 +594,7 @@ function StatusPageContent({
                   <StripeSetupIntentForm
                     clientSecret={data.setupIntentClientSecret}
                     setupIntentId={data.setupIntentId}
-                    gemachName={data.locationName || "this gemach"}
-                    maxChargeCents={data.consentMaxChargeCents ?? data.amountCents}
+                    consentText={data.consentText ?? `By saving this card, I authorize ${data.locationName || "this gemach"} to charge up to $${((data.consentMaxChargeCents ?? data.amountCents) / 100).toFixed(2)} if I do not return the borrowed item.`}
                     borrowerName={data.borrowerName}
                     onSuccess={() => {
                       setPaymentSuccess(true);

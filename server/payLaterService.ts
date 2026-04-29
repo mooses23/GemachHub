@@ -3,6 +3,7 @@ import { storage } from './storage.js';
 import { randomBytes, createHash } from 'crypto';
 import type { Transaction, PayLaterStatus } from '../shared/schema.js';
 import { computeFeeForPaymentMethod } from './depositFees.js';
+import { buildCanonicalConsentText } from './consentHelper.js';
 import { notifyBorrowerBeforeCharge, notifyBorrowerAfterCharge } from './chargeNotifications.js';
 
 // Stale-card guardrail: refuse off-session charges on cards older than this.
@@ -112,6 +113,10 @@ export class PayLaterService {
     const { feeCents, totalCents } = computeFeeForPaymentMethod(data.amountCents, stripePaymentMethod, location);
     const consentMax = data.consentMaxChargeCents ?? totalCents;
 
+    // Server-computed canonical consent text — ignore any client-supplied text
+    // so the audit trail is always byte-identical to what the server shows.
+    const serverConsentText = buildCanonicalConsentText(location?.name ?? 'this gemach', consentMax);
+
     const transaction = await storage.createTransaction({
       locationId: data.locationId,
       borrowerName: data.borrowerName,
@@ -124,8 +129,8 @@ export class PayLaterService {
       currency: data.currency || 'usd',
       magicToken: hashedToken,
       magicTokenExpiresAt: tokenExpiresAt,
-      consentText: data.consentText,
-      consentAcceptedAt: data.consentText ? new Date() : undefined,
+      consentText: serverConsentText,
+      consentAcceptedAt: new Date(),
       consentMaxChargeCents: consentMax,
       depositFeeCents: feeCents,
     });

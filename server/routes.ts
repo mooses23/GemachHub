@@ -12,6 +12,7 @@ import { DepositDetectionService } from "./deposit-detection.js";
 import { DepositService, type UserRole } from "./depositService.js";
 import { PayLaterService, prepareBorrowerStatusToken, commitBorrowerStatusToken, getMaxCardAgeDays, setMaxCardAgeDays, getRequirePreChargeNotification, setRequirePreChargeNotification } from "./payLaterService.js";
 import { computeFeeForPaymentMethod } from "./depositFees.js";
+import { buildCanonicalConsentText } from "./consentHelper.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
 import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
 import { getTwilioConfigStatus, sendReturnReminderSMS, normalizePhoneForSms, validateTwilioSignature } from "./twilio-client.js";
@@ -3802,6 +3803,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalCents,
         percentBp: stripePM?.processingFeePercent ?? location?.processingFeePercent ?? 300,
         fixedCents: stripePM?.fixedFee ?? location?.processingFeeFixed ?? 30,
+        locationName: location.name,
+        consentText: buildCanonicalConsentText(location.name, totalCents),
       });
     } catch (err) {
       console.error("fee-quote error:", err);
@@ -3901,19 +3904,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // we never update consent for a transaction the caller doesn't own. The
       // transactionId body field, when provided, must match to prevent any
       // cross-transaction mutation.
-      if (consentText && typeof consentText === 'string') {
-        const tx = await storage.getTransactionBySetupIntentId(setupIntentId);
-        if (tx) {
-          // Reject if caller supplied a transactionId that doesn't match.
-          if (transactionId !== undefined && Number(transactionId) !== tx.id) {
-            return res.status(403).json({ message: "transactionId does not match SetupIntent owner" });
-          }
-          await storage.updateTransaction(tx.id, {
-            consentText,
-            consentAcceptedAt: new Date(),
-            consentMaxChargeCents: typeof consentMaxChargeCents === 'number' ? consentMaxChargeCents : (tx.consentMaxChargeCents ?? undefined),
-          });
+      // The client-provided consentText is intentionally ignored — the server
+      // computes the canonical sentence from stored data so the audit trail is
+      // always byte-identical to what was shown via /api/status.
+      const tx = await storage.getTransactionBySetupIntentId(setupIntentId);
+      if (tx) {
+        // Reject if caller supplied a transactionId that doesn't match.
+        if (transactionId !== undefined && Number(transactionId) !== tx.id) {
+          return res.status(403).json({ message: "transactionId does not match SetupIntent owner" });
         }
+        const storedMax = tx.consentMaxChargeCents ?? tx.amountPlannedCents ?? 0;
+        const txLocation = await storage.getLocation(tx.locationId);
+        const serverConsentText = buildCanonicalConsentText(txLocation?.name ?? 'this gemach', storedMax);
+        await storage.updateTransaction(tx.id, {
+          consentText: serverConsentText,
+          consentAcceptedAt: new Date(),
+          consentMaxChargeCents: typeof consentMaxChargeCents === 'number' ? consentMaxChargeCents : (tx.consentMaxChargeCents ?? undefined),
+        });
       }
 
       // Update the transaction status to CARD_SETUP_COMPLETE
@@ -3992,6 +3999,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         depositFeeCents: transaction.depositFeeCents ?? null,
         consentMaxChargeCents:
           transaction.consentMaxChargeCents ?? transaction.amountPlannedCents ?? null,
+        consentText: buildCanonicalConsentText(
+          location?.name ?? 'this gemach',
+          transaction.consentMaxChargeCents ?? transaction.amountPlannedCents ?? 0,
+        ),
         publishableKey: needsStripe ? getStripePublishableKey() : undefined,
       });
     } catch (error: any) {

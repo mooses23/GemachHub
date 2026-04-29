@@ -73,6 +73,8 @@ interface FeeQuote {
   depositCents: number;
   feeCents: number;
   totalCents: number;
+  locationName?: string;
+  consentText?: string;
 }
 
 function buildConsentText(gemachName: string, totalCents: number): string {
@@ -133,7 +135,9 @@ function SetupIntentFormInner({
   const depositCents = (locationInfo?.depositAmount ?? 20) * 100;
   const maxChargeCents = feeQuote?.totalCents ?? (depositCents + 90); // fallback: 3% + $0.30 on $20
   const gemachName = locationInfo?.name ?? "this gemach";
-  const consentText = buildConsentText(gemachName, maxChargeCents);
+  // Prefer the server-canonical consent text from the fee-quote so what the
+  // borrower reads is byte-identical to what is stored (Task #53).
+  const consentText = feeQuote?.consentText ?? buildConsentText(gemachName, maxChargeCents);
 
   const form = useForm<SetupIntentFormValues>({
     resolver: zodResolver(setupIntentFormSchema),
