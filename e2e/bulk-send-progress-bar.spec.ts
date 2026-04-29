@@ -78,3 +78,79 @@ test.describe("bulk-send live progress bar — Task #142", () => {
     await expect(logBar).not.toBeVisible({ timeout: 5_000 });
   });
 });
+
+test.describe("send-all-stream live progress bar — Task #143", () => {
+  test("log bar appears, shows counter, and dialog closes after send-all to un-onboarded locations", async ({ page }) => {
+    // Authenticate the browser session
+    const loginRes = await page.request.post("/api/login", {
+      data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD },
+    });
+    expect(loginRes.ok(), `admin login failed (${loginRes.status()})`).toBeTruthy();
+
+    // Navigate to the admin locations page
+    await page.goto("/admin/locations");
+
+    // Wait for the locations table to load
+    await expect(page.locator('[data-testid^="checkbox-location-"]').first()).toBeVisible({ timeout: 20_000 });
+
+    // The "Message Locations (N)" button triggers the send-all-stream path.
+    // It is disabled when eligibleNotOnboarded.length === 0.
+    const sendAllBtn = page.getByTestId("button-onboarding-all-not-onboarded");
+    await expect(sendAllBtn).toBeVisible({ timeout: 10_000 });
+
+    // Precondition: the button label must show a non-zero count, meaning there
+    // is at least one un-onboarded location in the test database.  If this
+    // assertion fails, seed an un-onboarded location or ensure existing seed
+    // data is not fully onboarded before running this test.
+    const sendAllText = await sendAllBtn.textContent();
+    const eligibleMatch = sendAllText?.match(/\((\d+)\)/);
+    const eligibleCount = eligibleMatch ? parseInt(eligibleMatch[1], 10) : 0;
+    expect(
+      eligibleCount,
+      `"Message Locations" button shows 0 eligible locations — seed at least one un-onboarded location before running this test`,
+    ).toBeGreaterThan(0);
+
+    await sendAllBtn.click();
+
+    // The send dialog should open — wait for the confirm button
+    const confirmBtn = page.getByTestId("button-send-welcome-confirm");
+    await expect(confirmBtn).toBeVisible({ timeout: 10_000 });
+
+    // Trigger the send-all stream
+    await confirmBtn.click();
+
+    // ── Assert: log bar appears ────────────────────────────────────────────
+    const logBar = page.getByTestId("bulk-send-log-bar");
+    await expect(logBar).toBeVisible({ timeout: 10_000 });
+
+    // The log text should be visible immediately
+    const logText = page.getByTestId("bulk-send-log-text");
+    await expect(logText).toBeVisible({ timeout: 5_000 });
+
+    // ── Assert: counter shows n/total progress ─────────────────────────────
+    // After the "start" SSE event arrives, total > 0 and the counter renders.
+    const logCounter = page.getByTestId("bulk-send-log-counter");
+    await expect(logCounter).toBeVisible({ timeout: 15_000 });
+
+    // Counter must match the "N/M" pattern where N and M are positive integers
+    await expect(logCounter).toHaveText(/^\d+\/\d+$/, { timeout: 15_000 });
+
+    // ── Assert: at least one progress entry shows a location name ──────────
+    await expect(logText).toHaveText(/[✓✗↩]\s+\S/, { timeout: 30_000 });
+
+    // ── Assert: "Messages sent to all contacts" toast appears ───────────────
+    // This toast title is unique to the send-all-stream path (sendAllStream
+    // function in locations.tsx) and distinguishes it from the "Bulk messages
+    // sent" title used by the send-selected path.
+    const toast = page.locator('[data-sonner-toast], [role="status"]')
+      .filter({ hasText: /Messages sent to all contacts/i })
+      .first();
+    await expect(toast).toBeVisible({ timeout: 60_000 });
+
+    // ── Assert: dialog is closed after completion ───────────────────────────
+    await expect(confirmBtn).not.toBeVisible({ timeout: 10_000 });
+
+    // ── Assert: log bar is gone after dialog closes ─────────────────────────
+    await expect(logBar).not.toBeVisible({ timeout: 5_000 });
+  });
+});
