@@ -2464,7 +2464,6 @@ export default function AdminLocations() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
     </TooltipProvider>
   );
 }

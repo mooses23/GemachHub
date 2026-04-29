@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { driver } from "driver.js";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -2711,6 +2712,7 @@ export default function OperatorDashboard() {
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const tourStartedRef = useRef(false);
 
   const changePinMutation = useMutation({
     mutationFn: async () => {
@@ -2747,6 +2749,81 @@ export default function OperatorDashboard() {
       setShowPinPrompt(true);
     }
   }, [operatorLocation]);
+
+  useEffect(() => {
+    if (tourStartedRef.current) return;
+    const isDefault = (operatorLocation as any)?.pinIsDefault === true;
+    if (!operatorLocation || !isDefault) return;
+    tourStartedRef.current = true;
+
+    const isHe = language === "he";
+
+    const driverObj = driver({
+      showProgress: true,
+      progressText: isHe ? "{{current}} מתוך {{total}}" : "{{current}} of {{total}}",
+      nextBtnText: isHe ? "הבא ›" : "Next ›",
+      prevBtnText: isHe ? "‹ הקודם" : "‹ Back",
+      doneBtnText: isHe ? "שנה PIN ←" : "Change PIN →",
+      onDestroyStarted: () => {
+        driverObj.destroy();
+        setActiveTab("security");
+      },
+      steps: [
+        {
+          popover: {
+            title: isHe ? "ברוכים הבאים לדשבורד שלך! 👋" : "Welcome to your dashboard! 👋",
+            description: isHe
+              ? "בוא נעשה סיור קצר כדי שתדע איך הכל עובד."
+              : "Let's take a quick tour so you know how everything works.",
+            side: "over" as any,
+            align: "center",
+          },
+        },
+        {
+          element: "#tour-stat-cards",
+          popover: {
+            title: isHe ? "סקירת המצב שלך" : "Your at-a-glance stats",
+            description: isHe
+              ? "כאן תראה כמה אטמי אוזניים יש לך במלאי, כמה הושאלו, וכמה פיקדונות מוחזקים."
+              : "See how many earmuffs are in stock, how many are out on loan, and the total deposits you're holding.",
+          },
+        },
+        {
+          element: "#tour-tabs",
+          popover: {
+            title: isHe ? "ניווט בדשבורד" : "Dashboard navigation",
+            description: isHe
+              ? "השתמש בלשוניות אלה כדי להשאיל אטמים, לרשום החזרות ולנהל את האבטחה שלך."
+              : "Use these tabs to lend earmuffs to families, record returns, and manage your account security.",
+          },
+        },
+        {
+          element: "#tour-restocking",
+          popover: {
+            title: isHe ? "⚠️ חשוב: הוראות הזמנה מחדש" : "⚠️ Important: Restocking Instructions",
+            description: isHe
+              ? "כשהמלאי שלך אוזל, השתמש בהוראות אלה כדי להזמין עוד אטמי בייבי בנז. שמור דף זה בסימנייה!"
+              : "When your stock runs low, use these instructions to reorder Baby Banz earmuffs. Bookmark this page for easy access!",
+          },
+        },
+        {
+          element: "#tour-tab-security",
+          popover: {
+            title: isHe ? "שנה את ה-PIN שלך" : "Change your PIN",
+            description: isHe
+              ? "ה-PIN שלך עדיין הוא ברירת המחדל 1234. שנה אותו עכשיו כדי לאבטח את החשבון שלך. הסיור הזה יופיע בכל כניסה עד שתשנה את ה-PIN."
+              : "Your PIN is still the default 1234. Change it now to secure your account. This tour will appear every login until you do.",
+          },
+        },
+      ],
+    });
+
+    const delay = setTimeout(() => driverObj.drive(), 800);
+    return () => {
+      clearTimeout(delay);
+      driverObj.destroy();
+    };
+  }, [operatorLocation, language]);
 
   const { 
     data: transactions = [], 
@@ -2830,7 +2907,7 @@ export default function OperatorDashboard() {
               <h1 className="text-2xl font-bold text-white">{language === "he" && operatorLocation.nameHe ? operatorLocation.nameHe : operatorLocation.name}</h1>
               <p className="text-slate-400">{t('manageHeadbandLendingAndReturns')}</p>
             </div>
-            <TabsList className="grid grid-cols-4 w-full glass-panel border-white/10">
+            <TabsList id="tour-tabs" className="grid grid-cols-4 w-full glass-panel border-white/10">
               <TabsTrigger value="overview" className="gap-1.5 data-[state=active]:bg-white/15 data-[state=active]:text-white">
                 <Package className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline truncate">{t('stockOverview')}</span>
@@ -2846,7 +2923,7 @@ export default function OperatorDashboard() {
                 <span className="hidden sm:inline truncate">{t('returnEarmuffs')}</span>
                 <span className="sm:hidden text-xs">{t('returnShort')}</span>
               </TabsTrigger>
-              <TabsTrigger value="security" className="gap-1.5 data-[state=active]:bg-white/15 data-[state=active]:text-white">
+              <TabsTrigger id="tour-tab-security" value="security" className="gap-1.5 data-[state=active]:bg-white/15 data-[state=active]:text-white">
                 <KeyRound className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{t('security')}</span>
                 <span className="sm:hidden text-xs">{t('pinShort')}</span>
@@ -2854,7 +2931,7 @@ export default function OperatorDashboard() {
             </TabsList>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <div id="tour-stat-cards" className="grid gap-4 md:grid-cols-3 mb-6">
             <Card className="glass-card">
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-white">{inventoryData?.total || 0}</div>
@@ -2884,7 +2961,7 @@ export default function OperatorDashboard() {
               onAddStock={() => setShowAddStock(true)} 
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
-            <RestockingInstructions />
+            <div id="tour-restocking"><RestockingInstructions /></div>
             <RecentActivity transactions={transactions} locationId={operatorLocation.id} locationCode={operatorLocation.locationCode} />
           </TabsContent>
 

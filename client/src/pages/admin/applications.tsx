@@ -916,7 +916,6 @@ export default function AdminApplications() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
     </>
   );
 }

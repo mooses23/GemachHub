@@ -584,7 +584,6 @@ export default function AdminTransactions() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
     </>
   );
 }

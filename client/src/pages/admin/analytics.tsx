@@ -400,7 +400,6 @@ export default function AdminAnalytics() {
             )}
           </CardContent>
         </Card>
-      </div>
     </>
   );
 }
