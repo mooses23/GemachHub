@@ -360,6 +360,7 @@ export default function AdminApplications() {
                     <TableHead>{t('applicant')}</TableHead>
                     <TableHead>{t('location')}</TableHead>
                     <TableHead>{t('dateSubmitted')}</TableHead>
+                    <TableHead>{t('lastEmailed')}</TableHead>
                     <TableHead>{t('status')}</TableHead>
                     <TableHead>{t('actions')}</TableHead>
                   </TableRow>
@@ -401,6 +402,22 @@ export default function AdminApplications() {
                             <Clock className="h-3 w-3 mr-1" />
                             {format(new Date(application.submittedAt), "h:mm a")}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {application.confirmationEmailSentAt ? (
+                            <div>
+                              <div className="flex items-center text-sm">
+                                <Mail className="h-3 w-3 mr-1 text-muted-foreground" />
+                                {format(new Date(application.confirmationEmailSentAt), "MMM d, yyyy")}
+                              </div>
+                              <div className="text-xs text-muted-foreground flex items-center mt-1">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {format(new Date(application.confirmationEmailSentAt), "h:mm a")}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">{t('neverEmailed')}</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(application.status)}
@@ -450,7 +467,7 @@ export default function AdminApplications() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         {searchTerm || filterStatus !== "all" ? (
                           <p className="text-muted-foreground">{t('noApplicationsFoundCriteria')}</p>
                         ) : (

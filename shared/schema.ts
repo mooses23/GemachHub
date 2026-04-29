@@ -224,6 +224,7 @@ export const gemachApplications = pgTable("gemach_applications", {
   message: text("message"),
   status: text("status").notNull().default("pending"),
   submittedAt: timestamp("submitted_at").notNull().defaultNow(),
+  confirmationEmailSentAt: timestamp("confirmation_email_sent_at"),
 });
 
 export const insertGemachApplicationSchema = createInsertSchema(gemachApplications).pick({

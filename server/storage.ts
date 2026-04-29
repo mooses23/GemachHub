@@ -2640,7 +2640,8 @@ export class MemStorage implements IStorage {
       status: "pending",
       submittedAt: new Date(),
       message: insertApplication.message ?? null,
-      community: insertApplication.community ?? null
+      community: insertApplication.community ?? null,
+      confirmationEmailSentAt: null
     };
     this.applications.set(id, application);
     return application;

@@ -1120,6 +1120,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         state: application.state,
         country: application.country,
         community: application.community,
+      }).then(() => {
+        storage.updateApplication(application.id, { confirmationEmailSentAt: new Date() }).catch((e) =>
+          console.error("Failed to record confirmationEmailSentAt:", e)
+        );
       }).catch((e) => console.error("Application confirmation email failed:", e));
 
       getAdminNotificationEmail()
@@ -1185,6 +1189,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         country: application.country,
         community: application.community,
       });
+
+      await storage.updateApplication(id, { confirmationEmailSentAt: new Date() });
 
       res.json({ message: "Confirmation email resent successfully" });
     } catch (error) {
