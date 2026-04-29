@@ -49,6 +49,7 @@ function detectCardBrand(cardNumber: string): string {
 }
 import { 
   insertLocationSchema,
+  insertRegionSchema,
   insertGemachApplicationSchema,
   insertContactSchema,
   insertTransactionSchema,
@@ -146,9 +147,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/regions", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     try {
-      const regionData = req.body;
-      const region = await storage.createRegion(regionData);
+      const parseResult = insertRegionSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid region data", errors: parseResult.error.issues });
+      }
+      const region = await storage.createRegion(parseResult.data);
       res.status(201).json(region);
     } catch (error) {
       console.error("Error creating region:", error);
@@ -157,10 +164,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/regions/:id", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     try {
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid region id" });
-      const region = await storage.updateRegion(id, req.body);
+      const parseResult = insertRegionSchema.partial().safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid region data", errors: parseResult.error.issues });
+      }
+      const region = await storage.updateRegion(id, parseResult.data);
       res.json(region);
     } catch (error) {
       console.error("Error updating region:", error);
