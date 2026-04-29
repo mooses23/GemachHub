@@ -242,8 +242,32 @@ export async function sendWelcomeForLocation(
   };
 
   if (wantsSms && loc.phone) {
-    const smsResults = await sendOperatorWelcome(sharedCtx, { sms: true });
+    // Send Hebrew first (primary — its result is tracked). When there is no
+    // custom body, follow up immediately with an English version so every
+    // operator receives both languages regardless of their location settings.
+    const heCtx = {
+      ...sharedCtx,
+      locationName: loc.nameHe || loc.name,
+      operatorName: loc.contactPersonHe || loc.contactPerson || '',
+      language: 'he' as const,
+    };
+    const smsResults = await sendOperatorWelcome(heCtx, { sms: true });
     smsResult = smsResults.sms;
+
+    if (!resolvedCustomBody) {
+      const enCtx = {
+        ...sharedCtx,
+        locationName: loc.name,
+        operatorName: loc.contactPerson || '',
+        language: 'en' as const,
+        // Don't attach the status callback to the secondary message to avoid
+        // double-counting delivery events.
+        statusCallbackUrl: undefined,
+      };
+      sendOperatorWelcome(enCtx, { sms: true }).catch((e: any) =>
+        console.error('[onboarding] EN SMS follow-up failed:', e?.message),
+      );
+    }
   }
 
   if (wantsWhatsapp && loc.phone) {
