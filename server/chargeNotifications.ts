@@ -79,6 +79,22 @@ function buildSmsBody(
   );
 }
 
+function buildSmsBodyHe(
+  transaction: Transaction,
+  location: Location,
+  amountCents: number,
+  statusUrl: string | null,
+  operatorNote?: string,
+): string {
+  const firstName = (transaction.borrowerName || '').trim().split(/\s+/)[0] || 'שלום';
+  const dollars = (amountCents / 100).toFixed(2);
+  const noteLine = operatorNote ? ` הערה מהגמ"ח: "${operatorNote}"` : '';
+  const linkLine = statusUrl ? ` בדוק סטטוס: ${statusUrl}` : '';
+  return (
+    `שלום ${firstName} — לידיעתך: גמ"ח אוזניות בייבי בנז ${location.name} עומד לחייב $${dollars} בכרטיס שהזנת עבור האוזניות שלא הוחזרו.${noteLine} אם כבר החזרת אותן או שמשהו לא נראה נכון, אנא צור קשר בטלפון ${location.phone} מיד.${linkLine}`
+  );
+}
+
 function buildEmailSubject(location: Location): string {
   return `Heads up — pending charge from ${location.name} Baby Banz Earmuffs Gemach`;
 }
@@ -134,11 +150,17 @@ async function trySendSms(
     const accountSid = process.env.TWILIO_ACCOUNT_SID!;
     const authToken = process.env.TWILIO_AUTH_TOKEN!;
     const client = twilio(accountSid, authToken);
+    // Send Hebrew message first, then English as a follow-up.
     await client.messages.create({
       to,
       from: process.env.TWILIO_FROM_NUMBER!,
-      body: buildSmsBody(transaction, location, amountCents, statusUrl, operatorNote),
+      body: buildSmsBodyHe(transaction, location, amountCents, statusUrl, operatorNote),
     });
+    client.messages.create({
+      to,
+      from: process.env.TWILIO_FROM_NUMBER!,
+      body: buildSmsBody(transaction, location, amountCents, statusUrl, operatorNote),
+    }).catch((e: any) => console.error('Pre-charge EN SMS failed:', e?.message));
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || 'SMS send failed' };
@@ -222,6 +244,22 @@ function buildReceiptSmsBody(
   );
 }
 
+function buildReceiptSmsBodyHe(
+  transaction: Transaction,
+  location: Location,
+  amountCents: number,
+  statusUrl: string | null,
+  operatorNote?: string,
+): string {
+  const firstName = (transaction.borrowerName || '').trim().split(/\s+/)[0] || 'שלום';
+  const dollars = (amountCents / 100).toFixed(2);
+  const noteLine = operatorNote ? ` הערה: "${operatorNote}"` : '';
+  const linkLine = statusUrl ? ` צפה בקבלה: ${statusUrl}` : '';
+  return (
+    `שלום ${firstName} — פיקדון של $${dollars} חויב על ידי גמ"ח אוזניות בייבי בנז ${location.name}.${noteLine} שאלות? התקשר אל ${location.phone}.${linkLine}`
+  );
+}
+
 function buildReceiptEmailSubject(location: Location): string {
   return `Receipt — deposit charge from ${location.name} Baby Banz Earmuffs Gemach`;
 }
@@ -270,7 +308,7 @@ export async function notifyBorrowerAfterCharge(
   // Generate a fresh valid status link (raw token in URL, hashed stored in DB).
   const statusUrl = await buildFreshStatusUrl(transaction);
 
-  // Try SMS
+  // Try SMS — send Hebrew first, then English as a follow-up.
   const smsStatus = getTwilioConfigStatus();
   if (smsStatus.configured) {
     const to = normalizePhoneForSms(transaction.borrowerPhone);
@@ -282,8 +320,13 @@ export async function notifyBorrowerAfterCharge(
         await client.messages.create({
           to,
           from: process.env.TWILIO_FROM_NUMBER!,
-          body: buildReceiptSmsBody(transaction, location, amountCents, statusUrl, operatorNote),
+          body: buildReceiptSmsBodyHe(transaction, location, amountCents, statusUrl, operatorNote),
         });
+        client.messages.create({
+          to,
+          from: process.env.TWILIO_FROM_NUMBER!,
+          body: buildReceiptSmsBody(transaction, location, amountCents, statusUrl, operatorNote),
+        }).catch((e: any) => console.error('Receipt EN SMS failed:', e?.message));
         return { channel: 'sms', sent: true };
       } catch (e: any) {
         console.error('Receipt SMS failed:', e?.message);

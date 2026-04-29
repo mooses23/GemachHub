@@ -119,8 +119,10 @@ export function buildReturnReminderSmsBody(ctx: ReturnReminderSmsContext): strin
   return `Hi ${firstName}, friendly reminder from the ${ctx.locationName} Baby Banz Earmuffs Gemach — please bring back the earmuffs${dueLine} when you can so the next family can use them. If you've already returned them, ignore this note.${link}`;
 }
 
-// Sends a return-reminder SMS. Throws when Twilio is not configured,
-// the phone is invalid, or Twilio rejects the request.
+// Sends a return-reminder SMS. Throws when Twilio is not configured or
+// the phone is invalid. Sends two messages back-to-back: Hebrew first,
+// then English. Returns the SID of the first (Hebrew) message; the second
+// (English) message is sent on a best-effort basis.
 export async function sendReturnReminderSMS(ctx: ReturnReminderSmsContext): Promise<{ sid: string }> {
   const status = getTwilioConfigStatus();
   if (!status.configured) {
@@ -130,25 +132,26 @@ export async function sendReturnReminderSMS(ctx: ReturnReminderSmsContext): Prom
   if (!to) {
     throw new Error('Borrower phone number is missing or too short to send SMS.');
   }
-  const body = buildReturnReminderSmsBody({ ...ctx, borrowerPhone: to });
   const client = getClient();
-  try {
-    const msg = await client.messages.create({
-      to,
-      from: process.env.TWILIO_FROM_NUMBER!,
-      body,
-      ...(ctx.statusCallbackUrl ? { statusCallback: ctx.statusCallbackUrl } : {}),
-    });
-    return { sid: msg.sid };
-  } catch (e: any) {
-    // Twilio errors include `code` and `moreInfo`; surface a short reason.
-    const reason = e?.message || 'Twilio rejected the SMS request.';
-    const err = new Error(`SMS send failed: ${reason}`);
-    // Propagate the Twilio numeric error code so callers can distinguish
-    // recoverable failures (e.g. 21610 opted-out) from generic ones.
-    (err as any).twilioCode = typeof e?.code === 'number' ? e.code : undefined;
-    throw err;
-  }
+  const cb = ctx.statusCallbackUrl ? { statusCallback: ctx.statusCallbackUrl } : {};
+
+  const sendOne = async (language: 'he' | 'en') => {
+    const body = buildReturnReminderSmsBody({ ...ctx, borrowerPhone: to, language });
+    try {
+      return await client.messages.create({ to, from: process.env.TWILIO_FROM_NUMBER!, body, ...cb });
+    } catch (e: any) {
+      const reason = e?.message || 'Twilio rejected the SMS request.';
+      const err = new Error(`SMS send failed: ${reason}`);
+      (err as any).twilioCode = typeof e?.code === 'number' ? e.code : undefined;
+      throw err;
+    }
+  };
+
+  // Send Hebrew message first (primary — its SID is returned to the caller).
+  const heMsg = await sendOne('he');
+  // Send English message as a follow-up; failure is logged but does not throw.
+  sendOne('en').catch((e) => console.error('Return-reminder EN SMS failed:', e?.message));
+  return { sid: heMsg.sid };
 }
 
 // ---------------------------------------------------------------------------
