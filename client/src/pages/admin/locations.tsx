@@ -235,11 +235,13 @@ function GlobalStripeSettingsPanel() {
   const [requireNotify, setRequireNotify] = useState<boolean>(true);
   const [seeded, setSeeded] = useState(false);
 
-  if (data && !seeded) {
-    setMaxCardAgeDays(String(data.maxCardAgeDays));
-    setRequireNotify(data.requirePreChargeNotification);
-    setSeeded(true);
-  }
+  useEffect(() => {
+    if (data && !seeded) {
+      setMaxCardAgeDays(String(data.maxCardAgeDays));
+      setRequireNotify(data.requirePreChargeNotification);
+      setSeeded(true);
+    }
+  }, [data, seeded]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
