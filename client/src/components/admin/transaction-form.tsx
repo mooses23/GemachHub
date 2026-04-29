@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, User, Phone, Mail, MapPin, DollarSign, CalendarIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Popover,
@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -40,6 +39,35 @@ interface TransactionFormProps {
   transaction?: Transaction;
   locations: Location[];
   onSuccess?: () => void;
+}
+
+function SectionHeading({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex-1 border-t border-border/60 ml-1" />
+    </div>
+  );
+}
+
+const inputClass =
+  "h-11 px-3 text-sm border-border/70 transition-colors hover:border-border focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0";
+
+const iconInputClass =
+  "h-11 pl-9 text-sm border-border/70 transition-colors hover:border-border focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0";
+
+const labelClass = "text-xs font-medium text-muted-foreground";
+
+function IconInputWrapper({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <div className="relative">
+      <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      {children}
+    </div>
+  );
 }
 
 export function TransactionForm({ transaction, locations, onSuccess }: TransactionFormProps) {
@@ -127,78 +155,181 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="locationId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("gemachLocation")}</FormLabel>
-              <Select
-                onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                defaultValue={field.value.toString()}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("selectALocationPlaceholder")} />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {locations.map((location) => (
-                    <SelectItem key={location.id} value={location.id.toString()}>
-                      {language === "he" && location.nameHe ? location.nameHe : location.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
 
-        <FormField
-          control={form.control}
-          name="borrowerName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("borrowerNameLabel")}</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <SectionHeading icon={MapPin} label={t("gemachLocation")} />
           <FormField
             control={form.control}
-            name="borrowerEmail"
+            name="locationId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t("borrowerEmailOptionalLabel")}</FormLabel>
+                <FormLabel className={labelClass}>{t("gemachLocation")}</FormLabel>
+                <Select
+                  onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                  defaultValue={field.value.toString()}
+                >
+                  <FormControl>
+                    <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
+                      <SelectValue placeholder={t("selectALocationPlaceholder")} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id.toString()}>
+                        {language === "he" && location.nameHe ? location.nameHe : location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <SectionHeading icon={User} label={t("borrowerInfo")} />
+          <FormField
+            control={form.control}
+            name="borrowerName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={labelClass}>{t("borrowerNameLabel")}</FormLabel>
                 <FormControl>
-                  <Input
-                    type="email"
-                    {...field}
-                    value={field.value ?? ""}
-                    onChange={(e) => field.onChange(e.target.value)}
-                  />
+                  <IconInputWrapper icon={User}>
+                    <Input {...field} className={iconInputClass} />
+                  </IconInputWrapper>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="borrowerEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={labelClass}>{t("borrowerEmailOptionalLabel")}</FormLabel>
+                  <FormControl>
+                    <IconInputWrapper icon={Mail}>
+                      <Input
+                        type="email"
+                        {...field}
+                        className={iconInputClass}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                    </IconInputWrapper>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="borrowerPhone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={labelClass}>{t("borrowerPhoneOptionalLabel")}</FormLabel>
+                  <FormControl>
+                    <IconInputWrapper icon={Phone}>
+                      <Input
+                        {...field}
+                        className={iconInputClass}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                    </IconInputWrapper>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <SectionHeading icon={DollarSign} label={t("transactionDetails")} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="depositAmount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={labelClass}>{t("depositAmount")}</FormLabel>
+                  <FormControl>
+                    <IconInputWrapper icon={DollarSign}>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        {...field}
+                        className={iconInputClass}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </IconInputWrapper>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="expectedReturnDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className={labelClass}>{t("expectedReturnDate")}</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "h-11 w-full pl-3 text-left text-sm font-normal border-border/70 hover:border-border transition-colors",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>{t("pickADate")}</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           <FormField
             control={form.control}
-            name="borrowerPhone"
+            name="notes"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t("borrowerPhoneOptionalLabel")}</FormLabel>
+                <FormLabel className={labelClass}>{t("notes")}</FormLabel>
                 <FormControl>
-                  <Input
+                  <Textarea
+                    rows={3}
                     {...field}
+                    className="text-sm leading-relaxed border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
                     value={field.value ?? ""}
                     onChange={(e) => field.onChange(e.target.value)}
                   />
@@ -209,93 +340,17 @@ export function TransactionForm({ transaction, locations, onSuccess }: Transacti
           />
         </div>
 
-        <FormField
-          control={form.control}
-          name="depositAmount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("depositAmount")}</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  {...field}
-                  onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="border-t border-border/60 pt-4">
+          <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={isPending}>
+            {isPending ? (
+              <>
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                {transaction ? t("updating") : t("recording")}
+              </>
+            ) : transaction ? t("updateTransaction") : t("recordTransaction")}
+          </Button>
+        </div>
 
-        <FormField
-          control={form.control}
-          name="expectedReturnDate"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>{t("expectedReturnDate")}</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value ? (
-                        format(field.value, "PPP")
-                      ) : (
-                        <span>{t("pickADate")}</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={field.value}
-                    onSelect={field.onChange}
-                    disabled={(date) => date < new Date()}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("notes")}</FormLabel>
-              <FormControl>
-                <Textarea
-                  rows={3}
-                  {...field}
-                  value={field.value ?? ""}
-                  onChange={(e) => field.onChange(e.target.value)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? (
-            <>
-              <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-              {transaction ? t("updating") : t("recording")}
-            </>
-          ) : transaction ? t("updateTransaction") : t("recordTransaction")}
-        </Button>
       </form>
     </Form>
   );

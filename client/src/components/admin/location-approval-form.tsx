@@ -14,13 +14,28 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from "@/components/ui/dialog";
-import { CheckCircle, Copy, MapPin } from "lucide-react";
+import { CheckCircle, Copy, MapPin, Settings, Hash, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 
 interface LocationApprovalFormProps {
   application: GemachApplication;
   locations: Location[];
+}
+
+const labelClass = "text-xs font-medium text-muted-foreground block mb-1.5";
+const inputClass = "h-11 px-3 text-sm border-border/70 transition-colors hover:border-border focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 w-full rounded-md border bg-background";
+
+function SectionHeading({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex-1 border-t border-border/60 ml-1" />
+    </div>
+  );
 }
 
 export function LocationApprovalForm({ application, locations }: LocationApprovalFormProps) {
@@ -138,24 +153,32 @@ For questions, contact us at earmuffsgemach@gmail.com
         </DialogHeader>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <h3 className="font-semibold">{t("configuration")}</h3>
-            
+          <div className="space-y-5">
+            <SectionHeading icon={Settings} label={t("configuration")} />
+
             <div>
-              <Label htmlFor="locationCode">{t("customLocationCodeOptional")}</Label>
-              <Input
-                id="locationCode"
-                value={customLocationCode}
-                onChange={(e) => setCustomLocationCode(e.target.value)}
-                placeholder={`#${locations.length + 1}`}
-              />
+              <label htmlFor="locationCode" className={labelClass}>
+                {t("customLocationCodeOptional")}
+              </label>
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  id="locationCode"
+                  value={customLocationCode}
+                  onChange={(e) => setCustomLocationCode(e.target.value)}
+                  placeholder={`#${locations.length + 1}`}
+                  className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                />
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="baseLocation">{t("baseSettingsFrom")}</Label>
+              <label htmlFor="baseLocation" className={labelClass}>
+                {t("baseSettingsFrom")}
+              </label>
               <select
                 id="baseLocation"
-                className="w-full p-2 border rounded-md"
+                className="h-11 w-full rounded-md border border-border/70 bg-background px-3 text-sm hover:border-border transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
                 value={selectedLocation?.id || ""}
                 onChange={(e) => {
                   const location = locations.find(l => l.id === parseInt(e.target.value));
@@ -172,25 +195,28 @@ For questions, contact us at earmuffsgemach@gmail.com
             </div>
 
             <div>
-              <Label htmlFor="instructions">{t("additionalInstructionsOptional")}</Label>
-              <Textarea
-                id="instructions"
-                value={customInstructions}
-                onChange={(e) => setCustomInstructions(e.target.value)}
-                placeholder={t("specialSetupInstructions")}
-                rows={4}
-              />
+              <SectionHeading icon={FileText} label={t("additionalInstructionsOptional")} />
+              <div className="mt-3">
+                <Textarea
+                  id="instructions"
+                  value={customInstructions}
+                  onChange={(e) => setCustomInstructions(e.target.value)}
+                  placeholder={t("specialSetupInstructions")}
+                  rows={4}
+                  className="text-sm leading-relaxed border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                />
+              </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={copyToClipboard} variant="outline" className="flex-1">
+            <div className="border-t border-border/60 pt-4 flex gap-3">
+              <Button onClick={copyToClipboard} variant="outline" className="flex-1 h-11 text-sm">
                 <Copy className="h-4 w-4 mr-2" />
                 {t("copyDetails")}
               </Button>
               <Button 
                 onClick={() => approvalMutation.mutate()} 
                 disabled={approvalMutation.isPending}
-                className="flex-1"
+                className="flex-1 h-11 text-sm"
               >
                 {approvalMutation.isPending ? t("approving") : t("approveAndSend")}
               </Button>
