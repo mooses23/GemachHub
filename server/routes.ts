@@ -1196,6 +1196,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       sendWelcomeForLocation(location.id, {
         channel: "email",
         baseUrl,
+      }).then((result) => {
+        if (!result.ok && !result.skipped) {
+          const emailErr = result.email?.error;
+          console.error("Auto-welcome email on approval failed:", emailErr || "unknown error");
+        }
       }).catch((e) => console.error("Auto-welcome email on approval failed:", e));
     } catch (error) {
       if (error instanceof z.ZodError) {
