@@ -2279,11 +2279,11 @@ export default function AdminLocations() {
             </div>
 
             {streamState && (
-              <div className="mx-1 mb-2 flex items-center gap-2 rounded border bg-muted/50 px-3 py-1.5 font-mono text-xs text-muted-foreground">
+              <div data-testid="bulk-send-log-bar" className="mx-1 mb-2 flex items-center gap-2 rounded border bg-muted/50 px-3 py-1.5 font-mono text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                <span className="min-w-0 flex-1 truncate">{streamState.log}</span>
+                <span data-testid="bulk-send-log-text" className="min-w-0 flex-1 truncate">{streamState.log}</span>
                 {streamState.total > 0 && (
-                  <span className="shrink-0 tabular-nums">{streamState.n}/{streamState.total}</span>
+                  <span data-testid="bulk-send-log-counter" className="shrink-0 tabular-nums">{streamState.n}/{streamState.total}</span>
                 )}
               </div>
             )}
