@@ -7,6 +7,7 @@ import { DepositConfirmation } from "@/components/payment/deposit-confirmation";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/hooks/use-language";
+import { AdminNavTabs } from "@/components/admin/admin-nav-tabs";
 
 interface Payment {
   id: number;
@@ -125,7 +126,8 @@ export default function PaymentConfirmations() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-10 space-y-6">
+      <AdminNavTabs />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{t('paymentConfirmations')}</h1>
