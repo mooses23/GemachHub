@@ -1391,7 +1391,7 @@ export default function AdminLocations() {
                                           : latest?.channel === "email"
                                           ? <Mail className="h-3 w-3 shrink-0" />
                                           : null;
-                                        const hasFailure = sms === "failed" || em === "failed" || location.welcomeWhatsappStatus === "failed";
+                                        const hasFailure = sms === "failed" || em === "failed" || waStatus === "failed" || waStatus === "undelivered";
                                         // Per-channel tooltip rows
                                         type ChannelRow = { key: "sms" | "whatsapp" | "email"; label: string; sentAt: Date | null; status: string | null; error: string | null };
                                         const channelRows: ChannelRow[] = [
@@ -1413,7 +1413,7 @@ export default function AdminLocations() {
                                         };
                                         const channelRowIcon = (key: "sms" | "whatsapp" | "email") =>
                                           key === "sms" ? <MessageSquare className="h-3 w-3 shrink-0" />
-                                          : key === "whatsapp" ? <MessageCircle className="h-3 w-3 shrink-0 text-green-500" />
+                                          : key === "whatsapp" ? <MessageCircle className={`h-3 w-3 shrink-0 ${waIconColor}`} />
                                           : <Mail className="h-3 w-3 shrink-0" />;
 
                                         const mainContent = (
