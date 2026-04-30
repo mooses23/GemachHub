@@ -75,7 +75,7 @@ import type { TranslationKey } from "@/lib/translations";
 type SourceFilter = "all" | "email" | "form";
 type ReadFilter = "all" | "unread" | "read";
 type ReplyFilter = "all" | "unreplied" | "replied";
-type Folder = "inbox" | "spam" | "trash";
+type Folder = "inbox" | "spam" | "trash" | "sent";
 
 // Persisted-filter state (Task #36). Saved to localStorage so an admin who
 // leaves the inbox to open a transaction or refresh the page returns to the
@@ -111,7 +111,7 @@ function loadPersistedFilters(): PersistedFilterState {
     if (!raw) return DEFAULT_FILTER_STATE;
     const parsed = JSON.parse(raw) as Partial<PersistedFilterState>;
     const folder: Folder =
-      parsed.folder === "inbox" || parsed.folder === "spam" || parsed.folder === "trash"
+      parsed.folder === "inbox" || parsed.folder === "spam" || parsed.folder === "trash" || parsed.folder === "sent"
         ? parsed.folder
         : DEFAULT_FILTER_STATE.folder;
     const sourceFilter: SourceFilter =
@@ -177,6 +177,9 @@ interface UnifiedItem {
   // Server-authoritative thread counts; preferred over client-derived counts when set.
   serverMessageCount?: number;
   serverUnreadCount?: number;
+  // Recipient address — populated for outbound (SENT) Gmail items so the
+  // Sent folder can display "To: …" instead of "From: …".
+  toAddress?: string;
   // Lowercased concat of from+subject+body across EVERY message in this
   // Gmail thread (set only on email items by /api/admin/emails/threads).
   // Lets the inbox search match a token that only appears in an older
@@ -293,6 +296,17 @@ export default function AdminInbox() {
   const [readFilter, setReadFilter] = useState<ReadFilter>(() => loadPersistedFilters().readFilter);
   const [replyFilter, setReplyFilter] = useState<ReplyFilter>(() => loadPersistedFilters().replyFilter);
   const [folder, setFolder] = useState<Folder>(() => loadPersistedFilters().folder);
+
+  // Switching to the Sent folder hides form items and makes the source/read/
+  // reply filters meaningless, so reset them to their default "all" state.
+  const handleFolderChange = (next: Folder) => {
+    setFolder(next);
+    if (next === "sent") {
+      setSourceFilter("email");
+      setReadFilter("all");
+      setReplyFilter("all");
+    }
+  };
 
   // Mirror filter state to localStorage on every change. Whenever the admin
   // toggles a filter — including the clear-filters button (which calls the
@@ -481,6 +495,7 @@ export default function AdminInbox() {
         threadId: e.threadId,
         fromName: parsed.name,
         fromEmail: parsed.email,
+        toAddress: e.to || undefined,
         subject: e.subject,
         body: e.body,
         snippet: e.snippet,
@@ -502,6 +517,8 @@ export default function AdminInbox() {
   // by the server based on the `mode` query param, so we don't filter them here.
   const folderFiltered = unified.filter((it) => {
     if (it.source === "form") {
+      // Form submissions have no "Sent" equivalent — exclude them entirely.
+      if (folder === "sent") return false;
       if (folder === "inbox") return !it.isArchived && !it.isSpam;
       if (folder === "spam") return !!it.isSpam && !it.isArchived;
       if (folder === "trash") return !!it.isArchived;
@@ -1965,6 +1982,7 @@ export default function AdminInbox() {
             const gmailCounts = gmailLabelCountsQuery.data ?? { inbox: 0, spam: 0, trash: 0 };
             return [
               { key: "inbox" as Folder, label: t("inboxFolderInbox"), icon: InboxIcon, count: formInboxCount + gmailCounts.inbox },
+              { key: "sent" as Folder, label: "Sent", icon: Send, count: 0 },
               { key: "spam" as Folder, label: t("inboxFolderSpam"), icon: ShieldAlert, count: formSpamCount + gmailCounts.spam },
               { key: "trash" as Folder, label: t("inboxFolderTrash"), icon: Trash2, count: formTrashCount + gmailCounts.trash },
             ];
@@ -1974,7 +1992,7 @@ export default function AdminInbox() {
               <button
                 key={key}
                 type="button"
-                onClick={() => setFolder(key)}
+                onClick={() => handleFolderChange(key)}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
                   active
                     ? "bg-primary text-primary-foreground border-primary"
@@ -2014,49 +2032,52 @@ export default function AdminInbox() {
               />
             </div>
             <div className="flex gap-2 flex-wrap items-center" data-testid="filters-secondary">
-              {(["all", "email", "form"] as SourceFilter[]).map((s) => (
-                <Button
-                  key={s}
-                  variant={sourceFilter === s ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSourceFilter(s)}
-                  data-testid={`filter-source-${s}`}
-                >
-                  {s === "all" ? t("msgAll") : s === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
-                </Button>
-              ))}
-              <div className="w-px h-6 bg-border mx-1" />
-              {(["all", "unread", "read"] as ReadFilter[]).map((r) => (
-                <Button
-                  key={r}
-                  variant={readFilter === r ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setReadFilter(r)}
-                  data-testid={`filter-read-${r}`}
-                >
-                  {r === "all" ? t("msgAll") : r === "unread" ? t("unread") : t("read")}
-                </Button>
-              ))}
-              <div className="w-px h-6 bg-border mx-1" />
-              {/* Reply-state filter — pairs with the read filter so admins
-                  can quickly narrow the list to "threads that still need a
-                  reply" (the most common triage need now that conversations
-                  are collapsed into one row each). */}
-              {(["all", "unreplied", "replied"] as ReplyFilter[]).map((r) => (
-                <Button
-                  key={r}
-                  variant={replyFilter === r ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setReplyFilter(r)}
-                  data-testid={`filter-reply-${r}`}
-                >
-                  {r === "all"
-                    ? t("msgAll")
-                    : r === "unreplied"
-                      ? t("inboxFilterUnreplied")
-                      : t("inboxFilterReplied")}
-                </Button>
-              ))}
+              {/* Source filter */}
+              {folder !== "sent" && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Source</span>
+                  <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
+                    <SelectTrigger className="h-8 text-sm w-[110px]" data-testid="filter-source-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" data-testid="filter-source-all">{t("msgAll")}</SelectItem>
+                      <SelectItem value="email" data-testid="filter-source-email">{t("inboxSourceEmail")}</SelectItem>
+                      <SelectItem value="form" data-testid="filter-source-form">{t("inboxSourceForm")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {/* Read/unread status filter */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Status</span>
+                <Select value={readFilter} onValueChange={(v) => setReadFilter(v as ReadFilter)}>
+                  <SelectTrigger className="h-8 text-sm w-[110px]" data-testid="filter-read-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" data-testid="filter-read-all">{t("msgAll")}</SelectItem>
+                    <SelectItem value="unread" data-testid="filter-read-unread">{t("unread")}</SelectItem>
+                    <SelectItem value="read" data-testid="filter-read-read">{t("read")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Reply-state filter */}
+              {folder !== "sent" && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Reply</span>
+                  <Select value={replyFilter} onValueChange={(v) => setReplyFilter(v as ReplyFilter)}>
+                    <SelectTrigger className="h-8 text-sm w-[110px]" data-testid="filter-reply-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" data-testid="filter-reply-all">{t("msgAll")}</SelectItem>
+                      <SelectItem value="unreplied" data-testid="filter-reply-unreplied">{t("inboxFilterUnreplied")}</SelectItem>
+                      <SelectItem value="replied" data-testid="filter-reply-replied">{t("inboxFilterReplied")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {(folder !== "inbox" || sourceFilter !== "all" || readFilter !== "all" || replyFilter !== "all" || search) && (
                 <Button
                   variant="ghost"
@@ -2160,9 +2181,15 @@ export default function AdminInbox() {
               </div>
             ) : threadGroups.length === 0 ? (
               <div className="p-12 text-center">
-                <InboxIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                {folder === "sent" ? (
+                  <Send className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                ) : (
+                  <InboxIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                )}
                 <h3 className="text-lg font-medium">
-                  {folder === "spam"
+                  {folder === "sent"
+                    ? "No sent messages"
+                    : folder === "spam"
                     ? t("inboxSpamEmpty")
                     : folder === "trash"
                     ? t("inboxTrashEmpty")
@@ -2285,18 +2312,32 @@ export default function AdminInbox() {
                           }`}
                           aria-hidden="true"
                         />
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 ${
-                            isThreadUnread ? "bg-primary" : "bg-muted-foreground/60"
-                          }`}
-                        >
-                          {(it.fromName || "?").charAt(0).toUpperCase()}
-                        </div>
+                        {(() => {
+                          const isSentRow = folder === "sent";
+                          const toName = isSentRow && it.toAddress
+                            ? parseEmailAddress(it.toAddress).name
+                            : null;
+                          const avatarLetter = (isSentRow ? (toName || it.toAddress || "?") : (it.fromName || "?")).charAt(0).toUpperCase();
+                          return (
+                            <div
+                              className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 ${
+                                isThreadUnread ? "bg-primary" : "bg-muted-foreground/60"
+                              }`}
+                            >
+                              {avatarLetter}
+                            </div>
+                          );
+                        })()}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
+                              {folder === "sent" && (
+                                <span className="text-xs text-muted-foreground flex-shrink-0">To:</span>
+                              )}
                               <span className={`truncate ${isThreadUnread ? "font-bold text-foreground" : "font-normal text-muted-foreground"}`}>
-                                {it.fromName}
+                                {folder === "sent"
+                                  ? (it.toAddress ? parseEmailAddress(it.toAddress).name : it.fromName)
+                                  : it.fromName}
                               </span>
                               {/* "N messages" pill — only shown when this row
                                   represents more than one message. Mirrors the
@@ -2313,17 +2354,21 @@ export default function AdminInbox() {
                                 </Badge>
                               )}
                               {/* Quiet outline-style source marker so it stops
-                                  competing with the sender name. */}
+                                  competing with the sender name. In the Sent
+                                  folder we swap the Mail icon for a Send icon
+                                  to signal outbound direction. */}
                               <span
                                 className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground/80 flex-shrink-0"
-                                title={it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                                title={folder === "sent" ? "Sent" : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
                                 data-testid={`source-tag-${it.source}`}
                               >
-                                {it.source === "email"
+                                {folder === "sent"
+                                  ? <Send className="h-3 w-3" />
+                                  : it.source === "email"
                                   ? <Mail className="h-3 w-3" />
                                   : <MessageSquare className="h-3 w-3" />}
                                 <span className="hidden sm:inline">
-                                  {it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                                  {folder === "sent" ? "Sent" : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
                                 </span>
                               </span>
                               {(() => {

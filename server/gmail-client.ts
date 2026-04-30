@@ -217,13 +217,14 @@ export interface ListEmailsResult {
   nextPageToken?: string;
 }
 
-export type GmailListMode = 'inbox' | 'spam' | 'trash' | 'archive' | 'all';
+export type GmailListMode = 'inbox' | 'spam' | 'trash' | 'archive' | 'all' | 'sent';
 
 function labelsForMode(mode: GmailListMode): string[] | undefined {
   switch (mode) {
     case 'inbox': return ['INBOX'];
     case 'spam': return ['SPAM'];
     case 'trash': return ['TRASH'];
+    case 'sent': return ['SENT'];
     // 'archive' = mail without INBOX label, no SPAM/TRASH; Gmail has no
     // single "archive" label, so we just list everything and let the caller
     // filter. We expose it as undefined (= all mail) to the API.
@@ -351,7 +352,12 @@ export async function listEmailThreads(
         const messages = detail.data.messages || [];
         if (!messages.length) return;
         const messageCount = messages.length;
-        const unreadCount = messages.filter((m) => (m.labelIds || []).includes('UNREAD')).length;
+        // Outbound (SENT) messages are never "unread" from the operator's perspective.
+        // Exclude them from the unread tally so replied threads don't carry a stale badge.
+        const unreadCount = messages.filter((m) => {
+          const lids = m.labelIds || [];
+          return lids.includes('UNREAD') && !lids.includes('SENT');
+        }).length;
         const latest = messages[messages.length - 1];
         const headers = latest.payload?.headers || [];
         // Concatenate every message's From/Subject/Body so search can hit

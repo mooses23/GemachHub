@@ -2862,7 +2862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const maxResults = parseInt(req.query.maxResults as string) || 25;
       const pageToken = (req.query.pageToken as string) || undefined;
       const rawMode = String(req.query.mode || 'inbox').toLowerCase();
-      const allowedModes = ['inbox', 'spam', 'trash', 'archive', 'all'] as const;
+      const allowedModes = ['inbox', 'spam', 'trash', 'archive', 'all', 'sent'] as const;
       const mode: GmailListMode = (allowedModes as readonly string[]).includes(rawMode)
         ? (rawMode as GmailListMode)
         : 'inbox';
@@ -2906,7 +2906,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const maxResults = parseInt(req.query.maxResults as string) || 25;
       const pageToken = (req.query.pageToken as string) || undefined;
       const rawMode = String(req.query.mode || 'inbox').toLowerCase();
-      const allowedModes = ['inbox', 'spam', 'trash', 'archive', 'all'] as const;
+      const allowedModes = ['inbox', 'spam', 'trash', 'archive', 'all', 'sent'] as const;
       const mode: GmailListMode = (allowedModes as readonly string[]).includes(rawMode)
         ? (rawMode as GmailListMode)
         : 'inbox';
