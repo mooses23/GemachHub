@@ -23,6 +23,7 @@ import {
   kbEmbeddings, type KbEmbedding, type InsertKbEmbedding,
   globalSettings, type GlobalSetting, type InsertGlobalSetting,
   disputes, type Dispute, type InsertDispute,
+  messageSendLogs, type MessageSendLog, type InsertMessageSendLog,
   type KbSourceKind,
   type PayLaterStatus
 } from '../shared/schema.js';
@@ -1196,6 +1197,25 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  // Message Send Logs — persistent history of every operator message send attempt
+  async createMessageSendLog(log: InsertMessageSendLog): Promise<MessageSendLog> {
+    const result = await db.insert(messageSendLogs).values(log).returning();
+    return result[0];
+  }
+
+  async getMessageSendLogs(opts?: { locationId?: number; limit?: number }): Promise<MessageSendLog[]> {
+    const limit = opts?.limit ?? 500;
+    if (opts?.locationId != null) {
+      return db.select().from(messageSendLogs)
+        .where(eq(messageSendLogs.locationId, opts.locationId))
+        .orderBy(desc(messageSendLogs.sentAt))
+        .limit(limit);
+    }
+    return db.select().from(messageSendLogs)
+      .orderBy(desc(messageSendLogs.sentAt))
+      .limit(limit);
+  }
+
   // Playbook Fact operations (admin-editable AI facts)
   async getAllPlaybookFacts(): Promise<PlaybookFact[]> {
     return db.select().from(playbookFacts).orderBy(playbookFacts.category, playbookFacts.factKey);
@@ -1501,6 +1521,22 @@ export async function ensureSchemaUpgrades(): Promise<void> {
     await db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_status TEXT`);
     await db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_status_updated_at TIMESTAMP`);
     await db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_error_code TEXT`);
+    // Message send log table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS message_send_logs (
+        id SERIAL PRIMARY KEY,
+        location_id INTEGER,
+        location_name TEXT NOT NULL,
+        location_code TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        status TEXT NOT NULL,
+        error TEXT,
+        sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        sent_by_user_id INTEGER,
+        batch_id TEXT
+      )
+    `);
+
     // Task #70: data-fix — clear refund_amount that was incorrectly written
     // when a pay-later lend was closed before the fix to markTransactionReturned.
     // refundAmount on CHARGED/PARTIALLY_REFUNDED rows must only be set by the

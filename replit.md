@@ -104,3 +104,11 @@ Preferred communication style: Simple, everyday language.
 - Dashboard URL prefers `APP_URL`/`SITE_URL` env, falls back to request host.
 - Admin UI: per-row "Send setup email" + bulk "Send setup email to all" in PIN Management card on `/admin/locations`.
 - `/operator/login` now renders `OperatorLogin` (was previously redirecting to `/auth`).
+
+### Message Send History (Persistent Log)
+- Every operator message send attempt (single or bulk) is permanently logged in the `message_send_logs` table (schema in `shared/schema.ts`).
+- Each log entry records: locationId, locationName, locationCode, channel (sms/whatsapp/email), status (sent/failed/skipped), error reason, sentAt timestamp, sentByUserId, and a batchId (UUID shared by all sends in a bulk operation).
+- The log is written in `server/operatorOnboardingService.ts` after each send attempt (including skipped pre-flight cases like no phone on file).
+- Admin GET endpoint: `GET /api/admin/message-send-logs` (supports optional `locationId` and `limit` query params).
+- Admin UI: A collapsible "Message Send History" card on `/admin/locations` below the location table. Shows a summary strip (sent/failed/skipped counts) and a full scrollable table with color-coded rows. Batch sends are visually grouped. Refreshes automatically every 10s when open, and invalidates on every send.
+- Message compose textareas and preview blocks use `font-sans` instead of `font-mono` for proper Hebrew rendering.

@@ -678,3 +678,24 @@ export const insertDisputeSchema = createInsertSchema(disputes).omit({ id: true,
 export type Dispute = typeof disputes.$inferSelect;
 export type InsertDispute = z.infer<typeof insertDisputeSchema>;
 
+// Persistent log of every operator message send attempt (single or bulk)
+export const MESSAGE_SEND_STATUSES = ["sent", "failed", "skipped"] as const;
+export type MessageSendStatus = typeof MESSAGE_SEND_STATUSES[number];
+
+export const messageSendLogs = pgTable("message_send_logs", {
+  id: serial("id").primaryKey(),
+  locationId: integer("location_id"),          // nullable in case location is later deleted
+  locationName: text("location_name").notNull(),
+  locationCode: text("location_code").notNull(),
+  channel: text("channel").notNull(),          // 'sms' | 'whatsapp' | 'email'
+  status: text("status").notNull(),            // one of MESSAGE_SEND_STATUSES
+  error: text("error"),                        // populated when status = 'failed' | 'skipped'
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  sentByUserId: integer("sent_by_user_id"),    // admin who triggered the send
+  batchId: text("batch_id"),                   // shared UUID for bulk-send batches
+});
+
+export const insertMessageSendLogSchema = createInsertSchema(messageSendLogs).omit({ id: true, sentAt: true });
+export type MessageSendLog = typeof messageSendLogs.$inferSelect;
+export type InsertMessageSendLog = z.infer<typeof insertMessageSendLogSchema>;
+

@@ -33,6 +33,10 @@ export interface SendWelcomeOptions {
    * When false or omitted, the service generates the message body from its own template.
    */
   customMessage?: boolean;
+  /** UUID shared by all sends in a single bulk operation (used for grouping in the log). */
+  batchId?: string;
+  /** Admin user id who triggered the send. */
+  sentByUserId?: number;
 }
 
 export interface SendWelcomeResult {
@@ -182,17 +186,37 @@ export async function sendWelcomeForLocation(
   const wantsEmail = options.channel === 'email' || options.channel === 'both';
   const wantsWhatsapp = options.channel === 'whatsapp';
 
+  // Helper: log a skipped entry without throwing
+  const logSkipped = async (reason: string) => {
+    try {
+      await storage.createMessageSendLog({
+        locationId: loc.id,
+        locationName: loc.name,
+        locationCode: loc.locationCode,
+        channel: options.channel === 'both' ? 'sms' : options.channel,
+        status: 'skipped',
+        error: reason,
+        sentByUserId: options.sentByUserId ?? null,
+        batchId: options.batchId ?? null,
+      });
+    } catch { /* non-fatal */ }
+  };
+
   // For 'both', skip if neither channel has the required contact info.
   if (options.channel === 'both' && !loc.phone && !loc.email) {
+    await logSkipped('no phone or email on file');
     return { locationId, locationName: loc.name, channel: options.channel, ok: false, skipped: 'no phone or email on file' };
   }
   if (options.channel === 'sms' && !loc.phone) {
+    await logSkipped('no phone on file');
     return { locationId, locationName: loc.name, channel: options.channel, ok: false, skipped: 'no phone on file' };
   }
   if (options.channel === 'email' && !loc.email) {
+    await logSkipped('no email on file');
     return { locationId, locationName: loc.name, channel: options.channel, ok: false, skipped: 'no email on file' };
   }
   if (options.channel === 'whatsapp' && !loc.phone) {
+    await logSkipped('no phone on file');
     return { locationId, locationName: loc.name, channel: options.channel, ok: false, skipped: 'no phone on file' };
   }
 
@@ -304,6 +328,33 @@ export async function sendWelcomeForLocation(
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     console.error('[onboarding] failed to record attempt for location', loc.id, ':', message);
+  }
+
+  // Write a persistent send log entry for every channel attempted.
+  const logChannel = options.channel === 'both' ? 'sms' : options.channel;
+  const channelResult = options.channel === 'email' ? emailResult
+    : options.channel === 'whatsapp' ? whatsappResult
+    : smsResult;
+  try {
+    const okFlag = options.channel === 'both'
+      ? (!!smsResult?.ok || !!emailResult?.ok)
+      : !!channelResult?.ok;
+    const errorMsg = options.channel === 'both'
+      ? (!smsResult?.ok ? smsResult?.error : undefined) || (!emailResult?.ok ? emailResult?.error : undefined)
+      : channelResult?.error;
+    await storage.createMessageSendLog({
+      locationId: loc.id,
+      locationName: loc.name,
+      locationCode: loc.locationCode,
+      channel: logChannel,
+      status: okFlag ? 'sent' : 'failed',
+      error: okFlag ? null : (errorMsg || 'Send failed'),
+      sentByUserId: options.sentByUserId ?? null,
+      batchId: options.batchId ?? null,
+    });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error('[onboarding] failed to write message send log for location', loc.id, ':', message);
   }
 
   const ok =

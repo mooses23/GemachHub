@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLocations, getRegions, updateLocation, deleteLocation } from "@/lib/api";
-import { Region, Location, OPERATOR_WELCOME_CHANNELS, type OperatorWelcomeChannel } from "@shared/schema";
+import { Region, Location, OPERATOR_WELCOME_CHANNELS, type OperatorWelcomeChannel, type MessageSendLog } from "@shared/schema";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -92,6 +92,10 @@ import {
   Bell,
   Globe,
   Info,
+  History,
+  Clock,
+  MinusCircle,
+  ChevronUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -598,6 +602,13 @@ export default function AdminLocations() {
   const [streamState, setStreamState] = useState<{ log: string; n: number; total: number } | null>(null);
   const [sendFailures, setSendFailures] = useState<Array<{ name: string; error: string }>>([]);
   const [sendReport, setSendReport] = useState<{ sent: number; failed: number; skipped: number; eligible?: number } | null>(null);
+  const [sendHistoryOpen, setSendHistoryOpen] = useState(false);
+
+  const sendHistoryQuery = useQuery<MessageSendLog[]>({
+    queryKey: ["/api/admin/message-send-logs"],
+    enabled: sendHistoryOpen,
+    refetchInterval: sendHistoryOpen ? 10000 : false,
+  });
 
   // Wraps all ADMIN-initiated edits to the message body (textarea onChanges).
   // Programmatic updates (preview load, channel change, template reset) call setMessageBody directly.
@@ -733,6 +744,7 @@ export default function AdminLocations() {
         variant: data.results?.anySuccess ? "default" : "destructive",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/message-send-logs"] });
       if (data.results?.anySuccess) {
         setWelcomeDialogOpen(false);
         setWelcomeTarget(null);
@@ -756,6 +768,7 @@ export default function AdminLocations() {
         variant: (data.summary?.failed ?? 0) > 0 ? "destructive" : "default",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/message-send-logs"] });
       setWelcomeDialogOpen(false);
       setWelcomeTarget(null);
     },
@@ -817,6 +830,7 @@ export default function AdminLocations() {
       if (streamError) throw new Error(streamError);
 
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/message-send-logs"] });
       setSelectedIds(new Set());
 
       if (doneSummary && doneSummary.failed > 0 && collectedFailures.length > 0) {
@@ -896,6 +910,7 @@ export default function AdminLocations() {
       if (streamError) throw new Error(streamError);
 
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/message-send-logs"] });
 
       if (doneSummary && doneSummary.failed > 0 && collectedFailures.length > 0) {
         setSendFailures(collectedFailures);
@@ -1898,6 +1913,149 @@ export default function AdminLocations() {
           </CardContent>
         </Card>
 
+        {/* Message Send History Panel */}
+        <Card className="mt-4">
+          <CardHeader className="pb-2 cursor-pointer select-none" onClick={() => setSendHistoryOpen(v => !v)}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">Message Send History</CardTitle>
+                {!sendHistoryOpen && sendHistoryQuery.data && sendHistoryQuery.data.some(l => l.status === "failed") && (
+                  <Badge variant="destructive" className="text-xs">
+                    {sendHistoryQuery.data.filter(l => l.status === "failed").length} failed
+                  </Badge>
+                )}
+              </div>
+              {sendHistoryOpen
+                ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              }
+            </div>
+            <CardDescription className="text-xs mt-0.5">
+              Permanent log of every message send attempt — successes, failures, and skipped locations.
+            </CardDescription>
+          </CardHeader>
+          {sendHistoryOpen && (
+            <CardContent className="pt-0">
+              {sendHistoryQuery.isLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading send history…
+                </div>
+              )}
+              {sendHistoryQuery.isError && (
+                <p className="text-sm text-destructive py-4">Failed to load send history.</p>
+              )}
+              {sendHistoryQuery.data && sendHistoryQuery.data.length === 0 && (
+                <p className="text-sm text-muted-foreground py-4">No send history yet. Logs will appear here after you send messages to locations.</p>
+              )}
+              {sendHistoryQuery.data && sendHistoryQuery.data.length > 0 && (() => {
+                const logs = sendHistoryQuery.data;
+                const failedCount = logs.filter(l => l.status === "failed").length;
+                const sentCount = logs.filter(l => l.status === "sent").length;
+                const skippedCount = logs.filter(l => l.status === "skipped").length;
+                return (
+                  <div className="space-y-3">
+                    {/* Summary strip */}
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                        <CheckCircle className="h-3 w-3" />{sentCount} sent
+                      </span>
+                      {failedCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
+                          <XCircle className="h-3 w-3" />{failedCount} failed
+                        </span>
+                      )}
+                      {skippedCount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                          <MinusCircle className="h-3 w-3" />{skippedCount} skipped
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">(last {logs.length} entries)</span>
+                    </div>
+
+                    {/* Log table */}
+                    <div className="rounded border overflow-hidden">
+                      <div className="max-h-96 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/30">
+                              <TableHead className="text-xs py-2 w-32">When</TableHead>
+                              <TableHead className="text-xs py-2">Location</TableHead>
+                              <TableHead className="text-xs py-2 w-20">Channel</TableHead>
+                              <TableHead className="text-xs py-2 w-20">Status</TableHead>
+                              <TableHead className="text-xs py-2">Reason / Error</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {logs.map((log, i) => {
+                              const isNewBatch = i === 0 || log.batchId !== logs[i - 1].batchId;
+                              const sentAt = new Date(log.sentAt);
+                              const daysAgo = Math.floor((Date.now() - sentAt.getTime()) / 86400000);
+                              const timeStr = daysAgo === 0
+                                ? sentAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+                                : daysAgo === 1
+                                  ? `Yesterday ${sentAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+                                  : sentAt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                              return (
+                                <TableRow
+                                  key={log.id}
+                                  className={`text-xs ${log.status === "failed" ? "bg-red-50/40 dark:bg-red-950/20" : log.status === "skipped" ? "bg-amber-50/30 dark:bg-amber-950/10" : ""} ${isNewBatch && log.batchId && i > 0 ? "border-t-2 border-muted" : ""}`}
+                                >
+                                  <TableCell className="py-1.5 text-muted-foreground whitespace-nowrap">
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3 shrink-0" />
+                                      {timeStr}
+                                    </div>
+                                    {isNewBatch && log.batchId && (
+                                      <span className="text-[10px] text-muted-foreground/60 block mt-0.5">batch</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-1.5 font-medium">
+                                    {log.locationName}
+                                    <span className="text-muted-foreground font-normal ml-1 text-[11px]">({log.locationCode})</span>
+                                  </TableCell>
+                                  <TableCell className="py-1.5">
+                                    <span className="inline-flex items-center gap-0.5">
+                                      {log.channel === "sms" && <MessageSquare className="h-3 w-3" />}
+                                      {log.channel === "whatsapp" && <MessageCircle className="h-3 w-3" />}
+                                      {log.channel === "email" && <Mail className="h-3 w-3" />}
+                                      {log.channel}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="py-1.5">
+                                    {log.status === "sent" && (
+                                      <span className="inline-flex items-center gap-1 text-green-700">
+                                        <CheckCircle className="h-3 w-3" /> Sent
+                                      </span>
+                                    )}
+                                    {log.status === "failed" && (
+                                      <span className="inline-flex items-center gap-1 text-red-700 font-medium">
+                                        <XCircle className="h-3 w-3" /> Failed
+                                      </span>
+                                    )}
+                                    {log.status === "skipped" && (
+                                      <span className="inline-flex items-center gap-1 text-amber-700">
+                                        <MinusCircle className="h-3 w-3" /> Skipped
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-1.5 text-muted-foreground max-w-[200px] truncate">
+                                    {log.error || "—"}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          )}
+        </Card>
+
         {/* Edit Location Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -2176,7 +2334,7 @@ export default function AdminLocations() {
                         </TabsList>
                         <TabsContent value="en">
                           <Textarea
-                            className="mt-1 text-sm leading-relaxed min-h-[140px] resize-y"
+                            className="mt-1 text-sm leading-relaxed min-h-[140px] resize-y font-sans"
                             value={messageBody}
                             onChange={(e) => handleMessageBodyChange(e.target.value)}
                             dir="ltr"
@@ -2186,7 +2344,7 @@ export default function AdminLocations() {
                         </TabsContent>
                         <TabsContent value="he">
                           <Textarea
-                            className="mt-1 text-sm leading-relaxed min-h-[140px] resize-y"
+                            className="mt-1 text-sm leading-relaxed min-h-[140px] resize-y font-sans"
                             value={messageBody}
                             onChange={(e) => handleMessageBodyChange(e.target.value)}
                             dir="rtl"
@@ -2258,7 +2416,7 @@ export default function AdminLocations() {
                       Use <code className="bg-muted px-0.5 rounded">{"{{name}}"}</code>, <code className="bg-muted px-0.5 rounded">{"{{code}}"}</code>, <code className="bg-muted px-0.5 rounded">{"{{pin}}"}</code>, <code className="bg-muted px-0.5 rounded">{"{{url}}"}</code> — each will be replaced with the recipient's actual values.
                     </p>
                     <Textarea
-                      className={`mt-1 text-sm leading-relaxed min-h-[140px] resize-y ${!isCustomMessage ? "bg-muted/40" : ""}`}
+                      className={`mt-1 text-sm leading-relaxed min-h-[140px] resize-y font-sans ${!isCustomMessage ? "bg-muted/40" : ""}`}
                       value={messageBody}
                       onChange={(e) => handleMessageBodyChange(e.target.value)}
                       dir="auto"
@@ -2320,14 +2478,14 @@ export default function AdminLocations() {
                               </TabsList>
                               <TabsContent value="en">
                                 {enText != null && (
-                                  <pre className="bg-muted/30 border rounded p-3 text-xs whitespace-pre-wrap font-mono mt-2" data-testid="bulk-preview-body-en">
+                                  <pre className="bg-muted/30 border rounded p-3 text-xs whitespace-pre-wrap font-sans mt-2" data-testid="bulk-preview-body-en">
                                     {enText}
                                   </pre>
                                 )}
                               </TabsContent>
                               <TabsContent value="he">
                                 {heText != null && (
-                                  <pre dir="rtl" className="bg-muted/30 border rounded p-3 text-xs whitespace-pre-wrap font-mono mt-2" data-testid="bulk-preview-body-he">
+                                  <pre dir="rtl" className="bg-muted/30 border rounded p-3 text-xs whitespace-pre-wrap font-sans mt-2" data-testid="bulk-preview-body-he">
                                     {heText}
                                   </pre>
                                 )}
@@ -2336,7 +2494,7 @@ export default function AdminLocations() {
                           ) : singleText != null ? (
                             <pre
                               dir={primaryLang === "he" ? "rtl" : "ltr"}
-                              className="bg-muted/30 border rounded p-3 text-xs whitespace-pre-wrap font-mono"
+                              className="bg-muted/30 border rounded p-3 text-xs whitespace-pre-wrap font-sans"
                               data-testid={`bulk-preview-body-${primaryLang}`}
                             >
                               {singleText}

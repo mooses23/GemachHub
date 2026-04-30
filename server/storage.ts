@@ -21,6 +21,7 @@ import {
   kbEmbeddings, type KbEmbedding, type InsertKbEmbedding,
   globalSettings, type GlobalSetting, type InsertGlobalSetting,
   disputes, type Dispute, type InsertDispute,
+  messageSendLogs, type MessageSendLog, type InsertMessageSendLog,
   type KbSourceKind,
   type PayLaterStatus
 } from "../shared/schema.js";
@@ -217,6 +218,10 @@ export interface IStorage {
     chargedCount: number;
     rate: number;
   }[]>;
+
+  // Message Send Logs — persistent history of every operator message send attempt
+  createMessageSendLog(log: InsertMessageSendLog): Promise<MessageSendLog>;
+  getMessageSendLogs(opts?: { locationId?: number; limit?: number }): Promise<MessageSendLog[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -3424,6 +3429,25 @@ export class MemStorage implements IStorage {
       const rate = chargedCount > 0 ? disputeCount / chargedCount : 0;
       return { locationId, disputeCount, chargedCount, rate };
     });
+  }
+
+  // Message Send Logs stubs (MemStorage — in-memory only)
+  private messageSendLogsMap = new Map<number, MessageSendLog>();
+  private messageSendLogCounter = 1;
+
+  async createMessageSendLog(log: InsertMessageSendLog): Promise<MessageSendLog> {
+    const id = this.messageSendLogCounter++;
+    const row: MessageSendLog = { ...log, id, sentAt: new Date() };
+    this.messageSendLogsMap.set(id, row);
+    return row;
+  }
+
+  async getMessageSendLogs(opts?: { locationId?: number; limit?: number }): Promise<MessageSendLog[]> {
+    let rows = Array.from(this.messageSendLogsMap.values())
+      .sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
+    if (opts?.locationId != null) rows = rows.filter(r => r.locationId === opts.locationId);
+    if (opts?.limit != null) rows = rows.slice(0, opts.limit);
+    return rows;
   }
 }
 

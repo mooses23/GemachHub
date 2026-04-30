@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
@@ -883,6 +884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid request', errors: parsed.error.errors });
       }
       const baseUrl = getOnboardingBaseUrl(req);
+      const sentByUserId = (req.user as any)?.id ?? undefined;
       const result = await sendWelcomeForLocation(id, {
         channel: parsed.data.channel,
         baseUrl,
@@ -891,6 +893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signOff: getOperatorWelcomeSigner(),
         messageBody: parsed.data.messageBody,
         customMessage: parsed.data.customMessage,
+        sentByUserId,
       });
       res.json({
         success: result.ok,
@@ -929,6 +932,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'locationIds is required' });
       }
       const baseUrl = getOnboardingBaseUrl(req);
+      const batchId = randomUUID();
+      const sentByUserId = (req.user as any)?.id ?? undefined;
       const results = await sendWelcomeForLocations(ids, {
         channel: parsed.data.channel,
         baseUrl,
@@ -937,6 +942,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signOff: getOperatorWelcomeSigner(),
         messageBody: parsed.data.messageBody,
         customMessage: parsed.data.customMessage,
+        batchId,
+        sentByUserId,
       });
       res.json({ success: true, summary: summarizeResults(results), results });
     } catch (e: any) {
@@ -980,6 +987,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const total = ids.length;
       emit({ type: 'start', total });
 
+      const batchId = randomUUID();
+      const sentByUserId = (req.user as any)?.id ?? undefined;
       const options = {
         channel: parsed.data.channel,
         baseUrl: getOnboardingBaseUrl(req),
@@ -988,6 +997,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signOff: getOperatorWelcomeSigner(),
         messageBody: parsed.data.messageBody,
         customMessage: parsed.data.customMessage,
+        batchId,
+        sentByUserId,
       };
 
       const results: Awaited<ReturnType<typeof sendWelcomeForLocation>>[] = [];
@@ -1056,6 +1067,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ success: true, eligible: 0, summary: { sent: 0, failed: 0, skipped: 0, total: 0 }, results: [] });
       }
       const baseUrl = getOnboardingBaseUrl(req);
+      const batchId = randomUUID();
+      const sentByUserId = (req.user as any)?.id ?? undefined;
       const results = await sendWelcomeForLocations(candidateIds, {
         channel: parsed.data.channel,
         baseUrl,
@@ -1064,6 +1077,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signOff: getOperatorWelcomeSigner(),
         messageBody: parsed.data.messageBody,
         customMessage: parsed.data.customMessage,
+        batchId,
+        sentByUserId,
       });
       res.json({ success: true, eligible: candidateIds.length, summary: summarizeResults(results), results });
     } catch (e: any) {
@@ -1118,6 +1133,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       emit({ type: 'start', total });
 
+      const batchId = randomUUID();
+      const sentByUserId = (req.user as any)?.id ?? undefined;
       const options = {
         channel: parsed.data.channel,
         baseUrl: getOnboardingBaseUrl(req),
@@ -1126,6 +1143,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         signOff: getOperatorWelcomeSigner(),
         messageBody: parsed.data.messageBody,
         customMessage: parsed.data.customMessage,
+        batchId,
+        sentByUserId,
       };
 
       const results: Awaited<ReturnType<typeof sendWelcomeForLocation>>[] = [];
@@ -1159,6 +1178,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[onboarding] send-all-stream failed:', e);
       emit({ type: 'error', message: e?.message || 'Send-all failed' });
       res.end();
+    }
+  });
+
+  // GET /api/admin/message-send-logs — persistent send history (admin only)
+  app.get('/api/admin/message-send-logs', async (req, res) => {
+    if (!requireOnboardingAdmin(req, res)) return;
+    try {
+      const locationId = req.query.locationId ? Number(req.query.locationId) : undefined;
+      const limit = req.query.limit ? Math.min(Number(req.query.limit), 1000) : 500;
+      const logs = await storage.getMessageSendLogs({ locationId, limit });
+      res.json(logs);
+    } catch (e: any) {
+      console.error('[message-send-logs] fetch failed:', e);
+      res.status(500).json({ message: e?.message || 'Failed to fetch send logs' });
     }
   });
 
