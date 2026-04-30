@@ -173,57 +173,57 @@ export async function runStartupChecks(): Promise<void> {
  * Keep REQUIRED_COLUMNS / REQUIRED_TABLES in lockstep with the ALTER/CREATE
  * statements in server/databaseStorage.ts ensureSchemaUpgrades().
  */
-const REQUIRED_COLUMNS: Array<{ table: string; column: string; addedFor: string }> = [
-  // Task #174 — POST /api/applications writes this column on insert.
-  { table: 'gemach_applications', column: 'confirmation_email_sent_at', addedFor: 'Task #174 application confirmation email tracking' },
+const REQUIRED_COLUMNS: Array<{ table: string; column: string; type: string; addedFor: string }> = [
+  // POST /api/applications writes this column on insert; missing column 500s the route.
+  { table: 'gemach_applications', column: 'confirmation_email_sent_at', type: 'TIMESTAMP', addedFor: 'application confirmation email tracking' },
   // Task #22 — inbox archived/spam toggles for web-form contacts.
-  { table: 'contacts', column: 'is_archived', addedFor: 'Task #22 inbox archive' },
-  { table: 'contacts', column: 'is_spam', addedFor: 'Task #22 inbox spam' },
+  { table: 'contacts', column: 'is_archived', type: 'BOOLEAN NOT NULL DEFAULT FALSE', addedFor: 'Task #22 inbox archive' },
+  { table: 'contacts', column: 'is_spam', type: 'BOOLEAN NOT NULL DEFAULT FALSE', addedFor: 'Task #22 inbox spam' },
   // Task #38 — Stripe refund + pay-later consent + refund accounting.
-  { table: 'transactions', column: 'stripe_refund_id', addedFor: 'Task #38 refund trace' },
-  { table: 'transactions', column: 'last_return_reminder_at', addedFor: 'return reminder cooldown' },
-  { table: 'transactions', column: 'return_reminder_count', addedFor: 'return reminder count' },
-  { table: 'transactions', column: 'consent_text', addedFor: 'Task #38 pay-later consent text' },
-  { table: 'transactions', column: 'consent_accepted_at', addedFor: 'Task #38 pay-later consent timestamp' },
-  { table: 'transactions', column: 'consent_max_charge_cents', addedFor: 'Task #38 pay-later consent cap' },
-  { table: 'transactions', column: 'card_saved_at', addedFor: 'Task #38 SetupIntent confirmed timestamp' },
-  { table: 'transactions', column: 'charge_notification_sent_at', addedFor: 'Task #38 pay-later charge alert' },
-  { table: 'transactions', column: 'charge_notification_channel', addedFor: 'Task #38 pay-later charge alert channel' },
-  { table: 'transactions', column: 'deposit_fee_cents', addedFor: 'Task #39 per-tx Stripe fee' },
-  { table: 'transactions', column: 'charged_at', addedFor: 'pay-later charge timestamp' },
-  { table: 'transactions', column: 'refund_attempted_at', addedFor: 'Task #70 refund attempt timestamp' },
+  { table: 'transactions', column: 'stripe_refund_id', type: 'TEXT', addedFor: 'Task #38 refund trace' },
+  { table: 'transactions', column: 'last_return_reminder_at', type: 'TIMESTAMP', addedFor: 'return reminder cooldown' },
+  { table: 'transactions', column: 'return_reminder_count', type: 'INTEGER NOT NULL DEFAULT 0', addedFor: 'return reminder count' },
+  { table: 'transactions', column: 'consent_text', type: 'TEXT', addedFor: 'Task #38 pay-later consent text' },
+  { table: 'transactions', column: 'consent_accepted_at', type: 'TIMESTAMP', addedFor: 'Task #38 pay-later consent timestamp' },
+  { table: 'transactions', column: 'consent_max_charge_cents', type: 'INTEGER', addedFor: 'Task #38 pay-later consent cap' },
+  { table: 'transactions', column: 'card_saved_at', type: 'TIMESTAMP', addedFor: 'Task #38 SetupIntent confirmed timestamp' },
+  { table: 'transactions', column: 'charge_notification_sent_at', type: 'TIMESTAMP', addedFor: 'Task #38 pay-later charge alert' },
+  { table: 'transactions', column: 'charge_notification_channel', type: 'TEXT', addedFor: 'Task #38 pay-later charge alert channel' },
+  { table: 'transactions', column: 'deposit_fee_cents', type: 'INTEGER', addedFor: 'Task #39 per-tx Stripe fee' },
+  { table: 'transactions', column: 'charged_at', type: 'TIMESTAMP', addedFor: 'pay-later charge timestamp' },
+  { table: 'transactions', column: 'refund_attempted_at', type: 'TIMESTAMP', addedFor: 'Task #70 refund attempt timestamp' },
   // Return reminder delivery telemetry (Twilio status callbacks).
-  { table: 'return_reminder_events', column: 'twilio_sid', addedFor: 'return reminder Twilio SID' },
-  { table: 'return_reminder_events', column: 'delivery_status', addedFor: 'return reminder Twilio status' },
-  { table: 'return_reminder_events', column: 'delivery_status_updated_at', addedFor: 'return reminder status timestamp' },
-  { table: 'return_reminder_events', column: 'delivery_error_code', addedFor: 'return reminder error code' },
+  { table: 'return_reminder_events', column: 'twilio_sid', type: 'TEXT', addedFor: 'return reminder Twilio SID' },
+  { table: 'return_reminder_events', column: 'delivery_status', type: 'TEXT', addedFor: 'return reminder Twilio status' },
+  { table: 'return_reminder_events', column: 'delivery_status_updated_at', type: 'TIMESTAMP', addedFor: 'return reminder status timestamp' },
+  { table: 'return_reminder_events', column: 'delivery_error_code', type: 'TEXT', addedFor: 'return reminder error code' },
   // Task #35 — operator onboarding: claim token + welcome SMS / WhatsApp /
   // email lifecycle (status, SID, error, sent_at, delivered_at) for ALL
   // three channels. Every column here is read by GET /api/admin/locations
   // and similar routes, so a single missing column 500s the entire list.
-  { table: 'locations', column: 'claim_token', addedFor: 'Task #35 operator claim token' },
-  { table: 'locations', column: 'claim_token_created_at', addedFor: 'Task #35 claim token timestamp' },
-  { table: 'locations', column: 'welcome_sent_at', addedFor: 'Task #35 welcome timestamp' },
-  { table: 'locations', column: 'welcome_sms_status', addedFor: 'Task #35 welcome SMS status' },
-  { table: 'locations', column: 'welcome_sms_error', addedFor: 'Task #35 welcome SMS error' },
-  { table: 'locations', column: 'welcome_sms_sent_at', addedFor: 'Task #35 welcome SMS sent_at' },
-  { table: 'locations', column: 'welcome_sms_sid', addedFor: 'Task #35 welcome SMS SID' },
-  { table: 'locations', column: 'welcome_sms_delivered_at', addedFor: 'Task #35 welcome SMS delivered_at' },
-  { table: 'locations', column: 'welcome_whatsapp_status', addedFor: 'Task #35 welcome WhatsApp status' },
-  { table: 'locations', column: 'welcome_whatsapp_error', addedFor: 'Task #35 welcome WhatsApp error' },
-  { table: 'locations', column: 'welcome_whatsapp_sent_at', addedFor: 'Task #35 welcome WhatsApp sent_at' },
-  { table: 'locations', column: 'welcome_whatsapp_sid', addedFor: 'Task #35 welcome WhatsApp SID' },
-  { table: 'locations', column: 'welcome_whatsapp_delivered_at', addedFor: 'Task #35 welcome WhatsApp delivered_at' },
-  { table: 'locations', column: 'welcome_email_status', addedFor: 'Task #35 welcome email status' },
-  { table: 'locations', column: 'welcome_email_error', addedFor: 'Task #35 welcome email error' },
-  { table: 'locations', column: 'welcome_email_sent_at', addedFor: 'Task #35 welcome email sent_at' },
-  { table: 'locations', column: 'default_welcome_channel', addedFor: 'Task #35 default welcome channel' },
-  { table: 'locations', column: 'contact_preference', addedFor: 'Task #35 contact preference' },
-  { table: 'locations', column: 'contact_preference_set_at', addedFor: 'Task #35 contact preference set_at' },
-  { table: 'locations', column: 'onboarded_at', addedFor: 'Task #35 onboarded timestamp' },
-  { table: 'locations', column: 'processing_fee_fixed', addedFor: 'Task #39 per-location fixed fee' },
+  { table: 'locations', column: 'claim_token', type: 'TEXT', addedFor: 'Task #35 operator claim token' },
+  { table: 'locations', column: 'claim_token_created_at', type: 'TIMESTAMP', addedFor: 'Task #35 claim token timestamp' },
+  { table: 'locations', column: 'welcome_sent_at', type: 'TIMESTAMP', addedFor: 'Task #35 welcome timestamp' },
+  { table: 'locations', column: 'welcome_sms_status', type: 'TEXT', addedFor: 'Task #35 welcome SMS status' },
+  { table: 'locations', column: 'welcome_sms_error', type: 'TEXT', addedFor: 'Task #35 welcome SMS error' },
+  { table: 'locations', column: 'welcome_sms_sent_at', type: 'TIMESTAMP', addedFor: 'Task #35 welcome SMS sent_at' },
+  { table: 'locations', column: 'welcome_sms_sid', type: 'TEXT', addedFor: 'Task #35 welcome SMS SID' },
+  { table: 'locations', column: 'welcome_sms_delivered_at', type: 'TIMESTAMP', addedFor: 'Task #35 welcome SMS delivered_at' },
+  { table: 'locations', column: 'welcome_whatsapp_status', type: 'TEXT', addedFor: 'Task #35 welcome WhatsApp status' },
+  { table: 'locations', column: 'welcome_whatsapp_error', type: 'TEXT', addedFor: 'Task #35 welcome WhatsApp error' },
+  { table: 'locations', column: 'welcome_whatsapp_sent_at', type: 'TIMESTAMP', addedFor: 'Task #35 welcome WhatsApp sent_at' },
+  { table: 'locations', column: 'welcome_whatsapp_sid', type: 'TEXT', addedFor: 'Task #35 welcome WhatsApp SID' },
+  { table: 'locations', column: 'welcome_whatsapp_delivered_at', type: 'TIMESTAMP', addedFor: 'Task #35 welcome WhatsApp delivered_at' },
+  { table: 'locations', column: 'welcome_email_status', type: 'TEXT', addedFor: 'Task #35 welcome email status' },
+  { table: 'locations', column: 'welcome_email_error', type: 'TEXT', addedFor: 'Task #35 welcome email error' },
+  { table: 'locations', column: 'welcome_email_sent_at', type: 'TIMESTAMP', addedFor: 'Task #35 welcome email sent_at' },
+  { table: 'locations', column: 'default_welcome_channel', type: 'TEXT', addedFor: 'Task #35 default welcome channel' },
+  { table: 'locations', column: 'contact_preference', type: 'TEXT', addedFor: 'Task #35 contact preference' },
+  { table: 'locations', column: 'contact_preference_set_at', type: 'TIMESTAMP', addedFor: 'Task #35 contact preference set_at' },
+  { table: 'locations', column: 'onboarded_at', type: 'TIMESTAMP', addedFor: 'Task #35 onboarded timestamp' },
+  { table: 'locations', column: 'processing_fee_fixed', type: 'INTEGER DEFAULT 30', addedFor: 'Task #39 per-location fixed fee' },
   // Task #135 — global admin settings toggle.
-  { table: 'global_settings', column: 'is_enabled', addedFor: 'global setting is_enabled toggle' },
+  { table: 'global_settings', column: 'is_enabled', type: 'BOOLEAN NOT NULL DEFAULT true', addedFor: 'global setting is_enabled toggle' },
 ];
 
 const REQUIRED_TABLES: Array<{ name: string; addedFor: string }> = [
@@ -280,7 +280,7 @@ export async function runSchemaDriftCheck(): Promise<{
     return { missingColumns, missingTables, introspectionErrors };
   }
 
-  for (const { table, column, addedFor } of REQUIRED_COLUMNS) {
+  for (const { table, column, type, addedFor } of REQUIRED_COLUMNS) {
     try {
       const result = await db.execute(sql`
         SELECT 1 AS present
@@ -295,8 +295,7 @@ export async function runSchemaDriftCheck(): Promise<{
         console.error(
           `[schema-drift] ERROR: required column "${table}.${column}" is missing (${addedFor}). ` +
           `Reads/writes will return HTTP 500. ` +
-          `Apply: ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} <type>; ` +
-          `(see ensureSchemaUpgrades in server/databaseStorage.ts for the exact type.)`
+          `Apply: ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${type};`
         );
       }
     } catch (err) {

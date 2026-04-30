@@ -1655,7 +1655,8 @@ export async function ensureSchemaUpgrades(): Promise<void> {
         AND stripe_refund_id IS NULL
         AND refund_amount IS NOT NULL
     `);
-    const fixedCount = (fixResult as any).rowCount ?? (fixResult as any).count ?? 0;
+    const r = fixResult as { rowCount?: number; count?: number };
+    const fixedCount = r.rowCount ?? r.count ?? 0;
     if (fixedCount > 0) {
       console.log(`[ensureSchemaUpgrades] Task #70 data-fix: cleared stale refund_amount on ${fixedCount} pay-later transaction(s).`);
     }
