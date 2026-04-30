@@ -1,4 +1,6 @@
 import { google, type gmail_v1 } from 'googleapis';
+import iconv from 'iconv-lite';
+import { convert as htmlToText } from 'html-to-text';
 
 let connectionSettings: any;
 let vercelOAuth2Client: any = null;
@@ -173,43 +175,244 @@ export interface EmailThread {
   historyId: string;
 }
 
-function decodeBase64Url(data: string): string {
-  const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+function getHeader(headers: { name?: string | null; value?: string | null }[], name: string): string {
+  const header = headers?.find(h => h.name?.toLowerCase() === name.toLowerCase());
+  const raw = header?.value || '';
+  // Decode RFC 2047 encoded-words (`=?charset?B|Q?...?=`) so user-visible
+  // headers — Subject, From display name, To display name — render correctly
+  // for non-ASCII senders. The decoder is a no-op when no encoded-word is
+  // present, so Content-Type / Date / Content-Disposition are unaffected.
+  return decodeRfc2047Header(raw);
+}
+
+// Pull the charset off a Content-Type header value. e.g. 'text/plain; charset="windows-1252"' -> 'windows-1252'.
+// Returns null when no charset attribute is present.
+function parseCharset(contentType: string | null | undefined): string | null {
+  if (!contentType) return null;
+  const m = contentType.match(/charset\s*=\s*"?([^";\s]+)"?/i);
+  return m ? m[1].trim().toLowerCase() : null;
+}
+
+// True UTF-8 validity check using the strict, throw-on-error TextDecoder.
+// We can't trust iconv-lite's UTF-8 decoder for this — it silently inserts
+// U+FFFD for invalid sequences, so a follow-up "does this contain U+FFFD?"
+// check would also fire on perfectly-valid UTF-8 that happens to contain
+// a literal replacement character.
+const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true });
+function isValidUtf8(buf: Buffer): boolean {
   try {
-    return Buffer.from(base64, 'base64').toString('utf-8');
+    STRICT_UTF8.decode(buf);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Decode a base64url-encoded MIME part to a string, honouring the part's
+// declared charset. Falls back through UTF-8 (strict-validated) → windows-1252
+// → a lossy decode, so that whatever happens we always return *something*.
+//
+// The previous implementation called `Buffer.from(...).toString('utf-8')`
+// unconditionally, which is exactly how mojibake like `Ã¢â‚¬â„¢` ends up in
+// the inbox: a windows-1252 / iso-8859-1 part gets re-interpreted as UTF-8,
+// invalid sequences are replaced with `\uFFFD`, and the curly quote /
+// em-dash / accented character is permanently lost.
+//
+// `iso-8859-1` / `latin1` are treated as windows-1252 because real-world
+// mailers often label windows-1252 bytes as iso-8859-1 (HTML5 does the same
+// substitution), and the windows-1252 superset has the curly quotes and
+// dashes that would otherwise come out as control characters.
+export function decodeMimePartBytes(rawBase64Url: string, declaredCharset: string | null): string {
+  const base64 = rawBase64Url.replace(/-/g, '+').replace(/_/g, '/');
+  let buf: Buffer;
+  try {
+    buf = Buffer.from(base64, 'base64');
   } catch {
     return '';
   }
+
+  const normalize = (enc: string | null): string | null => {
+    if (!enc) return null;
+    const n = enc.toLowerCase();
+    if (n === 'iso-8859-1' || n === 'latin1') return 'windows-1252';
+    return n;
+  };
+
+  const declared = normalize(declaredCharset);
+  if (declared && iconv.encodingExists(declared)) {
+    // Trust the sender's declared charset. Decoding errors just fall through
+    // to the catch and we drop into the heuristic fallback below.
+    try {
+      return iconv.decode(buf, declared);
+    } catch {
+      // fall through
+    }
+  }
+
+  // No declared charset (or it failed): prefer UTF-8 if the bytes are valid
+  // UTF-8, otherwise treat as windows-1252 — the de-facto default for
+  // single-byte Western European mail.
+  if (isValidUtf8(buf)) return buf.toString('utf-8');
+  try {
+    return iconv.decode(buf, 'windows-1252');
+  } catch {
+    return buf.toString('utf-8');
+  }
 }
 
-function getHeader(headers: { name?: string | null; value?: string | null }[], name: string): string {
-  const header = headers?.find(h => h.name?.toLowerCase() === name.toLowerCase());
-  return header?.value || '';
+// Convert an HTML email body to readable plain text. Strips <script>,
+// <style>, <head>, decodes HTML entities, collapses whitespace, and keeps
+// links as `text (url)` so the URL is still discoverable.
+export function htmlBodyToText(html: string): string {
+  return htmlToText(html, {
+    wordwrap: false,
+    selectors: [
+      { selector: 'a', options: { hideLinkHrefIfSameAsText: true } },
+      { selector: 'img', format: 'skip' },
+    ],
+  });
 }
 
-function extractBody(payload: any): string {
+interface ExtractedBody {
+  body: string;
+  mime: 'text/plain' | 'text/html' | 'other';
+}
+
+// True if a MIME part is an attachment (or any part with a filename) and
+// therefore should not be treated as the message body. The current
+// `Buffer.from(data, 'base64')` body field on attachments is rare (Gmail
+// usually only sets `attachmentId`), but a sender attaching a small `.txt`
+// file inline would otherwise overshadow the real HTML body in a
+// multipart/mixed message.
+function isAttachmentPart(part: any): boolean {
+  const disp = getHeader(part?.headers || [], 'Content-Disposition').toLowerCase();
+  if (disp.startsWith('attachment')) return true;
+  if (part?.filename) return true;
+  // Some clients emit `inline; filename=...` for inline attachments — those
+  // are also not the body of the message.
+  if (disp.includes('filename=')) return true;
+  return false;
+}
+
+// Recursively walk the MIME tree and pick the best body part. Honours
+// MIME semantics:
+//   * `multipart/alternative` — pick the text/plain alternative if present,
+//     otherwise text/html. (These are equivalent renderings of the same
+//     content; plain is the canonical one for our purposes.)
+//   * `multipart/mixed` / `multipart/related` / unknown multipart — pick
+//     the *first* non-attachment body part in document order. Don't cross
+//     subtrees to swap an HTML body for a `.txt` attachment.
+function findBestBodyPart(payload: any): ExtractedBody | null {
+  if (!payload) return null;
+  if (isAttachmentPart(payload)) return null;
+
+  const mime = String(payload.mimeType || '').toLowerCase();
+
+  // Leaf part with body data attached directly.
+  if (payload.body?.data && (mime === 'text/plain' || mime === 'text/html')) {
+    const charset = parseCharset(getHeader(payload.headers || [], 'Content-Type'));
+    return {
+      body: decodeMimePartBytes(payload.body.data, charset),
+      mime: mime as 'text/plain' | 'text/html',
+    };
+  }
+
+  if (payload.parts && payload.parts.length) {
+    if (mime === 'multipart/alternative') {
+      // Plain wins over HTML, but only within this alternative grouping.
+      let plain: ExtractedBody | null = null;
+      let html: ExtractedBody | null = null;
+      for (const part of payload.parts) {
+        const found = findBestBodyPart(part);
+        if (!found) continue;
+        if (found.mime === 'text/plain' && !plain) plain = found;
+        else if (found.mime === 'text/html' && !html) html = found;
+        if (plain && html) break;
+      }
+      return plain || html || null;
+    }
+    // multipart/mixed, multipart/related, or anything else: take the first
+    // body-bearing sub-part in document order.
+    for (const part of payload.parts) {
+      const found = findBestBodyPart(part);
+      if (found) return found;
+    }
+  }
+
+  // Fallback: a single non-multipart part with body data we don't recognize.
+  // (Rare — most senders set text/plain or text/html.)
   if (payload.body?.data) {
-    return decodeBase64Url(payload.body.data);
+    const charset = parseCharset(getHeader(payload.headers || [], 'Content-Type'));
+    return { body: decodeMimePartBytes(payload.body.data, charset), mime: 'other' };
   }
-  
-  if (payload.parts) {
-    for (const part of payload.parts) {
-      if (part.mimeType === 'text/plain' && part.body?.data) {
-        return decodeBase64Url(part.body.data);
-      }
-    }
-    for (const part of payload.parts) {
-      if (part.mimeType === 'text/html' && part.body?.data) {
-        return decodeBase64Url(part.body.data);
-      }
-      if (part.parts) {
-        const nested = extractBody(part);
-        if (nested) return nested;
-      }
-    }
+
+  return null;
+}
+
+// Public extractor used by every Gmail-reading code path (single-message
+// fetch, thread list, thread search-text, getThreadMessages). One source
+// of truth means inbox display, AI draft input, forward-to-operator body,
+// and the search index all agree on the cleaned body text.
+export function extractBody(payload: any): string {
+  const found = findBestBodyPart(payload);
+  if (!found) return '';
+  if (found.mime === 'text/html') return htmlBodyToText(found.body);
+  return found.body;
+}
+
+// RFC 2047 encoded-word decoder for header values like Subject and the
+// display-name portion of From/To. An encoded-word looks like
+// `=?charset?encoding?encoded-text?=` where encoding is `B` (base64) or
+// `Q` (quoted-printable, with `_` standing in for space). Multiple
+// adjacent encoded-words separated only by whitespace must be concatenated
+// without that whitespace — that's how senders break long subjects across
+// folded header lines.
+//
+// Without this, a Hebrew/French/emoji subject lands in the inbox UI as
+// literal `=?UTF-8?B?...?=` text, which is functionally indistinguishable
+// from the body-mojibake bug from the user's perspective.
+const ENCODED_WORD_RE = /=\?([^?\s]+)\?([BbQq])\?([^?\s]*)\?=/g;
+export function decodeRfc2047Header(value: string): string {
+  if (!value) return value;
+  if (!value.includes('=?')) return value;
+
+  // Drop whitespace between adjacent encoded-words (per RFC 2047 §6.2).
+  // Loop until stable because each `replace` pass only collapses the first
+  // gap of each match; a 3+ encoded-word folded header would otherwise keep
+  // whitespace between EW2 and EW3.
+  let collapsed = value;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const next = collapsed.replace(
+      /(=\?[^?\s]+\?[BbQq]\?[^?\s]*\?=)\s+(=\?[^?\s]+\?[BbQq]\?[^?\s]*\?=)/g,
+      '$1$2',
+    );
+    if (next === collapsed) break;
+    collapsed = next;
   }
-  
-  return '';
+
+  return collapsed.replace(ENCODED_WORD_RE, (_match, charset, encoding, text) => {
+    try {
+      let bytes: Buffer;
+      if (encoding.toUpperCase() === 'B') {
+        bytes = Buffer.from(text, 'base64');
+      } else {
+        // Quoted-printable variant for headers: `_` means space; `=XX` is hex.
+        const qpReady = text
+          .replace(/_/g, ' ')
+          .replace(/=([0-9A-Fa-f]{2})/g, (_m: string, hex: string) =>
+            String.fromCharCode(parseInt(hex, 16)),
+          );
+        bytes = Buffer.from(qpReady, 'binary');
+      }
+      return decodeMimePartBytes(
+        bytes.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+        charset,
+      );
+    } catch {
+      return _match;
+    }
+  });
 }
 
 export interface ListEmailsResult {
