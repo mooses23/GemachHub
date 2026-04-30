@@ -359,9 +359,9 @@ export default function AdminInbox() {
     queryKey: ["/api/admin/emails/status"],
   });
 
-  // Gmail backlog totals (INBOX/SPAM/TRASH label sizes) for folder chips.
+  // Gmail backlog totals (INBOX/SENT/SPAM/TRASH label sizes) for folder chips.
   // The endpoint returns zeros if Gmail is unavailable, so this is safe to render unconditionally.
-  const gmailLabelCountsQuery = useQuery<{ inbox: number; spam: number; trash: number }>({
+  const gmailLabelCountsQuery = useQuery<{ inbox: number; sent: number; spam: number; trash: number }>({
     queryKey: ["/api/admin/emails/labels"],
     enabled: !!gmailStatusQuery.data?.configured,
     refetchInterval: 60_000,
@@ -1989,10 +1989,10 @@ export default function AdminInbox() {
             chip reflects the full queue, not just one source. */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           {(() => {
-            const gmailCounts = gmailLabelCountsQuery.data ?? { inbox: 0, spam: 0, trash: 0 };
+            const gmailCounts = gmailLabelCountsQuery.data ?? { inbox: 0, sent: 0, spam: 0, trash: 0 };
             return [
               { key: "inbox" as Folder, label: t("inboxFolderInbox"), icon: InboxIcon, count: formInboxCount + gmailCounts.inbox },
-              { key: "sent" as Folder, label: t("inboxFolderSent"), icon: Send, count: 0 },
+              { key: "sent" as Folder, label: t("inboxFolderSent"), icon: Send, count: gmailCounts.sent },
               { key: "spam" as Folder, label: t("inboxFolderSpam"), icon: ShieldAlert, count: formSpamCount + gmailCounts.spam },
               { key: "trash" as Folder, label: t("inboxFolderTrash"), icon: Trash2, count: formTrashCount + gmailCounts.trash },
             ];

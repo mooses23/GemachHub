@@ -577,6 +577,7 @@ export async function markAsSpam(messageId: string): Promise<void> {
 
 export interface LabelCounts {
   inbox: number;
+  sent: number;
   spam: number;
   trash: number;
 }
@@ -585,7 +586,7 @@ export interface LabelCounts {
 // "backlog at a glance" metric for inbox folder chips.
 export async function getLabelCounts(): Promise<LabelCounts> {
   const gmail = await getUncachableGmailClient();
-  const ids = ['INBOX', 'SPAM', 'TRASH'] as const;
+  const ids = ['INBOX', 'SENT', 'SPAM', 'TRASH'] as const;
   const settled = await Promise.all(
     ids.map((id) =>
       gmail.users.labels
@@ -594,7 +595,7 @@ export async function getLabelCounts(): Promise<LabelCounts> {
         .catch(() => 0)
     )
   );
-  return { inbox: settled[0], spam: settled[1], trash: settled[2] };
+  return { inbox: settled[0], sent: settled[1], spam: settled[2], trash: settled[3] };
 }
 
 export async function unmarkSpam(messageId: string): Promise<void> {

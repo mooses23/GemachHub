@@ -2830,7 +2830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //
   // Contract: ALWAYS responds 200 with a counts object. When Gmail is
   // unavailable (not connected, transient API failure), returns
-  //   { inbox: 0, spam: 0, trash: 0, error: <reason> }
+  //   { inbox: 0, sent: 0, spam: 0, trash: 0, error: <reason> }
   // so the inbox UI never breaks. Clients should treat the presence of an
   // `error` field as "counts are unavailable" rather than treating 200 as a
   // health signal.
@@ -2844,7 +2844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to fetch label counts";
       console.error("Error fetching Gmail label counts:", msg);
-      res.status(200).json({ inbox: 0, spam: 0, trash: 0, error: msg });
+      res.status(200).json({ inbox: 0, sent: 0, spam: 0, trash: 0, error: msg });
     }
   });
 
