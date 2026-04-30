@@ -11,9 +11,23 @@ import { siblingsForSeed, type FormItemForGrouping } from '../shared/form-thread
 import { buildRulesSeedBody } from '../shared/rules-content.js';
 import { buildScenariosSeedBody } from '../shared/scenarios-content.js';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy OpenAI instance.
+//
+// The SDK constructor throws "Missing credentials" when OPENAI_API_KEY is
+// undefined. Constructing eagerly at module load would crash the server on
+// boot in environments where AI drafting is disabled (the rest of this
+// module already returns fallbacks when the key is missing — see the
+// `process.env.OPENAI_API_KEY` guards below). Defer construction until
+// first use so the startup-checks reporter (server/startup-checks.ts) can
+// log a clean "OPENAI_API_KEY not set" notice/warning and the server stays
+// up.
+let openaiInstance: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!openaiInstance) {
+    openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiInstance;
+}
 
 // ===================== OpenAI test seam =====================
 // In production, drafting and embedding go straight through the openai SDK.
@@ -23,10 +37,12 @@ const openai = new OpenAI({
 // without touching production behavior — passing null restores the real
 // SDK call. Keep this seam minimal: it only exists so generateEmailResponse
 // and embedText can be exercised end-to-end in tests.
-type ChatCreate = typeof openai.chat.completions.create;
-type EmbedCreate = typeof openai.embeddings.create;
-const realChatCreate: ChatCreate = openai.chat.completions.create.bind(openai.chat.completions);
-const realEmbedCreate: EmbedCreate = openai.embeddings.create.bind(openai.embeddings);
+type ChatCreate = OpenAI['chat']['completions']['create'];
+type EmbedCreate = OpenAI['embeddings']['create'];
+const realChatCreate: ChatCreate = ((...args: Parameters<ChatCreate>) =>
+  getOpenAI().chat.completions.create(...args)) as ChatCreate;
+const realEmbedCreate: EmbedCreate = ((...args: Parameters<EmbedCreate>) =>
+  getOpenAI().embeddings.create(...args)) as EmbedCreate;
 let chatCreate: ChatCreate = realChatCreate;
 let embedCreate: EmbedCreate = realEmbedCreate;
 export function __setOpenAIClientForTests(stubs: {
@@ -974,7 +990,7 @@ Rules:
 Operator name: ${safeName || '(unknown)'}
 City/area: ${place || '(unknown)'}`;
 
-    const resp = await openai.chat.completions.create({
+    const resp = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: sys },
@@ -1001,7 +1017,7 @@ export async function translateText(
 Preserve formatting, line breaks, names, and email-style structure (greetings, signatures, paragraphs).
 Do not add commentary, do not summarize, do not include the source text — output only the translation.`;
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },

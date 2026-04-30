@@ -1,79 +1,87 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
-import { WebhookHandlers } from "./webhookHandlers.js";
-import { DepositService } from "./depositService.js";
-import { getTwilioConfigStatus } from "./twilio-client.js";
-import { startRefundReconciliation } from "./refund-reconciliation.js";
-import { backfillPendingCashPayments } from "./backfill-cash-payments.js";
+import { runStartupChecks } from "./startup-checks.js";
 
 const app = express();
 
-// CRITICAL: Register Stripe webhook route BEFORE express.json()
-// This is required because Stripe webhooks need the raw Buffer body
-app.post(
-  '/api/stripe/webhook',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    const signature = req.headers['stripe-signature'];
+(async () => {
+  // Validate environment configuration FIRST, before importing any module
+  // that touches env-derived clients (db, openai, stripe, twilio, …).
+  // Several of those modules construct clients at import time and would
+  // crash with a low-level "Missing credentials" error before this
+  // checker could log a useful report. Importing them dynamically below
+  // ensures runStartupChecks() always speaks first.
+  await runStartupChecks();
 
-    if (!signature) {
-      return res.status(400).json({ error: 'Missing stripe-signature' });
-    }
+  const { registerRoutes } = await import("./routes.js");
+  const { WebhookHandlers } = await import("./webhookHandlers.js");
+  const { startRefundReconciliation } = await import("./refund-reconciliation.js");
+  const { backfillPendingCashPayments } = await import("./backfill-cash-payments.js");
 
-    try {
-      const sig = Array.isArray(signature) ? signature[0] : signature;
+  // CRITICAL: Register Stripe webhook route BEFORE express.json()
+  // This is required because Stripe webhooks need the raw Buffer body
+  app.post(
+    '/api/stripe/webhook',
+    express.raw({ type: 'application/json' }),
+    async (req, res) => {
+      const signature = req.headers['stripe-signature'];
 
-      if (!Buffer.isBuffer(req.body)) {
-        console.error('STRIPE WEBHOOK ERROR: req.body is not a Buffer');
-        return res.status(500).json({ error: 'Webhook processing error' });
+      if (!signature) {
+        return res.status(400).json({ error: 'Missing stripe-signature' });
       }
 
-      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+      try {
+        const sig = Array.isArray(signature) ? signature[0] : signature;
 
-      res.status(200).json({ received: true });
-    } catch (error: any) {
-      console.error('Webhook error:', error.message);
-      res.status(400).json({ error: 'Webhook processing error' });
-    }
-  }
-);
+        if (!Buffer.isBuffer(req.body)) {
+          console.error('STRIPE WEBHOOK ERROR: req.body is not a Buffer');
+          return res.status(500).json({ error: 'Webhook processing error' });
+        }
 
-// Now apply JSON middleware for all other routes
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+        await WebhookHandlers.processWebhook(req.body as Buffer, sig);
 
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        res.status(200).json({ received: true });
+      } catch (error: any) {
+        console.error('Webhook error:', error.message);
+        res.status(400).json({ error: 'Webhook processing error' });
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
     }
+  );
+
+  // Now apply JSON middleware for all other routes
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
+
+  app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+    const originalResJson = res.json;
+    res.json = function (bodyJson, ...args) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (capturedJsonResponse) {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
+
+        if (logLine.length > 80) {
+          logLine = logLine.slice(0, 79) + "…";
+        }
+
+        log(logLine);
+      }
+    });
+
+    next();
   });
 
-  next();
-});
-
-(async () => {
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -103,15 +111,6 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    const sms = getTwilioConfigStatus();
-    if (!sms.configured) {
-      log(`SMS reminders disabled: ${sms.reason}`);
-    }
-    if (app.get('env') === 'production'
-        && !process.env.APP_URL?.trim()
-        && !process.env.SITE_URL?.trim()) {
-      log('WARNING: APP_URL/SITE_URL is not set; SMS reminders will fail in production.');
-    }
     startRefundReconciliation();
     void backfillPendingCashPayments();
   });
