@@ -365,22 +365,40 @@ export async function listEmailThreads(
         // older inbound message was left UNREAD by Gmail before the reply arrived.
         const latestIsSent = latestLabels.includes('SENT');
         const unreadCount = latestIsSent ? 0 : rawUnreadCount;
-        const headers = latest.payload?.headers || [];
+
+        // When listing the Sent folder, a thread may have received a reply after
+        // the operator sent it. Using the absolute latest message would show the
+        // inbound reply's headers and "From:" the external sender — confusing in
+        // a Sent view. Instead, find the most recent SENT-labelled message and
+        // use its headers/body as the representative, then use the absolute latest
+        // for the date (to preserve sort order by most recent activity).
+        let representative = latest;
+        if (mode === 'sent') {
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if ((messages[i].labelIds || []).includes('SENT')) {
+              representative = messages[i];
+              break;
+            }
+          }
+        }
+
+        const headers = representative.payload?.headers || [];
+        const representativeLabels = representative.labelIds || [];
         // Concatenate every message's From/Subject/Body so search can hit
         // tokens deep in the thread, not just the latest message. Lowercased
         // up front so the client can do a simple substring check.
         const searchText = buildThreadSearchText(messages);
         summaries.push({
-          id: latest.id || '',
+          id: representative.id || '',
           threadId: stub.id,
           from: getHeader(headers, 'From'),
           to: getHeader(headers, 'To'),
           subject: getHeader(headers, 'Subject'),
-          snippet: latest.snippet || '',
-          body: extractBody(latest.payload),
-          date: getHeader(headers, 'Date'),
+          snippet: representative.snippet || '',
+          body: extractBody(representative.payload),
+          date: getHeader(latest.payload?.headers || [], 'Date'),
           isRead: latestIsSent || !latestLabels.includes('UNREAD'),
-          labels: latestLabels,
+          labels: representativeLabels,
           messageCount,
           unreadCount,
           searchText,
