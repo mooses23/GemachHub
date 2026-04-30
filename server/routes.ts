@@ -199,13 +199,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Apply lightweight schema upgrades (idempotent)
   await ensureSchemaUpgrades();
-  // Task #175 — verify the result. ensureSchemaUpgrades is best-effort under
-  // the new per-statement try/catch; this check explicitly logs ERROR-level
-  // messages for any column/table that's still missing so a partial migration
-  // surfaces in boot logs instead of waiting for a 500 on a real request.
-  await runSchemaDriftCheck().catch((err) => {
-    console.error('[schema-drift] check failed unexpectedly:', err);
-  });
+  // Task #175 — verify the result in production only. Dev/test boots skip
+  // this to avoid noisy logs against ephemeral local DBs.
+  if (process.env.NODE_ENV === 'production') {
+    await runSchemaDriftCheck().catch((err) => {
+      console.error('[schema-drift] check failed unexpectedly:', err);
+    });
+  }
   // Idempotent: seeds /rules + common scenarios docs on first boot so the AI
   // has authoritative long-form context out of the box. Safe to call every start.
   // Chain migrateDomainInKnowledgeBase immediately after so any newly-created

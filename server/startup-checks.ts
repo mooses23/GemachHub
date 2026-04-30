@@ -22,11 +22,9 @@
 
 import { sql } from 'drizzle-orm';
 import { log } from './vite.js';
-// NOTE: `db` is intentionally NOT imported at the module top level. Importing
-// `./db.js` triggers its DATABASE_URL guard at import time, which would crash
-// the process on a misconfigured deploy *before* `runStartupChecks()` had a
-// chance to print its friendly startup-check report. `runSchemaDriftCheck()`
-// does a dynamic import below so this file stays safe to import early.
+// NOTE: `db` is imported dynamically inside runSchemaDriftCheck() so that
+// importing this module early does not trigger db.ts's DATABASE_URL guard
+// before runStartupChecks() can print its friendly env-validation report.
 import { getTwilioConfigStatus, getTwilioWhatsAppConfigStatus } from './twilio-client.js';
 import { getGmailConfigStatus } from './gmail-client.js';
 import {
@@ -169,34 +167,11 @@ export async function runStartupChecks(): Promise<void> {
 }
 
 /**
- * Schema-drift detector (Task #175).
- *
- * `ensureSchemaUpgrades()` is best-effort: it tries every ALTER/CREATE in a
- * per-statement try/catch and keeps going. That makes the boot path resilient
- * but it also means a silent failure (e.g. a migration that errored on the
- * very first prod cold-start before we hardened it) can leave the DB missing
- * a column the app expects, which then surfaces as a 500 on every request to
- * the affected route — exactly how the /apply outage that motivated this task
- * went undetected for days.
- *
- * This function runs *after* `ensureSchemaUpgrades()` and explicitly verifies
- * a small allow-list of must-exist columns and tables that we know recent
- * code paths depend on. Any drift is logged at ERROR level with a clear,
- * actionable message naming the missing column/table so the operator (or
- * Vercel log search) sees it immediately.
- *
- * It never throws — a missing column is a real problem but it's strictly
- * worse to also crash the server, because that turns a partial outage
- * (one route 500ing) into a total outage (no routes serving).
- */
-/**
- * EXHAUSTIVE allow-list of post-baseline columns that `ensureSchemaUpgrades`
- * adds via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. Drizzle
- * `select().from(table)` references every mapped column, so a single missing
- * column makes every read of that table 500. We must therefore check every
- * post-baseline column — not just a curated sample. Keep this list in lockstep
- * with `ensureSchemaUpgrades` in server/databaseStorage.ts. (A representative
- * `addedFor` is included so the error log points at the responsible feature.)
+ * Schema-drift detector (Task #175). Runs after ensureSchemaUpgrades() and
+ * verifies every post-baseline column/table actually exists. Logs ERROR on
+ * drift; never throws (so a partial outage doesn't become a total one).
+ * Keep REQUIRED_COLUMNS / REQUIRED_TABLES in lockstep with the ALTER/CREATE
+ * statements in server/databaseStorage.ts ensureSchemaUpgrades().
  */
 const REQUIRED_COLUMNS: Array<{ table: string; column: string; addedFor: string }> = [
   // Task #174 — POST /api/applications writes this column on insert.
@@ -281,18 +256,9 @@ export async function runSchemaDriftCheck(): Promise<{
 }> {
   const missingColumns: string[] = [];
   const missingTables: string[] = [];
-  // Track introspection failures separately — if information_schema queries
-  // themselves fail (transient pool error, etc.) we MUST NOT print
-  // "schema-drift: OK", because we don't actually know whether the schema is
-  // healthy. A silent OK after a failed check is exactly the failure mode
-  // this whole feature is meant to prevent.
+  // Tracked separately so a failed introspection never produces a false OK.
   const introspectionErrors: string[] = [];
 
-  // Dynamic import: see top-of-file note. Importing `./db.js` triggers its
-  // DATABASE_URL guard, which would defeat the friendly startup-check report
-  // if it ran at module load. By the time runSchemaDriftCheck() is called
-  // (after runStartupChecks() in routes.ts), DATABASE_URL has already been
-  // validated, so this import is safe here.
   let db: typeof import('./db.js').db;
   try {
     ({ db } = await import('./db.js'));
