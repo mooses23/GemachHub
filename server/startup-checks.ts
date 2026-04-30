@@ -20,7 +20,13 @@
  * Call `runStartupChecks()` once, as early as possible, from server/index.ts.
  */
 
+import { sql } from 'drizzle-orm';
 import { log } from './vite.js';
+// NOTE: `db` is intentionally NOT imported at the module top level. Importing
+// `./db.js` triggers its DATABASE_URL guard at import time, which would crash
+// the process on a misconfigured deploy *before* `runStartupChecks()` had a
+// chance to print its friendly startup-check report. `runSchemaDriftCheck()`
+// does a dynamic import below so this file stays safe to import early.
 import { getTwilioConfigStatus, getTwilioWhatsAppConfigStatus } from './twilio-client.js';
 import { getGmailConfigStatus } from './gmail-client.js';
 import {
@@ -160,4 +166,211 @@ export async function runStartupChecks(): Promise<void> {
       'Set these in the deployment environment and restart.',
     );
   }
+}
+
+/**
+ * Schema-drift detector (Task #175).
+ *
+ * `ensureSchemaUpgrades()` is best-effort: it tries every ALTER/CREATE in a
+ * per-statement try/catch and keeps going. That makes the boot path resilient
+ * but it also means a silent failure (e.g. a migration that errored on the
+ * very first prod cold-start before we hardened it) can leave the DB missing
+ * a column the app expects, which then surfaces as a 500 on every request to
+ * the affected route — exactly how the /apply outage that motivated this task
+ * went undetected for days.
+ *
+ * This function runs *after* `ensureSchemaUpgrades()` and explicitly verifies
+ * a small allow-list of must-exist columns and tables that we know recent
+ * code paths depend on. Any drift is logged at ERROR level with a clear,
+ * actionable message naming the missing column/table so the operator (or
+ * Vercel log search) sees it immediately.
+ *
+ * It never throws — a missing column is a real problem but it's strictly
+ * worse to also crash the server, because that turns a partial outage
+ * (one route 500ing) into a total outage (no routes serving).
+ */
+/**
+ * EXHAUSTIVE allow-list of post-baseline columns that `ensureSchemaUpgrades`
+ * adds via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. Drizzle
+ * `select().from(table)` references every mapped column, so a single missing
+ * column makes every read of that table 500. We must therefore check every
+ * post-baseline column — not just a curated sample. Keep this list in lockstep
+ * with `ensureSchemaUpgrades` in server/databaseStorage.ts. (A representative
+ * `addedFor` is included so the error log points at the responsible feature.)
+ */
+const REQUIRED_COLUMNS: Array<{ table: string; column: string; addedFor: string }> = [
+  // Task #174 — POST /api/applications writes this column on insert.
+  { table: 'gemach_applications', column: 'confirmation_email_sent_at', addedFor: 'Task #174 application confirmation email tracking' },
+  // Task #22 — inbox archived/spam toggles for web-form contacts.
+  { table: 'contacts', column: 'is_archived', addedFor: 'Task #22 inbox archive' },
+  { table: 'contacts', column: 'is_spam', addedFor: 'Task #22 inbox spam' },
+  // Task #38 — Stripe refund + pay-later consent + refund accounting.
+  { table: 'transactions', column: 'stripe_refund_id', addedFor: 'Task #38 refund trace' },
+  { table: 'transactions', column: 'last_return_reminder_at', addedFor: 'return reminder cooldown' },
+  { table: 'transactions', column: 'return_reminder_count', addedFor: 'return reminder count' },
+  { table: 'transactions', column: 'consent_text', addedFor: 'Task #38 pay-later consent text' },
+  { table: 'transactions', column: 'consent_accepted_at', addedFor: 'Task #38 pay-later consent timestamp' },
+  { table: 'transactions', column: 'consent_max_charge_cents', addedFor: 'Task #38 pay-later consent cap' },
+  { table: 'transactions', column: 'card_saved_at', addedFor: 'Task #38 SetupIntent confirmed timestamp' },
+  { table: 'transactions', column: 'charge_notification_sent_at', addedFor: 'Task #38 pay-later charge alert' },
+  { table: 'transactions', column: 'charge_notification_channel', addedFor: 'Task #38 pay-later charge alert channel' },
+  { table: 'transactions', column: 'deposit_fee_cents', addedFor: 'Task #39 per-tx Stripe fee' },
+  { table: 'transactions', column: 'charged_at', addedFor: 'pay-later charge timestamp' },
+  { table: 'transactions', column: 'refund_attempted_at', addedFor: 'Task #70 refund attempt timestamp' },
+  // Return reminder delivery telemetry (Twilio status callbacks).
+  { table: 'return_reminder_events', column: 'twilio_sid', addedFor: 'return reminder Twilio SID' },
+  { table: 'return_reminder_events', column: 'delivery_status', addedFor: 'return reminder Twilio status' },
+  { table: 'return_reminder_events', column: 'delivery_status_updated_at', addedFor: 'return reminder status timestamp' },
+  { table: 'return_reminder_events', column: 'delivery_error_code', addedFor: 'return reminder error code' },
+  // Task #35 — operator onboarding: claim token + welcome SMS / WhatsApp /
+  // email lifecycle (status, SID, error, sent_at, delivered_at) for ALL
+  // three channels. Every column here is read by GET /api/admin/locations
+  // and similar routes, so a single missing column 500s the entire list.
+  { table: 'locations', column: 'claim_token', addedFor: 'Task #35 operator claim token' },
+  { table: 'locations', column: 'claim_token_created_at', addedFor: 'Task #35 claim token timestamp' },
+  { table: 'locations', column: 'welcome_sent_at', addedFor: 'Task #35 welcome timestamp' },
+  { table: 'locations', column: 'welcome_sms_status', addedFor: 'Task #35 welcome SMS status' },
+  { table: 'locations', column: 'welcome_sms_error', addedFor: 'Task #35 welcome SMS error' },
+  { table: 'locations', column: 'welcome_sms_sent_at', addedFor: 'Task #35 welcome SMS sent_at' },
+  { table: 'locations', column: 'welcome_sms_sid', addedFor: 'Task #35 welcome SMS SID' },
+  { table: 'locations', column: 'welcome_sms_delivered_at', addedFor: 'Task #35 welcome SMS delivered_at' },
+  { table: 'locations', column: 'welcome_whatsapp_status', addedFor: 'Task #35 welcome WhatsApp status' },
+  { table: 'locations', column: 'welcome_whatsapp_error', addedFor: 'Task #35 welcome WhatsApp error' },
+  { table: 'locations', column: 'welcome_whatsapp_sent_at', addedFor: 'Task #35 welcome WhatsApp sent_at' },
+  { table: 'locations', column: 'welcome_whatsapp_sid', addedFor: 'Task #35 welcome WhatsApp SID' },
+  { table: 'locations', column: 'welcome_whatsapp_delivered_at', addedFor: 'Task #35 welcome WhatsApp delivered_at' },
+  { table: 'locations', column: 'welcome_email_status', addedFor: 'Task #35 welcome email status' },
+  { table: 'locations', column: 'welcome_email_error', addedFor: 'Task #35 welcome email error' },
+  { table: 'locations', column: 'welcome_email_sent_at', addedFor: 'Task #35 welcome email sent_at' },
+  { table: 'locations', column: 'default_welcome_channel', addedFor: 'Task #35 default welcome channel' },
+  { table: 'locations', column: 'contact_preference', addedFor: 'Task #35 contact preference' },
+  { table: 'locations', column: 'contact_preference_set_at', addedFor: 'Task #35 contact preference set_at' },
+  { table: 'locations', column: 'onboarded_at', addedFor: 'Task #35 onboarded timestamp' },
+  { table: 'locations', column: 'processing_fee_fixed', addedFor: 'Task #39 per-location fixed fee' },
+  // Task #135 — global admin settings toggle.
+  { table: 'global_settings', column: 'is_enabled', addedFor: 'global setting is_enabled toggle' },
+];
+
+const REQUIRED_TABLES: Array<{ name: string; addedFor: string }> = [
+  // Task #174 — admin status changes (approve/reject/restore) write here.
+  { name: 'application_status_changes', addedFor: 'Task #174 application status audit trail' },
+  // Task #22 — inbox / web-form contacts.
+  { name: 'contacts', addedFor: 'inbox / web-form contacts' },
+  // Task #38 / #70 — refund + return reminder lifecycle.
+  { name: 'return_reminder_events', addedFor: 'return reminder delivery log' },
+  // Task #9 — knowledge base for AI drafting.
+  { name: 'knowledge_docs', addedFor: 'AI drafting knowledge base' },
+  { name: 'reply_examples', addedFor: 'AI drafting reply examples' },
+  { name: 'kb_embeddings', addedFor: 'AI drafting embeddings index' },
+  // Operational tables.
+  { name: 'global_settings', addedFor: 'admin global settings (e.g. AI auto-reply toggle)' },
+  { name: 'disputes', addedFor: 'Stripe dispute tracking' },
+  { name: 'message_send_logs', addedFor: 'operator message send history (Task #58)' },
+  // Task #175 — these were declared in shared/schema.ts long ago without a
+  // corresponding CREATE in ensureSchemaUpgrades, so prod was missing them.
+  // ensureSchemaUpgrades now creates them idempotently AND drift detection
+  // verifies they exist after upgrade.
+  { name: 'playbook_facts', addedFor: 'AI drafting playbook facts (Task #175 backfill)' },
+  { name: 'faq_entries', addedFor: 'AI drafting FAQ entries (Task #175 backfill)' },
+];
+
+export async function runSchemaDriftCheck(): Promise<{
+  missingColumns: string[];
+  missingTables: string[];
+  introspectionErrors: string[];
+}> {
+  const missingColumns: string[] = [];
+  const missingTables: string[] = [];
+  // Track introspection failures separately — if information_schema queries
+  // themselves fail (transient pool error, etc.) we MUST NOT print
+  // "schema-drift: OK", because we don't actually know whether the schema is
+  // healthy. A silent OK after a failed check is exactly the failure mode
+  // this whole feature is meant to prevent.
+  const introspectionErrors: string[] = [];
+
+  // Dynamic import: see top-of-file note. Importing `./db.js` triggers its
+  // DATABASE_URL guard, which would defeat the friendly startup-check report
+  // if it ran at module load. By the time runSchemaDriftCheck() is called
+  // (after runStartupChecks() in routes.ts), DATABASE_URL has already been
+  // validated, so this import is safe here.
+  let db: typeof import('./db.js').db;
+  try {
+    ({ db } = await import('./db.js'));
+  } catch (err: any) {
+    introspectionErrors.push(`db import failed: ${err?.message ?? err}`);
+    console.error(
+      `[schema-drift] could not load db client; skipping drift check. ${err?.message ?? err}`
+    );
+    return { missingColumns, missingTables, introspectionErrors };
+  }
+
+  for (const { table, column, addedFor } of REQUIRED_COLUMNS) {
+    try {
+      const result: any = await db.execute(sql`
+        SELECT 1 AS present
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = ${table}
+          AND column_name = ${column}
+        LIMIT 1
+      `);
+      const rows = (result?.rows ?? result) as Array<{ present: number }>;
+      if (!rows || rows.length === 0) {
+        missingColumns.push(`${table}.${column}`);
+        console.error(
+          `[schema-drift] ERROR: required column "${table}.${column}" is missing in production. ` +
+          `It should have been added by ensureSchemaUpgrades for ${addedFor}. ` +
+          `Routes that read or write this column will return HTTP 500 until the column is added. ` +
+          `Apply: ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} <type>;`
+        );
+      }
+    } catch (err: any) {
+      const msg = `column "${table}.${column}": ${err?.message ?? err}`;
+      introspectionErrors.push(msg);
+      console.error(`[schema-drift] could not introspect ${msg}`);
+    }
+  }
+
+  for (const { name, addedFor } of REQUIRED_TABLES) {
+    try {
+      const result: any = await db.execute(sql`
+        SELECT 1 AS present
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = ${name}
+        LIMIT 1
+      `);
+      const rows = (result?.rows ?? result) as Array<{ present: number }>;
+      if (!rows || rows.length === 0) {
+        missingTables.push(name);
+        console.error(
+          `[schema-drift] ERROR: required table "${name}" is missing in production. ` +
+          `It should have been created by ensureSchemaUpgrades for ${addedFor}. ` +
+          `Routes that read or write this table will return HTTP 500 until the table is created.`
+        );
+      }
+    } catch (err: any) {
+      const msg = `table "${name}": ${err?.message ?? err}`;
+      introspectionErrors.push(msg);
+      console.error(`[schema-drift] could not introspect ${msg}`);
+    }
+  }
+
+  if (missingColumns.length === 0 && missingTables.length === 0 && introspectionErrors.length === 0) {
+    log('schema-drift: OK (all required columns and tables present).');
+  } else if (introspectionErrors.length > 0 && missingColumns.length === 0 && missingTables.length === 0) {
+    log(
+      `schema-drift: UNKNOWN — ${introspectionErrors.length} introspection query(ies) failed; ` +
+      `cannot confirm schema health. See ERROR lines above.`
+    );
+  } else {
+    log(
+      `schema-drift: WARNING — ${missingColumns.length} missing column(s), ` +
+      `${missingTables.length} missing table(s)` +
+      (introspectionErrors.length > 0 ? `, ${introspectionErrors.length} introspection error(s)` : '') +
+      `. Routes depending on them will 500 until fixed.`
+    );
+  }
+
+  return { missingColumns, missingTables, introspectionErrors };
 }

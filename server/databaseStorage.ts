@@ -1427,198 +1427,231 @@ export class DatabaseStorage implements IStorage {
 let schemaUpgradesRun = false;
 export async function ensureSchemaUpgrades(): Promise<void> {
   if (schemaUpgradesRun) return;
-  schemaUpgradesRun = true;
-  try {
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS last_return_reminder_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_reminder_count INTEGER NOT NULL DEFAULT 0`);
-    // Task #38: store the latest Stripe refund id for traceability + audit lookups.
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS stripe_refund_id TEXT`);
-    // Inbox: archived/spam flags for web-form contacts (Task #22)
-    await db.execute(sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE`);
-    await db.execute(sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_spam BOOLEAN NOT NULL DEFAULT FALSE`);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS return_reminder_events (
-        id SERIAL PRIMARY KEY,
-        transaction_id INTEGER NOT NULL,
-        sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        sent_by_user_id INTEGER,
-        channel TEXT NOT NULL DEFAULT 'email',
-        language TEXT NOT NULL DEFAULT 'en'
-      )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS return_reminder_events_tx_idx ON return_reminder_events (transaction_id, sent_at DESC)`);
-    // Task #9 tables (drizzle-kit on this project does not run pg push, so we
-    // create them idempotently here so existing DBs pick them up automatically).
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS knowledge_docs (
-        id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,
-        body TEXT NOT NULL,
-        category TEXT NOT NULL DEFAULT 'general',
-        language TEXT NOT NULL DEFAULT 'en',
-        is_active BOOLEAN NOT NULL DEFAULT TRUE,
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS reply_examples (
-        id SERIAL PRIMARY KEY,
-        source_type TEXT NOT NULL,
-        source_ref TEXT,
-        sender_email TEXT,
-        sender_name TEXT,
-        incoming_subject TEXT NOT NULL,
-        incoming_body TEXT NOT NULL,
-        sent_reply TEXT NOT NULL,
-        classification TEXT,
-        language TEXT NOT NULL DEFAULT 'en',
-        matched_location_id INTEGER,
-        was_edited BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS kb_embeddings (
-        id SERIAL PRIMARY KEY,
-        source_kind TEXT NOT NULL,
-        source_id INTEGER NOT NULL,
-        chunk_idx INTEGER NOT NULL DEFAULT 0,
-        content TEXT NOT NULL,
-        embedding JSONB NOT NULL,
-        language TEXT NOT NULL DEFAULT 'en',
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS kb_embeddings_source_idx ON kb_embeddings (source_kind, source_id, chunk_idx)`);
-    // Task #35: operator onboarding (SMS+WhatsApp claim flow) on locations
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS claim_token TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS claim_token_created_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sent_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_status TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_error TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_sent_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_sid TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_delivered_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_status TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_error TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_sent_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_sid TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_delivered_at TIMESTAMP`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS locations_welcome_sms_sid_idx ON locations (welcome_sms_sid)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS locations_welcome_whatsapp_sid_idx ON locations (welcome_whatsapp_sid)`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS default_welcome_channel TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS contact_preference TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS contact_preference_set_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMP`);
-    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS locations_claim_token_uq ON locations (claim_token) WHERE claim_token IS NOT NULL`);
-    // Task #39: card-on-file hardening (consent, notification audit, fee math, disputes)
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS processing_fee_fixed INTEGER DEFAULT 30`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_text TEXT`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_max_charge_cents INTEGER`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS card_saved_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS charge_notification_sent_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS charge_notification_channel TEXT`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS deposit_fee_cents INTEGER`);
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS charged_at TIMESTAMP`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS transactions_charged_at_idx ON transactions (charged_at) WHERE charged_at IS NOT NULL`);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS disputes (
-        id SERIAL PRIMARY KEY,
-        location_id INTEGER,
-        transaction_id INTEGER,
-        stripe_dispute_id TEXT NOT NULL UNIQUE,
-        stripe_charge_id TEXT NOT NULL,
-        stripe_payment_intent_id TEXT,
-        amount_cents INTEGER NOT NULL,
-        currency TEXT NOT NULL DEFAULT 'usd',
-        status TEXT NOT NULL,
-        reason TEXT NOT NULL,
-        evidence_due_by TIMESTAMP,
-        raw_payload_json TEXT,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    // Drop NOT NULL on location_id for existing DBs created before it became nullable.
-    await db.execute(sql`ALTER TABLE disputes ALTER COLUMN location_id DROP NOT NULL`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS disputes_location_created_idx ON disputes (location_id, created_at DESC)`);
-    await db.execute(sql`CREATE INDEX IF NOT EXISTS disputes_charge_idx ON disputes (stripe_charge_id)`);
-    // Task #39: global_settings holds runtime-configurable knobs like
-    // max_card_age_days for the stale-card guardrail. Created idempotently
-    // here so existing DBs (no drizzle push) pick it up automatically.
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS global_settings (
-        id SERIAL PRIMARY KEY,
-        key TEXT NOT NULL UNIQUE,
-        value TEXT NOT NULL,
-        is_enabled BOOLEAN NOT NULL DEFAULT true,
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    // Older deployments may have created the table without is_enabled.
-    // Add it idempotently so getGlobalSetting/setGlobalSetting (which
-    // reference the column via Drizzle) don't throw on existing DBs.
-    await db.execute(sql`ALTER TABLE global_settings ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN NOT NULL DEFAULT true`);
-    // Task #55: refund_attempted_at — set when a refund enters REFUND_PENDING; cleared on finalization.
-    await db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS refund_attempted_at TIMESTAMP`);
-    // Task #60: email onboarding status tracking on locations
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_status TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_error TEXT`);
-    await db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_sent_at TIMESTAMP`);
-    // Task #42: SMS delivery status tracking on return_reminder_events
-    await db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS twilio_sid TEXT`);
-    await db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_status TEXT`);
-    await db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_status_updated_at TIMESTAMP`);
-    await db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_error_code TEXT`);
-    // Message send log table
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS message_send_logs (
-        id SERIAL PRIMARY KEY,
-        location_id INTEGER,
-        location_name TEXT NOT NULL,
-        location_code TEXT NOT NULL,
-        channel TEXT NOT NULL,
-        status TEXT NOT NULL,
-        error TEXT,
-        sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        sent_by_user_id INTEGER,
-        batch_id TEXT
-      )
-    `);
 
-    // Make sure the confirmation-email-sent timestamp column exists. The
-    // gemach_applications schema declares it but older databases (including
-    // some dev environments) were created without it, which breaks every
-    // SELECT * over the table. Idempotent.
-    await db.execute(sql`ALTER TABLE gemach_applications ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMP`);
+  // Per-statement try/catch — one bad ALTER must NOT short-circuit the rest of
+  // the chain. Without this, a single failure (e.g. on a new Vercel cold start
+  // where a downstream statement fails because it references a column an
+  // earlier statement didn't manage to add) would leave the production schema
+  // permanently behind `shared/schema.ts` and silently keep returning 500s
+  // from the routes that depend on the missing columns. See Task #175.
+  const failures: Array<{ label: string; error: any }> = [];
+  const safe = async (label: string, action: () => Promise<unknown>): Promise<void> => {
+    try {
+      await action();
+    } catch (err: any) {
+      failures.push({ label, error: err });
+      console.error(`[ensureSchemaUpgrades] ${label} failed: ${err?.message ?? err}`);
+    }
+  };
 
-    // Task #174: audit trail for application status changes so admins can
-    // trace and recover from accidental approve/reject toggles.
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS application_status_changes (
-        id SERIAL PRIMARY KEY,
-        application_id INTEGER NOT NULL,
-        previous_status TEXT NOT NULL,
-        new_status TEXT NOT NULL,
-        source TEXT NOT NULL,
-        changed_by_user_id INTEGER,
-        changed_by_username TEXT,
-        changed_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
-    await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS application_status_changes_application_id_idx
-        ON application_status_changes (application_id)
-    `);
+  await safe("add transactions.last_return_reminder_at", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS last_return_reminder_at TIMESTAMP`));
+  await safe("add transactions.return_reminder_count", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_reminder_count INTEGER NOT NULL DEFAULT 0`));
+  // Task #38: store the latest Stripe refund id for traceability + audit lookups.
+  await safe("add transactions.stripe_refund_id", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS stripe_refund_id TEXT`));
+  // Inbox: archived/spam flags for web-form contacts (Task #22)
+  await safe("add contacts.is_archived", () => db.execute(sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE`));
+  await safe("add contacts.is_spam", () => db.execute(sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS is_spam BOOLEAN NOT NULL DEFAULT FALSE`));
+  await safe("create table return_reminder_events", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS return_reminder_events (
+      id SERIAL PRIMARY KEY,
+      transaction_id INTEGER NOT NULL,
+      sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      sent_by_user_id INTEGER,
+      channel TEXT NOT NULL DEFAULT 'email',
+      language TEXT NOT NULL DEFAULT 'en'
+    )
+  `));
+  await safe("create index return_reminder_events_tx_idx", () => db.execute(sql`CREATE INDEX IF NOT EXISTS return_reminder_events_tx_idx ON return_reminder_events (transaction_id, sent_at DESC)`));
+  // Task #9 + Task #175 tables (drizzle-kit on this project does not run
+  // pg push, so we create them idempotently here so existing DBs pick them
+  // up automatically). playbook_facts and faq_entries were declared in
+  // shared/schema.ts long ago without a corresponding CREATE here, which is
+  // exactly the silent-drift pattern Task #175 is closing.
+  await safe("create table playbook_facts", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS playbook_facts (
+      id SERIAL PRIMARY KEY,
+      fact_key TEXT NOT NULL UNIQUE,
+      fact_value TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'general',
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await safe("create table faq_entries", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS faq_entries (
+      id SERIAL PRIMARY KEY,
+      question TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      language TEXT NOT NULL DEFAULT 'en',
+      category TEXT NOT NULL DEFAULT 'general',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await safe("create table knowledge_docs", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS knowledge_docs (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'general',
+      language TEXT NOT NULL DEFAULT 'en',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await safe("create table reply_examples", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS reply_examples (
+      id SERIAL PRIMARY KEY,
+      source_type TEXT NOT NULL,
+      source_ref TEXT,
+      sender_email TEXT,
+      sender_name TEXT,
+      incoming_subject TEXT NOT NULL,
+      incoming_body TEXT NOT NULL,
+      sent_reply TEXT NOT NULL,
+      classification TEXT,
+      language TEXT NOT NULL DEFAULT 'en',
+      matched_location_id INTEGER,
+      was_edited BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await safe("create table kb_embeddings", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS kb_embeddings (
+      id SERIAL PRIMARY KEY,
+      source_kind TEXT NOT NULL,
+      source_id INTEGER NOT NULL,
+      chunk_idx INTEGER NOT NULL DEFAULT 0,
+      content TEXT NOT NULL,
+      embedding JSONB NOT NULL,
+      language TEXT NOT NULL DEFAULT 'en',
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await safe("create index kb_embeddings_source_idx", () => db.execute(sql`CREATE INDEX IF NOT EXISTS kb_embeddings_source_idx ON kb_embeddings (source_kind, source_id, chunk_idx)`));
+  // Task #35: operator onboarding (SMS+WhatsApp claim flow) on locations
+  await safe("add locations.claim_token", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS claim_token TEXT`));
+  await safe("add locations.claim_token_created_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS claim_token_created_at TIMESTAMP`));
+  await safe("add locations.welcome_sent_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sent_at TIMESTAMP`));
+  await safe("add locations.welcome_sms_status", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_status TEXT`));
+  await safe("add locations.welcome_sms_error", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_error TEXT`));
+  await safe("add locations.welcome_sms_sent_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_sent_at TIMESTAMP`));
+  await safe("add locations.welcome_sms_sid", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_sid TEXT`));
+  await safe("add locations.welcome_sms_delivered_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sms_delivered_at TIMESTAMP`));
+  await safe("add locations.welcome_whatsapp_status", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_status TEXT`));
+  await safe("add locations.welcome_whatsapp_error", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_error TEXT`));
+  await safe("add locations.welcome_whatsapp_sent_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_sent_at TIMESTAMP`));
+  await safe("add locations.welcome_whatsapp_sid", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_sid TEXT`));
+  await safe("add locations.welcome_whatsapp_delivered_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_whatsapp_delivered_at TIMESTAMP`));
+  await safe("create index locations_welcome_sms_sid_idx", () => db.execute(sql`CREATE INDEX IF NOT EXISTS locations_welcome_sms_sid_idx ON locations (welcome_sms_sid)`));
+  await safe("create index locations_welcome_whatsapp_sid_idx", () => db.execute(sql`CREATE INDEX IF NOT EXISTS locations_welcome_whatsapp_sid_idx ON locations (welcome_whatsapp_sid)`));
+  await safe("add locations.default_welcome_channel", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS default_welcome_channel TEXT`));
+  await safe("add locations.contact_preference", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS contact_preference TEXT`));
+  await safe("add locations.contact_preference_set_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS contact_preference_set_at TIMESTAMP`));
+  await safe("add locations.onboarded_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMP`));
+  await safe("create index locations_claim_token_uq", () => db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS locations_claim_token_uq ON locations (claim_token) WHERE claim_token IS NOT NULL`));
+  // Task #39: card-on-file hardening (consent, notification audit, fee math, disputes)
+  await safe("add locations.processing_fee_fixed", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS processing_fee_fixed INTEGER DEFAULT 30`));
+  await safe("add transactions.consent_text", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_text TEXT`));
+  await safe("add transactions.consent_accepted_at", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_accepted_at TIMESTAMP`));
+  await safe("add transactions.consent_max_charge_cents", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS consent_max_charge_cents INTEGER`));
+  await safe("add transactions.card_saved_at", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS card_saved_at TIMESTAMP`));
+  await safe("add transactions.charge_notification_sent_at", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS charge_notification_sent_at TIMESTAMP`));
+  await safe("add transactions.charge_notification_channel", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS charge_notification_channel TEXT`));
+  await safe("add transactions.deposit_fee_cents", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS deposit_fee_cents INTEGER`));
+  await safe("add transactions.charged_at", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS charged_at TIMESTAMP`));
+  await safe("create index transactions_charged_at_idx", () => db.execute(sql`CREATE INDEX IF NOT EXISTS transactions_charged_at_idx ON transactions (charged_at) WHERE charged_at IS NOT NULL`));
+  await safe("create table disputes", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS disputes (
+      id SERIAL PRIMARY KEY,
+      location_id INTEGER,
+      transaction_id INTEGER,
+      stripe_dispute_id TEXT NOT NULL UNIQUE,
+      stripe_charge_id TEXT NOT NULL,
+      stripe_payment_intent_id TEXT,
+      amount_cents INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'usd',
+      status TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      evidence_due_by TIMESTAMP,
+      raw_payload_json TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  // Drop NOT NULL on location_id for existing DBs created before it became nullable.
+  await safe("drop NOT NULL on disputes.location_id", () => db.execute(sql`ALTER TABLE disputes ALTER COLUMN location_id DROP NOT NULL`));
+  await safe("create index disputes_location_created_idx", () => db.execute(sql`CREATE INDEX IF NOT EXISTS disputes_location_created_idx ON disputes (location_id, created_at DESC)`));
+  await safe("create index disputes_charge_idx", () => db.execute(sql`CREATE INDEX IF NOT EXISTS disputes_charge_idx ON disputes (stripe_charge_id)`));
+  // Task #39: global_settings holds runtime-configurable knobs like
+  // max_card_age_days for the stale-card guardrail. Created idempotently
+  // here so existing DBs (no drizzle push) pick it up automatically.
+  await safe("create table global_settings", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS global_settings (
+      id SERIAL PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      value TEXT NOT NULL,
+      is_enabled BOOLEAN NOT NULL DEFAULT true,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  // Older deployments may have created the table without is_enabled.
+  // Add it idempotently so getGlobalSetting/setGlobalSetting (which
+  // reference the column via Drizzle) don't throw on existing DBs.
+  await safe("add global_settings.is_enabled", () => db.execute(sql`ALTER TABLE global_settings ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN NOT NULL DEFAULT true`));
+  // Task #55: refund_attempted_at — set when a refund enters REFUND_PENDING; cleared on finalization.
+  await safe("add transactions.refund_attempted_at", () => db.execute(sql`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS refund_attempted_at TIMESTAMP`));
+  // Task #60: email onboarding status tracking on locations
+  await safe("add locations.welcome_email_status", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_status TEXT`));
+  await safe("add locations.welcome_email_error", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_error TEXT`));
+  await safe("add locations.welcome_email_sent_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_email_sent_at TIMESTAMP`));
+  // Task #42: SMS delivery status tracking on return_reminder_events
+  await safe("add return_reminder_events.twilio_sid", () => db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS twilio_sid TEXT`));
+  await safe("add return_reminder_events.delivery_status", () => db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_status TEXT`));
+  await safe("add return_reminder_events.delivery_status_updated_at", () => db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_status_updated_at TIMESTAMP`));
+  await safe("add return_reminder_events.delivery_error_code", () => db.execute(sql`ALTER TABLE return_reminder_events ADD COLUMN IF NOT EXISTS delivery_error_code TEXT`));
+  // Message send log table
+  await safe("create table message_send_logs", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS message_send_logs (
+      id SERIAL PRIMARY KEY,
+      location_id INTEGER,
+      location_name TEXT NOT NULL,
+      location_code TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      status TEXT NOT NULL,
+      error TEXT,
+      sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      sent_by_user_id INTEGER,
+      batch_id TEXT
+    )
+  `));
 
-    // Task #70: data-fix — clear refund_amount that was incorrectly written
-    // when a pay-later lend was closed before the fix to markTransactionReturned.
-    // refundAmount on CHARGED/PARTIALLY_REFUNDED rows must only be set by the
-    // explicit Stripe refund path (recordTransactionRefund). If stripe_refund_id
-    // IS NULL no actual Stripe refund occurred, so the stored value is wrong and
-    // must be cleared so the refund dialog calculates a non-zero remaining balance.
-    // This UPDATE is idempotent: rows already corrected (refund_amount IS NULL) or
-    // genuinely refunded (stripe_refund_id IS NOT NULL) are unaffected.
+  // Make sure the confirmation-email-sent timestamp column exists. The
+  // gemach_applications schema declares it but older databases (including
+  // some dev environments) were created without it, which breaks every
+  // SELECT * over the table. Idempotent.
+  await safe("add gemach_applications.confirmation_email_sent_at", () => db.execute(sql`ALTER TABLE gemach_applications ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMP`));
+
+  // Task #174: audit trail for application status changes so admins can
+  // trace and recover from accidental approve/reject toggles.
+  await safe("create table application_status_changes", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS application_status_changes (
+      id SERIAL PRIMARY KEY,
+      application_id INTEGER NOT NULL,
+      previous_status TEXT NOT NULL,
+      new_status TEXT NOT NULL,
+      source TEXT NOT NULL,
+      changed_by_user_id INTEGER,
+      changed_by_username TEXT,
+      changed_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await safe("create index application_status_changes_application_id_idx", () => db.execute(sql`
+    CREATE INDEX IF NOT EXISTS application_status_changes_application_id_idx
+      ON application_status_changes (application_id)
+  `));
+
+  // Task #70: pay-later refund_amount data-fix. Wrapped via safe() so a failure
+  // here can't take down the rest of the boot path.
+  await safe('Task #70 pay-later refund_amount data-fix', async () => {
     const fixResult = await db.execute(sql`
       UPDATE transactions
       SET refund_amount = NULL
@@ -1630,11 +1663,18 @@ export async function ensureSchemaUpgrades(): Promise<void> {
     if (fixedCount > 0) {
       console.log(`[ensureSchemaUpgrades] Task #70 data-fix: cleared stale refund_amount on ${fixedCount} pay-later transaction(s).`);
     }
-  } catch (err: any) {
-    schemaUpgradesRun = false;
-    console.error('[ensureSchemaUpgrades] Failed to apply transactions reminder columns:', err?.message || err);
-    if (process.env.NODE_ENV === 'production') {
-      throw err;
-    }
+  });
+
+  // Only flip the run-once guard if every statement succeeded. If anything
+  // failed we leave the guard at false so the next call (e.g. a fresh cold
+  // start, or the next request after a transient pool error during init)
+  // re-runs the chain. Note: in practice this function is invoked once per
+  // process from registerRoutes, so "retry" really means the next time the
+  // process boots (or the next cold start on Vercel).
+  if (failures.length === 0) {
+    schemaUpgradesRun = true;
+  } else {
+    console.error(`[ensureSchemaUpgrades] ${failures.length} statement(s) failed; will retry on next boot. Labels: ${failures.map((f) => f.label).join(', ')}`);
   }
 }
+  
