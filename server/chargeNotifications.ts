@@ -20,6 +20,7 @@ import { sendNewEmail } from './gmail-client.js';
 import { storage } from './storage.js';
 import { randomBytes, createHash } from 'crypto';
 import type { Transaction, Location } from '../shared/schema.js';
+import { DEFAULT_SITE_URL } from './config-defaults.js';
 
 export type ChargeNotificationChannel = 'sms' | 'whatsapp' | 'email' | 'none';
 
@@ -55,7 +56,7 @@ async function buildFreshStatusUrl(transaction: Transaction): Promise<string | n
       magicToken: hashed,
       magicTokenExpiresAt: expiresAt,
     });
-    const base = process.env.APP_ORIGIN || process.env.VITE_APP_URL || 'https://earmuffsgemach.com';
+    const base = process.env.APP_ORIGIN || process.env.VITE_APP_URL || DEFAULT_SITE_URL;
     return `${base}/status/${transaction.id}?token=${rawToken}`;
   } catch (err) {
     console.error('buildFreshStatusUrl failed:', err);

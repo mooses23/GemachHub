@@ -23,11 +23,12 @@
 import { log } from './vite.js';
 import { getTwilioConfigStatus, getTwilioWhatsAppConfigStatus } from './twilio-client.js';
 import { getGmailConfigStatus } from './gmail-client.js';
-
-const DEFAULT_SITE_URL = 'https://earmuffsgemach.com';
-const DEFAULT_DRAFT_MODEL = 'gpt-4o';
-const DEFAULT_EMBED_MODEL = 'text-embedding-3-small';
-const DEFAULT_ADMIN_EMAIL = 'admin@gemach.com';
+import {
+  DEFAULT_SITE_URL,
+  DEFAULT_DRAFT_MODEL,
+  DEFAULT_EMBED_MODEL,
+  DEFAULT_ADMIN_EMAIL,
+} from './config-defaults.js';
 
 export interface StartupCheckResult {
   errors: string[];

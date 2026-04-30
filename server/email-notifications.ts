@@ -3,6 +3,8 @@
  * Sends notifications for deposit confirmations, failures, and refunds
  */
 
+import { DEFAULT_ADMIN_EMAIL } from './config-defaults.js';
+
 export class EmailNotificationService {
   /**
    * Sends email notification for failed deposit confirmation
@@ -11,7 +13,7 @@ export class EmailNotificationService {
     try {
       // Email configuration would require SMTP credentials from user
       const emailData = {
-        to: adminEmail || process.env.ADMIN_EMAIL || 'admin@gemach.com',
+        to: adminEmail || process.env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL,
         subject: `Failed Deposit Confirmation - Transaction #${transaction.id}`,
         html: `
           <h2>Deposit Confirmation Failed</h2>

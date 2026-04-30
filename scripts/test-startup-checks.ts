@@ -8,6 +8,10 @@
  */
 
 import { collectStartupCheckMessages } from '../server/startup-checks.js';
+import {
+  DEFAULT_DRAFT_MODEL,
+  DEFAULT_EMBED_MODEL,
+} from '../server/config-defaults.js';
 
 let failed = 0;
 function assert(cond: unknown, msg: string): void {
@@ -53,8 +57,8 @@ function assert(cond: unknown, msg: string): void {
     STRIPE_PUBLISHABLE_KEY: 'pk_test_x',
     STRIPE_WEBHOOK_SECRET: 'whsec_x',
     OPENAI_API_KEY: 'sk-x',
-    OPENAI_DRAFT_MODEL: 'gpt-4o',
-    OPENAI_EMBED_MODEL: 'text-embedding-3-small',
+    OPENAI_DRAFT_MODEL: DEFAULT_DRAFT_MODEL,
+    OPENAI_EMBED_MODEL: DEFAULT_EMBED_MODEL,
     ADMIN_EMAIL: 'admin@example.com',
   } as NodeJS.ProcessEnv);
   assert(r.errors.length === 0, `prod fully set: 0 errors (got ${r.errors.length})`);
@@ -74,8 +78,8 @@ function assert(cond: unknown, msg: string): void {
     VITE_STRIPE_PUBLISHABLE_KEY: 'pk',
     STRIPE_WEBHOOK_SECRET: 'whsec',
     OPENAI_API_KEY: 'k',
-    OPENAI_DRAFT_MODEL: 'gpt-4o',
-    OPENAI_EMBED_MODEL: 'text-embedding-3-small',
+    OPENAI_DRAFT_MODEL: DEFAULT_DRAFT_MODEL,
+    OPENAI_EMBED_MODEL: DEFAULT_EMBED_MODEL,
     ADMIN_EMAIL: 'a@b.c',
   } as NodeJS.ProcessEnv);
   assert(

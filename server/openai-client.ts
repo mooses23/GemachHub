@@ -10,6 +10,11 @@ import type {
 import { siblingsForSeed, type FormItemForGrouping } from '../shared/form-thread-grouping.js';
 import { buildRulesSeedBody } from '../shared/rules-content.js';
 import { buildScenariosSeedBody } from '../shared/scenarios-content.js';
+import {
+  DEFAULT_SITE_URL,
+  DEFAULT_DRAFT_MODEL,
+  DEFAULT_EMBED_MODEL,
+} from './config-defaults.js';
 
 // Lazy OpenAI instance.
 //
@@ -53,9 +58,9 @@ export function __setOpenAIClientForTests(stubs: {
   if (stubs.embed !== undefined) embedCreate = stubs.embed ?? realEmbedCreate;
 }
 
-const SITE_URL = process.env.SITE_URL || 'https://earmuffsgemach.com';
-const DRAFT_MODEL = process.env.OPENAI_DRAFT_MODEL || 'gpt-4o';
-const EMBED_MODEL = process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small';
+const SITE_URL = process.env.SITE_URL || DEFAULT_SITE_URL;
+const DRAFT_MODEL = process.env.OPENAI_DRAFT_MODEL || DEFAULT_DRAFT_MODEL;
+const EMBED_MODEL = process.env.OPENAI_EMBED_MODEL || DEFAULT_EMBED_MODEL;
 const CONFIDENCE_THRESHOLD = 0.6;
 
 const STATIC_PLAYBOOK = `
