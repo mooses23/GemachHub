@@ -30,7 +30,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 
 const BROKEN_LINK = "https://babybanzgemach.com/apply";
-const CORRECT_LINK = "https://babybanzgemach.com";
+const CORRECT_LINK = "https://earmuffsgemach.com/apply";
 
 const DEFAULT_MESSAGE = `Hi,
 
