@@ -180,6 +180,9 @@ interface UnifiedItem {
   // Recipient address — populated for outbound (SENT) Gmail items so the
   // Sent folder can display "To: …" instead of "From: …".
   toAddress?: string;
+  // Raw Gmail label IDs on the latest thread message (e.g. ['SENT', 'INBOX']).
+  // Used to detect outbound threads in any folder (not just the Sent folder).
+  labels?: string[];
   // Lowercased concat of from+subject+body across EVERY message in this
   // Gmail thread (set only on email items by /api/admin/emails/threads).
   // Lets the inbox search match a token that only appears in an older
@@ -496,6 +499,7 @@ export default function AdminInbox() {
         fromName: parsed.name,
         fromEmail: parsed.email,
         toAddress: e.to || undefined,
+        labels: e.labels || [],
         subject: e.subject,
         body: e.body,
         snippet: e.snippet,
@@ -2203,6 +2207,10 @@ export default function AdminInbox() {
                   // One row per conversation; latest message is the preview.
                   const it = g.latest;
                   const isThreadUnread = g.unreadCount > 0;
+                  // Treat the row as outbound when the Sent folder is active OR when the
+                  // latest message carries the SENT Gmail label (e.g. a replied thread
+                  // still sitting in the Inbox). Used for avatar/name/icon rendering.
+                  const isSentRow = folder === "sent" || !!(it.labels?.includes("SENT"));
                   // Use canonical (unfiltered) members so hidden siblings move with the row.
                   const canonicalMembers = groupMembersFor(it);
                   const rightAction =
@@ -2312,30 +2320,26 @@ export default function AdminInbox() {
                           }`}
                           aria-hidden="true"
                         />
-                        {(() => {
-                          const isSentRow = folder === "sent";
-                          const toName = isSentRow && it.toAddress
-                            ? parseEmailAddress(it.toAddress).name
-                            : null;
-                          const avatarLetter = (isSentRow ? (toName || it.toAddress || "?") : (it.fromName || "?")).charAt(0).toUpperCase();
-                          return (
-                            <div
-                              className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 ${
-                                isThreadUnread ? "bg-primary" : "bg-muted-foreground/60"
-                              }`}
-                            >
-                              {avatarLetter}
-                            </div>
-                          );
-                        })()}
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 ${
+                            isThreadUnread ? "bg-primary" : "bg-muted-foreground/60"
+                          }`}
+                        >
+                          {(() => {
+                            const toName = isSentRow && it.toAddress
+                              ? parseEmailAddress(it.toAddress).name
+                              : null;
+                            return (isSentRow ? (toName || it.toAddress || "?") : (it.fromName || "?")).charAt(0).toUpperCase();
+                          })()}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              {folder === "sent" && (
+                              {isSentRow && (
                                 <span className="text-xs text-muted-foreground flex-shrink-0">To:</span>
                               )}
                               <span className={`truncate ${isThreadUnread ? "font-bold text-foreground" : "font-normal text-muted-foreground"}`}>
-                                {folder === "sent"
+                                {isSentRow
                                   ? (it.toAddress ? parseEmailAddress(it.toAddress).name : it.fromName)
                                   : it.fromName}
                               </span>
@@ -2353,22 +2357,22 @@ export default function AdminInbox() {
                                   {g.messageCount}
                                 </Badge>
                               )}
-                              {/* Quiet outline-style source marker so it stops
-                                  competing with the sender name. In the Sent
-                                  folder we swap the Mail icon for a Send icon
-                                  to signal outbound direction. */}
+                              {/* Quiet outline-style source marker. For outbound
+                                  rows (Sent folder or SENT-labelled latest message)
+                                  we swap the Mail icon for a Send icon to signal
+                                  outbound direction clearly. */}
                               <span
                                 className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground/80 flex-shrink-0"
-                                title={folder === "sent" ? "Sent" : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                                title={isSentRow ? "Sent" : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
                                 data-testid={`source-tag-${it.source}`}
                               >
-                                {folder === "sent"
+                                {isSentRow
                                   ? <Send className="h-3 w-3" />
                                   : it.source === "email"
                                   ? <Mail className="h-3 w-3" />
                                   : <MessageSquare className="h-3 w-3" />}
                                 <span className="hidden sm:inline">
-                                  {folder === "sent" ? "Sent" : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                                  {isSentRow ? "Sent" : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
                                 </span>
                               </span>
                               {(() => {

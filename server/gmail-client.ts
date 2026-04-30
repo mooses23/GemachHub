@@ -354,11 +354,17 @@ export async function listEmailThreads(
         const messageCount = messages.length;
         // Outbound (SENT) messages are never "unread" from the operator's perspective.
         // Exclude them from the unread tally so replied threads don't carry a stale badge.
-        const unreadCount = messages.filter((m) => {
+        const rawUnreadCount = messages.filter((m) => {
           const lids = m.labelIds || [];
           return lids.includes('UNREAD') && !lids.includes('SENT');
         }).length;
         const latest = messages[messages.length - 1];
+        const latestLabels = latest.labelIds || [];
+        // If the latest message in the thread is outbound (SENT by the operator),
+        // the conversation is fully handled — clear the unread badge even if an
+        // older inbound message was left UNREAD by Gmail before the reply arrived.
+        const latestIsSent = latestLabels.includes('SENT');
+        const unreadCount = latestIsSent ? 0 : rawUnreadCount;
         const headers = latest.payload?.headers || [];
         // Concatenate every message's From/Subject/Body so search can hit
         // tokens deep in the thread, not just the latest message. Lowercased
@@ -373,8 +379,8 @@ export async function listEmailThreads(
           snippet: latest.snippet || '',
           body: extractBody(latest.payload),
           date: getHeader(headers, 'Date'),
-          isRead: !(latest.labelIds || []).includes('UNREAD'),
-          labels: latest.labelIds || [],
+          isRead: latestIsSent || !latestLabels.includes('UNREAD'),
+          labels: latestLabels,
           messageCount,
           unreadCount,
           searchText,
