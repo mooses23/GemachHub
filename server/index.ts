@@ -17,6 +17,7 @@ const app = express();
   const { WebhookHandlers } = await import("./webhookHandlers.js");
   const { startRefundReconciliation } = await import("./refund-reconciliation.js");
   const { backfillPendingCashPayments } = await import("./backfill-cash-payments.js");
+  const { startSchemaSnapshotCron } = await import("./schema-snapshot.js");
 
   // CRITICAL: Register Stripe webhook route BEFORE express.json()
   // This is required because Stripe webhooks need the raw Buffer body
@@ -113,5 +114,8 @@ const app = express();
     log(`serving on port ${port}`);
     startRefundReconciliation();
     void backfillPendingCashPayments();
+    // Task #177 — weekly schema-snapshot drift check; emails admin if the
+    // live DB diverges from drizzle/schema-snapshot.sql.
+    startSchemaSnapshotCron();
   });
 })();

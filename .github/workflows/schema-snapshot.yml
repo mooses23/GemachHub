@@ -1,0 +1,81 @@
+name: Schema Snapshot Drift Check (Task #177)
+
+# Production-grade scheduler for the schema-snapshot drift check.
+#
+# Why this exists in addition to the in-process cron:
+#   - server/schema-snapshot.ts -> startSchemaSnapshotCron() runs in
+#     server/index.ts on listen, which is exercised by Replit deployments
+#     and `npm run dev`. The Vercel deployment target uses api/index.ts
+#     and never imports server/index.ts, so the in-process cron never
+#     fires there.
+#   - The drift check shells out to `pg_dump --schema-only` (see
+#     scripts/schema-snapshot.mjs). pg_dump is pinned for Replit via
+#     replit.nix, but it is not available in the Vercel serverless
+#     runtime. This workflow installs the matching Postgres 16 client
+#     tools on a GitHub-hosted runner and runs the same CLI.
+#
+# What this does:
+#   1. Runs weekly (Mondays 09:00 UTC) on a cron schedule.
+#   2. Runs on every PR that touches the schema, the snapshot, or the
+#      snapshot tooling, so reviewers see drift before merge.
+#   3. Optional manual trigger via "Run workflow" in the Actions tab.
+#
+# On drift the workflow fails (exit code 1 from `--check`) and prints
+# the compact diff in the run log. Subscribers to the repo get the
+# notification, which is the canonical "weekly review" surface for the
+# Vercel deployment.
+
+on:
+  schedule:
+    # Mondays at 09:00 UTC. Cron is in UTC; adjust if you want a
+    # different day/time.
+    - cron: '0 9 * * 1'
+  pull_request:
+    paths:
+      - 'shared/schema.ts'
+      - 'server/databaseStorage.ts'
+      - 'drizzle/schema-snapshot.sql'
+      - 'scripts/schema-snapshot.mjs'
+      - 'scripts/schema-snapshot.d.mts'
+      - '.github/workflows/schema-snapshot.yml'
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: pg_dump diff vs committed snapshot
+    runs-on: ubuntu-latest
+    # Skip silently if the secret hasn't been configured yet (so a fresh
+    # fork doesn't fail every PR).
+    if: ${{ github.event_name != 'schedule' || github.repository_owner != '' }}
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Postgres 16 client tools (for pg_dump)
+        # The dev / Replit env uses postgresql 16.10; pin the major
+        # version on the runner to keep dump output compatible. The
+        # `apt-add` step is idempotent so re-runs are cheap.
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16
+          pg_dump --version
+
+      - name: Run schema-snapshot --check
+        env:
+          # Set this secret in repo Settings -> Secrets and variables ->
+          # Actions. Use a read-only role pointing at the prod database.
+          DATABASE_URL: ${{ secrets.SCHEMA_SNAPSHOT_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning::SCHEMA_SNAPSHOT_DATABASE_URL secret not set; skipping check."
+            echo "Add a read-only DATABASE_URL secret to enable this workflow."
+            exit 0
+          fi
+          node scripts/schema-snapshot.mjs --check --verbose

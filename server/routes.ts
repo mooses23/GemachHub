@@ -2485,6 +2485,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SCHEMA SNAPSHOT DRIFT CHECK (Task #177)
+  // Compares the live DB's public schema to the committed snapshot at
+  // drizzle/schema-snapshot.sql. Used by:
+  //   - admins clicking from the UI (session auth + isAdmin),
+  //   - an external weekly cron hitting this URL with X-Cron-Secret matching
+  //     SCHEMA_SNAPSHOT_CRON_SECRET (so it works without a logged-in session).
+  // On drift, an email is sent to the admin via gmail-client.sendNewEmail.
+  app.get("/api/admin/schema-snapshot/check", async (req, res) => {
+    const headerSecret = req.header('x-cron-secret') ?? '';
+    const expectedSecret = process.env.SCHEMA_SNAPSHOT_CRON_SECRET ?? '';
+    const cronAuthorized =
+      expectedSecret.length > 0 && headerSecret.length > 0 && headerSecret === expectedSecret;
+    const sessionAuthorized =
+      req.isAuthenticated() &&
+      (req.user as { isAdmin?: boolean } | undefined)?.isAdmin === true;
+    if (!cronAuthorized && !sessionAuthorized) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    try {
+      const { triggerSchemaSnapshotCheck } = await import('./schema-snapshot.js');
+      const result = await triggerSchemaSnapshotCheck();
+      // Cap the diff in the HTTP response so a truly massive drift doesn't
+      // produce a multi-megabyte JSON body to a cron caller. Operators can
+      // run `node scripts/schema-snapshot.mjs --check --verbose` locally for
+      // the full diff. We don't ship the full live-DB snapshot back at all.
+      const MAX_DIFF_BYTES = 60_000;
+      const truncated = result.compactDiff.length > MAX_DIFF_BYTES;
+      const compactDiff = truncated
+        ? result.compactDiff.slice(0, MAX_DIFF_BYTES) + '\n... (diff truncated) ...'
+        : result.compactDiff;
+      res.json({
+        ok: result.ok,
+        baselineMissing: result.baselineMissing,
+        snapshotPath: result.snapshotPath,
+        changedLineCount: result.changedLineCount,
+        compactDiff,
+        compactDiffTruncated: truncated,
+        emailSentToAdmin: !result.ok,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[schema-snapshot] route check failed:', msg);
+      res.status(500).json({ message: 'Schema snapshot check failed', error: msg });
+    }
+  });
+
   // DEPOSIT DETECTION ANALYTICS
   app.get("/api/analytics/deposit-detection", async (req, res) => {
     try {
