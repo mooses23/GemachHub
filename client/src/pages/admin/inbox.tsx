@@ -300,21 +300,14 @@ export default function AdminInbox() {
   const [replyFilter, setReplyFilter] = useState<ReplyFilter>(() => loadPersistedFilters().replyFilter);
   const [folder, setFolder] = useState<Folder>(() => loadPersistedFilters().folder);
 
-  // Reset secondary filters whenever the folder changes so stale filter
-  // state from one folder doesn't bleed into another:
-  // • Entering Sent: pin source="email" (no form submissions in Sent),
-  //   clear read/reply filters since they don't apply.
-  // • Leaving Sent: restore source="all" so form submissions reappear
-  //   and the source Select is not left on "email"-only.
+  // Reset secondary filters on every folder change so stale read/source/
+  // reply state from one folder doesn't produce a confusing empty list
+  // in another folder. Entering Sent pins source="email" (no form
+  // submissions exist there); all other folders default to source="all".
   const handleFolderChange = (next: Folder) => {
-    if (next === "sent") {
-      setSourceFilter("email");
-      setReadFilter("all");
-      setReplyFilter("all");
-    } else if (folder === "sent") {
-      // Returning from Sent — restore source so forms are visible again.
-      setSourceFilter("all");
-    }
+    setSourceFilter(next === "sent" ? "email" : "all");
+    setReadFilter("all");
+    setReplyFilter("all");
     setFolder(next);
   };
 
@@ -2345,9 +2338,18 @@ export default function AdminInbox() {
                               {isSentRow && (
                                 <span className="text-xs text-muted-foreground flex-shrink-0">To:</span>
                               )}
-                              <span className={`truncate ${isThreadUnread ? "font-bold text-foreground" : "font-normal text-muted-foreground"}`}>
+                              <span
+                                className={`truncate ${isThreadUnread ? "font-bold text-foreground" : "font-normal text-muted-foreground"}`}
+                                title={isSentRow && it.toAddress ? it.toAddress : undefined}
+                              >
                                 {isSentRow
-                                  ? (it.toAddress ? parseEmailAddress(it.toAddress).name : it.fromName)
+                                  ? (() => {
+                                      if (!it.toAddress) return it.fromName;
+                                      const p = parseEmailAddress(it.toAddress);
+                                      // Show the email address (not just display-name local-part)
+                                      // so the recipient is unambiguous at a glance.
+                                      return p.email || p.name;
+                                    })()
                                   : it.fromName}
                               </span>
                               {/* "N messages" pill — only shown when this row
