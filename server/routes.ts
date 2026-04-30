@@ -94,6 +94,79 @@ async function withRefundLock<T>(transactionId: number, fn: () => Promise<T>): P
   }
 }
 
+// Domains that should never appear in admin replies. Catches the old/incorrect
+// gemach domain plus common misspellings/TLD swaps of the official gemach
+// domain so that a typo doesn't get sent to recipients as a dead link.
+//
+// Scope note: this list is intentionally limited to GEMACH-related lookalikes
+// (variants of babybanzgemach.com and earmuffsgemach.com). The "Baby Banz"
+// brand site (babybanz.com) is NOT blocked — admins may legitimately link to
+// the manufacturer.
+//
+// The list can be extended at runtime via the BLOCKED_DOMAINS_EXTRA env var,
+// e.g.
+//   BLOCKED_DOMAINS_EXTRA="example.com, evil.org; spam.net"
+// Separators: comma, semicolon, or whitespace. Each entry is normalised to a
+// bare lowercase hostname (scheme and leading "www." stripped, anything after
+// the first "/" / "?" / "#" discarded) and must look like a hostname (a-z, 0-9,
+// hyphen, dot, with a TLD of 2+ letters). Entries with ports (e.g.
+// "evil.com:8080") or non-http schemes are intentionally skipped — to block
+// those, list the bare hostname only. Subdomains of any blocked domain are
+// also blocked automatically.
+const HARDCODED_BLOCKED_DOMAINS: readonly string[] = [
+  // Original incident: an obsolete domain that no longer belongs to the gemach.
+  "babybanzgemach.com",
+  // Plausible variants/misspellings of the obsolete domain.
+  "babybanzgemach.org",
+  "babybanzgemach.net",
+  "babybanzgemach.co",
+  "babybanzgmach.com",     // dropped "e"
+  "babybanzgemmach.com",   // doubled "m"
+  "babybanzgemache.com",   // trailing "e"
+  "babybanzgemachs.com",   // pluralised
+  "baby-banz-gemach.com",  // hyphenated
+  // Plausible misspellings / TLD swaps of the OFFICIAL domain
+  // (earmuffsgemach.com). The real domain itself is intentionally NOT on
+  // this list — only typos that would land a recipient on a dead site.
+  "earmuffsgemach.org",
+  "earmuffsgemach.net",
+  "earmuffsgemach.co",
+  "earmuffgemach.com",     // missing trailing "s" on "earmuffs"
+  "earmufsgemach.com",     // single "f"
+  "earmuffsgmach.com",     // dropped "e" in "gemach"
+  "earmuffsgemmach.com",   // doubled "m"
+  "earmuffsgemache.com",   // trailing "e"
+  "earmuffsgemachs.com",   // pluralised
+  "ear-muffs-gemach.com",  // hyphenated
+  "earmuff-gemach.com",
+];
+
+let cachedBlockedDomains: string[] | null = null;
+let cachedBlockedDomainsKey = "";
+
+function normalizeBlockedDomain(raw: string): string | null {
+  let d = raw.trim().toLowerCase();
+  if (!d) return null;
+  d = d.replace(/^https?:\/\//, "").replace(/^www\./, "");
+  d = d.split("/")[0]!.split("?")[0]!.split("#")[0]!;
+  // Bare hostname only — must contain a dot and no whitespace/invalid chars.
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) return null;
+  return d;
+}
+
+function getBlockedDomains(): string[] {
+  const extraRaw = process.env.BLOCKED_DOMAINS_EXTRA ?? "";
+  if (cachedBlockedDomains && cachedBlockedDomainsKey === extraRaw) return cachedBlockedDomains;
+  const extras = extraRaw
+    .split(/[\s,;]+/)
+    .map(normalizeBlockedDomain)
+    .filter((d): d is string => d !== null);
+  const merged = Array.from(new Set([...HARDCODED_BLOCKED_DOMAINS, ...extras]));
+  cachedBlockedDomains = merged;
+  cachedBlockedDomainsKey = extraRaw;
+  return merged;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
@@ -4043,8 +4116,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!Array.isArray(urls)) return res.status(400).json({ message: "urls must be an array" });
     const safeUrls = urls.filter((u): u is string => typeof u === "string" && u.length < 2048).slice(0, 20);
 
-    // Known-bad domain blocklist (e.g. the domain that caused the original incident).
-    const BLOCKED_DOMAINS = ["babybanzgemach.com"];
+    const BLOCKED_DOMAINS = getBlockedDomains();
+
+    // Returns true if hostname exactly matches a blocked domain or is a subdomain of one.
+    const isBlocked = (hostname: string): boolean => {
+      const h = hostname.toLowerCase().replace(/^www\./, "");
+      return BLOCKED_DOMAINS.some((d) => h === d || h.endsWith("." + d));
+    };
 
     // Also scan raw draft text for bare-domain mentions of blocklisted domains
     // so we catch "babybanzgemach.com/apply" even without an http:// prefix.
@@ -4052,7 +4130,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (typeof rawText === "string") {
       for (const domain of BLOCKED_DOMAINS) {
         const escaped = domain.replace(/\./g, "\\.");
-        const pattern = new RegExp(`(?:^|\\s|[(<])((?:https?:\\/\\/)?(?:www\\.)?${escaped}[^\\s)>]*)`, "gi");
+        // Match the domain optionally preceded by a subdomain label (e.g. "foo.babybanzgemach.com").
+        // The (?![a-z0-9.-]) lookahead enforces a domain boundary so e.g. "babybanzgemach.co"
+        // does NOT match inside "babybanzgemach.com".
+        const pattern = new RegExp(`(?:^|\\s|[(<])((?:https?:\\/\\/)?(?:[a-z0-9-]+\\.)*${escaped}(?![a-z0-9.-])[^\\s)>]*)`, "gi");
         let m: RegExpExecArray | null;
         while ((m = pattern.exec(rawText)) !== null) {
           const match = m[1].trim();
@@ -4095,9 +4176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return resolve({ url: rawUrl, ok: true }); // skip non-http links (mailto:, tel:, etc.)
         }
 
-        const rawHostname = parsedUrl.hostname.toLowerCase();
-        const hostname = rawHostname.replace(/^www\./, "");
-        if (BLOCKED_DOMAINS.includes(hostname) || BLOCKED_DOMAINS.includes(rawHostname)) {
+        if (isBlocked(parsedUrl.hostname)) {
           return resolve({ url: rawUrl, ok: false, reason: "domain on blocklist" });
         }
 
