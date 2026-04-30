@@ -612,8 +612,12 @@ export const translations = {
 
     // Inbox: filters, swipe actions, and spam handling (Task #22)
     inboxFolderInbox: "Inbox",
+    inboxFolderSent: "Sent",
     inboxFolderSpam: "Spam",
     inboxFolderTrash: "Trash",
+    inboxFilterSourceLabel: "Source",
+    inboxFilterStatusLabel: "Status",
+    inboxFilterReplyLabel: "Reply",
     inboxFiltersLabel: "Filters",
     inboxFiltersHide: "Hide filters",
     inboxFiltersShow: "Show filters",
@@ -641,6 +645,7 @@ export const translations = {
     inboxSwipeHint: "Tip: swipe right to mark unread, left to archive, or far left to delete.",
     inboxSpamEmpty: "Nothing flagged as spam.",
     inboxTrashEmpty: "Trash is empty.",
+    inboxSentEmpty: "No sent messages.",
 
     // Inbox bulk-select (Task #23)
     inboxBulkSelect: "Select",
@@ -1840,8 +1845,12 @@ export const translations = {
 
     // Inbox: filters, swipe actions, and spam handling (Task #22)
     inboxFolderInbox: "תיבת דואר",
+    inboxFolderSent: "שלוחים",
     inboxFolderSpam: "ספאם",
     inboxFolderTrash: "אשפה",
+    inboxFilterSourceLabel: "מקור",
+    inboxFilterStatusLabel: "סטטוס",
+    inboxFilterReplyLabel: "מענה",
     inboxFiltersLabel: "סינון",
     inboxFiltersHide: "הסתר סינון",
     inboxFiltersShow: "הצג סינון",
@@ -1869,6 +1878,7 @@ export const translations = {
     inboxSwipeHint: "טיפ: החלקה ימינה לסימון כלא נקרא, שמאלה להעברה לארכיון, או שמאלה רחוק למחיקה.",
     inboxSpamEmpty: "אין הודעות שסומנו כספאם.",
     inboxTrashEmpty: "האשפה ריקה.",
+    inboxSentEmpty: "אין הודעות שנשלחו.",
 
     // Inbox bulk-select (Task #23)
     inboxBulkSelect: "בחירה",

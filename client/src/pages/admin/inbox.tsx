@@ -1986,7 +1986,7 @@ export default function AdminInbox() {
             const gmailCounts = gmailLabelCountsQuery.data ?? { inbox: 0, spam: 0, trash: 0 };
             return [
               { key: "inbox" as Folder, label: t("inboxFolderInbox"), icon: InboxIcon, count: formInboxCount + gmailCounts.inbox },
-              { key: "sent" as Folder, label: "Sent", icon: Send, count: 0 },
+              { key: "sent" as Folder, label: t("inboxFolderSent"), icon: Send, count: 0 },
               { key: "spam" as Folder, label: t("inboxFolderSpam"), icon: ShieldAlert, count: formSpamCount + gmailCounts.spam },
               { key: "trash" as Folder, label: t("inboxFolderTrash"), icon: Trash2, count: formTrashCount + gmailCounts.trash },
             ];
@@ -2039,7 +2039,7 @@ export default function AdminInbox() {
               {/* Source filter */}
               {folder !== "sent" && (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Source</span>
+                  <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">{t("inboxFilterSourceLabel")}</span>
                   <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as SourceFilter)}>
                     <SelectTrigger className="h-8 text-sm w-[110px]" data-testid="filter-source-select">
                       <SelectValue />
@@ -2054,7 +2054,7 @@ export default function AdminInbox() {
               )}
               {/* Read/unread status filter */}
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Status</span>
+                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">{t("inboxFilterStatusLabel")}</span>
                 <Select value={readFilter} onValueChange={(v) => setReadFilter(v as ReadFilter)}>
                   <SelectTrigger className="h-8 text-sm w-[110px]" data-testid="filter-read-select">
                     <SelectValue />
@@ -2069,7 +2069,7 @@ export default function AdminInbox() {
               {/* Reply-state filter */}
               {folder !== "sent" && (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Reply</span>
+                  <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">{t("inboxFilterReplyLabel")}</span>
                   <Select value={replyFilter} onValueChange={(v) => setReplyFilter(v as ReplyFilter)}>
                     <SelectTrigger className="h-8 text-sm w-[110px]" data-testid="filter-reply-select">
                       <SelectValue />
@@ -2192,7 +2192,7 @@ export default function AdminInbox() {
                 )}
                 <h3 className="text-lg font-medium">
                   {folder === "sent"
-                    ? "No sent messages"
+                    ? t("inboxSentEmpty")
                     : folder === "spam"
                     ? t("inboxSpamEmpty")
                     : folder === "trash"
@@ -2372,7 +2372,7 @@ export default function AdminInbox() {
                                   outbound direction clearly. */}
                               <span
                                 className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground/80 flex-shrink-0"
-                                title={isSentRow ? "Sent" : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                                title={isSentRow ? t("inboxFolderSent") : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
                                 data-testid={`source-tag-${it.source}`}
                               >
                                 {isSentRow
@@ -2381,7 +2381,7 @@ export default function AdminInbox() {
                                   ? <Mail className="h-3 w-3" />
                                   : <MessageSquare className="h-3 w-3" />}
                                 <span className="hidden sm:inline">
-                                  {isSentRow ? "Sent" : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
+                                  {isSentRow ? t("inboxFolderSent") : it.source === "email" ? t("inboxSourceEmail") : t("inboxSourceForm")}
                                 </span>
                               </span>
                               {(() => {
