@@ -38,6 +38,7 @@ import {
   reindexFact, reindexFaq, reindexDoc, reindexReplyExample, backfillEmbeddings, seedKnowledgeDocs,
   migrateDomainInKnowledgeBase,
 } from "./openai-client.js";
+import { filterLocationTree } from "./location-tree-filter.js";
 import { z } from "zod";
 import { computeReplyWasEdited } from "./reply-edit-detection.js";
 
@@ -390,33 +391,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getAllLocations(),
       ]);
 
-      // Build a fast lookup: which city-category IDs have at least one location?
-      const populatedCityCategoryIds = new Set<number>();
-      const populatedRegionIds = new Set<number>();
-      for (const loc of locations) {
-        if (loc.cityCategoryId != null) populatedCityCategoryIds.add(loc.cityCategoryId);
-        populatedRegionIds.add(loc.regionId);
-      }
-
-      // Only include city categories that have at least one location.
-      const populatedCityCategories = cityCategories.filter((cc) =>
-        populatedCityCategoryIds.has(cc.id)
-      );
-
-      // Only include regions that have at least one location directly assigned
-      // OR at least one city category with locations. (A region that only
-      // had locations via now-deleted city categories should also disappear.)
-      const regionIdsWithPopulatedCities = new Set(
-        populatedCityCategories.map((cc) => cc.regionId)
-      );
-      const populatedRegions = regions.filter(
-        (r) => populatedRegionIds.has(r.id) || regionIdsWithPopulatedCities.has(r.id)
-      );
+      // Strip city categories with no locations and regions with no locations
+      // (and no remaining populated city categories) using the shared helper.
+      const { regions: populatedRegions, cityCategories: populatedCityCategories } =
+        filterLocationTree(regions, cityCategories, locations);
 
       const admin = viewerIsAdmin(req);
-      // Use no-cache (not no-store) so the browser still stores the response
-      // and can use ETags for conditional GETs — this ensures stale data is
-      // never served from cache while keeping the conditional-GET speedup.
+      // no-cache (not no-store): browser stores the response for ETag-based
+      // conditional GETs but must revalidate before serving it — stale data
+      // is never returned. This replaced the previous 5-min public max-age
+      // which was causing users to see empty hierarchy nodes after cleanup.
       res.setHeader("Cache-Control", "no-cache, must-revalidate");
       res.json({
         regions: populatedRegions,
