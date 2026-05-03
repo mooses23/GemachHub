@@ -1786,22 +1786,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Strict patch schema: only allow a small allowlist of safely-mutable
-      // fields, parse types deterministically (so a string "7" cannot bypass
-      // the locationId guard), and reject unknown fields outright. Status,
-      // payment, and refund-related fields go through dedicated endpoints
-      // (e.g. /return, /refund-deposit) and must not be settable here.
-      const patchSchema = z
-        .object({
-          locationId: z.coerce.number().int(),
-          borrowerName: z.string().min(1),
-          borrowerPhone: z.string().min(1),
-          headbandColor: z.string().min(1),
-          notes: z.string(),
-          expectedReturnDate: z.coerce.date(),
-        })
-        .partial()
-        .strict();
+      // Patch schema: accept any subset of the canonical insertTransactionSchema
+      // fields (so existing admin edit flows that PATCH borrowerEmail,
+      // depositAmount, payLaterStatus, etc. continue to work), and reject
+      // unknown fields outright via .strict(). The schema also normalizes
+      // locationId to a number so a string "7" cannot bypass the
+      // reassignment guard below.
+      const patchSchema = insertTransactionSchema.partial().strict().extend({
+        locationId: z.coerce.number().int().optional(),
+      });
       const patchParsed = patchSchema.safeParse(req.body);
       if (!patchParsed.success) {
         return res.status(400).json({
