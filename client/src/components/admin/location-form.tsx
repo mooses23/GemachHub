@@ -1,10 +1,19 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { insertLocationSchema } from "@/lib/types";
 import type { InsertLocation, Location } from "@/lib/types";
+import type { CityCategory, Region } from "@shared/schema";
 import { createLocation, updateLocation } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CommunityForm } from "@/components/admin/community-form";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import {
@@ -31,7 +40,7 @@ import {
 
 interface LocationFormProps {
   location?: Location;
-  regions: { id: number; name: string }[];
+  regions: Region[];
   onSuccess?: () => void;
   focusPhone?: boolean;
 }
@@ -103,6 +112,7 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
       phone: location.phone || "",
       email: location.email || "",
       regionId: location.regionId || 1,
+      cityCategoryId: location.cityCategoryId ?? null,
       isActive: location.isActive ?? true,
       cashOnly: location.cashOnly || false,
       depositAmount: location.depositAmount || 20,
@@ -117,11 +127,26 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
       phone: "",
       email: "",
       regionId: regions[0]?.id || 1,
+      cityCategoryId: null,
       isActive: true,
       cashOnly: false,
       depositAmount: 20,
     },
   });
+
+  const watchedRegionId = form.watch("regionId");
+  const [communityDialogOpen, setCommunityDialogOpen] = useState(false);
+
+  const { data: communities = [] } = useQuery<CityCategory[]>({
+    queryKey: ["/api/city-categories"],
+  });
+
+  const filteredCommunities = React.useMemo(
+    () => communities
+      .filter((c) => c.regionId === watchedRegionId)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name)),
+    [communities, watchedRegionId],
+  );
 
   const createMutation = useMutation({
     mutationFn: (data: InsertLocation) => createLocation(data),
@@ -433,11 +458,49 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
                   <SelectContent>
                     {regions.map((region) => (
                       <SelectItem key={region.id} value={region.id.toString()}>
-                        {(region as any).nameHe || region.name}
+                        {region.nameHe || region.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="cityCategoryId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={labelClass}>Community</FormLabel>
+                <div className="flex items-center gap-2">
+                  <Select
+                    onValueChange={(value) => {
+                      if (value === "__new__") {
+                        setCommunityDialogOpen(true);
+                        return;
+                      }
+                      field.onChange(value === "__none__" ? null : parseInt(value, 10));
+                    }}
+                    value={field.value ? String(field.value) : "__none__"}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
+                        <SelectValue placeholder="Select a community" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {filteredCommunities.map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.name}{c.stateCode ? ` (${c.stateCode})` : ""}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__">+ Add new community…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -565,6 +628,27 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
         </div>
 
       </form>
+
+      <Dialog open={communityDialogOpen} onOpenChange={setCommunityDialogOpen}>
+        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Community</DialogTitle>
+            <DialogDescription>
+              Create a new community to assign to this location.
+            </DialogDescription>
+          </DialogHeader>
+          <CommunityForm
+            regions={regions}
+            defaultRegionId={watchedRegionId}
+            onSuccess={(created) => {
+              if (created?.id) {
+                form.setValue("cityCategoryId", created.id, { shouldDirty: true });
+              }
+              setCommunityDialogOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }

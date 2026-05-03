@@ -333,6 +333,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/city-categories", async (req, res) => {
+    const user = req.user as { isAdmin?: boolean } | undefined;
+    if (!req.isAuthenticated() || !user?.isAdmin) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     try {
       const categoryData = insertCityCategorySchema.parse(req.body);
       const cityCategory = await storage.createCityCategory(categoryData);
@@ -343,6 +347,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating city category:", error);
       res.status(500).json({ message: "Failed to create city category" });
+    }
+  });
+
+  app.patch("/api/city-categories/:id", async (req, res) => {
+    const user = req.user as { isAdmin?: boolean } | undefined;
+    if (!req.isAuthenticated() || !user?.isAdmin) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid city category id" });
+      const parseResult = insertCityCategorySchema.partial().safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid city category data", errors: parseResult.error.issues });
+      }
+      const updated = await storage.updateCityCategory(id, parseResult.data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating city category:", error);
+      res.status(500).json({ message: "Failed to update city category" });
+    }
+  });
+
+  app.delete("/api/city-categories/:id", async (req, res) => {
+    const user = req.user as { isAdmin?: boolean } | undefined;
+    if (!req.isAuthenticated() || !user?.isAdmin) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid city category id" });
+      // Block delete when locations are still assigned to this community
+      const allLocations = await storage.getAllLocations();
+      const assigned = allLocations.filter((l) => l.cityCategoryId === id);
+      if (assigned.length > 0) {
+        return res.status(409).json({
+          message: `Cannot delete community: ${assigned.length} location(s) are still assigned. Reassign them to another community first.`,
+          code: "COMMUNITY_HAS_LOCATIONS",
+          assignedCount: assigned.length,
+          assignedLocationIds: assigned.map((l) => l.id),
+        });
+      }
+      await storage.deleteCityCategory(id);
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting city category:", error);
+      res.status(500).json({ message: "Failed to delete city category" });
     }
   });
 

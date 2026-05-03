@@ -60,6 +60,33 @@ export const updateRegion = async (id: number, data: { name?: string; nameHe?: s
   return apiRequest("PATCH", `/api/regions/${id}`, data);
 };
 
+// City Categories (Communities) API
+export interface CityCategoryInput {
+  name: string;
+  nameHe?: string | null;
+  slug: string;
+  regionId: number;
+  displayOrder?: number;
+  isPopular?: boolean;
+  description?: string | null;
+  descriptionHe?: string | null;
+  stateCode?: string | null;
+}
+
+export const createCityCategory = async (data: CityCategoryInput) => {
+  const res = await apiRequest("POST", "/api/city-categories", data);
+  return res.json();
+};
+
+export const updateCityCategory = async (id: number, data: Partial<CityCategoryInput>) => {
+  const res = await apiRequest("PATCH", `/api/city-categories/${id}`, data);
+  return res.json();
+};
+
+export const deleteCityCategory = async (id: number) => {
+  return apiRequest("DELETE", `/api/city-categories/${id}`, undefined);
+};
+
 // Gemach Applications API
 export const submitGemachApplication = async (data: InsertGemachApplication) => {
   return apiRequest("POST", "/api/applications", data);
