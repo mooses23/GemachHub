@@ -589,7 +589,7 @@ export default function Dashboard() {
               value={fmtCurrency(depositTotal, language)}
               subtitle={`${pendingReturns} ${t('pendingReturns')}`}
               icon={DollarSign}
-              href="/admin/transactions"
+              href="/admin/transactions?status=active"
               testId="card-deposits-held"
             />
             <StatTile
@@ -597,7 +597,7 @@ export default function Dashboard() {
               value={pendingApplications}
               subtitle={t('waitingForReview')}
               icon={FileText}
-              href="/admin/applications"
+              href="/admin/applications?status=pending"
               testId="card-pending-applications"
             />
             <StatTile
@@ -605,7 +605,7 @@ export default function Dashboard() {
               value={unreadContacts}
               subtitle={t('requiresAttention')}
               icon={AlarmClock}
-              href="/admin/inbox"
+              href="/admin/inbox?status=unread"
               testId="card-unread-messages"
             />
           </>

@@ -75,7 +75,16 @@ export default function AdminTransactions() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "returned">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "returned">(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const s = sp.get("status");
+      if (s === "active" || s === "open" || s === "pending") return "active";
+      if (s === "returned") return "returned";
+    } catch {}
+    return "all";
+  });
   
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
   const [refundTransaction, setRefundTransaction] = useState<Transaction | null>(null);

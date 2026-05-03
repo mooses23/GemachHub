@@ -302,7 +302,16 @@ export default function AdminInbox() {
   // surrounding component re-renders dozens of times as queries resolve.
   const [search, setSearch] = useState<string>(() => loadPersistedFilters().search);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>(() => loadPersistedFilters().sourceFilter);
-  const [readFilter, setReadFilter] = useState<ReadFilter>(() => loadPersistedFilters().readFilter);
+  const [readFilter, setReadFilter] = useState<ReadFilter>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        const s = sp.get("status");
+        if (s === "unread" || s === "read" || s === "all") return s as ReadFilter;
+      } catch {}
+    }
+    return loadPersistedFilters().readFilter;
+  });
   const [replyFilter, setReplyFilter] = useState<ReplyFilter>(() => loadPersistedFilters().replyFilter);
   const [folder, setFolder] = useState<Folder>(() => loadPersistedFilters().folder);
 
