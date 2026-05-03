@@ -3001,7 +3001,7 @@ export class MemStorage implements IStorage {
     const now = new Date();
     const normalizedInput = borrowerPhone.replace(/\D/g, '');
     const txIds = new Set<number>();
-    for (const tx of this.transactions.values()) {
+    for (const tx of Array.from(this.transactions.values())) {
       if (!tx.borrowerPhone) continue;
       const storedDigits = tx.borrowerPhone.replace(/\D/g, '');
       if (storedDigits && (storedDigits.includes(normalizedInput) || normalizedInput.includes(storedDigits))) {
@@ -3009,7 +3009,7 @@ export class MemStorage implements IStorage {
       }
     }
     if (txIds.size === 0) return;
-    for (const [key, event] of this.returnReminderEventsMap.entries()) {
+    for (const [key, event] of Array.from(this.returnReminderEventsMap.entries())) {
       if (event.channel === 'sms' && txIds.has(event.transactionId)) {
         this.returnReminderEventsMap.set(key, {
           ...event,
@@ -3025,14 +3025,14 @@ export class MemStorage implements IStorage {
     const normalizedInput = borrowerPhone.replace(/\D/g, '');
     if (!normalizedInput) return false;
     const txIds = new Set<number>();
-    for (const tx of this.transactions.values()) {
+    for (const tx of Array.from(this.transactions.values())) {
       if (tx.locationId !== locationId || !tx.borrowerPhone) continue;
       const storedDigits = tx.borrowerPhone.replace(/\D/g, '');
       if (storedDigits && (storedDigits.includes(normalizedInput) || normalizedInput.includes(storedDigits))) {
         txIds.add(tx.id);
       }
     }
-    for (const event of this.returnReminderEventsMap.values()) {
+    for (const event of Array.from(this.returnReminderEventsMap.values())) {
       if (event.channel === 'sms' && event.deliveryStatus === 'opted_out' && txIds.has(event.transactionId)) {
         return true;
       }
@@ -3564,7 +3564,18 @@ export class MemStorage implements IStorage {
 
   async createMessageSendLog(log: InsertMessageSendLog): Promise<MessageSendLog> {
     const id = this.messageSendLogCounter++;
-    const row: MessageSendLog = { ...log, id, sentAt: new Date() };
+    // Normalize optional `undefined` fields on the insert payload to `null` so
+    // the returned row matches the strict MessageSendLog select type
+    // (which uses `T | null`, not `T | null | undefined`).
+    const row: MessageSendLog = {
+      ...log,
+      id,
+      sentAt: new Date(),
+      locationId: log.locationId ?? null,
+      error: log.error ?? null,
+      sentByUserId: log.sentByUserId ?? null,
+      batchId: log.batchId ?? null,
+    };
     this.messageSendLogsMap.set(id, row);
     return row;
   }

@@ -202,7 +202,7 @@ const TWILIO_ERROR_REASONS: Record<string, string> = {
 };
 
 // Maps a Twilio delivery status to a colour token and label key.
-function DeliveryStatusBadge({ status, errorCode, t }: { status: string | null | undefined; errorCode?: string | null; t: (k: string) => string }) {
+function DeliveryStatusBadge({ status, errorCode, t }: { status: string | null | undefined; errorCode?: string | null; t: (k: any) => string }) {
   if (!status) return null;
 
   type Cfg = { label: string; className: string };

@@ -699,20 +699,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "This location is not active" });
       }
       
-      // Store operator location in session for server-side auth
-      (req.session as any).operatorLocationId = location.id;
-      
-      // Explicitly save session before responding
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
+      // Regenerate the session before storing the operator binding to defeat
+      // session-fixation on shared/tablet devices: an attacker who pre-set a
+      // session cookie cannot inherit the operator session after PIN entry.
+      req.session.regenerate((regenErr) => {
+        if (regenErr) {
+          console.error("Session regenerate error:", regenErr);
           return res.status(500).json({ message: "Login failed - session error" });
         }
-        
-        const { operatorPin, ...locationWithoutPin } = location;
-        res.json({ 
-          success: true, 
-          location: { ...locationWithoutPin, pinIsDefault: !operatorPin || operatorPin === '1234' }
+        (req.session as any).operatorLocationId = location.id;
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            return res.status(500).json({ message: "Login failed - session error" });
+          }
+          const { operatorPin, ...locationWithoutPin } = location;
+          res.json({
+            success: true,
+            location: { ...locationWithoutPin, pinIsDefault: !operatorPin || operatorPin === '1234' }
+          });
         });
       });
     } catch (error) {
@@ -1325,11 +1330,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // short-circuits to "already onboarded → go to dashboard" when the
       // location is already onboarded.
       const { operatorPin, claimToken, claimTokenCreatedAt, welcomeSmsError, welcomeWhatsappError, ...safe } = loc as LocationRow;
+      // NOTE: do NOT include `pinIsDefault` here. This route is public (anyone
+      // with the long-lived welcome token can hit it) and exposing whether
+      // the PIN is still the default "1234" makes brute-forcing the 4-digit
+      // PIN trivial. `pinIsDefault` is still returned by the authenticated
+      // login routes, where it's safe to surface to the operator themselves.
       res.json({
-        location: {
-          ...safe,
-          pinIsDefault: (operatorPin || '') === '1234' || !operatorPin,
-        },
+        location: safe,
         alreadyOnboarded: !!loc.onboardedAt,
       });
     } catch (e: any) {
@@ -1353,14 +1360,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Not onboarded yet — caller must run the full /complete flow first.
         return res.status(409).json({ message: 'This location has not completed onboarding yet.' });
       }
-      (req.session as any).operatorLocationId = loc.id;
-      req.session.save((err) => {
-        if (err) {
-          console.error('[onboarding] re-entry session save failed:', err);
+      // Regenerate the session to defeat fixation before binding the
+      // operator location to it.
+      req.session.regenerate((regenErr) => {
+        if (regenErr) {
+          console.error('[onboarding] re-entry session regenerate failed:', regenErr);
           return res.status(500).json({ message: 'Could not establish your session.' });
         }
-        const { operatorPin, claimToken, claimTokenCreatedAt, welcomeSmsError, welcomeWhatsappError, ...safe } = loc as LocationRow;
-        res.json({ success: true, location: { ...safe, pinIsDefault: (operatorPin || '') === '1234' || !operatorPin } });
+        (req.session as any).operatorLocationId = loc.id;
+        req.session.save((err) => {
+          if (err) {
+            console.error('[onboarding] re-entry session save failed:', err);
+            return res.status(500).json({ message: 'Could not establish your session.' });
+          }
+          const { operatorPin, claimToken, claimTokenCreatedAt, welcomeSmsError, welcomeWhatsappError, ...safe } = loc as LocationRow;
+          res.json({ success: true, location: { ...safe, pinIsDefault: (operatorPin || '') === '1234' || !operatorPin } });
+        });
       });
     } catch (e: any) {
       console.error('[onboarding] welcome re-entry session failed:', e);
@@ -1410,15 +1425,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ message: 'This location has just been onboarded from another device. Please log in with your code and PIN.' });
       }
 
-      // Auto-login: same session shape as /api/operator/login.
-      (req.session as any).operatorLocationId = updated.id;
-      req.session.save((err) => {
-        if (err) {
-          console.error('[onboarding] session save failed:', err);
+      // Auto-login: same session shape as /api/operator/login. Regenerate
+      // the session first to defeat fixation on shared devices.
+      req.session.regenerate((regenErr) => {
+        if (regenErr) {
+          console.error('[onboarding] session regenerate failed:', regenErr);
           return res.status(500).json({ message: 'Saved your details, but login failed. Please log in manually.' });
         }
-        const { operatorPin, claimToken, ...safe } = updated as any;
-        res.json({ success: true, location: { ...safe, pinIsDefault: false } });
+        (req.session as any).operatorLocationId = updated.id;
+        req.session.save((err) => {
+          if (err) {
+            console.error('[onboarding] session save failed:', err);
+            return res.status(500).json({ message: 'Saved your details, but login failed. Please log in manually.' });
+          }
+          const { operatorPin, claimToken, ...safe } = updated as any;
+          res.json({ success: true, location: { ...safe, pinIsDefault: false } });
+        });
       });
     } catch (e: any) {
       console.error('[onboarding] complete failed:', e);
@@ -2400,82 +2422,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WEBHOOK ENDPOINTS FOR REAL-TIME PAYMENT STATUS DETECTION
-  app.post("/api/webhooks/stripe", async (req, res) => {
-    try {
-      const { id, object, type, data } = req.body;
-      
-      if (type === 'payment_intent.succeeded') {
-        await DepositDetectionService.processPaymentStatusUpdate(
-          data.object.id,
-          'accepted',
-          {
-            stripe_payment_intent_id: data.object.id,
-            amount_received: data.object.amount_received,
-            currency: data.object.currency,
-            payment_method: data.object.payment_method
-          },
-          'stripe_webhook'
-        );
-      } else if (type === 'payment_intent.payment_failed') {
-        await DepositDetectionService.processPaymentStatusUpdate(
-          data.object.id,
-          'declined',
-          {
-            stripe_payment_intent_id: data.object.id,
-            failure_code: data.object.last_payment_error?.code,
-            failure_message: data.object.last_payment_error?.message
-          },
-          'stripe_webhook'
-        );
-      } else if (type === 'setup_intent.succeeded') {
-        // Handle card setup completion for pay-later flow
-        const setupIntentId = data.object.id;
-        const paymentMethodId = data.object.payment_method;
-        if (setupIntentId && paymentMethodId) {
-          await PayLaterService.handleSetupIntentSucceeded(setupIntentId, paymentMethodId);
-        }
-      }
-
-      res.json({ received: true });
-    } catch (error) {
-      console.error("Stripe webhook error:", error);
-      res.status(400).json({ error: "Webhook processing failed" });
-    }
+  // WEBHOOK ENDPOINTS — DEPRECATED, UNSIGNED LEGACY HANDLERS REMOVED.
+  //
+  // These two routes (`/api/webhooks/stripe` and `/api/webhooks/paypal`) used
+  // to accept JSON bodies with no signature verification, which let any caller
+  // forge `payment_intent.succeeded` / `setup_intent.succeeded` / PayPal
+  // capture events and mark deposits as accepted. The signed Stripe webhook
+  // lives at `/api/stripe/webhook` (registered in server/index.ts with
+  // express.raw + signature verification via WebhookHandlers.processWebhook).
+  // PayPal webhooks are not currently wired up; if/when they are added they
+  // must verify the PayPal-Transmission-Sig header before trusting the body.
+  //
+  // The endpoints below respond 410 Gone so any stale Stripe/PayPal dashboard
+  // configuration pointing here gets a clear failure instead of a silent
+  // "OK" that does nothing.
+  app.post("/api/webhooks/stripe", (_req, res) => {
+    res.status(410).json({
+      error: "This endpoint is no longer in use. Configure Stripe to POST to /api/stripe/webhook (signed).",
+    });
   });
-
-  app.post("/api/webhooks/paypal", async (req, res) => {
-    try {
-      const { event_type, resource } = req.body;
-      
-      if (event_type === 'PAYMENT.CAPTURE.COMPLETED') {
-        await DepositDetectionService.processPaymentStatusUpdate(
-          resource.id,
-          'accepted',
-          {
-            paypal_capture_id: resource.id,
-            amount: resource.amount,
-            status: resource.status
-          },
-          'paypal_webhook'
-        );
-      } else if (event_type === 'PAYMENT.CAPTURE.DENIED') {
-        await DepositDetectionService.processPaymentStatusUpdate(
-          resource.id,
-          'declined',
-          {
-            paypal_capture_id: resource.id,
-            reason_code: resource.reason_code
-          },
-          'paypal_webhook'
-        );
-      }
-
-      res.json({ received: true });
-    } catch (error) {
-      console.error("PayPal webhook error:", error);
-      res.status(400).json({ error: "Webhook processing failed" });
-    }
+  app.post("/api/webhooks/paypal", (_req, res) => {
+    res.status(410).json({
+      error: "This endpoint is no longer in use. PayPal webhooks must be re-implemented with signature verification.",
+    });
   });
 
   // MANUAL PAYMENT STATUS CHECKING
@@ -3059,32 +3028,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Refund a deposit
   app.post("/api/deposits/:transactionId/refund", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-
-      const transactionId = parseInt(req.params.transactionId);
-      const { refundAmount } = req.body;
-      const user = req.user as Express.User;
-      const userRole: UserRole = user.isAdmin ? 'admin' : (user.role as UserRole);
-
-      const result = await DepositService.refundDeposit(
-        transactionId,
-        user.id,
-        userRole,
-        refundAmount
-      );
-
-      if (!result.success) {
-        return res.status(400).json({ message: result.error });
-      }
-
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error("Refund error:", error);
-      res.status(500).json({ message: error.message || "Failed to process refund" });
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Authentication required" });
     }
+
+    const transactionId = parseInt(req.params.transactionId);
+    if (!Number.isFinite(transactionId) || transactionId <= 0) {
+      return res.status(400).json({ message: "Invalid transaction id" });
+    }
+
+    // Serialize per-transaction (same lock the pay-later refund uses) so two
+    // rapid clicks can't both pass DepositService's "completed payment found"
+    // check and create two Stripe refunds for the same deposit.
+    return withRefundLock(transactionId, async () => {
+      try {
+        const { refundAmount } = req.body;
+        const user = req.user as Express.User;
+        const userRole: UserRole = user.isAdmin ? 'admin' : (user.role as UserRole);
+
+        const result = await DepositService.refundDeposit(
+          transactionId,
+          user.id,
+          userRole,
+          refundAmount
+        );
+
+        if (!result.success) {
+          return res.status(400).json({ message: result.error });
+        }
+
+        res.json({ success: true });
+      } catch (error: any) {
+        console.error("Refund error:", error);
+        res.status(500).json({ message: error.message || "Failed to process refund" });
+      }
+    });
   });
 
   // ADMIN EMAIL ROUTES
@@ -4390,14 +4368,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // SSRF guard: resolve hostname and reject if it maps to a private/reserved IP.
-        _dns.lookup(parsedUrl.hostname, { family: 4 }, (dnsErr, address) => {
-          if (dnsErr) {
-            // Could not resolve — treat as unreachable/broken.
-            return resolve({ url: rawUrl, ok: false, reason: "DNS resolution failed" });
-          }
+        // Use the promises API (libuv getaddrinfo via async iface) so we don't
+        // block the libuv thread pool on bulk inbox link checks. We still need
+        // a callback-style continuation because the rest of this function uses
+        // the cb-driven http request below.
+        _dns.promises.lookup(parsedUrl.hostname, { family: 4 }).then(({ address }) => {
           if (isPrivateIPv4(address)) {
             return resolve({ url: rawUrl, ok: false, reason: "resolves to a private/reserved IP" });
           }
+          afterDnsResolved(address);
+        }).catch(() => {
+          // Could not resolve — treat as unreachable/broken.
+          resolve({ url: rawUrl, ok: false, reason: "DNS resolution failed" });
+        });
+
+        const afterDnsResolved = (_address: string) => {
 
           const lib = parsedUrl.protocol === "https:" ? _https : _http;
           const UA = "BabyBanz-Link-Checker/1.0";
@@ -4437,7 +4422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               resolve({ url: rawUrl, ok: false, reason: `HTTP ${status}` });
             }
           });
-        });
+        };
       });
     };
 

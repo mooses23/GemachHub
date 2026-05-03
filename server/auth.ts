@@ -30,8 +30,14 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-// Create a function to manually create test users
+// Create a function to manually create test users.
+// Refuses to run in production so the well-known seed credentials
+// (admin/admin123, brooklyn/gemach123) cannot land in a live deployment.
 export async function createTestUsers() {
+  if (process.env.NODE_ENV === "production") {
+    console.log("[auth] Skipping test user seed in production.");
+    return;
+  }
   try {
     const { storage } = await import('./storage.js');
     
@@ -80,9 +86,20 @@ export function setupAuth(app: Express) {
   if (isProduction && !process.env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET environment variable is required in production");
   }
-  
+
+  // In non-production, fall back to a random per-process secret rather than a
+  // hard-coded string so a misconfigured/exposed staging instance cannot have
+  // its sessions forged. Sessions reset on restart, which is acceptable in dev.
+  const sessionSecret =
+    process.env.SESSION_SECRET || randomBytes(32).toString("hex");
+  if (!process.env.SESSION_SECRET) {
+    console.warn(
+      "[auth] SESSION_SECRET not set — using an ephemeral random secret for this process. Set SESSION_SECRET to persist sessions across restarts.",
+    );
+  }
+
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "gemach-dev-secret-key",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     store: new PgSession({

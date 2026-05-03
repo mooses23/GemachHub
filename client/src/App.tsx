@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import React, { lazy, Suspense } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -11,7 +11,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { LanguageProvider } from "@/hooks/use-language";
 import { OperatorAuthProvider } from "@/hooks/use-operator-auth";
 
-function withAdminLayout(Component: (props: any) => JSX.Element | null) {
+function withAdminLayout(Component: React.ComponentType<any>) {
   return function AdminLayoutWrapper(props: any) {
     return (
       <AdminLayout>

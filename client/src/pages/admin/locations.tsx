@@ -1810,9 +1810,9 @@ export default function AdminLocations() {
                                         // Build message history for ALL rows (including onboarded)
                                         type ChannelTs = { channel: "sms" | "whatsapp" | "email"; at: Date };
                                         const candidates: ChannelTs[] = [];
-                                        if (location.welcomeSmsSentAt) candidates.push({ channel: "sms", at: new Date(location.welcomeSmsSentAt as string) });
-                                        if (location.welcomeWhatsappSentAt) candidates.push({ channel: "whatsapp", at: new Date(location.welcomeWhatsappSentAt as string) });
-                                        if (location.welcomeEmailSentAt) candidates.push({ channel: "email", at: new Date(location.welcomeEmailSentAt as string) });
+                                        if (location.welcomeSmsSentAt) candidates.push({ channel: "sms", at: new Date(location.welcomeSmsSentAt as unknown as string) });
+                                        if (location.welcomeWhatsappSentAt) candidates.push({ channel: "whatsapp", at: new Date(location.welcomeWhatsappSentAt as unknown as string) });
+                                        if (location.welcomeEmailSentAt) candidates.push({ channel: "email", at: new Date(location.welcomeEmailSentAt as unknown as string) });
                                         const latest = candidates.sort((a, b) => b.at.getTime() - a.at.getTime())[0] ?? null;
                                         const daysAgo = latest ? Math.max(0, Math.floor((Date.now() - latest.at.getTime()) / 86400000)) : null;
                                         const waStatus = location.welcomeWhatsappStatus?.toLowerCase();
@@ -1838,9 +1838,9 @@ export default function AdminLocations() {
                                         // Per-channel tooltip rows
                                         type ChannelRow = { key: "sms" | "whatsapp" | "email"; label: string; sentAt: Date | null; status: string | null; error: string | null };
                                         const channelRows: ChannelRow[] = [
-                                          { key: "sms", label: "SMS", sentAt: location.welcomeSmsSentAt ? new Date(location.welcomeSmsSentAt as string) : null, status: location.welcomeSmsStatus ?? null, error: location.welcomeSmsError ?? null },
-                                          { key: "whatsapp", label: "WhatsApp", sentAt: location.welcomeWhatsappSentAt ? new Date(location.welcomeWhatsappSentAt as string) : null, status: location.welcomeWhatsappStatus ?? null, error: location.welcomeWhatsappError ?? null },
-                                          { key: "email", label: "Email", sentAt: location.welcomeEmailSentAt ? new Date(location.welcomeEmailSentAt as string) : null, status: location.welcomeEmailStatus ?? null, error: location.welcomeEmailError ?? null },
+                                          { key: "sms", label: "SMS", sentAt: location.welcomeSmsSentAt ? new Date(location.welcomeSmsSentAt as unknown as string) : null, status: location.welcomeSmsStatus ?? null, error: location.welcomeSmsError ?? null },
+                                          { key: "whatsapp", label: "WhatsApp", sentAt: location.welcomeWhatsappSentAt ? new Date(location.welcomeWhatsappSentAt as unknown as string) : null, status: location.welcomeWhatsappStatus ?? null, error: location.welcomeWhatsappError ?? null },
+                                          { key: "email", label: "Email", sentAt: location.welcomeEmailSentAt ? new Date(location.welcomeEmailSentAt as unknown as string) : null, status: location.welcomeEmailStatus ?? null, error: location.welcomeEmailError ?? null },
                                         ];
                                         // Broaden attempt detection: sentAt OR non-null status/error counts as an attempt
                                         const hasAnyAttempt = candidates.length > 0 || channelRows.some(r => r.status || r.error);
@@ -2517,7 +2517,7 @@ export default function AdminLocations() {
                     const hasHe = !!bulkPreviewSamples.he && !!bulkPreviewSamples.en;
                     // Count channel-eligible candidates (must have phone for SMS/WhatsApp, email for email channel)
                     const candidatePool = welcomeTarget.kind === "selected"
-                      ? ([...selectedIds].map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[])
+                      ? (Array.from(selectedIds).map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[])
                       : locations.filter((l) => l.isActive !== false && !l.onboardedAt);
                     const totalCandidates = candidatePool.filter(l =>
                       welcomeChannel === "email" ? !!l.email : !!l.phone
