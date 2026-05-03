@@ -70,6 +70,7 @@ import {
   operatorLoginSchema,
   HEADBAND_COLORS,
   APPLICATION_STATUSES,
+  ADMIN_ALL_LOCATIONS_ID,
   type InsertReplyExample,
   type Contact,
   type Location as LocationRow,
@@ -227,13 +228,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // First check Passport authentication
     if (req.isAuthenticated()) {
       const user = req.user as Express.User;
-      if (user.isAdmin) return -1; // -1 indicates admin access
+      if (user.isAdmin) return ADMIN_ALL_LOCATIONS_ID; // sentinel: admin (any location)
       if (user.role === 'operator' && user.locationId) return user.locationId;
     }
     // Then check PIN-based session
     const sessionLocationId = (req.session as any)?.operatorLocationId;
     if (sessionLocationId) return sessionLocationId;
     return null;
+  }
+
+  // True for global-admin sentinel returned by getOperatorLocationId.
+  function isAdminScope(loc: number | null): boolean {
+    return loc === ADMIN_ALL_LOCATIONS_ID;
   }
 
   // HEALTH CHECK ENDPOINT (for Vercel monitoring)
@@ -480,7 +486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Admin (-1) can access any location, operators can only access their location
-      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
       
@@ -516,7 +522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
       
-      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
       
@@ -575,7 +581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
       
-      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
       
@@ -615,7 +621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
       
-      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
       
@@ -658,7 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
       
-      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
       
@@ -736,7 +742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/operator/pin", async (req, res) => {
     try {
       const operatorLocationId = getOperatorLocationId(req);
-      if (!operatorLocationId || operatorLocationId === -1) {
+      if (!operatorLocationId || isAdminScope(operatorLocationId)) {
         return res.status(401).json({ message: "Operator authentication required" });
       }
 
@@ -1715,13 +1721,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.body.expectedReturnDate && typeof req.body.expectedReturnDate === 'string') {
         req.body.expectedReturnDate = new Date(req.body.expectedReturnDate);
       }
-      
+
+      // Operator-scope auth: only authenticated operators of this location
+      // (or admins) can create transactions. Body locationId must match the
+      // operator's authorized location; cross-location attempts return 403.
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required to create transactions" });
+      }
       const transactionData = insertTransactionSchema.parse(req.body);
-      const transaction = await storage.createTransaction(transactionData);
+      if (
+        !isAdminScope(operatorLocationId) &&
+        operatorLocationId !== transactionData.locationId
+      ) {
+        return res.status(403).json({
+          message: "Not authorized to create transactions for this location",
+        });
+      }
+
+      // Atomic lend: when a headband color is provided, create transaction +
+      // decrement inventory in a single DB transaction so two simultaneous
+      // lends of the last item cannot both succeed.
+      const transaction = transactionData.headbandColor
+        ? await storage.createTransactionWithInventory(
+            transactionData,
+            transactionData.headbandColor,
+          )
+        : await storage.createTransaction(transactionData);
       res.status(201).json(transaction);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid transaction data", errors: error.errors });
+      }
+      if (error?.message?.includes("Insufficient stock")) {
+        return res.status(409).json({ message: error.message });
       }
       console.error("Error creating transaction:", error);
       res.status(500).json({ message: "Failed to create transaction" });
@@ -1736,8 +1769,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!transaction) {
         return res.status(404).json({ message: "Transaction not found" });
       }
-      
-      const updatedTransaction = await storage.updateTransaction(id, req.body);
+
+      // Operator-scope auth: must be admin or operator of the transaction's
+      // location, AND any locationId in the body must not move the transaction
+      // to a location the caller doesn't own.
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId) {
+        return res.status(401).json({ message: "Authentication required to update transactions" });
+      }
+      if (
+        !isAdminScope(operatorLocationId) &&
+        operatorLocationId !== transaction.locationId
+      ) {
+        return res.status(403).json({
+          message: "Not authorized to update transactions for this location",
+        });
+      }
+
+      // Strict patch schema: only allow a small allowlist of safely-mutable
+      // fields, parse types deterministically (so a string "7" cannot bypass
+      // the locationId guard), and reject unknown fields outright. Status,
+      // payment, and refund-related fields go through dedicated endpoints
+      // (e.g. /return, /refund-deposit) and must not be settable here.
+      const patchSchema = z
+        .object({
+          locationId: z.coerce.number().int(),
+          borrowerName: z.string().min(1),
+          borrowerPhone: z.string().min(1),
+          headbandColor: z.string().min(1),
+          notes: z.string(),
+          expectedReturnDate: z.coerce.date(),
+        })
+        .partial()
+        .strict();
+      const patchParsed = patchSchema.safeParse(req.body);
+      if (!patchParsed.success) {
+        return res.status(400).json({
+          message: "Invalid transaction update",
+          errors: patchParsed.error.errors,
+        });
+      }
+      const patch = patchParsed.data;
+
+      if (
+        patch.locationId !== undefined &&
+        !isAdminScope(operatorLocationId) &&
+        patch.locationId !== operatorLocationId
+      ) {
+        return res.status(403).json({
+          message: "Cannot reassign transaction to a different location",
+        });
+      }
+
+      const updatedTransaction = await storage.updateTransaction(id, patch);
       res.json(updatedTransaction);
     } catch (error) {
       console.error("Error updating transaction:", error);
@@ -1745,71 +1829,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Require authentication for returning transactions
-  app.patch("/api/transactions/:id/return", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id, 10);
-      const { refundAmount } = req.body;
-      const transaction = await storage.getTransaction(id);
-      
-      if (!transaction) {
-        return res.status(404).json({ message: "Transaction not found" });
-      }
-      
-      const operatorLocationId = getOperatorLocationId(req);
-      if (!operatorLocationId) {
-        return res.status(401).json({ message: "Authentication required to process returns" });
-      }
-      
-      // Admin can return any transaction, operators can only process their location's returns
-      if (operatorLocationId !== -1 && operatorLocationId !== transaction.locationId) {
-        return res.status(403).json({ 
-          message: "You don't have permission to process returns for this location" 
-        });
-      }
-      
-      // Check if there's a Stripe payment that needs to be refunded
-      const payments = await storage.getAllPayments();
-      const stripePayment = payments.find(p => 
-        p.transactionId === id && 
-        p.paymentMethod === 'stripe' && 
-        p.status === 'completed'
-      );
-      
-      let refundProcessed = false;
-      
-      if (stripePayment) {
-        // Process Stripe refund
-        const userRole: UserRole = operatorLocationId === -1 ? 'admin' : 'operator';
-        const refundResult = await DepositService.refundDeposit(
-          id,
-          0, // userId not needed for operator PIN auth
-          userRole,
-          refundAmount,
-          operatorLocationId // Pass operatorLocationId for PIN-based auth
-        );
-        
-        if (!refundResult.success) {
-          return res.status(400).json({ 
-            message: refundResult.error || "Failed to process Stripe refund" 
-          });
-        }
-        refundProcessed = true;
-      }
-      
-      // Mark transaction as returned
-      const updatedTransaction = await storage.markTransactionReturned(id);
-      
-      res.json({ 
-        transaction: updatedTransaction,
-        refundProcessed,
-        refundAmount: refundAmount || transaction.depositAmount
-      });
-    } catch (error) {
-      console.error("Error processing return:", error);
-      res.status(500).json({ message: "Failed to process return" });
-    }
-  });
+  // NOTE: a second PATCH /api/transactions/:id/return handler defined later in
+  // this file (using DepositRefundService.processItemReturn) is the canonical
+  // implementation — it handles both immediate-charge and SetupIntent ("Pay
+  // Later") deposits. The older Stripe-only duplicate that lived here was
+  // removed as part of task #191 to avoid duplicate-handler ambiguity.
 
   // Operator-specific routes
   app.get("/api/operator/transactions", async (req, res) => {
@@ -1821,7 +1845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If admin (-1), get all transactions; if operator, get only their location's transactions
       let transactions;
-      if (operatorLocationId === -1) {
+      if (isAdminScope(operatorLocationId)) {
         transactions = await storage.getAllTransactions();
       } else {
         transactions = await storage.getTransactionsByLocation(operatorLocationId);
@@ -1843,7 +1867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // For admins, return a summary location for mass management
-      if (operatorLocationId === -1) {
+      if (isAdminScope(operatorLocationId)) {
         const allLocations = await storage.getAllLocations();
         let totalInventory = 0;
         for (const loc of allLocations) {
@@ -1892,7 +1916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Filter payments by location (admin gets all)
       let payments;
-      if (operatorLocationId === -1) {
+      if (isAdminScope(operatorLocationId)) {
         payments = allPayments;
       } else {
         payments = allPayments.filter(p => {
@@ -2309,7 +2333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Admin (-1) can process any return, operators can only process their location's returns
-      if (operatorLocationId !== -1 && operatorLocationId !== transaction.locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== transaction.locationId) {
         return res.status(403).json({ message: "Not authorized for this location's returns" });
       }
 
@@ -2325,7 +2349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         userRole,
         userId,
-        operatorLocationId === -1 ? undefined : operatorLocationId
+        isAdminScope(operatorLocationId) ? undefined : operatorLocationId
       );
 
       // Log refund in audit trail (use session user if available)
@@ -3483,7 +3507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!operatorLocationId) {
         return res.status(401).json({ message: "Operator authentication required" });
       }
-      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
 
@@ -3656,7 +3680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!operatorLocationId) {
         return res.status(401).json({ message: "Operator authentication required" });
       }
-      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
 
@@ -3688,7 +3712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!operatorLocationId) {
         return res.status(401).json({ message: "Operator authentication required" });
       }
-      if (operatorLocationId !== -1 && operatorLocationId !== locationId) {
+      if (!isAdminScope(operatorLocationId) && operatorLocationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
       const transaction = await storage.getTransaction(transactionId);
@@ -4881,7 +4905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.isAuthenticated() ? (req.user as any).id : undefined;
-      const locationId = resolvedLocationId === -1 ? undefined : resolvedLocationId;
+      const locationId = isAdminScope(resolvedLocationId) ? undefined : resolvedLocationId;
       const operatorNote: string | undefined = typeof req.body?.operatorNote === 'string'
         ? req.body.operatorNote.trim() || undefined
         : undefined;
@@ -4956,8 +4980,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const transaction = await storage.getTransaction(transactionId);
       if (!transaction) return res.status(404).json({ message: "Transaction not found" });
 
-      // locationId === -1 means admin — admins may refund any transaction
-      if (locationId !== -1 && transaction.locationId !== locationId) {
+      // ADMIN_ALL_LOCATIONS_ID means admin — admins may refund any transaction
+      if (locationId !== ADMIN_ALL_LOCATIONS_ID && transaction.locationId !== locationId) {
         return res.status(403).json({ message: "Not authorized for this location" });
       }
 
@@ -5218,7 +5242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.isAuthenticated() ? (req.user as any).id : undefined;
-      const locationId = resolvedLocationId === -1 ? undefined : resolvedLocationId;
+      const locationId = isAdminScope(resolvedLocationId) ? undefined : resolvedLocationId;
 
       const result = await PayLaterService.declineTransaction(transactionId, userId, locationId, reason);
 
@@ -5435,7 +5459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const tx = await storage.getTransaction(transactionId);
       if (!tx) return res.status(404).json({ message: "Transaction not found" });
-      if (allowedLocId !== -1 && allowedLocId !== tx.locationId) {
+      if (!isAdminScope(allowedLocId) && allowedLocId !== tx.locationId) {
         return res.status(403).json({ message: "Not your location" });
       }
 

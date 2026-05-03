@@ -2,6 +2,11 @@ import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, js
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Sentinel locationId used by getOperatorLocationId on the server to indicate
+// that the caller is a global admin (not scoped to a single location). Centralized
+// here so client and server agree and avoid the historical `-1` magic number.
+export const ADMIN_ALL_LOCATIONS_ID = -1 as const;
+
 // Pay Later Status Enum for SetupIntent → PaymentIntent flow
 export const PAY_LATER_STATUSES = [
   "REQUEST_CREATED",

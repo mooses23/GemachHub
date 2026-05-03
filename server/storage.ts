@@ -133,6 +133,16 @@ export interface IStorage {
   getTransactionsByLocation(locationId: number): Promise<Transaction[]>;
   getTransactionByPhone(locationId: number, phone: string): Promise<Transaction[]>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
+  /**
+   * Atomically create a transaction AND decrement inventory for the given color
+   * in a single DB transaction. Throws "Insufficient stock for color X..." when
+   * stock would go negative. Use this for operator lend flows so two simultaneous
+   * lends of the last item cannot both succeed.
+   */
+  createTransactionWithInventory(
+    transaction: InsertTransaction,
+    inventoryColor: string,
+  ): Promise<Transaction>;
   updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction>;
   markTransactionReturned(id: number, refundAmount?: number): Promise<Transaction>;
   // Refund-flow physical-return marker: flips isReturned + actualReturnDate
@@ -2863,6 +2873,21 @@ export class MemStorage implements IStorage {
     
     this.transactions.set(id, transaction);
     return transaction;
+  }
+
+  async createTransactionWithInventory(
+    insertTransaction: InsertTransaction,
+    inventoryColor: string,
+  ): Promise<Transaction> {
+    // MemStorage has no real transactions; check stock first then create.
+    await this.adjustInventory(insertTransaction.locationId, inventoryColor, -1);
+    try {
+      return await this.createTransaction(insertTransaction);
+    } catch (err) {
+      // Roll back the decrement on failure.
+      await this.adjustInventory(insertTransaction.locationId, inventoryColor, 1);
+      throw err;
+    }
   }
 
   async updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction> {

@@ -1066,6 +1066,10 @@ function LendWizard({
   
   const createTransactionMutation = useMutation({
     mutationFn: async () => {
+      // The server now creates the transaction AND decrements inventory
+      // atomically inside a single DB transaction (task #191), so the client
+      // no longer issues a separate DELETE inventory call. This eliminates the
+      // race that previously allowed two simultaneous lends of the last item.
       const res = await apiRequest("POST", "/api/transactions", {
         locationId: location.id,
         borrowerName,
@@ -1078,10 +1082,6 @@ function LendWizard({
       return res.json();
     },
     onSuccess: async () => {
-      await apiRequest("DELETE", `/api/locations/${location.id}/inventory`, {
-        color: selectedColor,
-        quantity: 1,
-      });
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
@@ -2360,6 +2360,11 @@ function PayLaterTransactions({ location }: { location: Location }) {
       });
       navigator.clipboard?.writeText(link).catch(() => {});
       refetch();
+      // Task #191: refresh main transactions list and inventory so the
+      // dashboard reflects the freshly-created pending transaction.
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
     },
     onError: (error: Error) => {
       toast({
@@ -2398,7 +2403,11 @@ function PayLaterTransactions({ location }: { location: Location }) {
         });
       }
       refetch();
+      // Task #191: also refresh the main transactions list, inventory tiles,
+      // and operator location summary so the dashboard updates without a reload.
       queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations", location.id, "inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
     },
     onError: (error: Error) => {
       toast({

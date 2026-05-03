@@ -621,6 +621,49 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async createTransactionWithInventory(
+    insertTransaction: InsertTransaction,
+    inventoryColor: string,
+  ): Promise<Transaction> {
+    return await db.transaction(async (tx) => {
+      // Lock the inventory row for this (location, color) so concurrent lends
+      // serialize and cannot both decrement the last item.
+      const existing = await tx.execute(sql`
+        SELECT id, quantity FROM inventory
+        WHERE location_id = ${insertTransaction.locationId}
+          AND color = ${inventoryColor}
+        FOR UPDATE
+      `);
+      const row = (existing as any).rows?.[0] as { id: number; quantity: number } | undefined;
+      if (!row || row.quantity <= 0) {
+        throw new Error(
+          `Insufficient stock for color ${inventoryColor}. Available: ${row?.quantity ?? 0}, Requested: 1`,
+        );
+      }
+      await tx.update(inventory)
+        .set({ quantity: row.quantity - 1 })
+        .where(eq(inventory.id, row.id));
+
+      const created = await tx.insert(transactions).values({
+        ...insertTransaction,
+        isReturned: false,
+        borrowDate: new Date(),
+        actualReturnDate: null,
+        expectedReturnDate: insertTransaction.expectedReturnDate
+          ? new Date(insertTransaction.expectedReturnDate)
+          : null,
+        depositAmount: insertTransaction.depositAmount ?? 20,
+        borrowerEmail: insertTransaction.borrowerEmail ?? null,
+        borrowerPhone: insertTransaction.borrowerPhone ?? null,
+        headbandColor: insertTransaction.headbandColor ?? null,
+        depositPaymentMethod: insertTransaction.depositPaymentMethod ?? "cash",
+        refundAmount: null,
+        notes: insertTransaction.notes ?? null,
+      }).returning();
+      return created[0];
+    });
+  }
+
   async updateTransaction(id: number, data: Partial<InsertTransaction>): Promise<Transaction> {
     const result = await db.update(transactions)
       .set(data)
