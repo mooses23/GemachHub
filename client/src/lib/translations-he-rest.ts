@@ -3,6 +3,7 @@ import { rulesContent } from "@shared/rules-content";
 import type { RestTranslationKey } from "./translations-en-rest";
 
 const dict: Record<RestTranslationKey, string> = {
+    ...rulesContent.he,
 
 
     // Header/Navigation

@@ -1,5 +1,3 @@
-import { rulesContent } from "@shared/rules-content";
-
 import type { CoreTranslationKey } from "./translations-en-core";
 
 const dict: Record<CoreTranslationKey, string> = {

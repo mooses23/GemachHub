@@ -1,5 +1,3 @@
-import { rulesContent } from "@shared/rules-content";
-
 const enCore = {
     home: "Home",
     selfDeposit: "Self Deposit",

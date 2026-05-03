@@ -1,6 +1,7 @@
 import { rulesContent } from "@shared/rules-content";
 
 const enRest = {
+    ...rulesContent.en,
 
     // Header/Navigation
     depositManagement: "Deposit Management",
