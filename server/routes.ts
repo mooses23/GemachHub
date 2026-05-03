@@ -5472,6 +5472,186 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================================
+  // ADMIN DASHBOARD ENDPOINTS (system status, recent activity,
+  // bulk mark-all-read, transactions CSV export)
+  // ============================================================
+  function requireAdminDash(req: Request, res: Response): boolean {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      res.status(403).json({ message: "Admin access required" });
+      return false;
+    }
+    return true;
+  }
+
+  app.get("/api/admin/system/status", async (req, res) => {
+    if (!requireAdminDash(req, res)) return;
+    const out: {
+      database: { ok: boolean; latencyMs?: number; error?: string };
+      stripe: { ok: boolean; configured: boolean; latencyMs?: number; error?: string };
+      gmail: { ok: boolean; configured: boolean; message?: string };
+    } = {
+      database: { ok: false },
+      stripe: { ok: false, configured: false },
+      gmail: { ok: false, configured: false },
+    };
+
+    // DB ping
+    try {
+      const t0 = Date.now();
+      await storage.getRegion(1);
+      out.database = { ok: true, latencyMs: Date.now() - t0 };
+    } catch (err: any) {
+      out.database = { ok: false, error: err?.message || "DB unreachable" };
+    }
+
+    // Stripe reachability — only attempt if configured
+    try {
+      const stripe = getStripeClient();
+      out.stripe.configured = true;
+      const t0 = Date.now();
+      await stripe.balance.retrieve();
+      out.stripe = { ok: true, configured: true, latencyMs: Date.now() - t0 };
+    } catch (err: any) {
+      const msg = err?.message || "";
+      const configured = !/not configured|missing|STRIPE_SECRET/i.test(msg);
+      out.stripe = { ok: false, configured, error: msg || "Stripe unreachable" };
+    }
+
+    // Gmail
+    try {
+      const gs = await getGmailConfigStatus();
+      out.gmail = { ok: !!gs.configured, configured: !!gs.configured, message: gs.message };
+    } catch (err: any) {
+      out.gmail = { ok: false, configured: false, message: err?.message };
+    }
+
+    res.json(out);
+  });
+
+  app.get("/api/admin/recent-activity", async (req, res) => {
+    if (!requireAdminDash(req, res)) return;
+    try {
+      const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "10"), 10) || 10, 1), 25);
+      const [txs, apps, msgs, locs] = await Promise.all([
+        storage.getAllTransactions(),
+        storage.getAllApplications(),
+        storage.getAllContacts(),
+        storage.getAllLocations(),
+      ]);
+      const locName = new Map(locs.map((l: any) => [l.id, l.name]));
+
+      type Item = {
+        kind: "transaction" | "application" | "contact";
+        id: number;
+        at: string;
+        // Structured payload — frontend builds localized strings.
+        action?: "lent" | "returned";
+        name: string;
+        subtitle: string;
+        href: string;
+      };
+      const items: Item[] = [];
+
+      for (const tx of txs) {
+        const at = (tx.actualReturnDate || tx.borrowDate) as any;
+        if (!at) continue;
+        items.push({
+          kind: "transaction",
+          id: tx.id,
+          at: new Date(at).toISOString(),
+          action: tx.isReturned ? "returned" : "lent",
+          name: tx.borrowerName,
+          subtitle: locName.get(tx.locationId) || `Location #${tx.locationId}`,
+          href: `/admin/transactions`,
+        });
+      }
+      for (const app of apps) {
+        items.push({
+          kind: "application",
+          id: app.id,
+          at: new Date(app.submittedAt as any).toISOString(),
+          name: `${app.firstName} ${app.lastName}`,
+          subtitle: `${app.city}${app.state ? ", " + app.state : ""}`,
+          href: `/admin/applications`,
+        });
+      }
+      for (const c of msgs) {
+        items.push({
+          kind: "contact",
+          id: c.id,
+          at: new Date(c.submittedAt as any).toISOString(),
+          name: c.name,
+          subtitle: c.subject || (c.email || ""),
+          href: `/admin/inbox`,
+        });
+      }
+
+      items.sort((a, b) => (a.at < b.at ? 1 : -1));
+      res.json(items.slice(0, limit));
+    } catch (err: any) {
+      console.error("admin/recent-activity error:", err);
+      res.status(500).json({ message: err.message || "Failed to load activity" });
+    }
+  });
+
+  app.post("/api/admin/contact/mark-all-read", async (req, res) => {
+    if (!requireAdminDash(req, res)) return;
+    try {
+      const all = await storage.getAllContacts();
+      const unread = all.filter(c => !c.isRead);
+      let updated = 0;
+      for (const c of unread) {
+        try { await storage.markContactRead(c.id); updated++; } catch { /* skip */ }
+      }
+      res.json({ updated });
+    } catch (err: any) {
+      console.error("admin/contact/mark-all-read error:", err);
+      res.status(500).json({ message: err.message || "Failed to mark all read" });
+    }
+  });
+
+  app.get("/api/admin/transactions/export.csv", async (req, res) => {
+    if (!requireAdminDash(req, res)) return;
+    try {
+      const [txs, locs] = await Promise.all([
+        storage.getAllTransactions(),
+        storage.getAllLocations(),
+      ]);
+      const locName = new Map(locs.map((l: any) => [l.id, l.name]));
+      const esc = (v: any): string => {
+        if (v === null || v === undefined) return "";
+        let s = String(v);
+        // CSV-injection guard (OWASP): neutralize formula-trigger prefixes.
+        if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const headers = [
+        "id","locationId","locationName","borrowerName","borrowerEmail","borrowerPhone",
+        "headbandColor","depositAmount","depositPaymentMethod","payLaterStatus",
+        "isReturned","borrowDate","expectedReturnDate","actualReturnDate",
+        "refundAmount","stripeRefundId",
+      ];
+      const lines = [headers.join(",")];
+      for (const tx of txs) {
+        lines.push([
+          tx.id, tx.locationId, locName.get(tx.locationId) || "",
+          tx.borrowerName, tx.borrowerEmail, tx.borrowerPhone,
+          tx.headbandColor, tx.depositAmount, tx.depositPaymentMethod, tx.payLaterStatus,
+          tx.isReturned, tx.borrowDate, tx.expectedReturnDate, tx.actualReturnDate,
+          tx.refundAmount, tx.stripeRefundId,
+        ].map(esc).join(","));
+      }
+      const filename = `transactions-${new Date().toISOString().slice(0,10)}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(lines.join("\n"));
+    } catch (err: any) {
+      console.error("admin/transactions/export.csv error:", err);
+      res.status(500).json({ message: err.message || "Export failed" });
+    }
+  });
+
+  // ============================================================
   // TEST-ONLY SEEDING ENDPOINTS (disabled in production)
   // ============================================================
   // These endpoints exist solely to support e2e tests. They are
