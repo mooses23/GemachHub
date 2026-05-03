@@ -628,13 +628,17 @@ export class DatabaseStorage implements IStorage {
     return await db.transaction(async (tx) => {
       // Lock the inventory row for this (location, color) so concurrent lends
       // serialize and cannot both decrement the last item.
-      const existing = await tx.execute(sql`
-        SELECT id, quantity FROM inventory
-        WHERE location_id = ${insertTransaction.locationId}
-          AND color = ${inventoryColor}
-        FOR UPDATE
-      `);
-      const row = (existing as any).rows?.[0] as { id: number; quantity: number } | undefined;
+      const lockedRows = await tx
+        .select({ id: inventory.id, quantity: inventory.quantity })
+        .from(inventory)
+        .where(
+          and(
+            eq(inventory.locationId, insertTransaction.locationId),
+            eq(inventory.color, inventoryColor),
+          ),
+        )
+        .for("update");
+      const row = lockedRows[0];
       if (!row || row.quantity <= 0) {
         throw new Error(
           `Insufficient stock for color ${inventoryColor}. Available: ${row?.quantity ?? 0}, Requested: 1`,
