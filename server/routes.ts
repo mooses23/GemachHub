@@ -375,6 +375,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // three. Sanitised exactly like the individual endpoints. Cached for 5
   // minutes with a generous stale-while-revalidate window — the underlying
   // data only changes when an admin edits a location.
+  //
+  // Empty-hierarchy filtering: city categories with no locations and regions
+  // with no locations (and no populated city categories) are excluded from
+  // the response so the public search and admin pickers never surface dead
+  // nodes. This is the single choke-point — all other /api/regions and
+  // /api/city-categories endpoints remain unfiltered so admin CRUD can still
+  // reference every row.
   app.get("/api/location-tree", async (req, res) => {
     try {
       const [regions, cityCategories, locations] = await Promise.all([
@@ -382,16 +389,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.getAllCityCategories(),
         storage.getAllLocations(),
       ]);
-      const admin = viewerIsAdmin(req);
-      res.setHeader(
-        "Cache-Control",
-        admin
-          ? "private, max-age=0, must-revalidate"
-          : "public, max-age=300, stale-while-revalidate=86400",
+
+      // Build a fast lookup: which city-category IDs have at least one location?
+      const populatedCityCategoryIds = new Set<number>();
+      const populatedRegionIds = new Set<number>();
+      for (const loc of locations) {
+        if (loc.cityCategoryId != null) populatedCityCategoryIds.add(loc.cityCategoryId);
+        populatedRegionIds.add(loc.regionId);
+      }
+
+      // Only include city categories that have at least one location.
+      const populatedCityCategories = cityCategories.filter((cc) =>
+        populatedCityCategoryIds.has(cc.id)
       );
+
+      // Only include regions that have at least one location directly assigned
+      // OR at least one city category with locations. (A region that only
+      // had locations via now-deleted city categories should also disappear.)
+      const regionIdsWithPopulatedCities = new Set(
+        populatedCityCategories.map((cc) => cc.regionId)
+      );
+      const populatedRegions = regions.filter(
+        (r) => populatedRegionIds.has(r.id) || regionIdsWithPopulatedCities.has(r.id)
+      );
+
+      const admin = viewerIsAdmin(req);
+      // Use no-cache (not no-store) so the browser still stores the response
+      // and can use ETags for conditional GETs — this ensures stale data is
+      // never served from cache while keeping the conditional-GET speedup.
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
       res.json({
-        regions,
-        cityCategories,
+        regions: populatedRegions,
+        cityCategories: populatedCityCategories,
         locations: locations.map((l) => sanitizeLocationForViewer(l, admin)),
       });
     } catch (error) {

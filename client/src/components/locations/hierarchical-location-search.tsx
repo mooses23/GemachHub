@@ -50,7 +50,7 @@ export function HierarchicalLocationSearch() {
     locations: Location[];
   }>({
     queryKey: ["/api/location-tree"],
-    staleTime: 5 * 60_000,
+    staleTime: 0,
   });
 
   const locations = tree?.locations ?? [];
