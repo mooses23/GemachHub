@@ -495,29 +495,14 @@ export async function listEmails(
 }
 
 // One entry per Gmail conversation, with full-thread message/unread counts.
-// `searchText` is a lowercased concatenation of from + subject + body across
-// EVERY message in the thread, so the admin inbox search can match a token
-// that only appears in an older message — not just the latest one. Only the
-// latest message's headers/body are returned in the parent fields, since the
-// list view only renders that one.
+// Server-side Gmail search is performed via the Gmail `q` parameter on
+// `users.threads.list`, so a thread surfaces when ANY message in the thread
+// matches the search term — not just the latest one we render. Only the
+// latest message's headers/body are returned in the parent fields, since
+// the list view only renders that one.
 export interface EmailThreadSummary extends EmailMessage {
   messageCount: number;
   unreadCount: number;
-  searchText: string;
-}
-
-// Pure helper — exported for unit tests. Concatenates From + Subject + body
-// across every message in a Gmail thread, lowercased, so the admin inbox
-// search can substring-match a token even when it lives in an older message.
-export function buildThreadSearchText(messages: gmail_v1.Schema$Message[]): string {
-  const parts: string[] = [];
-  for (const m of messages) {
-    const headers = m.payload?.headers || [];
-    parts.push(getHeader(headers, 'From'));
-    parts.push(getHeader(headers, 'Subject'));
-    parts.push(extractBody(m.payload));
-  }
-  return parts.join('\n').toLowerCase();
 }
 
 export interface ListEmailThreadsResult {
@@ -529,6 +514,7 @@ export async function listEmailThreads(
   maxResults: number = 25,
   pageToken?: string,
   mode: GmailListMode = 'inbox',
+  search?: string,
 ): Promise<ListEmailThreadsResult> {
   const gmail = await getUncachableGmailClient();
   const labelIds = labelsForMode(mode);
@@ -538,7 +524,15 @@ export async function listEmailThreads(
     pageToken: pageToken || undefined,
   };
   if (labelIds) params.labelIds = labelIds;
-  if (mode === 'archive') params.q = '-in:inbox -in:spam -in:trash';
+  // Combine the mode's implicit "archive" query with any user-supplied
+  // search term so server-side search still respects the active folder.
+  // Gmail's `q` parameter accepts free-form search syntax — we just AND
+  // the trimmed user input onto whatever the mode requires.
+  const qParts: string[] = [];
+  if (mode === 'archive') qParts.push('-in:inbox -in:spam -in:trash');
+  const trimmedSearch = (search || '').trim();
+  if (trimmedSearch) qParts.push(trimmedSearch);
+  if (qParts.length) params.q = qParts.join(' ');
 
   const resp = await gmail.users.threads.list(params);
   const threadStubs = resp.data.threads || [];
@@ -587,10 +581,6 @@ export async function listEmailThreads(
 
         const headers = representative.payload?.headers || [];
         const representativeLabels = representative.labelIds || [];
-        // Concatenate every message's From/Subject/Body so search can hit
-        // tokens deep in the thread, not just the latest message. Lowercased
-        // up front so the client can do a simple substring check.
-        const searchText = buildThreadSearchText(messages);
         summaries.push({
           id: representative.id || '',
           threadId: stub.id,
@@ -604,7 +594,6 @@ export async function listEmailThreads(
           labels: representativeLabels,
           messageCount,
           unreadCount,
-          searchText,
         });
       } catch (e) {
         console.warn('listEmailThreads: failed to load thread', stub.id, (e as Error)?.message);
@@ -795,6 +784,24 @@ export async function getLabelCounts(): Promise<LabelCounts> {
       gmail.users.labels
         .get({ userId: 'me', id })
         .then((r) => r.data?.messagesTotal ?? 0)
+        .catch(() => 0)
+    )
+  );
+  return { inbox: settled[0], sent: settled[1], spam: settled[2], trash: settled[3] };
+}
+
+// Returns UNREAD thread counts per Gmail label. Used by the unified
+// inbox folder chips so the badge shows actionable work (unread items
+// only) instead of total backlog. Threads-based so multi-message
+// conversations count once, matching the inbox UI's threading model.
+export async function getLabelUnreadCounts(): Promise<LabelCounts> {
+  const gmail = await getUncachableGmailClient();
+  const ids = ['INBOX', 'SENT', 'SPAM', 'TRASH'] as const;
+  const settled = await Promise.all(
+    ids.map((id) =>
+      gmail.users.labels
+        .get({ userId: 'me', id })
+        .then((r) => r.data?.threadsUnread ?? 0)
         .catch(() => 0)
     )
   );

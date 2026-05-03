@@ -173,17 +173,38 @@ export default function AdminInbox() {
     queryKey: ["/api/admin/emails/status"],
   });
 
-  // Gmail backlog totals (INBOX/SENT/SPAM/TRASH label sizes) for folder chips.
-  // The endpoint returns zeros if Gmail is unavailable, so this is safe to render unconditionally.
-  const gmailLabelCountsQuery = useQuery<{ inbox: number; sent: number; spam: number; trash: number }>({
-    queryKey: ["/api/admin/emails/labels"],
-    enabled: !!gmailStatusQuery.data?.configured,
-    refetchInterval: 60_000,
+  // Combined unread counts (Gmail unread threads + unread form submissions)
+  // per folder. Drives the folder chips so the badge represents actionable
+  // work (unread items) rather than total backlog. Polled every 15s while
+  // the tab is visible so a new email/form submission incrementing a chip
+  // surfaces without a manual refresh.
+  const inboxCountsQuery = useQuery<{ inbox: number; sent: number; spam: number; trash: number }>({
+    queryKey: ["/api/admin/inbox/counts"],
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   });
 
-  // Contacts query
+  // Contacts query — `debouncedSearch` is part of the cache key so each
+  // search term gets its own server round-trip (server-side ILIKE-style
+  // filter on name/email/subject/message). Polled every 15s for live
+  // updates; pauses when the tab is hidden.
   const contactsQuery = useQuery<Contact[]>({
-    queryKey: ["/api/contact"],
+    queryKey: ["/api/contact", debouncedSearch],
+    queryFn: async ({ queryKey }) => {
+      const q = (queryKey[1] as string) || "";
+      const params = new URLSearchParams();
+      if (q.trim()) params.set("q", q.trim());
+      const url = params.toString() ? `/api/contact?${params.toString()}` : "/api/contact";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        let message = "Failed to load contacts";
+        try { message = (await res.json()).message || message; } catch {}
+        throw new Error(message);
+      }
+      return res.json();
+    },
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   });
 
   // Locations query — used to derive operator email set for inbox badge and save-email banner.
@@ -240,14 +261,22 @@ export default function AdminInbox() {
   };
 
   // Paginated thread-grouped email list (one entry per Gmail conversation).
+  // `debouncedSearch` is part of the cache key so each search term hits a
+  // distinct cache; the value is forwarded to Gmail as a `q` parameter
+  // (server-side search across every message in every thread, not just the
+  // ones we've loaded). Polled every 15s while the tab is visible so a new
+  // email arriving in Gmail appears without a manual refresh — react-query
+  // re-fetches the loaded pages in place, preserving scroll/selection.
   const emailQueries = useInfiniteQuery<EmailsResponse>({
-    queryKey: ["/api/admin/emails/threads", "infinite", folder],
+    queryKey: ["/api/admin/emails/threads", "infinite", folder, debouncedSearch],
     initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, queryKey }) => {
+      const search = (queryKey[3] as string) || "";
       const params = new URLSearchParams({ maxResults: "25", mode: folder });
       if (typeof pageParam === "string" && pageParam) {
         params.set("pageToken", pageParam);
       }
+      if (search.trim()) params.set("q", search.trim());
       const res = await fetch(`/api/admin/emails/threads?${params.toString()}`, { credentials: "include" });
       if (!res.ok) {
         let message = "Failed to load emails";
@@ -257,11 +286,13 @@ export default function AdminInbox() {
       return res.json();
     },
     getNextPageParam: (lastPage) => lastPage.nextPageToken ?? undefined,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
   });
 
   const invalidateEmailLists = () => {
     qc.invalidateQueries({ queryKey: ["/api/admin/emails/threads", "infinite"] });
-    qc.invalidateQueries({ queryKey: ["/api/admin/emails/labels"] });
+    qc.invalidateQueries({ queryKey: ["/api/admin/inbox/counts"] });
   };
 
   const allEmails: GmailEmail[] = useMemo(() => {
@@ -327,7 +358,6 @@ export default function AdminInbox() {
         isRead: e.isRead,
         serverMessageCount: e.messageCount,
         serverUnreadCount: e.unreadCount,
-        searchText: e.searchText,
       });
     }
     return list.sort((a, b) => {
@@ -445,16 +475,15 @@ export default function AdminInbox() {
   };
 
   // Build thread groups first (so messageCount stays full), then apply the
-  // read/replied/search filters at the THREAD level. A thread matches the
-  // search if ANY of its messages contain the query — so a hit in an old
-  // message correctly surfaces the conversation row with its full
-  // "{N} messages" badge intact, instead of dropping the thread entirely or
-  // collapsing it to just the matching message.
+  // read/replied filters at the THREAD level. Search is applied SERVER-SIDE:
+  // the email infinite query forwards the term to Gmail as `q` (so a token
+  // in any message in any thread surfaces, including threads we haven't
+  // loaded yet), and the contacts query forwards the term to /api/contact?q
+  // (case-insensitive substring across name/email/subject/message). Both
+  // sources merge through the `unified` builder above, so the rendered
+  // thread groups are already pre-filtered by the search term.
   const threadGroups: InboxThread[] = useMemo(() => {
     const allGroups = buildGroups(filtered);
-    // Use the debounced search value so each keystroke doesn't re-run the
-    // full filter chain over a long unified list.
-    const q = debouncedSearch.trim().toLowerCase();
     return allGroups.filter((g) => {
       // Read filter — a thread is "unread" if any sibling is unread, "read"
       // when every sibling has been read.
@@ -469,26 +498,6 @@ export default function AdminInbox() {
         if (replyFilter === "replied" && repliedAt === null) return false;
         if (replyFilter === "unreplied" && repliedAt !== null) return false;
       }
-
-      // Search — match across every message in the thread, not just the
-      // latest. For form threads each contact is its own UnifiedItem so
-      // walking `g.members` covers the full conversation. For Gmail threads
-      // only the latest message lives client-side; older messages are
-      // searched via the server-built `searchText` blob attached to the
-      // email member (lowercased concat of from+subject+body for every
-      // message in the Gmail thread). fromName/email tend to be identical
-      // across siblings, but subject and body can differ (especially with
-      // Re:/Fwd: variants).
-      if (q) {
-        const hit = g.members.some((m) =>
-          m.fromName.toLowerCase().includes(q) ||
-          m.fromEmail.toLowerCase().includes(q) ||
-          m.subject.toLowerCase().includes(q) ||
-          m.body.toLowerCase().includes(q) ||
-          (m.searchText ? m.searchText.includes(q) : false),
-        );
-        if (!hit) return false;
-      }
       return true;
     });
     // `repliedRefMap` is the underlying data source `lookupRepliedForGroup`
@@ -496,7 +505,7 @@ export default function AdminInbox() {
     // when the replied-refs query loads or refreshes — without it, an admin
     // who switches to "Needs reply" before the refs query resolves would see
     // stale results until another listed dep changed.
-  }, [filtered, readFilter, replyFilter, debouncedSearch, repliedRefMap]);
+  }, [filtered, readFilter, replyFilter, repliedRefMap]);
 
   // Canonical thread map across ALL loaded messages (no filters
   // applied). Mutation handlers — bulk actions, swipe gestures, detail
@@ -601,22 +610,11 @@ export default function AdminInbox() {
     }
   };
 
-  // Folder chip counts use TOTAL backlog per source — not unread — so they
-  // mirror Gmail's own folder badges. Form-side counts come from the local
-  // contacts list; Gmail-side counts come from /api/admin/emails/labels.
-  const formInboxCount = (contactsQuery.data ?? []).filter(
-    (c) => !c.isArchived && !c.isSpam
-  ).length;
-  // Unread badge in the header reflects only currently-loaded inbox items
-  // (used as a quick visual cue, not an authoritative backlog metric).
+  // Header "unread" badge reflects only currently-loaded inbox items (used
+  // as a quick visual cue alongside the authoritative folder-chip counts
+  // which come from /api/admin/inbox/counts).
   const unreadCount = unified.filter(
     (u) => !u.isRead && (u.source === "email" || (!u.isArchived && !u.isSpam))
-  ).length;
-  const formSpamCount = (contactsQuery.data ?? []).filter(
-    (c) => c.isSpam && !c.isArchived
-  ).length;
-  const formTrashCount = (contactsQuery.data ?? []).filter(
-    (c) => c.isArchived
   ).length;
 
   // ===== Optimistic-update helpers (Task #185) =====
@@ -626,18 +624,34 @@ export default function AdminInbox() {
   //   3) mutate the cache so the UI updates instantly
   //   4) onError restores the snapshot
   //   5) onSettled invalidates so server truth eventually wins
+  // Prefix keys — the actual cache keys also include the active folder and
+  // (for emails) the debounced search term, so we use prefix-style
+  // cancel/setQueriesData calls so optimistic patches hit every cached
+  // variant (e.g. inbox + spam + the with-search and without-search caches
+  // a user has visited in this session).
   const EMAIL_THREADS_KEY = ["/api/admin/emails/threads", "infinite"] as const;
   const CONTACT_KEY = ["/api/contact"] as const;
 
-  // Patch (or remove) a single Gmail email across every page of the
-  // infinite-query cache. `patch` returns the new email or null to drop it.
+  // Snapshot of all cache entries that matched a prefix before an
+  // optimistic patch was applied. Used by onError handlers to roll every
+  // patched variant back to its pre-mutation value.
+  type CacheSnapshot<T> = Array<{ key: readonly unknown[]; data: T | undefined }>;
+  const restoreSnapshot = <T,>(snap: CacheSnapshot<T>) => {
+    for (const { key, data } of snap) qc.setQueryData(key as unknown as readonly unknown[], data);
+  };
+
+  // Patch (or remove) a single Gmail email across every page of EVERY
+  // cached infinite-query variant. `patch` returns the new email or null
+  // to drop it.
   const patchEmailCache = async (
     id: string,
     patch: (e: GmailEmail) => GmailEmail | null,
-  ) => {
+  ): Promise<CacheSnapshot<{ pages: EmailsResponse[] }>> => {
     await qc.cancelQueries({ queryKey: EMAIL_THREADS_KEY });
-    const prev = qc.getQueryData<{ pages: EmailsResponse[] }>(EMAIL_THREADS_KEY);
-    qc.setQueryData<{ pages: EmailsResponse[] }>(EMAIL_THREADS_KEY, (old) => {
+    const snap: CacheSnapshot<{ pages: EmailsResponse[] }> = qc
+      .getQueriesData<{ pages: EmailsResponse[] }>({ queryKey: EMAIL_THREADS_KEY })
+      .map(([key, data]) => ({ key, data }));
+    qc.setQueriesData<{ pages: EmailsResponse[] }>({ queryKey: EMAIL_THREADS_KEY }, (old) => {
       if (!old) return old;
       return {
         ...old,
@@ -654,15 +668,17 @@ export default function AdminInbox() {
         }),
       };
     });
-    return prev;
+    return snap;
   };
   const patchContactCache = async (
     id: number,
     patch: (c: Contact) => Contact | null,
-  ) => {
+  ): Promise<CacheSnapshot<Contact[]>> => {
     await qc.cancelQueries({ queryKey: CONTACT_KEY });
-    const prev = qc.getQueryData<Contact[]>(CONTACT_KEY);
-    qc.setQueryData<Contact[]>(CONTACT_KEY, (old) => {
+    const snap: CacheSnapshot<Contact[]> = qc
+      .getQueriesData<Contact[]>({ queryKey: CONTACT_KEY })
+      .map(([key, data]) => ({ key, data }));
+    qc.setQueriesData<Contact[]>({ queryKey: CONTACT_KEY }, (old) => {
       if (!old) return old;
       const next: Contact[] = [];
       for (const c of old) {
@@ -673,7 +689,7 @@ export default function AdminInbox() {
       }
       return next;
     });
-    return prev;
+    return snap;
   };
 
   // Mutations
@@ -683,7 +699,7 @@ export default function AdminInbox() {
       prev: await patchEmailCache(id, (e) => ({ ...e, isRead: true, unreadCount: 0 })),
     }),
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(EMAIL_THREADS_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => invalidateEmailLists(),
   });
@@ -694,7 +710,7 @@ export default function AdminInbox() {
       prev: await patchContactCache(id, (c) => ({ ...c, isRead })),
     }),
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(CONTACT_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: CONTACT_KEY }),
   });
@@ -711,7 +727,7 @@ export default function AdminInbox() {
       prev: await patchEmailCache(id, (e) => ({ ...e, isRead: false, unreadCount: Math.max(1, e.unreadCount ?? 1) })),
     }),
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(EMAIL_THREADS_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => invalidateEmailLists(),
   });
@@ -719,7 +735,7 @@ export default function AdminInbox() {
     mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/archive`),
     onMutate: async (id: string) => ({ prev: await optimisticRemoveEmail(id) }),
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(EMAIL_THREADS_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => invalidateEmailLists(),
   });
@@ -727,7 +743,7 @@ export default function AdminInbox() {
     mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/trash`),
     onMutate: async (id: string) => ({ prev: await optimisticRemoveEmail(id) }),
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(EMAIL_THREADS_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => invalidateEmailLists(),
   });
@@ -735,7 +751,7 @@ export default function AdminInbox() {
     mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/untrash`),
     onMutate: async (id: string) => ({ prev: await optimisticRemoveEmail(id) }),
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(EMAIL_THREADS_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => invalidateEmailLists(),
   });
@@ -743,7 +759,7 @@ export default function AdminInbox() {
     mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/unarchive`),
     onMutate: async (id: string) => ({ prev: await optimisticRemoveEmail(id) }),
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(EMAIL_THREADS_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => invalidateEmailLists(),
   });
@@ -751,7 +767,7 @@ export default function AdminInbox() {
     mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/spam`),
     onMutate: async (id: string) => ({ prev: await optimisticRemoveEmail(id) }),
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(EMAIL_THREADS_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => invalidateEmailLists(),
   });
@@ -759,7 +775,7 @@ export default function AdminInbox() {
     mutationFn: async (id: string) => apiRequest("POST", `/api/admin/emails/${id}/not-spam`),
     onMutate: async (id: string) => ({ prev: await optimisticRemoveEmail(id) }),
     onError: (_err, _id, ctx) => {
-      if (ctx?.prev) qc.setQueryData(EMAIL_THREADS_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => invalidateEmailLists(),
   });
@@ -781,7 +797,7 @@ export default function AdminInbox() {
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(CONTACT_KEY, ctx.prev);
+      if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: CONTACT_KEY }),
   });
@@ -2073,17 +2089,19 @@ export default function AdminInbox() {
           </div>
         </div>
 
-        {/* Folder tabs (Inbox / Spam / Trash) — primary filter.
-            Counts combine contact-form totals with Gmail label backlog so the
-            chip reflects the full queue, not just one source. */}
+        {/* Folder tabs (Inbox / Sent / Spam / Trash) — primary filter.
+            Counts come from /api/admin/inbox/counts which combines Gmail
+            unread thread counts with unread form-submission counts per
+            folder, so each chip shows actionable work rather than total
+            backlog. */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           {(() => {
-            const gmailCounts = gmailLabelCountsQuery.data ?? { inbox: 0, sent: 0, spam: 0, trash: 0 };
+            const counts = inboxCountsQuery.data ?? { inbox: 0, sent: 0, spam: 0, trash: 0 };
             return [
-              { key: "inbox" as Folder, label: t("inboxFolderInbox"), icon: InboxIcon, count: formInboxCount + gmailCounts.inbox },
-              { key: "sent" as Folder, label: t("inboxFolderSent"), icon: Send, count: gmailCounts.sent },
-              { key: "spam" as Folder, label: t("inboxFolderSpam"), icon: ShieldAlert, count: formSpamCount + gmailCounts.spam },
-              { key: "trash" as Folder, label: t("inboxFolderTrash"), icon: Trash2, count: formTrashCount + gmailCounts.trash },
+              { key: "inbox" as Folder, label: t("inboxFolderInbox"), icon: InboxIcon, count: counts.inbox },
+              { key: "sent" as Folder, label: t("inboxFolderSent"), icon: Send, count: counts.sent },
+              { key: "spam" as Folder, label: t("inboxFolderSpam"), icon: ShieldAlert, count: counts.spam },
+              { key: "trash" as Folder, label: t("inboxFolderTrash"), icon: Trash2, count: counts.trash },
             ];
           })().map(({ key, label, icon: Icon, count }) => {
             const active = folder === key;

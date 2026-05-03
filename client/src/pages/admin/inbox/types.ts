@@ -24,7 +24,6 @@ export interface GmailEmail {
   labels: string[];
   messageCount?: number;
   unreadCount?: number;
-  searchText?: string;
 }
 
 export interface EmailsResponse {
@@ -51,7 +50,6 @@ export interface UnifiedItem {
   serverUnreadCount?: number;
   toAddress?: string;
   labels?: string[];
-  searchText?: string;
 }
 
 export interface InboxThread {

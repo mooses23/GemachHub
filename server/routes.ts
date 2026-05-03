@@ -19,7 +19,7 @@ import { PayLaterService, prepareBorrowerStatusToken, commitBorrowerStatusToken,
 import { computeFeeForPaymentMethod } from "./depositFees.js";
 import { buildCanonicalConsentText, resolveConsentLocale } from "./consentHelper.js";
 import { getStripePublishableKey, getStripeClient } from "./stripeClient.js";
-import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
+import { listEmails, listEmailThreads, getEmail, getThreadMessages, listSentThreadIds, markAsRead, markAsUnread, archiveEmail, unarchiveEmail, trashEmail, untrashEmail, markAsSpam, unmarkSpam, getLabelCounts, getLabelUnreadCounts, sendReply, sendNewEmail, getGmailConfigStatus, markThreadAsRead, markThreadAsUnread, archiveThread, unarchiveThread, trashThread, untrashThread, markThreadAsSpam, unmarkThreadSpam, type GmailListMode } from "./gmail-client.js";
 import { getTwilioConfigStatus, sendReturnReminderSMS, normalizePhoneForSms, validateTwilioSignature } from "./twilio-client.js";
 import {
   buildWelcomePreview,
@@ -1932,7 +1932,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
       const contacts = await storage.getAllContacts();
-      res.json(contacts);
+      // Optional case-insensitive substring search across name/email/subject/message.
+      // Filtered server-side so the unified inbox can rely on a single search
+      // round-trip per source instead of pulling every contact down and
+      // re-filtering on the client. When `q` is missing/empty we return the
+      // full list (current behavior preserved for other admin pages).
+      const q = String(req.query.q || '').trim().toLowerCase();
+      if (!q) {
+        res.json(contacts);
+        return;
+      }
+      const filtered = contacts.filter((c) => {
+        return (
+          c.name.toLowerCase().includes(q) ||
+          c.email.toLowerCase().includes(q) ||
+          c.subject.toLowerCase().includes(q) ||
+          c.message.toLowerCase().includes(q)
+        );
+      });
+      res.json(filtered);
     } catch (error) {
       console.error("Error fetching contacts:", error);
       res.status(500).json({ message: "Failed to fetch contacts" });
@@ -3111,6 +3129,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // so the inbox UI never breaks. Clients should treat the presence of an
   // `error` field as "counts are unavailable" rather than treating 200 as a
   // health signal.
+  // Combined unread counts (Gmail unread threads + unread form submissions)
+  // per inbox folder. Drives the folder chips so the badge represents
+  // "actionable work" rather than total backlog. Always responds 200; if
+  // Gmail is unreachable the gmail half degrades to zero so the form half
+  // still surfaces.
+  app.get("/api/admin/inbox/counts", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
+      const user = req.user as Express.User;
+      if (!user.isAdmin) return res.status(403).json({ message: "Admin access required" });
+      const [gmailUnread, allContacts] = await Promise.all([
+        getLabelUnreadCounts().catch(() => ({ inbox: 0, sent: 0, spam: 0, trash: 0 })),
+        storage.getAllContacts().catch(() => []),
+      ]);
+      // Form submissions don't have a "Sent" notion (admin replies are
+      // captured in Gmail). Their folder mapping mirrors the inbox UI:
+      //   inbox  → !isArchived && !isSpam
+      //   spam   → isSpam && !isArchived
+      //   trash  → isArchived
+      // Each folder's unread is the AND of "not yet read" with that bucket.
+      let formInboxUnread = 0;
+      let formSpamUnread = 0;
+      let formTrashUnread = 0;
+      for (const c of allContacts) {
+        if (c.isRead) continue;
+        if (c.isArchived) formTrashUnread++;
+        else if (c.isSpam) formSpamUnread++;
+        else formInboxUnread++;
+      }
+      res.json({
+        inbox: gmailUnread.inbox + formInboxUnread,
+        sent: gmailUnread.sent,
+        spam: gmailUnread.spam + formSpamUnread,
+        trash: gmailUnread.trash + formTrashUnread,
+      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Failed to fetch counts";
+      console.error("Error fetching inbox counts:", msg);
+      res.status(200).json({ inbox: 0, sent: 0, spam: 0, trash: 0, error: msg });
+    }
+  });
+
   app.get("/api/admin/emails/labels", async (req, res) => {
     try {
       if (!req.isAuthenticated()) return res.status(401).json({ message: "Authentication required" });
@@ -3187,7 +3247,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const mode: GmailListMode = (allowedModes as readonly string[]).includes(rawMode)
         ? (rawMode as GmailListMode)
         : 'inbox';
-      const result = await listEmailThreads(maxResults, pageToken, mode);
+      // Optional Gmail server-side search. When provided, Gmail's `q`
+      // syntax is forwarded so a token in any message in any thread (loaded
+      // or not) surfaces. Empty/whitespace `q` falls back to the
+      // mode-only listing.
+      const q = (req.query.q as string | undefined) || undefined;
+      const result = await listEmailThreads(maxResults, pageToken, mode, q);
       res.json(result);
     } catch (error: unknown) {
       console.error("Error fetching email threads:", error);

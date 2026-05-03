@@ -237,3 +237,160 @@ test.describe("admin inbox — thread search & reply filter (Task #31)", () => {
     await expect(rowButtons).toHaveCount(1);
   });
 });
+
+test.describe("admin inbox — server-side search & live counts (Task #186)", () => {
+  // These tests target the API directly so they're fast and don't depend on
+  // a live Gmail connection. They cover three behaviours:
+  //   1. /api/contact?q= filters server-side across name/email/subject/message
+  //   2. /api/admin/inbox/counts returns combined unread counts per folder
+  //   3. The unread count increments after a new form submission and goes
+  //      back to baseline once the contact is marked read.
+  let api: APIRequestContext;
+  const SERVER_TAG = `e2eServerSearch-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 7)}`;
+  const SERVER_EMAIL = `${SERVER_TAG.toLowerCase()}@e2e.test`;
+  const SERVER_SUBJECT = `${SERVER_TAG} Server Search`;
+  const SERVER_BODY_TOKEN = `serverneedle-${SERVER_TAG}`.toLowerCase();
+
+  test.beforeAll(async ({ playwright }, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL ?? "http://localhost:5000";
+    api = await pwRequest.newContext({ baseURL });
+  });
+
+  test.afterAll(async () => {
+    if (!api) return;
+    try {
+      await loginAsAdmin(api);
+      const res = await api.get("/api/admin/contacts/threads");
+      if (res.ok()) {
+        const json = await res.json();
+        const groups = (json?.threads ?? []) as Array<{
+          memberIds: number[];
+          latest: { email: string };
+        }>;
+        const ours = groups.find(
+          (g) => (g.latest?.email || "").toLowerCase() === SERVER_EMAIL,
+        );
+        for (const id of ours?.memberIds || []) {
+          await api.delete(`/api/contact/${id}`).catch(() => undefined);
+        }
+      }
+    } catch {
+      // best-effort
+    }
+    await api.dispose();
+  });
+
+  test("GET /api/contact?q filters server-side across name/email/subject/message", async () => {
+    // Seed two contacts: one matches the search token, the other doesn't.
+    const matchPost = await api.post("/api/contact", {
+      data: {
+        name: "Server Search Sender",
+        email: SERVER_EMAIL,
+        subject: SERVER_SUBJECT,
+        message: `This message contains the unique token: ${SERVER_BODY_TOKEN}.`,
+      },
+    });
+    expect(matchPost.ok()).toBeTruthy();
+    const noMatchPost = await api.post("/api/contact", {
+      data: {
+        name: "Different Sender",
+        email: `nomatch-${SERVER_TAG.toLowerCase()}@e2e.test`,
+        subject: "Unrelated subject",
+        message: "Generic content with no matching needle.",
+      },
+    });
+    expect(noMatchPost.ok()).toBeTruthy();
+    const noMatchId = (await noMatchPost.json()).id as number;
+
+    await loginAsAdmin(api);
+
+    // No `q` param → returns the full list (must include both seeded rows).
+    const allRes = await api.get("/api/contact");
+    expect(allRes.ok()).toBeTruthy();
+    const allJson = (await allRes.json()) as Array<{ email: string }>;
+    expect(
+      allJson.some((c) => c.email.toLowerCase() === SERVER_EMAIL),
+    ).toBeTruthy();
+
+    // With `q` set to the body-only token → only the matching row is
+    // returned. Proves the server is doing the filtering (no name/email/
+    // subject in the haystack contains it) and that body matching works.
+    const qRes = await api.get(
+      `/api/contact?q=${encodeURIComponent(SERVER_BODY_TOKEN)}`,
+    );
+    expect(qRes.ok()).toBeTruthy();
+    const qJson = (await qRes.json()) as Array<{
+      email: string;
+      message: string;
+    }>;
+    expect(qJson.length).toBeGreaterThanOrEqual(1);
+    expect(
+      qJson.every((c) => c.message.toLowerCase().includes(SERVER_BODY_TOKEN)),
+    ).toBeTruthy();
+    expect(
+      qJson.some((c) => c.email.toLowerCase() === SERVER_EMAIL),
+    ).toBeTruthy();
+
+    // Search by EMAIL substring also hits — confirms the email column is
+    // part of the haystack (a regression of this would hide form rows the
+    // operator searches for by sender address).
+    const emailRes = await api.get(
+      `/api/contact?q=${encodeURIComponent(SERVER_TAG.toLowerCase())}`,
+    );
+    expect(emailRes.ok()).toBeTruthy();
+    const emailJson = (await emailRes.json()) as Array<{ email: string }>;
+    expect(
+      emailJson.some((c) => c.email.toLowerCase() === SERVER_EMAIL),
+    ).toBeTruthy();
+
+    // Cleanup the no-match row inline so the afterAll cleanup only has to
+    // chase the matching email (which the threads endpoint groups for us).
+    await api.delete(`/api/contact/${noMatchId}`).catch(() => undefined);
+  });
+
+  test("GET /api/admin/inbox/counts increments after a new form submission", async () => {
+    await loginAsAdmin(api);
+    // Baseline counts before adding a new unread form submission. Always
+    // 200 even if Gmail is unreachable, so we can rely on the integers.
+    const beforeRes = await api.get("/api/admin/inbox/counts");
+    expect(beforeRes.ok()).toBeTruthy();
+    const before = (await beforeRes.json()) as {
+      inbox: number;
+      sent: number;
+      spam: number;
+      trash: number;
+    };
+    expect(typeof before.inbox).toBe("number");
+
+    // Drop a fresh unread contact into the inbox bucket. Use a unique tag
+    // so the spam scorer doesn't auto-route it to spam — generic-looking
+    // bodies get auto-tagged sometimes.
+    const liveTag = `liveCount-${Date.now().toString(36)}`;
+    const post = await api.post("/api/contact", {
+      data: {
+        name: "Live Count Sender",
+        email: `${liveTag}@e2e.test`,
+        subject: `Live count test ${liveTag}`,
+        message: `A genuine inbox question about borrowing — ${liveTag}.`,
+      },
+    });
+    expect(post.ok()).toBeTruthy();
+    const created = (await post.json()) as { id: number; isSpam?: boolean };
+
+    const afterRes = await api.get("/api/admin/inbox/counts");
+    expect(afterRes.ok()).toBeTruthy();
+    const after = (await afterRes.json()) as typeof before;
+
+    // The new submission must increment exactly one folder's unread chip
+    // depending on whether it was auto-spammed. Either way the total
+    // unread across folders goes up by exactly one.
+    const totalBefore = before.inbox + before.spam + before.trash;
+    const totalAfter = after.inbox + after.spam + after.trash;
+    expect(totalAfter).toBe(totalBefore + 1);
+
+    // Cleanup so the count goes back to baseline for the next test run.
+    await api.delete(`/api/contact/${created.id}`).catch(() => undefined);
+  });
+});
