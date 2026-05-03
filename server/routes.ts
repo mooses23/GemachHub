@@ -4869,6 +4869,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.isAuthenticated() ? (req.user as any).id : undefined;
       const locationId = operatorLocationId || (req.user as any)?.locationId;
 
+      // Task #191: server-side stale-card guardrail (defense-in-depth).
+      // The operator UI already swaps the Accept-and-Lend button for a
+      // Request-New-Card button when the saved card is older than the admin-
+      // configured maxCardAgeDays (default 90), but a malicious or out-of-date
+      // client could still POST here. Block the accept on stale cards so the
+      // operator must request a fresh card first.
+      const txForGuardrail = await storage.getTransaction(transactionId);
+      if (
+        txForGuardrail?.payLaterStatus === 'CARD_SETUP_COMPLETE' &&
+        txForGuardrail.cardSavedAt
+      ) {
+        const maxCardAgeDays = await getMaxCardAgeDays();
+        const ageDays = Math.floor(
+          (Date.now() - new Date(txForGuardrail.cardSavedAt).getTime()) /
+            (1000 * 60 * 60 * 24),
+        );
+        if (ageDays > maxCardAgeDays) {
+          return res.status(409).json({
+            success: false,
+            message: `Saved card is ${ageDays} days old (limit ${maxCardAgeDays}). Request a new card before accepting.`,
+            code: "STALE_CARD",
+          });
+        }
+      }
+
       const result = await PayLaterService.acceptTransaction(transactionId, userId, locationId);
 
       if (result.success) {
