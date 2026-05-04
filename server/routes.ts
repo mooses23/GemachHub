@@ -5471,7 +5471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * Only rewrites occurrences already present — never injects new links.
    */
   function ensureWww(text: string): string {
-    return text.replace(/(?<![.@\w])earmuffsgemach\.com/g, "www.earmuffsgemach.com");
+    return text.replace(/(?<![.@\w])earmuffsgemach\.com(?=[/?#:,;!)\s'"]|$)/g, "www.earmuffsgemach.com");
   }
 
   app.get("/api/admin/settings/domain", async (req, res) => {

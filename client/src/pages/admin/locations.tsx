@@ -535,8 +535,11 @@ function DomainSettingsPanel() {
   });
 
   function handleToggle(value: boolean) {
+    const prev = forceWww;
     setForceWww(value);
-    saveMutation.mutate(value);
+    saveMutation.mutate(value, {
+      onError: () => setForceWww(prev),
+    });
   }
 
   return (
