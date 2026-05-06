@@ -2056,7 +2056,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const contactData = insertContactSchema.parse(req.body);
       const contact = await storage.createContact(contactData);
-      // Auto-tag obvious spam so it's pre-filtered out of the admin's main inbox
+      // Auto-tag obvious spam so it appears in the Spam review queue.
+      // Note: spam-tagged contacts are NOT hidden from the main Inbox —
+      // they remain visible there so the admin never misses a submission.
       try {
         const spam = scoreContactSpam(contactData);
         if (spam.isSpam) {
@@ -3241,7 +3243,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
       // Form submissions don't have a "Sent" notion (admin replies are
       // captured in Gmail). Their folder mapping mirrors the inbox UI:
-      //   inbox  → !isArchived && !isSpam
+      //   inbox  → !isArchived  (spam-tagged rows still show in inbox so
+      //                          they're counted here too — the Spam folder
+      //                          is an additive review queue, not exclusive)
       //   spam   → isSpam && !isArchived
       //   trash  → isArchived
       // Each folder's unread is the AND of "not yet read" with that bucket.
@@ -3250,9 +3254,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let formTrashUnread = 0;
       for (const c of allContacts) {
         if (c.isRead) continue;
-        if (c.isArchived) formTrashUnread++;
-        else if (c.isSpam) formSpamUnread++;
-        else formInboxUnread++;
+        if (c.isArchived) {
+          formTrashUnread++;
+        } else {
+          // All non-archived contacts count toward inbox unread.
+          formInboxUnread++;
+          // Spam-tagged ones additionally count toward spam unread.
+          if (c.isSpam) formSpamUnread++;
+        }
       }
       res.json({
         inbox: gmailUnread.inbox + formInboxUnread,

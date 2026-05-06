@@ -17,9 +17,20 @@ export function parseEmailAddress(from: string): { name: string; email: string }
   return { name: from || "Unknown", email: "" };
 }
 
+// Sentinel used when submittedAt is null or unparseable. Using epoch-0 keeps
+// the sort deterministic and stable across renders (unlike `new Date()` which
+// would change on every render and push unknown-date rows to the top,
+// distorting chronological order). Contacts with this sentinel sink to the
+// bottom of a newest-first list. formatDate renders it as "—" so admins see a
+// clear "unknown date" indicator rather than a confusing "Jan 1, 1970" string.
+// In practice submittedAt is notNull+defaultNow() so this path is defensive.
+const UNKNOWN_DATE_SENTINEL = "1970-01-01T00:00:00.000Z";
+
 export function formatDate(dateStr: string | Date): string {
   try {
     const date = new Date(dateStr);
+    // epoch-0 is the sentinel for "unknown date" — show a dash.
+    if (date.getTime() === 0) return "—";
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
     if (isToday) {
@@ -35,9 +46,9 @@ export function formatDate(dateStr: string | Date): string {
 }
 
 export function safeDate(input: string | Date | null | undefined): string {
-  if (!input) return new Date().toISOString();
+  if (!input) return UNKNOWN_DATE_SENTINEL;
   const d = input instanceof Date ? input : new Date(input);
-  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  return isNaN(d.getTime()) ? UNKNOWN_DATE_SENTINEL : d.toISOString();
 }
 
 export function sanitizeHtml(body: string): string {

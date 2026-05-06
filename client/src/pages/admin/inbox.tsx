@@ -317,6 +317,7 @@ export default function AdminInbox() {
       queryClient.invalidateQueries({ queryKey: ["/api/contact"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/admin/emails/threads", "infinite"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/admin/emails/status"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/inbox/counts"] }),
     ]);
   };
 
@@ -334,9 +335,9 @@ export default function AdminInbox() {
         body: c.message,
         snippet: c.message.slice(0, 140),
         date: safeDate(c.submittedAt),
-        isRead: !!c.isRead,
-        isArchived: !!c.isArchived,
-        isSpam: !!c.isSpam,
+        isRead: c.isRead === true,   // treat null (pre-migration rows) as unread
+        isArchived: c.isArchived === true,
+        isSpam: c.isSpam === true,
       });
     }
     for (const e of allEmails) {
@@ -359,22 +360,47 @@ export default function AdminInbox() {
         serverUnreadCount: e.unreadCount,
       });
     }
+    // Primary sort: newest first. For NaN dates (should never happen after
+    // safeDate) treat as epoch=0 so they sink to the bottom rather than
+    // distorting the order. Stable tiebreaker: higher numeric ID = newer
+    // auto-increment contact, so two contacts with the same date stay in
+    // insertion order (newest first).
     return list.sort((a, b) => {
       const ta = new Date(a.date).getTime();
       const tb = new Date(b.date).getTime();
-      return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+      const da = isNaN(ta) ? 0 : ta;
+      const db = isNaN(tb) ? 0 : tb;
+      if (db !== da) return db - da;
+      // Stable tiebreaker for form contacts (numeric auto-increment IDs).
+      const idA = typeof a.id === "number" ? a.id : 0;
+      const idB = typeof b.id === "number" ? b.id : 0;
+      return idB - idA;
     });
   }, [contactsQuery.data, allEmails]);
 
   // Folder filter for form contacts. Gmail messages already arrive pre-filtered
   // by the server based on the `mode` query param, so we don't filter them here.
+  //
+  // Inbox rule for form contacts: every non-archived submission is visible in
+  // the inbox regardless of its isSpam flag. Spam-tagged contacts also appear
+  // in the Spam folder (as a dedicated review queue) but are NOT hidden from
+  // the main inbox so the admin never misses a submission that the heuristic
+  // may have incorrectly scored. Archiving (trash) is the admin-intentional
+  // action that removes a row from the inbox.
+  //
+  // Defensive: isArchived and isSpam are stored as booleans (notNull default
+  // false) but the unified builder already normalises them with === true so
+  // null/undefined values from pre-migration rows can never sneak through.
   const folderFiltered = unified.filter((it) => {
     if (it.source === "form") {
       // Form submissions have no "Sent" equivalent — exclude them entirely.
       if (folder === "sent") return false;
-      if (folder === "inbox") return !it.isArchived && !it.isSpam;
-      if (folder === "spam") return !!it.isSpam && !it.isArchived;
-      if (folder === "trash") return !!it.isArchived;
+      // Inbox: all submissions that have not been explicitly archived/trashed.
+      if (folder === "inbox") return it.isArchived !== true;
+      // Spam: dedicated review queue — spam-tagged, not yet trashed.
+      if (folder === "spam") return it.isSpam === true && it.isArchived !== true;
+      // Trash: only explicitly archived rows.
+      if (folder === "trash") return it.isArchived === true;
     }
     return true;
   });
@@ -609,12 +635,6 @@ export default function AdminInbox() {
     }
   };
 
-  // Header "unread" badge reflects only currently-loaded inbox items (used
-  // as a quick visual cue alongside the authoritative folder-chip counts
-  // which come from /api/admin/inbox/counts).
-  const unreadCount = unified.filter(
-    (u) => !u.isRead && (u.source === "email" || (!u.isArchived && !u.isSpam))
-  ).length;
 
   // ===== Optimistic-update helpers (Task #185) =====
   // Both helpers follow the standard React-Query optimistic pattern:
@@ -782,9 +802,11 @@ export default function AdminInbox() {
     mutationFn: async ({ id, ...flags }: { id: number; isRead?: boolean; isArchived?: boolean; isSpam?: boolean }) =>
       apiRequest("PATCH", `/api/contact/${id}`, flags),
     onMutate: async (vars) => {
-      // Read/unread is a flag flip; archive/spam removes the row from the
-      // visible list (it'll re-appear in Trash/Spam after the refetch).
-      const removes = vars.isArchived === true || vars.isSpam === true;
+      // Archive (isArchived=true) removes the contact from inbox immediately.
+      // Spam (isSpam=true) does NOT remove it — spam-tagged contacts remain
+      // visible in inbox under the additive spam model; only the isSpam flag
+      // is updated in-place so the row stays and the Spam chip also counts it.
+      const removes = vars.isArchived === true;
       const prev = await patchContactCache(vars.id, (c) => {
         if (removes) return null;
         const next: Contact = { ...c };
@@ -798,7 +820,10 @@ export default function AdminInbox() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) restoreSnapshot(ctx.prev);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: CONTACT_KEY }),
+    onSettled: () => Promise.all([
+      qc.invalidateQueries({ queryKey: CONTACT_KEY }),
+      qc.invalidateQueries({ queryKey: ["/api/admin/inbox/counts"] }),
+    ]),
   });
 
   // Generic swipe-action handlers — work for both sources.
@@ -2037,68 +2062,21 @@ export default function AdminInbox() {
         >
           {liveMessage}
         </div>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <div className="mb-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
+            <h1 className="text-3xl font-bold flex items-center gap-3 mb-1">
               <InboxIcon className="h-8 w-8" />
               {t("inboxTitle")}
             </h1>
             <p className="text-muted-foreground">{t("inboxSubtitle")}</p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {unreadCount > 0 && (
-              <Badge variant="secondary" className="h-8 px-3 text-xs flex items-center">
-                {unreadCount} {t("unread")}
-              </Badge>
-            )}
-            <Dialog open={glossaryOpen} onOpenChange={setGlossaryOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  data-testid="button-open-glossary"
-                  aria-label="AI Knowledge Base"
-                  title="AI Knowledge Base"
-                >
-                  <Brain className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Brain className="h-5 w-5" />
-                    AI Knowledge Base
-                  </DialogTitle>
-                  <DialogDescription>
-                    Edit the facts and FAQ answers the AI uses when drafting replies in this inbox.
-                  </DialogDescription>
-                </DialogHeader>
-                <GlossaryContent />
-              </DialogContent>
-            </Dialog>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0 sm:w-auto sm:px-3"
-              onClick={handleRefresh}
-              disabled={emailQueries.isFetching}
-              data-testid="button-refresh"
-              aria-label={t("refresh")}
-              title={t("refresh")}
-            >
-              <RefreshCw className={`h-4 w-4 sm:mr-2 ${emailQueries.isFetching ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">{t("refresh")}</span>
-            </Button>
-          </div>
         </div>
 
-        {/* Folder tabs (Inbox / Sent / Spam / Trash) — primary filter.
-            Counts come from /api/admin/inbox/counts which combines Gmail
-            unread thread counts with unread form-submission counts per
-            folder, so each chip shows actionable work rather than total
-            backlog. */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {/* Single horizontally-scrollable row: folder chips + AI Knowledge Base + Refresh.
+            All items share one row so nothing wraps onto a second line on mobile.
+            Counts come from /api/admin/inbox/counts (authoritative server-side unread
+            counts) so each chip shows actionable work rather than total backlog. */}
+        <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none" role="toolbar" aria-label="Inbox folders and actions">
           {(() => {
             const counts = inboxCountsQuery.data ?? { inbox: 0, sent: 0, spam: 0, trash: 0 };
             return [
@@ -2114,7 +2092,7 @@ export default function AdminInbox() {
                 key={key}
                 type="button"
                 onClick={() => handleFolderChange(key)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
                   active
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background text-foreground hover-elevate"
@@ -2123,7 +2101,7 @@ export default function AdminInbox() {
                 aria-pressed={active}
               >
                 <Icon className="h-3.5 w-3.5" />
-                <span>{label}</span>
+                <span className="whitespace-nowrap">{label}</span>
                 {count > 0 && (
                   <span
                     className={`ml-1 rounded-full px-1.5 text-[10px] font-medium ${
@@ -2137,6 +2115,45 @@ export default function AdminInbox() {
               </button>
             );
           })}
+          <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+          <Dialog open={glossaryOpen} onOpenChange={setGlossaryOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 shrink-0 p-0"
+                data-testid="button-open-glossary"
+                aria-label="AI Knowledge Base"
+                title="AI Knowledge Base"
+              >
+                <Brain className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5" />
+                  AI Knowledge Base
+                </DialogTitle>
+                <DialogDescription>
+                  Edit the facts and FAQ answers the AI uses when drafting replies in this inbox.
+                </DialogDescription>
+              </DialogHeader>
+              <GlossaryContent />
+            </DialogContent>
+          </Dialog>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 w-8 p-0"
+            onClick={handleRefresh}
+            disabled={emailQueries.isFetching}
+            data-testid="button-refresh"
+            aria-label={t("refresh")}
+            title={t("refresh")}
+          >
+            <RefreshCw className={`h-4 w-4 ${emailQueries.isFetching ? "animate-spin" : ""}`} />
+          </Button>
         </div>
 
         {/* Search + source/read filters in one always-visible compact row. */}

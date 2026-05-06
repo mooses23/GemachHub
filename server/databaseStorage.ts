@@ -900,7 +900,7 @@ export class DatabaseStorage implements IStorage {
 
   // Contact operations
   async getAllContacts(): Promise<Contact[]> {
-    return db.select().from(contacts);
+    return db.select().from(contacts).orderBy(desc(contacts.submittedAt));
   }
 
   async getContact(id: number): Promise<Contact | undefined> {
