@@ -611,6 +611,32 @@ function DomainSettingsPanel({ embedded = false }: { embedded?: boolean } = {}) 
 function AdminSettingsSheet() {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"stripe" | "notifications" | "domain">("stripe");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let initialTab: "stripe" | "notifications" | "domain" | null = null;
+    try {
+      if (localStorage.getItem("gemachhub:notificationSettingsPanelOpen") === "true") {
+        initialTab = "notifications";
+        localStorage.removeItem("gemachhub:notificationSettingsPanelOpen");
+      } else if (localStorage.getItem("gemachhub:stripeSettingsPanelOpen") === "true") {
+        initialTab = "stripe";
+        localStorage.removeItem("gemachhub:stripeSettingsPanelOpen");
+      } else if (localStorage.getItem("gemachhub:domainSettingsPanelOpen") === "true") {
+        initialTab = "domain";
+        localStorage.removeItem("gemachhub:domainSettingsPanelOpen");
+      }
+    } catch {}
+    const sp = new URLSearchParams(window.location.search);
+    const qp = sp.get("settings");
+    if (qp === "stripe" || qp === "notifications" || qp === "domain") {
+      initialTab = qp;
+    }
+    if (initialTab) {
+      setTab(initialTab);
+      setOpen(true);
+    }
+  }, []);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -628,7 +654,7 @@ function AdminSettingsSheet() {
             Stripe, notifications, and domain link settings.
           </SheetDescription>
         </SheetHeader>
-        <Tabs defaultValue="stripe" className="mt-4">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="stripe">{t('globalStripeSettingsTab')}</TabsTrigger>
             <TabsTrigger value="notifications">{t('notificationSettingsTab')}</TabsTrigger>
