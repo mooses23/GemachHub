@@ -241,8 +241,16 @@ const enRest = {
 
     // Dashboard Labels
     overview: "Overview",
+    locationsNav: "Locations",
     transactions: "Transactions",
     applications: "Applications",
+    aiKnowledgeBase: "AI Knowledge Base",
+    regionsAndCommunities: "Regions & Communities",
+    globalStripeSettingsTab: "Stripe",
+    notificationSettingsTab: "Notifications",
+    domainLinkSettingsTab: "Domain",
+    paymentMethodsMenu: "Payment Methods",
+    paymentMonitorMenu: "Status Monitor",
     analytics: "Analytics",
     docsTab: "Docs",
     morePages: "More",

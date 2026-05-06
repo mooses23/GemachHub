@@ -244,8 +244,16 @@ const dict: Record<RestTranslationKey, string> = {
 
     // Dashboard Labels
     overview: "סקירה כללית",
+    locationsNav: "מיקומים",
     transactions: "עסקאות",
     applications: "בקשות",
+    aiKnowledgeBase: "מאגר ידע ל-AI",
+    regionsAndCommunities: "אזורים וקהילות",
+    globalStripeSettingsTab: "Stripe",
+    notificationSettingsTab: "התראות",
+    domainLinkSettingsTab: "דומיין",
+    paymentMethodsMenu: "שיטות תשלום",
+    paymentMonitorMenu: "מעקב סטטוס",
     analytics: "אנליטיקה",
     docsTab: "מסמכים",
     morePages: "עוד",
