@@ -507,10 +507,12 @@ function LocationSettingsSheet({
   open,
   onOpenChange,
   onManageRegions,
+  initialTab,
 }: {
   open: boolean;
   onOpenChange: (next: boolean) => void;
   onManageRegions: () => void;
+  initialTab?: string;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -523,7 +525,7 @@ function LocationSettingsSheet({
             Stripe charge limits, notification email, domain link rewriting, and region/community taxonomy.
           </SheetDescription>
         </SheetHeader>
-        <Tabs defaultValue="stripe" className="mt-4">
+        <Tabs defaultValue={initialTab ?? "stripe"} className="mt-4">
           <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="stripe" className="text-xs">
               <CreditCard className="h-3.5 w-3.5 mr-1" /> Stripe
@@ -673,6 +675,19 @@ export default function AdminLocations() {
   const [isRegionDialogOpen, setIsRegionDialogOpen] = useState(false);
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
+
+  // Deep-link via URL hash, e.g. #settings=notifications opens the
+  // settings sheet on the Notify tab. Used by the admin dashboard's
+  // "Configure now" alert action.
+  useEffect(() => {
+    const m = /#settings=([a-z]+)/i.exec(window.location.hash);
+    if (m) {
+      setSettingsInitialTab(m[1].toLowerCase());
+      setSettingsOpen(true);
+      try { history.replaceState(null, "", window.location.pathname + window.location.search); } catch {}
+    }
+  }, []);
 
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const [welcomeTarget, setWelcomeTarget] = useState<{ kind: "single"; id: number; loc: Location } | { kind: "selected" } | { kind: "all-not-onboarded" } | null>(null);
@@ -1463,9 +1478,11 @@ export default function AdminLocations() {
         />
 
         <LocationSettingsSheet
+          key={settingsInitialTab ?? "default"}
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
           onManageRegions={() => { setEditingRegion(null); setIsRegionDialogOpen(true); }}
+          initialTab={settingsInitialTab}
         />
 
         {/* Compact square stat tiles */}

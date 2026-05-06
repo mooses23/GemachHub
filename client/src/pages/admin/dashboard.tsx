@@ -358,8 +358,7 @@ export default function Dashboard() {
       action: {
         label: t('configureNow'),
         onClick: () => {
-          try { localStorage.setItem("gemachhub:notificationSettingsPanelOpen", "true"); } catch {}
-          window.location.href = "/admin/locations";
+          window.location.href = "/admin/locations#settings=notifications";
         },
       },
     });

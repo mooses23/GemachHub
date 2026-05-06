@@ -9,8 +9,8 @@ export function AdminNavTabs() {
     { label: t('overview'), href: "/admin" },
     { label: t('locations'), href: "/admin/locations" },
     { label: t('transactions'), href: "/admin/transactions" },
-    { label: t('inboxTitle'), href: "/admin/inbox" },
     { label: t('applications'), href: "/admin/applications" },
+    { label: t('inboxTitle'), href: "/admin/inbox" },
   ];
 
   const isActive = (href: string) => {
