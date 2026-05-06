@@ -41,7 +41,7 @@ const enCore = {
     noLocationsFound: "No locations found",
     tryAdjustingSearch: "Try adjusting your search or browse other cities",
     showing: "Showing",
-    locations: "locations",
+    locations: "Locations",
     searchLocationsIn: "Search locations in",
     choosePopularCity: "Choose a popular city or browse all locations",
     allStates: "All States",

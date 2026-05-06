@@ -323,29 +323,36 @@ export default function AdminTransactions() {
 
         {/* ── Lending Records tab ── */}
         <TabsContent value="records">
-          <div className="flex justify-end mb-4">
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t('addNewTransaction')}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[550px]">
-                <DialogHeader>
-                  <DialogTitle>{t('addNewTransaction')}</DialogTitle>
-                  <DialogDescription>{t('recordNewTransactionDescription')}</DialogDescription>
-                </DialogHeader>
-                <TransactionForm locations={locations} onSuccess={() => setIsCreateDialogOpen(false)} />
-              </DialogContent>
-            </Dialog>
-          </div>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogContent className="sm:max-w-[550px]">
+              <DialogHeader>
+                <DialogTitle>{t('addNewTransaction')}</DialogTitle>
+                <DialogDescription>{t('recordNewTransactionDescription')}</DialogDescription>
+              </DialogHeader>
+              <TransactionForm locations={locations} onSuccess={() => setIsCreateDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle>{t('transactions')}</CardTitle>
-              <CardDescription>{t('trackDepositsAndBorrowing')}</CardDescription>
-              <div className="mt-4 flex flex-col sm:flex-row gap-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle>{t('transactions')}</CardTitle>
+                  <CardDescription>{t('trackDepositsAndBorrowing')}</CardDescription>
+                </div>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setIsCreateDialogOpen(true)}
+                  data-testid="button-add-transaction"
+                  aria-label={t('addNewTransaction')}
+                  title={t('addNewTransaction')}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="mt-4 flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-grow">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -355,10 +362,12 @@ export default function AdminTransactions() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div className="flex gap-2">
-                  <Button variant={filterStatus === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterStatus("all")}>{t('allTransactions')}</Button>
-                  <Button variant={filterStatus === "active" ? "default" : "outline"} size="sm" onClick={() => setFilterStatus("active")}>{t('activeOnly')}</Button>
-                  <Button variant={filterStatus === "returned" ? "default" : "outline"} size="sm" onClick={() => setFilterStatus("returned")}>{t('returnedOnly')}</Button>
+                <div className="-mx-1 px-1 overflow-x-auto sm:overflow-visible">
+                  <div className="flex gap-2 min-w-max sm:min-w-0">
+                    <Button variant={filterStatus === "all" ? "default" : "outline"} size="sm" className="whitespace-nowrap" onClick={() => setFilterStatus("all")}>{t('allTransactions')}</Button>
+                    <Button variant={filterStatus === "active" ? "default" : "outline"} size="sm" className="whitespace-nowrap" onClick={() => setFilterStatus("active")}>{t('activeOnly')}</Button>
+                    <Button variant={filterStatus === "returned" ? "default" : "outline"} size="sm" className="whitespace-nowrap" onClick={() => setFilterStatus("returned")}>{t('returnedOnly')}</Button>
+                  </div>
                 </div>
               </div>
             </CardHeader>

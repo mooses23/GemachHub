@@ -42,6 +42,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -266,19 +273,9 @@ function LocationStripeFeeSection({ locationId }: { locationId: number }) {
   );
 }
 
-const STRIPE_PANEL_KEY = "gemachhub:stripeSettingsPanelOpen";
-
-function GlobalStripeSettingsPanel() {
+function StripeSettingsForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const [panelOpen, setPanelOpen] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(STRIPE_PANEL_KEY) === "true";
-    } catch {
-      return false;
-    }
-  });
 
   const { data, isLoading } = useQuery<StripeAdminSettings>({
     queryKey: ["/api/admin/settings/stripe"],
@@ -317,73 +314,43 @@ function GlobalStripeSettingsPanel() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
   return (
-    <details
-      className="mb-6 group"
-      open={panelOpen}
-      onToggle={(e) => {
-        const next = (e.currentTarget as HTMLDetailsElement).open;
-        setPanelOpen(next);
-        try { localStorage.setItem(STRIPE_PANEL_KEY, String(next)); } catch {}
-      }}
-    >
-      <summary className="flex items-center gap-2 cursor-pointer list-none rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
-        <Settings className="h-4 w-4 text-muted-foreground" />
-        <span>Global Stripe charge settings</span>
-        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-      </summary>
-      <Card className="mt-0 rounded-t-none border-t-0">
-        <CardContent className="pt-4 space-y-4">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium mb-1">Max card age (days)</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={maxCardAgeDays}
-                    onChange={e => setMaxCardAgeDays(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Cards older than this are blocked from off-session charges (default 90).</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1">Require pre-charge notification</label>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Switch checked={requireNotify} onCheckedChange={setRequireNotify} data-testid="switch-require-notify" />
-                    <span className="text-sm">{requireNotify ? "Enforced (default)" : "Best-effort (disabled)"}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">When on, charges are blocked if the borrower cannot be notified.</p>
-                </div>
-              </div>
-              <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                <Save className="h-4 w-4 mr-2" />
-                {saveMutation.isPending ? "Saving…" : "Save settings"}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </details>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium mb-1">Max card age (days)</label>
+          <Input
+            type="number"
+            min={1}
+            max={365}
+            value={maxCardAgeDays}
+            onChange={e => setMaxCardAgeDays(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground mt-1">Cards older than this are blocked from off-session charges (default 90).</p>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">Require pre-charge notification</label>
+          <div className="flex items-center gap-2 mt-2">
+            <Switch checked={requireNotify} onCheckedChange={setRequireNotify} data-testid="switch-require-notify" />
+            <span className="text-sm">{requireNotify ? "Enforced (default)" : "Best-effort (disabled)"}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">When on, charges are blocked if the borrower cannot be notified.</p>
+        </div>
+      </div>
+      <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+        <Save className="h-4 w-4 mr-2" />
+        {saveMutation.isPending ? "Saving…" : "Save settings"}
+      </Button>
+    </div>
   );
 }
 
-const NOTIFICATION_PANEL_KEY = "gemachhub:notificationSettingsPanelOpen";
-
-function NotificationSettingsPanel() {
+function NotificationSettingsForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const [panelOpen, setPanelOpen] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(NOTIFICATION_PANEL_KEY) === "true";
-    } catch {
-      return false;
-    }
-  });
 
   const { data, isLoading } = useQuery<{ adminEmail: string; effectiveEmail: string; source: "db" | "env" | "none" }>({
     queryKey: ["/api/admin/settings/notifications"],
@@ -418,90 +385,60 @@ function NotificationSettingsPanel() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
   return (
-    <details
-      className="mb-6 group"
-      open={panelOpen}
-      onToggle={(e) => {
-        const next = (e.currentTarget as HTMLDetailsElement).open;
-        setPanelOpen(next);
-        try { localStorage.setItem(NOTIFICATION_PANEL_KEY, String(next)); } catch {}
-      }}
-    >
-      <summary className="flex items-center gap-2 cursor-pointer list-none rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
-        <Bell className="h-4 w-4 text-muted-foreground" />
-        <span>Notification settings</span>
-        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-      </summary>
-      <Card className="mt-0 rounded-t-none border-t-0">
-        <CardContent className="pt-4 space-y-4">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : (
-            <>
-              <div className="max-w-sm">
-                <label className="block text-xs font-medium mb-1">Admin alert email</label>
-                <Input
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={emailValue}
-                  onChange={e => setEmailValue(e.target.value)}
-                  data-testid="input-admin-notification-email"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  New application alerts and system notifications are sent to this address.
-                  Falls back to the <code className="bg-muted px-0.5 rounded">ADMIN_EMAIL</code> or <code className="bg-muted px-0.5 rounded">GMAIL_USER</code> environment variable if left empty.
-                </p>
-                {data && data.source !== "none" && (
-                  <p className="text-xs mt-1 text-muted-foreground" data-testid="effective-email-note">
-                    Currently sending to:{" "}
-                    <span className="font-medium text-foreground">{data.effectiveEmail}</span>
-                    {" "}
-                    <span className="text-muted-foreground">
-                      ({data.source === "db" ? "saved" : "from environment"})
-                    </span>
-                  </p>
-                )}
-                {data && data.source === "none" && (
-                  <div
-                    className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 mt-1"
-                    data-testid="no-notification-email-warning"
-                  >
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-                    No notification address configured — alerts are not being delivered.
-                  </div>
-                )}
-              </div>
-              <Button
-                size="sm"
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-                data-testid="button-save-notification-settings"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {saveMutation.isPending ? "Saving…" : "Save settings"}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </details>
+    <div className="space-y-4">
+      <div className="max-w-sm">
+        <label className="block text-xs font-medium mb-1">Admin alert email</label>
+        <Input
+          type="email"
+          placeholder="admin@example.com"
+          value={emailValue}
+          onChange={e => setEmailValue(e.target.value)}
+          data-testid="input-admin-notification-email"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          New application alerts and system notifications are sent to this address.
+          Falls back to the <code className="bg-muted px-0.5 rounded">ADMIN_EMAIL</code> or <code className="bg-muted px-0.5 rounded">GMAIL_USER</code> environment variable if left empty.
+        </p>
+        {data && data.source !== "none" && (
+          <p className="text-xs mt-1 text-muted-foreground" data-testid="effective-email-note">
+            Currently sending to:{" "}
+            <span className="font-medium text-foreground">{data.effectiveEmail}</span>
+            {" "}
+            <span className="text-muted-foreground">
+              ({data.source === "db" ? "saved" : "from environment"})
+            </span>
+          </p>
+        )}
+        {data && data.source === "none" && (
+          <div
+            className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 mt-1"
+            data-testid="no-notification-email-warning"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+            No notification address configured — alerts are not being delivered.
+          </div>
+        )}
+      </div>
+      <Button
+        size="sm"
+        onClick={() => saveMutation.mutate()}
+        disabled={saveMutation.isPending}
+        data-testid="button-save-notification-settings"
+      >
+        <Save className="h-4 w-4 mr-2" />
+        {saveMutation.isPending ? "Saving…" : "Save settings"}
+      </Button>
+    </div>
   );
 }
 
-const DOMAIN_PANEL_KEY = "gemachhub:domainSettingsPanelOpen";
-
-function DomainSettingsPanel() {
+function DomainSettingsForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const [panelOpen, setPanelOpen] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(DOMAIN_PANEL_KEY) === "true";
-    } catch {
-      return false;
-    }
-  });
 
   const { data, isLoading } = useQuery<{ forceWww: boolean }>({
     queryKey: ["/api/admin/settings/domain"],
@@ -542,47 +479,90 @@ function DomainSettingsPanel() {
     });
   }
 
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
   return (
-    <details
-      className="mb-6 group"
-      open={panelOpen}
-      onToggle={(e) => {
-        const next = (e.currentTarget as HTMLDetailsElement).open;
-        setPanelOpen(next);
-        try { localStorage.setItem(DOMAIN_PANEL_KEY, String(next)); } catch {}
-      }}
-    >
-      <summary className="flex items-center gap-2 cursor-pointer list-none rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
-        <Globe className="h-4 w-4 text-muted-foreground" />
-        <span>Domain link settings</span>
-        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-      </summary>
-      <Card className="mt-0 rounded-t-none border-t-0">
-        <CardContent className="pt-4 space-y-4">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : (
-            <div>
-              <label className="block text-xs font-medium mb-1">Force www prefix on outgoing links</label>
-              <div className="flex items-center gap-2 mt-2">
-                <Switch
-                  checked={forceWww}
-                  onCheckedChange={handleToggle}
-                  disabled={saveMutation.isPending}
-                  data-testid="switch-force-www"
-                />
-                <span className="text-sm">
-                  {saveMutation.isPending ? "Saving…" : forceWww ? "On — rewriting to www.earmuffsgemach.com" : "Off — links sent as-is"}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                When on, any link to earmuffsgemach.com in AI drafts and outbound replies is automatically rewritten to www.earmuffsgemach.com before sending. Turn off once DNS is fixed.
+    <div>
+      <label className="block text-xs font-medium mb-1">Force www prefix on outgoing links</label>
+      <div className="flex items-center gap-2 mt-2">
+        <Switch
+          checked={forceWww}
+          onCheckedChange={handleToggle}
+          disabled={saveMutation.isPending}
+          data-testid="switch-force-www"
+        />
+        <span className="text-sm">
+          {saveMutation.isPending ? "Saving…" : forceWww ? "On — rewriting to www.earmuffsgemach.com" : "Off — links sent as-is"}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">
+        When on, any link to earmuffsgemach.com in AI drafts and outbound replies is automatically rewritten to www.earmuffsgemach.com before sending. Turn off once DNS is fixed.
+      </p>
+    </div>
+  );
+}
+
+function LocationSettingsSheet({
+  open,
+  onOpenChange,
+  onManageRegions,
+}: {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  onManageRegions: () => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" /> Settings
+          </SheetTitle>
+          <SheetDescription>
+            Stripe charge limits, notification email, domain link rewriting, and region/community taxonomy.
+          </SheetDescription>
+        </SheetHeader>
+        <Tabs defaultValue="stripe" className="mt-4">
+          <TabsList className="grid grid-cols-4 w-full">
+            <TabsTrigger value="stripe" className="text-xs">
+              <CreditCard className="h-3.5 w-3.5 mr-1" /> Stripe
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs">
+              <Bell className="h-3.5 w-3.5 mr-1" /> Notify
+            </TabsTrigger>
+            <TabsTrigger value="domain" className="text-xs">
+              <Globe className="h-3.5 w-3.5 mr-1" /> Domain
+            </TabsTrigger>
+            <TabsTrigger value="regions" className="text-xs">
+              <MapPin className="h-3.5 w-3.5 mr-1" /> Regions
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="stripe" className="mt-4">
+            <StripeSettingsForm />
+          </TabsContent>
+          <TabsContent value="notifications" className="mt-4">
+            <NotificationSettingsForm />
+          </TabsContent>
+          <TabsContent value="domain" className="mt-4">
+            <DomainSettingsForm />
+          </TabsContent>
+          <TabsContent value="regions" className="mt-4">
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Manage the regions and communities used to group locations across the public site.
               </p>
+              <Button
+                onClick={() => { onOpenChange(false); onManageRegions(); }}
+                data-testid="button-open-taxonomy-from-settings"
+              >
+                <Globe className="h-4 w-4 mr-2" /> Open Regions &amp; Communities
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </details>
+          </TabsContent>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -624,7 +604,7 @@ function ServiceStatusBar({
           {item.configured ? (
             <Badge variant="outline" className="text-xs font-normal border-green-500 text-green-700 bg-green-50">
               <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-              {item.label}: Ready
+              {item.label}
             </Badge>
           ) : (
             <TooltipProvider>
@@ -692,6 +672,7 @@ export default function AdminLocations() {
   // ===== Onboarding (SMS / Email welcome) =====
   const [isRegionDialogOpen, setIsRegionDialogOpen] = useState(false);
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const [welcomeTarget, setWelcomeTarget] = useState<{ kind: "single"; id: number; loc: Location } | { kind: "selected" } | { kind: "all-not-onboarded" } | null>(null);
@@ -1419,13 +1400,9 @@ export default function AdminLocations() {
   // All visible location IDs (for select-all in current view)
   const allVisibleIds = useMemo(() => filteredLocations.map(l => l.id), [filteredLocations]);
 
-  const hasInitializedExpandedRef = useRef(false);
-  useEffect(() => {
-    if (!hasInitializedExpandedRef.current && regions.length > 0) {
-      hasInitializedExpandedRef.current = true;
-      setExpandedRegions(new Set(regions.map(r => r.id)));
-    }
-  }, [regions]);
+  // Regions start collapsed on first render. Filtering still force-expands
+  // matching regions via the `isFilterActive` flag below, so search results
+  // remain visible without requiring a manual expand.
 
   const isFilterActive = searchTerm !== "" || statusFilter !== "all" || onboardingFilter !== "all";
 
@@ -1462,80 +1439,56 @@ export default function AdminLocations() {
 
   return (
     <TooltipProvider>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">{t('locationManagementTitle')}</h1>
-            <p className="text-muted-foreground text-sm md:text-base">{t('manageAllGemachLocations')}</p>
-          </div>
-          <div className="mt-4 md:mt-0 flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => { setEditingRegion(null); setIsRegionDialogOpen(true); }}
-              data-testid="button-manage-taxonomy"
-            >
-              <Globe className="mr-2 h-4 w-4" />
-              Regions & Communities
-            </Button>
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                {t('addNewLocation')}
-              </Button>
-              <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{t('createNewLocation')}</DialogTitle>
-                  <DialogDescription>{t('addNewLocationDescription')}</DialogDescription>
-                </DialogHeader>
-                <LocationForm regions={regions} onSuccess={() => setIsCreateDialogOpen(false)} />
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <TaxonomyPanel
-            open={isRegionDialogOpen}
-            onOpenChange={(open) => { setIsRegionDialogOpen(open); if (!open) setEditingRegion(null); }}
-            regions={regions}
-            locations={locations}
-          />
+        <div className="mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold">{t('locationManagementTitle')}</h1>
+          <p className="text-muted-foreground text-sm md:text-base">{t('manageAllGemachLocations')}</p>
         </div>
 
-        <GlobalStripeSettingsPanel />
-        <NotificationSettingsPanel />
-        <DomainSettingsPanel />
+        {/* Hidden controlled dialogs (triggered from Card header / Settings sheet) */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{t('createNewLocation')}</DialogTitle>
+              <DialogDescription>{t('addNewLocationDescription')}</DialogDescription>
+            </DialogHeader>
+            <LocationForm regions={regions} onSuccess={() => setIsCreateDialogOpen(false)} />
+          </DialogContent>
+        </Dialog>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <TaxonomyPanel
+          open={isRegionDialogOpen}
+          onOpenChange={(open) => { setIsRegionDialogOpen(open); if (!open) setEditingRegion(null); }}
+          regions={regions}
+          locations={locations}
+        />
+
+        <LocationSettingsSheet
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          onManageRegions={() => { setEditingRegion(null); setIsRegionDialogOpen(true); }}
+        />
+
+        {/* Compact square stat tiles */}
+        <div className="grid grid-cols-3 gap-3 mb-6 max-w-md">
           <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-blue-100">
-                <Building2 className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{totalLocations}</p>
-                <p className="text-sm text-muted-foreground">{t('totalLocations')}</p>
-              </div>
+            <CardContent className="p-3 flex flex-col items-center justify-center aspect-square text-center">
+              <Building2 className="h-5 w-5 text-blue-600 mb-1" />
+              <p className="text-xl font-bold leading-none">{totalLocations}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{t('totalLocations')}</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-green-100">
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{activeLocations}</p>
-                <p className="text-sm text-muted-foreground">{t('active')}</p>
-              </div>
+            <CardContent className="p-3 flex flex-col items-center justify-center aspect-square text-center">
+              <CheckCircle className="h-5 w-5 text-green-600 mb-1" />
+              <p className="text-xl font-bold leading-none">{activeLocations}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t('active')}</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-gray-100">
-                <XCircle className="h-6 w-6 text-gray-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{inactiveLocations}</p>
-                <p className="text-sm text-muted-foreground">{t('inactive')}</p>
-              </div>
+            <CardContent className="p-3 flex flex-col items-center justify-center aspect-square text-center">
+              <XCircle className="h-5 w-5 text-gray-500 mb-1" />
+              <p className="text-xl font-bold leading-none">{inactiveLocations}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">{t('inactive')}</p>
             </CardContent>
           </Card>
         </div>
@@ -1550,6 +1503,24 @@ export default function AdminLocations() {
                 </div>
                 {/* Bulk welcome action buttons */}
                 <div className="flex flex-wrap gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSettingsOpen(true)}
+                    data-testid="button-open-settings"
+                  >
+                    <Settings className="h-4 w-4 mr-1" />
+                    Settings
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCreateDialogOpen(true)}
+                    data-testid="button-add-location-card-header"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    {t('addNewLocation')}
+                  </Button>
                   {eligibleNotOnboarded.length > 0 ? (
                     <div className="flex items-center gap-1">
                       <Button

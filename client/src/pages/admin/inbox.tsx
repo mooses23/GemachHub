@@ -25,7 +25,7 @@ import { useInboxFilters } from "./inbox/useInboxFilters";
 import { useInboxKeyboardShortcuts } from "./inbox/useKeyboardShortcuts";
 import { ShortcutsHelp } from "./inbox/ShortcutsHelp";
 import { SuggestedDraftCard } from "./inbox/SuggestedDraftCard";
-import { Keyboard } from "lucide-react";
+import { Brain } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +72,6 @@ import {
   Pencil,
   Eye,
   EyeOff,
-  BookOpen,
   Archive,
   ShieldAlert,
   ShieldCheck,
@@ -2046,23 +2045,29 @@ export default function AdminInbox() {
             </h1>
             <p className="text-muted-foreground">{t("inboxSubtitle")}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {unreadCount > 0 && (
-              <Badge variant="secondary" className="text-sm">
+              <Badge variant="secondary" className="h-8 px-3 text-xs flex items-center">
                 {unreadCount} {t("unread")}
               </Badge>
             )}
             <Dialog open={glossaryOpen} onOpenChange={setGlossaryOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" data-testid="button-open-glossary">
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  AI Knowledge Base
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  data-testid="button-open-glossary"
+                  aria-label="AI Knowledge Base"
+                  title="AI Knowledge Base"
+                >
+                  <Brain className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" />
+                    <Brain className="h-5 w-5" />
                     AI Knowledge Base
                   </DialogTitle>
                   <DialogDescription>
@@ -2075,16 +2080,15 @@ export default function AdminInbox() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setHelpOpen(true)}
-              data-testid="button-show-shortcuts"
-              aria-label="Show keyboard shortcuts"
-              title="Keyboard shortcuts (?)"
+              className="h-8 w-8 p-0 sm:w-auto sm:px-3"
+              onClick={handleRefresh}
+              disabled={emailQueries.isFetching}
+              data-testid="button-refresh"
+              aria-label={t("refresh")}
+              title={t("refresh")}
             >
-              <Keyboard className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={emailQueries.isFetching} data-testid="button-refresh">
-              <RefreshCw className={`h-4 w-4 mr-2 ${emailQueries.isFetching ? "animate-spin" : ""}`} />
-              {t("refresh")}
+              <RefreshCw className={`h-4 w-4 sm:mr-2 ${emailQueries.isFetching ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{t("refresh")}</span>
             </Button>
           </div>
         </div>
