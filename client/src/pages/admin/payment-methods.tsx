@@ -216,9 +216,9 @@ export default function PaymentMethodsAdmin() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">{t('paymentMethodsManagement')}</h1>
+      <div className="flex justify-end items-center mb-3">
         <Button
+          size="sm"
           onClick={() => setIsCreating(true)}
           className="flex items-center gap-2"
         >
@@ -226,37 +226,6 @@ export default function PaymentMethodsAdmin() {
           {t('addPaymentMethod')}
         </Button>
       </div>
-
-      {/* System Synchronization Info */}
-      <Card className="mb-8">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <div className="p-2 bg-blue-100 rounded-full">
-              <Plus className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-2">{t('globalPaymentSystem')}</h3>
-              <p className="text-gray-600 mb-3">
-                {t('globalPaymentSystemDescription')}
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>{t('realTimeSynchronization')}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span>{t('automaticApiConfiguration')}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  <span>{t('globalAvailabilityControl')}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Create Form */}
       {isCreating && (
@@ -408,7 +377,7 @@ export default function PaymentMethodsAdmin() {
       <div className="grid gap-4">
         {paymentMethods.map((method) => (
           <Card key={method.id}>
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               {editingId === method.id ? (
                 <form onSubmit={form.handleSubmit(handleUpdate)} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -501,7 +470,7 @@ export default function PaymentMethodsAdmin() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-4 mb-2">
-                      <h3 className="text-xl font-semibold">{method.displayName}</h3>
+                      <h3 className="text-base font-semibold">{method.displayName}</h3>
                       <Badge variant={method.isActive ? "default" : "secondary"}>
                         {method.isActive ? t('active') : t('inactive')}
                       </Badge>
