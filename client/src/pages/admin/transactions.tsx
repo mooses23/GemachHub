@@ -30,14 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -162,19 +155,6 @@ export default function AdminTransactions() {
     } catch {}
     return "all";
   });
-
-  const initialPaymentSheet = (() => {
-    if (typeof window === "undefined") return null as null | "payments" | "monitor";
-    try {
-      const sp = new URLSearchParams(window.location.search);
-      const tab = sp.get("tab");
-      if (tab === "payments") return "payments";
-      if (tab === "monitor") return "monitor";
-    } catch {}
-    return null;
-  })();
-  const [paymentMethodsOpen, setPaymentMethodsOpen] = useState(initialPaymentSheet === "payments");
-  const [paymentMonitorOpen, setPaymentMonitorOpen] = useState(initialPaymentSheet === "monitor");
 
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
   const [refundTransaction, setRefundTransaction] = useState<Transaction | null>(null);
@@ -327,51 +307,22 @@ export default function AdminTransactions() {
 
   return (
     <>
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">{t('transactionManagement')}</h1>
-          <p className="text-muted-foreground">{t('trackDepositsAndBorrowing')}</p>
+      {/* ── Outer page tabs: Records / Payment Config / Payment Monitor ── */}
+      <Tabs defaultValue="records">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-6 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">{t('transactionManagement')}</h1>
+            <p className="text-muted-foreground">{t('trackDepositsAndBorrowing')}</p>
+          </div>
+          <TabsList className="shrink-0">
+            <TabsTrigger value="records">{t('transactions')}</TabsTrigger>
+            <TabsTrigger value="payments">{t('paymentMethodsLabel')}</TabsTrigger>
+            <TabsTrigger value="monitor">{t('paymentStatusMonitor')}</TabsTrigger>
+          </TabsList>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Sheet open={paymentMethodsOpen} onOpenChange={setPaymentMethodsOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" data-testid="button-open-payment-methods">
-                <DollarSign className="mr-2 h-4 w-4" />
-                {t('paymentMethodsMenu')}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>{t('paymentMethodsLabel')}</SheetTitle>
-                <SheetDescription>Configure payment providers available to lending locations.</SheetDescription>
-              </SheetHeader>
-              <div className="mt-4">
-                <PaymentMethodsPanel />
-              </div>
-            </SheetContent>
-          </Sheet>
-          <Sheet open={paymentMonitorOpen} onOpenChange={setPaymentMonitorOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" data-testid="button-open-payment-monitor">
-                <BarChart3 className="mr-2 h-4 w-4" />
-                {t('paymentMonitorMenu')}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>{t('paymentStatusMonitor')}</SheetTitle>
-                <SheetDescription>{t('paymentStatusMonitorDescription')}</SheetDescription>
-              </SheetHeader>
-              <div className="mt-4">
-                <PaymentStatusPanel />
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </div>
 
-      {/* ── Lending Records (always shown) ── */}
-      <div>
+        {/* ── Lending Records tab ── */}
+        <TabsContent value="records">
           <div className="flex justify-end mb-4">
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
@@ -549,7 +500,18 @@ export default function AdminTransactions() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </TabsContent>
+
+        {/* ── Payment Config tab ── */}
+        <TabsContent value="payments">
+          <PaymentMethodsPanel />
+        </TabsContent>
+
+        {/* ── Payment Monitor tab ── */}
+        <TabsContent value="monitor">
+          <PaymentStatusPanel />
+        </TabsContent>
+      </Tabs>
 
       {/* ── Analytics section ───────────────────────────────────────── */}
       <div className="mt-10 space-y-6">

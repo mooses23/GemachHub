@@ -42,14 +42,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -276,7 +268,7 @@ function LocationStripeFeeSection({ locationId }: { locationId: number }) {
 
 const STRIPE_PANEL_KEY = "gemachhub:stripeSettingsPanelOpen";
 
-function GlobalStripeSettingsPanel({ embedded = false }: { embedded?: boolean } = {}) {
+function GlobalStripeSettingsPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -325,9 +317,24 @@ function GlobalStripeSettingsPanel({ embedded = false }: { embedded?: boolean } 
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const body = (
-    <div className="space-y-4">
-      {isLoading ? (
+  return (
+    <details
+      className="mb-6 group"
+      open={panelOpen}
+      onToggle={(e) => {
+        const next = (e.currentTarget as HTMLDetailsElement).open;
+        setPanelOpen(next);
+        try { localStorage.setItem(STRIPE_PANEL_KEY, String(next)); } catch {}
+      }}
+    >
+      <summary className="flex items-center gap-2 cursor-pointer list-none rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
+        <Settings className="h-4 w-4 text-muted-foreground" />
+        <span>Global Stripe charge settings</span>
+        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <Card className="mt-0 rounded-t-none border-t-0">
+        <CardContent className="pt-4 space-y-4">
+          {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
             <>
@@ -358,28 +365,7 @@ function GlobalStripeSettingsPanel({ embedded = false }: { embedded?: boolean } 
               </Button>
             </>
           )}
-    </div>
-  );
-
-  if (embedded) return body;
-
-  return (
-    <details
-      className="mb-6 group"
-      open={panelOpen}
-      onToggle={(e) => {
-        const next = (e.currentTarget as HTMLDetailsElement).open;
-        setPanelOpen(next);
-        try { localStorage.setItem(STRIPE_PANEL_KEY, String(next)); } catch {}
-      }}
-    >
-      <summary className="flex items-center gap-2 cursor-pointer list-none rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
-        <Settings className="h-4 w-4 text-muted-foreground" />
-        <span>Global Stripe charge settings</span>
-        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-      </summary>
-      <Card className="mt-0 rounded-t-none border-t-0">
-        <CardContent className="pt-4">{body}</CardContent>
+        </CardContent>
       </Card>
     </details>
   );
@@ -387,7 +373,7 @@ function GlobalStripeSettingsPanel({ embedded = false }: { embedded?: boolean } 
 
 const NOTIFICATION_PANEL_KEY = "gemachhub:notificationSettingsPanelOpen";
 
-function NotificationSettingsPanel({ embedded = false }: { embedded?: boolean } = {}) {
+function NotificationSettingsPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -432,9 +418,24 @@ function NotificationSettingsPanel({ embedded = false }: { embedded?: boolean } 
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const body = (
-    <div className="space-y-4">
-      {isLoading ? (
+  return (
+    <details
+      className="mb-6 group"
+      open={panelOpen}
+      onToggle={(e) => {
+        const next = (e.currentTarget as HTMLDetailsElement).open;
+        setPanelOpen(next);
+        try { localStorage.setItem(NOTIFICATION_PANEL_KEY, String(next)); } catch {}
+      }}
+    >
+      <summary className="flex items-center gap-2 cursor-pointer list-none rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
+        <Bell className="h-4 w-4 text-muted-foreground" />
+        <span>Notification settings</span>
+        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <Card className="mt-0 rounded-t-none border-t-0">
+        <CardContent className="pt-4 space-y-4">
+          {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
             <>
@@ -482,28 +483,7 @@ function NotificationSettingsPanel({ embedded = false }: { embedded?: boolean } 
               </Button>
             </>
           )}
-    </div>
-  );
-
-  if (embedded) return body;
-
-  return (
-    <details
-      className="mb-6 group"
-      open={panelOpen}
-      onToggle={(e) => {
-        const next = (e.currentTarget as HTMLDetailsElement).open;
-        setPanelOpen(next);
-        try { localStorage.setItem(NOTIFICATION_PANEL_KEY, String(next)); } catch {}
-      }}
-    >
-      <summary className="flex items-center gap-2 cursor-pointer list-none rounded-lg border bg-card px-4 py-3 text-sm font-medium select-none hover:bg-muted/50 transition-colors">
-        <Bell className="h-4 w-4 text-muted-foreground" />
-        <span>Notification settings</span>
-        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-      </summary>
-      <Card className="mt-0 rounded-t-none border-t-0">
-        <CardContent className="pt-4">{body}</CardContent>
+        </CardContent>
       </Card>
     </details>
   );
@@ -511,7 +491,7 @@ function NotificationSettingsPanel({ embedded = false }: { embedded?: boolean } 
 
 const DOMAIN_PANEL_KEY = "gemachhub:domainSettingsPanelOpen";
 
-function DomainSettingsPanel({ embedded = false }: { embedded?: boolean } = {}) {
+function DomainSettingsPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -562,30 +542,6 @@ function DomainSettingsPanel({ embedded = false }: { embedded?: boolean } = {}) 
     });
   }
 
-  const body = isLoading ? (
-    <p className="text-sm text-muted-foreground">Loading…</p>
-  ) : (
-    <div>
-      <label className="block text-xs font-medium mb-1">Force www prefix on outgoing links</label>
-      <div className="flex items-center gap-2 mt-2">
-        <Switch
-          checked={forceWww}
-          onCheckedChange={handleToggle}
-          disabled={saveMutation.isPending}
-          data-testid="switch-force-www"
-        />
-        <span className="text-sm">
-          {saveMutation.isPending ? "Saving…" : forceWww ? "On — rewriting to www.earmuffsgemach.com" : "Off — links sent as-is"}
-        </span>
-      </div>
-      <p className="text-xs text-muted-foreground mt-1">
-        When on, any link to earmuffsgemach.com in AI drafts and outbound replies is automatically rewritten to www.earmuffsgemach.com before sending. Turn off once DNS is fixed.
-      </p>
-    </div>
-  );
-
-  if (embedded) return body;
-
   return (
     <details
       className="mb-6 group"
@@ -602,76 +558,31 @@ function DomainSettingsPanel({ embedded = false }: { embedded?: boolean } = {}) 
         <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
       </summary>
       <Card className="mt-0 rounded-t-none border-t-0">
-        <CardContent className="pt-4">{body}</CardContent>
+        <CardContent className="pt-4 space-y-4">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium mb-1">Force www prefix on outgoing links</label>
+              <div className="flex items-center gap-2 mt-2">
+                <Switch
+                  checked={forceWww}
+                  onCheckedChange={handleToggle}
+                  disabled={saveMutation.isPending}
+                  data-testid="switch-force-www"
+                />
+                <span className="text-sm">
+                  {saveMutation.isPending ? "Saving…" : forceWww ? "On — rewriting to www.earmuffsgemach.com" : "Off — links sent as-is"}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                When on, any link to earmuffsgemach.com in AI drafts and outbound replies is automatically rewritten to www.earmuffsgemach.com before sending. Turn off once DNS is fixed.
+              </p>
+            </div>
+          )}
+        </CardContent>
       </Card>
     </details>
-  );
-}
-
-function AdminSettingsSheet() {
-  const { t } = useLanguage();
-  const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"stripe" | "notifications" | "domain">("stripe");
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let initialTab: "stripe" | "notifications" | "domain" | null = null;
-    try {
-      if (localStorage.getItem("gemachhub:notificationSettingsPanelOpen") === "true") {
-        initialTab = "notifications";
-        localStorage.removeItem("gemachhub:notificationSettingsPanelOpen");
-      } else if (localStorage.getItem("gemachhub:stripeSettingsPanelOpen") === "true") {
-        initialTab = "stripe";
-        localStorage.removeItem("gemachhub:stripeSettingsPanelOpen");
-      } else if (localStorage.getItem("gemachhub:domainSettingsPanelOpen") === "true") {
-        initialTab = "domain";
-        localStorage.removeItem("gemachhub:domainSettingsPanelOpen");
-      }
-    } catch {}
-    const sp = new URLSearchParams(window.location.search);
-    const qp = sp.get("settings");
-    if (qp === "stripe" || qp === "notifications" || qp === "domain") {
-      initialTab = qp;
-    }
-    if (initialTab) {
-      setTab(initialTab);
-      setOpen(true);
-    }
-  }, []);
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" data-testid="button-open-admin-settings">
-          <Settings className="mr-2 h-4 w-4" />
-          {t('settingsLabel')}
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" /> {t('settingsLabel')}
-          </SheetTitle>
-          <SheetDescription>
-            Stripe, notifications, and domain link settings.
-          </SheetDescription>
-        </SheetHeader>
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="stripe">{t('globalStripeSettingsTab')}</TabsTrigger>
-            <TabsTrigger value="notifications">{t('notificationSettingsTab')}</TabsTrigger>
-            <TabsTrigger value="domain">{t('domainLinkSettingsTab')}</TabsTrigger>
-          </TabsList>
-          <TabsContent value="stripe" className="pt-4">
-            <GlobalStripeSettingsPanel embedded />
-          </TabsContent>
-          <TabsContent value="notifications" className="pt-4">
-            <NotificationSettingsPanel embedded />
-          </TabsContent>
-          <TabsContent value="domain" className="pt-4">
-            <DomainSettingsPanel embedded />
-          </TabsContent>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
   );
 }
 
@@ -1556,49 +1467,28 @@ export default function AdminLocations() {
             <h1 className="text-2xl md:text-3xl font-bold">{t('locationManagementTitle')}</h1>
             <p className="text-muted-foreground text-sm md:text-base">{t('manageAllGemachLocations')}</p>
           </div>
-          <div className="mt-4 md:mt-0 flex items-center gap-2 flex-wrap">
-            <AdminSettingsSheet />
-            <div className="inline-flex items-center rounded-md border bg-background overflow-hidden">
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <Button
-                  onClick={() => setIsCreateDialogOpen(true)}
-                  className="rounded-none border-0"
-                  data-testid="button-add-new-location"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t('addNewLocation')}
-                </Button>
-                <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>{t('createNewLocation')}</DialogTitle>
-                    <DialogDescription>{t('addNewLocationDescription')}</DialogDescription>
-                  </DialogHeader>
-                  <LocationForm regions={regions} onSuccess={() => setIsCreateDialogOpen(false)} />
-                </DialogContent>
-              </Dialog>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-none border-l h-10"
-                    aria-label={t('regionsAndCommunities')}
-                    data-testid="button-manage-taxonomy-menu"
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => { setEditingRegion(null); setIsRegionDialogOpen(true); }}
-                    data-testid="menu-item-manage-taxonomy"
-                  >
-                    <Globe className="mr-2 h-4 w-4" />
-                    {t('regionsAndCommunities')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+          <div className="mt-4 md:mt-0 flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setEditingRegion(null); setIsRegionDialogOpen(true); }}
+              data-testid="button-manage-taxonomy"
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Regions & Communities
+            </Button>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                {t('addNewLocation')}
+              </Button>
+              <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{t('createNewLocation')}</DialogTitle>
+                  <DialogDescription>{t('addNewLocationDescription')}</DialogDescription>
+                </DialogHeader>
+                <LocationForm regions={regions} onSuccess={() => setIsCreateDialogOpen(false)} />
+              </DialogContent>
+            </Dialog>
           </div>
 
           <TaxonomyPanel
@@ -1609,27 +1499,43 @@ export default function AdminLocations() {
           />
         </div>
 
-        {/* Stats Tiles — compact square */}
-        <div className="grid grid-cols-3 gap-3 mb-6 max-w-md">
+        <GlobalStripeSettingsPanel />
+        <NotificationSettingsPanel />
+        <DomainSettingsPanel />
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <Card>
-            <CardContent className="p-3 aspect-square flex flex-col items-center justify-center text-center gap-1">
-              <Building2 className="h-5 w-5 text-blue-600" />
-              <p className="text-xl font-bold leading-none">{totalLocations}</p>
-              <p className="text-[11px] text-muted-foreground leading-tight">{t('totalLocations')}</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 rounded-full bg-blue-100">
+                <Building2 className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{totalLocations}</p>
+                <p className="text-sm text-muted-foreground">{t('totalLocations')}</p>
+              </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-3 aspect-square flex flex-col items-center justify-center text-center gap-1">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <p className="text-xl font-bold leading-none">{activeLocations}</p>
-              <p className="text-[11px] text-muted-foreground leading-tight">{t('active')}</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 rounded-full bg-green-100">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{activeLocations}</p>
+                <p className="text-sm text-muted-foreground">{t('active')}</p>
+              </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-3 aspect-square flex flex-col items-center justify-center text-center gap-1">
-              <XCircle className="h-5 w-5 text-gray-500" />
-              <p className="text-xl font-bold leading-none">{inactiveLocations}</p>
-              <p className="text-[11px] text-muted-foreground leading-tight">{t('inactive')}</p>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="p-3 rounded-full bg-gray-100">
+                <XCircle className="h-6 w-6 text-gray-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{inactiveLocations}</p>
+                <p className="text-sm text-muted-foreground">{t('inactive')}</p>
+              </div>
             </CardContent>
           </Card>
         </div>

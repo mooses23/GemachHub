@@ -17,8 +17,6 @@ function detectLang(): Language {
   return "en";
 }
 
-void ensureRest(detectLang());
-
 function lazyWithRest<P extends object>(factory: () => Promise<{ default: ComponentType<P> }>) {
   return lazy(async () => {
     await ensureRest(detectLang());

@@ -97,6 +97,7 @@ export default function PaymentStatusMonitor() {
   if (analyticsLoading) {
     return (
       <div className="space-y-6">
+        <h1 className="text-2xl font-bold">{t('paymentStatusMonitor')}</h1>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
@@ -105,10 +106,16 @@ export default function PaymentStatusMonitor() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end items-center">
-        <Button
-          size="sm"
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">{t('paymentStatusMonitor')}</h1>
+          <p className="text-gray-600 mt-1">
+            {t('paymentStatusMonitorDescription')}
+          </p>
+        </div>
+        
+        <Button 
           onClick={() => statusCheckMutation.mutate()}
           disabled={statusCheckMutation.isPending}
           className="flex items-center gap-2"

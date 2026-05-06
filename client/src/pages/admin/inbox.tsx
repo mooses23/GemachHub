@@ -25,7 +25,7 @@ import { useInboxFilters } from "./inbox/useInboxFilters";
 import { useInboxKeyboardShortcuts } from "./inbox/useKeyboardShortcuts";
 import { ShortcutsHelp } from "./inbox/ShortcutsHelp";
 import { SuggestedDraftCard } from "./inbox/SuggestedDraftCard";
-import { Brain } from "lucide-react";
+import { Keyboard } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +72,7 @@ import {
   Pencil,
   Eye,
   EyeOff,
+  BookOpen,
   Archive,
   ShieldAlert,
   ShieldCheck,
@@ -2053,21 +2054,16 @@ export default function AdminInbox() {
             )}
             <Dialog open={glossaryOpen} onOpenChange={setGlossaryOpen}>
               <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  data-testid="button-open-glossary"
-                  aria-label={t("aiKnowledgeBase")}
-                  title={t("aiKnowledgeBase")}
-                >
-                  <Brain className="h-4 w-4" />
+                <Button variant="outline" size="sm" data-testid="button-open-glossary">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  AI Knowledge Base
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <Brain className="h-5 w-5" />
-                    {t("aiKnowledgeBase")}
+                    <BookOpen className="h-5 w-5" />
+                    AI Knowledge Base
                   </DialogTitle>
                   <DialogDescription>
                     Edit the facts and FAQ answers the AI uses when drafting replies in this inbox.
@@ -2079,14 +2075,16 @@ export default function AdminInbox() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleRefresh}
-              disabled={emailQueries.isFetching}
-              data-testid="button-refresh"
-              aria-label={t("refresh")}
-              title={t("refresh")}
+              onClick={() => setHelpOpen(true)}
+              data-testid="button-show-shortcuts"
+              aria-label="Show keyboard shortcuts"
+              title="Keyboard shortcuts (?)"
             >
-              <RefreshCw className={`h-4 w-4 sm:mr-2 ${emailQueries.isFetching ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">{t("refresh")}</span>
+              <Keyboard className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={emailQueries.isFetching} data-testid="button-refresh">
+              <RefreshCw className={`h-4 w-4 mr-2 ${emailQueries.isFetching ? "animate-spin" : ""}`} />
+              {t("refresh")}
             </Button>
           </div>
         </div>
@@ -2112,7 +2110,7 @@ export default function AdminInbox() {
                 key={key}
                 type="button"
                 onClick={() => handleFolderChange(key)}
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
                   active
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background text-foreground hover-elevate"
@@ -2120,11 +2118,11 @@ export default function AdminInbox() {
                 data-testid={`tab-folder-${key}`}
                 aria-pressed={active}
               >
-                <Icon className="h-3 w-3" />
+                <Icon className="h-3.5 w-3.5" />
                 <span>{label}</span>
                 {count > 0 && (
                   <span
-                    className={`ml-0.5 rounded-full px-1 text-[10px] font-medium ${
+                    className={`ml-1 rounded-full px-1.5 text-[10px] font-medium ${
                       active ? "bg-primary-foreground/20" : "bg-muted"
                     }`}
                     data-testid={`tab-folder-${key}-count`}
