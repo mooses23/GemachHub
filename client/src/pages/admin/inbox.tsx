@@ -110,6 +110,18 @@ export default function AdminInbox() {
   // so j/k navigation continues from the same position.
   const backButtonRef = useRef<HTMLButtonElement | null>(null);
   const lastOpenedRowKeyRef = useRef<string | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const handleToolbarKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      el.scrollBy({ left: 120, behavior: "smooth" });
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      el.scrollBy({ left: -120, behavior: "smooth" });
+    }
+  }, []);
   useEffect(() => {
     if (selected) {
       // Defer to the next tick so the detail pane has actually mounted.
@@ -2076,7 +2088,13 @@ export default function AdminInbox() {
             All items share one row so nothing wraps onto a second line on mobile.
             Counts come from /api/admin/inbox/counts (authoritative server-side unread
             counts) so each chip shows actionable work rather than total backlog. */}
-        <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none" role="toolbar" aria-label="Inbox folders and actions">
+        <div
+          ref={toolbarRef}
+          className="flex items-center gap-2 mb-3 overflow-x-auto pb-1 scrollbar-none"
+          role="toolbar"
+          aria-label="Inbox folders and actions"
+          onKeyDown={handleToolbarKeyDown}
+        >
           {(() => {
             const counts = inboxCountsQuery.data ?? { inbox: 0, sent: 0, spam: 0, trash: 0 };
             return [
@@ -2092,7 +2110,8 @@ export default function AdminInbox() {
                 key={key}
                 type="button"
                 onClick={() => handleFolderChange(key)}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                onFocus={(e) => e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" })}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                   active
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background text-foreground hover-elevate"
