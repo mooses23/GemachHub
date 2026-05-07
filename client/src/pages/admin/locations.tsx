@@ -115,6 +115,8 @@ import {
   Clock,
   MinusCircle,
   ChevronUp,
+  DollarSign,
+  BarChart3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -2272,7 +2274,7 @@ export default function AdminLocations() {
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-red-600">{t('deleteLocationConfirm')}</DialogTitle>
               <DialogDescription>
@@ -2807,7 +2809,7 @@ export default function AdminLocations() {
           setIsPinDialogOpen(open);
           if (!open) { setNewPin(""); setConfirmPin(""); setPinLocation(null); }
         }}>
-          <DialogContent className="sm:max-w-[400px]">
+          <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <KeyRound className="h-5 w-5 text-primary" />
@@ -2874,7 +2876,7 @@ export default function AdminLocations() {
           setIsEmailDialogOpen(open);
           if (!open) { setEmailEditValue(""); setEmailEditLocation(null); }
         }}>
-          <DialogContent className="sm:max-w-[400px]">
+          <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5 text-primary" />
@@ -2923,7 +2925,7 @@ export default function AdminLocations() {
           setIsPhoneDialogOpen(open);
           if (!open) { setPhoneEditValue(""); setPhoneEditLocation(null); }
         }}>
-          <DialogContent className="sm:max-w-[400px]">
+          <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Phone className="h-5 w-5 text-primary" />

@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Location, Transaction, GemachApplication, Contact } from "@/lib/types";
 import {
   MapPin, FileText, Settings, Grid, List,
   DollarSign, AlarmClock, BarChart3, Mail, MessageSquare,
@@ -46,6 +45,20 @@ interface SystemStatus {
   database: { ok: boolean; latencyMs?: number; error?: string };
   stripe: { ok: boolean; configured: boolean; latencyMs?: number; error?: string };
   gmail: { ok: boolean; configured: boolean; message?: string };
+}
+interface DashboardSummary {
+  counts: {
+    totalLocations: number;
+    activeLocations: number;
+    phonelessCount: number;
+    pendingReturns: number;
+    depositTotal: number;
+    pendingApplications: number;
+    unreadContacts: number;
+  };
+  gmail: { configured: boolean; environment: string; message: string };
+  notifications: { adminEmail: string; effectiveEmail: string; source: "db" | "env" | "none" };
+  disputes: DisputeSummary;
 }
 interface ActivityItem {
   kind: "transaction" | "application" | "contact";
@@ -300,17 +313,9 @@ export default function Dashboard() {
     const next = new Set(prev); next.add(id); return next;
   });
 
-  const locationsQ = useQuery<Location[]>({ queryKey: ["/api/locations"] });
-  const transactionsQ = useQuery<Transaction[]>({ queryKey: ["/api/transactions"] });
-  const applicationsQ = useQuery<GemachApplication[]>({ queryKey: ["/api/applications"] });
-  const contactsQ = useQuery<Contact[]>({ queryKey: ["/api/contact"] });
-  const gmailQ = useQuery<{ configured: boolean; environment: string; message: string }>({
-    queryKey: ["/api/admin/emails/status"], staleTime: 60_000,
-  });
-  const notifQ = useQuery<{ adminEmail: string; effectiveEmail: string; source: "db" | "env" | "none" }>({
-    queryKey: ["/api/admin/settings/notifications"], staleTime: 60_000,
-  });
-  const disputesQ = useQuery<DisputeSummary>({ queryKey: ["/api/admin/disputes/summary"] });
+  // Single aggregated request — server fans out the 7 underlying calls in parallel.
+  // Cuts cold-start fan-out on Vercel from ~7 lambdas to 1 for the top-of-page KPIs.
+  const summaryQ = useQuery<DashboardSummary>({ queryKey: ["/api/admin/dashboard/summary"] });
   const statusQ = useQuery<SystemStatus>({
     queryKey: ["/api/admin/system/status"], staleTime: 30_000,
   });
@@ -318,24 +323,19 @@ export default function Dashboard() {
     queryKey: ["/api/admin/recent-activity"], staleTime: 30_000,
   });
 
-  const locations = locationsQ.data ?? [];
-  const transactions = transactionsQ.data ?? [];
-  const applications = applicationsQ.data ?? [];
-  const contacts = contactsQ.data ?? [];
+  const counts = summaryQ.data?.counts;
+  const totalLocations = counts?.totalLocations ?? 0;
+  const activeLocations = counts?.activeLocations ?? 0;
+  const phonelessCount = counts?.phonelessCount ?? 0;
+  const pendingReturns = counts?.pendingReturns ?? 0;
+  const depositTotal = counts?.depositTotal ?? 0;
+  const pendingApplications = counts?.pendingApplications ?? 0;
+  const unreadContacts = counts?.unreadContacts ?? 0;
 
-  const pendingApplications = applications.filter(app => app.status === "pending").length;
-  const activeLocations = locations.filter(loc => loc.isActive).length;
-  const pendingReturns = transactions.filter(tx => !tx.isReturned).length;
-  const unreadContacts = contacts.filter(c => !c.isRead).length;
-  const depositTotal = transactions
-    .filter(tx => !tx.isReturned)
-    .reduce((acc, tx) => acc + (tx.depositAmount || 0), 0);
-
-  const phonelessCount = locations.filter(
-    loc => loc.isActive !== false && !loc.phone && !loc.onboardedAt
-  ).length;
-
-  const flaggedLocations = (disputesQ.data?.rows ?? []).filter(r => r.flagged);
+  const gmailQ = { data: summaryQ.data?.gmail };
+  const notifQ = { data: summaryQ.data?.notifications };
+  const disputesQ = { data: summaryQ.data?.disputes };
+  const flaggedLocations = (summaryQ.data?.disputes?.rows ?? []).filter(r => r.flagged);
 
   // Build alerts
   const alerts: AlertRow[] = [];
@@ -402,6 +402,7 @@ export default function Dashboard() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contact"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard/summary"] });
       toast({
         title: data.updated > 0
           ? t('markedAllRead').replace('{count}', String(data.updated))
@@ -453,7 +454,7 @@ export default function Dashboard() {
     );
   };
 
-  const statsLoading = locationsQ.isLoading || transactionsQ.isLoading || applicationsQ.isLoading || contactsQ.isLoading;
+  const statsLoading = summaryQ.isLoading;
 
   // Recent activity
   const renderActivity = () => {
@@ -577,7 +578,7 @@ export default function Dashboard() {
           <>
             <StatTile
               title={t('totalLocations')}
-              value={locations.length}
+              value={totalLocations}
               subtitle={`${activeLocations} ${t('activeLocations')}`}
               icon={MapPin}
               href="/admin/locations"

@@ -314,7 +314,7 @@ export default function AdminTransactions() {
 
       <div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogContent className="sm:max-w-[550px]">
+            <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{t('addNewTransaction')}</DialogTitle>
                 <DialogDescription>{t('recordNewTransactionDescription')}</DialogDescription>
@@ -643,7 +643,7 @@ export default function AdminTransactions() {
 
       {/* ── Shared dialogs ─────────────────────────────────────────────── */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('editTransaction')}</DialogTitle>
             <DialogDescription>{t('editTransactionDescription')}</DialogDescription>
@@ -655,7 +655,7 @@ export default function AdminTransactions() {
       </Dialog>
 
       <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5" />

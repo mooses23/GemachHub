@@ -62,6 +62,10 @@ Preferred communication style: Simple, everyday language.
 - **Features**: Clickable phone, SMS, and WhatsApp links with pre-filled, localized messages.
 - **Integration**: Used in location cards and self-deposit forms.
 
+### Admin Dashboard Performance
+- **Aggregated summary endpoint**: `/api/admin/dashboard/summary` fans out 7 storage reads (locations, transactions, applications, contacts, dispute stats, gmail status, notification settings) in parallel server-side, replacing 7 client-side requests — critical on Vercel serverless where each `/api/*` call triggers its own lambda cold-start.
+- **System status endpoint**: `/api/admin/system/status` runs DB / Stripe / Gmail pings in parallel with a 3 s per-check timeout.
+
 ### Schema Management & Hardening
 - **Schema Upgrades**: `ensureSchemaUpgrades()` with `safe()` helper for fault-tolerant schema alterations.
 - **Schema Drift Detection**: `runSchemaDriftCheck()` verifies schema integrity post-upgrades (production only).

@@ -5754,47 +5754,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/system/status", async (req, res) => {
     if (!requireAdminDash(req, res)) return;
-    const out: {
-      database: { ok: boolean; latencyMs?: number; error?: string };
-      stripe: { ok: boolean; configured: boolean; latencyMs?: number; error?: string };
-      gmail: { ok: boolean; configured: boolean; message?: string };
-    } = {
-      database: { ok: false },
-      stripe: { ok: false, configured: false },
-      gmail: { ok: false, configured: false },
-    };
 
-    // DB ping
-    try {
+    // 3s per-check timeout so a slow upstream cannot stall the whole panel.
+    const withTimeout = <T,>(p: Promise<T>, ms = 3000): Promise<T> =>
+      Promise.race<T>([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error("status check timed out")), ms)
+        ),
+      ]);
+
+    // Run DB / Stripe / Gmail checks in parallel — Vercel serverless cold-start
+    // amplifies any sequential await, so we fan out and let each tolerate failure.
+    const dbPromise = (async () => {
       const t0 = Date.now();
-      await storage.getRegion(1);
-      out.database = { ok: true, latencyMs: Date.now() - t0 };
-    } catch (err: any) {
-      out.database = { ok: false, error: err?.message || "DB unreachable" };
-    }
+      try {
+        await withTimeout(storage.getRegion(1));
+        return { ok: true, latencyMs: Date.now() - t0 };
+      } catch (err: any) {
+        return { ok: false, error: err?.message || "DB unreachable" };
+      }
+    })();
 
-    // Stripe reachability — only attempt if configured
-    try {
-      const stripe = getStripeClient();
-      out.stripe.configured = true;
+    const stripePromise = (async () => {
       const t0 = Date.now();
-      await stripe.balance.retrieve();
-      out.stripe = { ok: true, configured: true, latencyMs: Date.now() - t0 };
-    } catch (err: any) {
-      const msg = err?.message || "";
-      const configured = !/not configured|missing|STRIPE_SECRET/i.test(msg);
-      out.stripe = { ok: false, configured, error: msg || "Stripe unreachable" };
-    }
+      try {
+        const stripe = getStripeClient();
+        await withTimeout(stripe.balance.retrieve() as Promise<any>);
+        return { ok: true, configured: true, latencyMs: Date.now() - t0 };
+      } catch (err: any) {
+        const msg = err?.message || "";
+        const configured = !/not configured|missing|STRIPE_SECRET/i.test(msg);
+        return { ok: false, configured, error: msg || "Stripe unreachable" };
+      }
+    })();
 
-    // Gmail
+    const gmailPromise = (async () => {
+      try {
+        const gs = await withTimeout(getGmailConfigStatus());
+        return { ok: !!gs.configured, configured: !!gs.configured, message: gs.message };
+      } catch (err: any) {
+        return { ok: false, configured: false, message: err?.message };
+      }
+    })();
+
+    const [database, stripe, gmail] = await Promise.all([dbPromise, stripePromise, gmailPromise]);
+    res.json({ database, stripe, gmail });
+  });
+
+  // Aggregated dashboard summary — replaces ~7 parallel client requests with a
+  // single server-side fan-out. Massively cuts cold-start fan-out on Vercel
+  // serverless (where each /api/* triggers its own lambda warm-up).
+  app.get("/api/admin/dashboard/summary", async (req, res) => {
+    if (!requireAdminDash(req, res)) return;
     try {
-      const gs = await getGmailConfigStatus();
-      out.gmail = { ok: !!gs.configured, configured: !!gs.configured, message: gs.message };
-    } catch (err: any) {
-      out.gmail = { ok: false, configured: false, message: err?.message };
-    }
+      const WARN_THRESHOLD = 0.005;
+      const settled = await Promise.allSettled([
+        storage.getAllLocations(),
+        storage.getAllTransactions(),
+        storage.getAllApplications(),
+        storage.getAllContacts(),
+        storage.getRecentDisputeStats(30),
+        getGmailConfigStatus(),
+        storage.getGlobalSetting(ADMIN_NOTIFICATION_EMAIL_KEY),
+      ]);
+      const pick = <T,>(i: number, fallback: T): T =>
+        settled[i].status === 'fulfilled' ? (settled[i] as PromiseFulfilledResult<T>).value : fallback;
 
-    res.json(out);
+      const locations = pick<any[]>(0, []);
+      const transactions = pick<any[]>(1, []);
+      const applications = pick<any[]>(2, []);
+      const contacts = pick<any[]>(3, []);
+      const disputeStats = pick<any[]>(4, []);
+      const gmailStatus = pick<any>(5, { configured: false, environment: '', message: '' });
+      const notifRow = pick<any>(6, null);
+
+      const totalLocations = locations.length;
+      const activeLocations = locations.filter((l: any) => l.isActive).length;
+      const phonelessCount = locations.filter(
+        (l: any) => l.isActive !== false && !l.phone && !l.onboardedAt
+      ).length;
+      const pendingReturns = transactions.filter((tx: any) => !tx.isReturned).length;
+      const depositTotal = transactions
+        .filter((tx: any) => !tx.isReturned)
+        .reduce((acc: number, tx: any) => acc + (tx.depositAmount || 0), 0);
+      const pendingApplications = applications.filter((a: any) => a.status === 'pending').length;
+      const unreadContacts = contacts.filter((c: any) => !c.isRead).length;
+
+      const locById = new Map(locations.map((l: any) => [l.id, l]));
+      const disputeRows = disputeStats.map((s: any) => ({
+        ...s,
+        locationName: (locById.get(s.locationId) as any)?.name || `Location #${s.locationId}`,
+        flagged: s.rate >= WARN_THRESHOLD,
+      })).sort((a: any, b: any) => b.rate - a.rate);
+
+      // Best-effort notif source — mirrors /api/admin/settings/notifications.
+      const dbValue = (notifRow?.value || '').trim();
+      const envValue = (process.env.ADMIN_EMAIL || process.env.GMAIL_USER || '').trim();
+      const notifSource: 'db' | 'env' | 'none' = dbValue ? 'db' : envValue ? 'env' : 'none';
+      const adminEmail = dbValue;
+      const effectiveEmail = dbValue || envValue || '';
+
+      res.json({
+        counts: {
+          totalLocations,
+          activeLocations,
+          phonelessCount,
+          pendingReturns,
+          depositTotal,
+          pendingApplications,
+          unreadContacts,
+        },
+        gmail: {
+          configured: !!gmailStatus.configured,
+          environment: gmailStatus.environment || '',
+          message: gmailStatus.message || '',
+        },
+        notifications: { adminEmail, effectiveEmail, source: notifSource },
+        disputes: { warnThreshold: WARN_THRESHOLD, windowDays: 30, rows: disputeRows },
+      });
+    } catch (err: any) {
+      console.error("admin/dashboard/summary error:", err);
+      res.status(500).json({ message: err.message || "Failed to load summary" });
+    }
   });
 
   app.get("/api/admin/recent-activity", async (req, res) => {
