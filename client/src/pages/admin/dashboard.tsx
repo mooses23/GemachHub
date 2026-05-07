@@ -315,7 +315,12 @@ export default function Dashboard() {
 
   // Single aggregated request — server fans out the 7 underlying calls in parallel.
   // Cuts cold-start fan-out on Vercel from ~7 lambdas to 1 for the top-of-page KPIs.
-  const summaryQ = useQuery<DashboardSummary>({ queryKey: ["/api/admin/dashboard/summary"] });
+  // Explicit 30s staleTime overrides the global `Infinity` so dashboard counts
+  // refresh naturally after admin edits made elsewhere in the app.
+  const summaryQ = useQuery<DashboardSummary>({
+    queryKey: ["/api/admin/dashboard/summary"],
+    staleTime: 30_000,
+  });
   const statusQ = useQuery<SystemStatus>({
     queryKey: ["/api/admin/system/status"], staleTime: 30_000,
   });
