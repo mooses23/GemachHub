@@ -45,6 +45,9 @@ const Contact = lazyWithRest(() => import("@/pages/contact"));
 const Borrow = lazyWithRest(() => import("@/pages/borrow"));
 const AuthPage = lazyWithRest(() => import("@/pages/auth-page"));
 const Rules = lazyWithRest(() => import("@/pages/rules"));
+const PrivacyPolicy = lazyWithRest(() => import("@/pages/privacy-policy"));
+const Terms = lazyWithRest(() => import("@/pages/terms"));
+const SmsPolicy = lazyWithRest(() => import("@/pages/sms-policy"));
 
 const SelfDepositPage = lazyWithRest(() => import("@/pages/self-deposit"));
 const StatusPage = lazyWithRest(() => import("@/pages/status"));
@@ -96,6 +99,9 @@ function LayoutRouter() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/self-deposit" component={SelfDepositPage} />
         <Route path="/rules" component={Rules} />
+        <Route path="/privacy-policy" component={PrivacyPolicy} />
+        <Route path="/terms" component={Terms} />
+        <Route path="/sms-policy" component={SmsPolicy} />
         <Route path="/status/:transactionId" component={StatusPage} />
 
         {/* Protected Admin Routes */}

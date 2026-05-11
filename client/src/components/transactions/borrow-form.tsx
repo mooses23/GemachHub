@@ -32,6 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
 import { apiRequest } from "@/lib/queryClient";
 import { Location } from "@shared/schema";
+import { SmsConsentText, SmsConsentCheckbox } from "@/components/ui/sms-consent";
 
 const borrowFormSchema = z.object({
   locationId: z.string().min(1, "Please select a location"),
@@ -40,6 +41,9 @@ const borrowFormSchema = z.object({
   borrowerPhone: z.string().min(10, "Please enter a valid phone number"),
   expectedReturnDate: z.string().min(1, "Expected return date is required"),
   notes: z.string().optional(),
+  smsConsent: z.boolean().refine((val) => val === true, {
+    message: "Please agree to receive SMS updates so we can reach you about your request.",
+  }),
 });
 
 type BorrowFormValues = z.infer<typeof borrowFormSchema>;
@@ -62,6 +66,7 @@ export function BorrowForm() {
       borrowerPhone: "",
       expectedReturnDate: "",
       notes: "",
+      smsConsent: false,
     },
   });
 
@@ -188,11 +193,29 @@ export function BorrowForm() {
                     <FormControl>
                       <Input placeholder={t("phonePlaceholder")} {...field} />
                     </FormControl>
+                    <SmsConsentText className="text-muted-foreground mt-2" />
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="smsConsent"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <SmsConsentCheckbox
+                      id="borrow-sms-consent"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

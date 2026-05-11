@@ -92,8 +92,21 @@ export function Footer() {
 
         <Separator className="border-neutral-700 mt-8 mb-8" />
 
-        <div className="text-center text-neutral-400 text-sm">
+        <div className="text-center text-neutral-400 text-sm space-y-2">
           <p>© {new Date().getFullYear()} {t("babyBanzEarmuffsGemach")}. {t("allRightsReserved")}</p>
+          <p className="text-xs text-neutral-500">
+            <Link href="/privacy-policy" className="hover:text-neutral-300 transition-colors">
+              Privacy Policy
+            </Link>
+            <span className="mx-2">|</span>
+            <Link href="/terms" className="hover:text-neutral-300 transition-colors">
+              Terms
+            </Link>
+            <span className="mx-2">|</span>
+            <Link href="/sms-policy" className="hover:text-neutral-300 transition-colors">
+              SMS Policy
+            </Link>
+          </p>
         </div>
       </div>
     </footer>

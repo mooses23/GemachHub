@@ -17,6 +17,7 @@ import UniversalPaymentProcessor from "@/components/payment/universal-payment-pr
 import { FeeCalculator } from "@/components/payment/fee-calculator";
 import { CreditCard, DollarSign, MapPin, Phone, Mail, User } from "lucide-react";
 import { ContactActionsLight } from "@/components/ui/contact-actions";
+import { SmsConsentText, SmsConsentCheckbox } from "@/components/ui/sms-consent";
 import { useSearch } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -30,6 +31,7 @@ export function SelfDeposit() {
   const [borrowerName, setBorrowerName] = useState("");
   const [borrowerEmail, setBorrowerEmail] = useState("");
   const [borrowerPhone, setBorrowerPhone] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [showPayment, setShowPayment] = useState(false);
 
@@ -68,7 +70,9 @@ export function SelfDeposit() {
     };
   }, [selectedLocationData, showPayment]);
 
-  const canProceedToPayment = selectedLocation && borrowerName && borrowerEmail && selectedPaymentMethod;
+  const phoneProvided = borrowerPhone.trim().length > 0;
+  const smsConsentOk = !phoneProvided || smsConsent;
+  const canProceedToPayment = selectedLocation && borrowerName && borrowerEmail && selectedPaymentMethod && smsConsentOk;
 
   const handleProceedToPayment = () => {
     if (canProceedToPayment) {
@@ -159,6 +163,7 @@ export function SelfDeposit() {
                           setBorrowerName("");
                           setBorrowerEmail("");
                           setBorrowerPhone("");
+                          setSmsConsent(false);
                           setSelectedPaymentMethod("");
                         }}
                       />
@@ -301,6 +306,16 @@ export function SelfDeposit() {
                     onChange={(e) => setBorrowerPhone(e.target.value)}
                     placeholder="(555) 123-4567"
                   />
+                  <SmsConsentText className="text-gray-500 mt-2" />
+                  {phoneProvided && (
+                    <div className="mt-3">
+                      <SmsConsentCheckbox
+                        id="self-deposit-sms-consent"
+                        checked={smsConsent}
+                        onCheckedChange={setSmsConsent}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>

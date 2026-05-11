@@ -38,10 +38,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { LoaderCircle, CheckCircle2, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SmsConsentText, SmsConsentCheckbox } from "@/components/ui/sms-consent";
 
 const formSchema = insertGemachApplicationSchema.extend({
   terms: z.boolean().refine((val) => val === true, {
     message: "You must agree to the terms to submit an application.",
+  }),
+  smsConsent: z.boolean().refine((val) => val === true, {
+    message: "Please agree to receive SMS updates so we can reach you.",
   }),
 });
 
@@ -76,6 +80,7 @@ export function ApplyForm() {
       community: "",
       message: "",
       terms: false,
+      smsConsent: false,
     },
   });
 
@@ -115,7 +120,7 @@ export function ApplyForm() {
   });
 
   const onSubmit = (data: FormValues) => {
-    const { terms, ...applicationData } = data;
+    const { terms, smsConsent, ...applicationData } = data;
     mutate(applicationData);
   };
 
@@ -191,6 +196,25 @@ export function ApplyForm() {
                     <FormLabel className="text-slate-200">{t("phoneNumber")}</FormLabel>
                     <FormControl>
                       <Input type="tel" {...field} />
+                    </FormControl>
+                    <SmsConsentText className="text-slate-400 mt-2" />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="smsConsent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <SmsConsentCheckbox
+                        id="apply-sms-consent"
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        labelClassName="text-slate-200"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
