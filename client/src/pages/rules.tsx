@@ -132,11 +132,24 @@ export default function Rules() {
             </div>
           </div>
 
-          <div className="text-center mt-10 pt-8 border-t border-slate-700/50">
+          <div className="text-center mt-10 pt-8 border-t border-slate-700/50 space-y-3">
             <p className="text-slate-400">
               {t("rulesQuestion")}{" "}
               <a href="/contact" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
                 {t("contactUsForClarification")}
+              </a>
+            </p>
+            <p className="text-slate-500 text-sm">
+              <a href="/privacy-policy" className="hover:text-slate-300 transition-colors">
+                Privacy Policy
+              </a>
+              <span className="mx-2">|</span>
+              <a href="/terms" className="hover:text-slate-300 transition-colors">
+                Terms
+              </a>
+              <span className="mx-2">|</span>
+              <a href="/sms-policy" className="hover:text-slate-300 transition-colors">
+                SMS Policy
               </a>
             </p>
           </div>
