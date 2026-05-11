@@ -1145,6 +1145,10 @@ export class DatabaseStorage implements IStorage {
     return inserted[0];
   }
 
+  async deleteGlobalSetting(key: string): Promise<void> {
+    await db.delete(globalSettings).where(eq(globalSettings.key, key));
+  }
+
   // Task #39: Stripe Disputes
   async createDispute(dispute: InsertDispute): Promise<Dispute> {
     // Idempotent on stripe_dispute_id (UNIQUE in schema). On conflict, return existing row.

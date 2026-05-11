@@ -212,6 +212,7 @@ export interface IStorage {
   // Task #39: Global Settings (key/value, primarily Stripe risk knobs)
   getGlobalSetting(key: string): Promise<GlobalSetting | undefined>;
   setGlobalSetting(key: string, value: string): Promise<GlobalSetting>;
+  deleteGlobalSetting(key: string): Promise<void>;
 
   // Task #39: Stripe Disputes (per-gemach 30-day risk monitoring)
   createDispute(dispute: InsertDispute): Promise<Dispute>;
@@ -3332,6 +3333,9 @@ export class MemStorage implements IStorage {
     };
     this.globalSettingsMap.set(key, setting);
     return setting;
+  }
+  async deleteGlobalSetting(key: string): Promise<void> {
+    this.globalSettingsMap.delete(key);
   }
 
   // Task #39: Disputes (in-memory shim)

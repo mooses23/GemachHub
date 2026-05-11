@@ -108,7 +108,6 @@ function LayoutRouter() {
         <ProtectedRoute path="/admin/glossary" component={withAdminLayout(AdminGlossary)} requiredRole="admin" />
 
         {/* Redirects — merged pages now live inside /admin/transactions */}
-        <Route path="/admin/payment-methods">{() => <Redirect to="/admin/locations" />}</Route>
         <Route path="/admin/payment-status" component={withAdminLayout(AdminPaymentStatus)} />
         <Route path="/admin/analytics">{() => <Redirect to="/admin/transactions" />}</Route>
         <Route path="/admin/emails">{() => <Redirect to="/admin/inbox" />}</Route>

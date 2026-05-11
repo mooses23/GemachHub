@@ -5456,20 +5456,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Task #217: global Stripe-fee override (replaces dormant payment_methods row).
+      // `null` clears the override (fall back to per-location config / defaults);
+      // `undefined` leaves the field untouched.
       const overridePatch: { percentBp?: number | null; fixedCents?: number | null } = {};
       if (globalFeePercentBp !== undefined) {
-        const n = Number(globalFeePercentBp);
-        if (!Number.isFinite(n) || n < 0 || n > 10000) {
-          return res.status(400).json({ message: "globalFeePercentBp must be 0-10000 (basis points)" });
+        if (globalFeePercentBp === null) {
+          overridePatch.percentBp = null;
+        } else {
+          const n = Number(globalFeePercentBp);
+          if (!Number.isFinite(n) || n < 0 || n > 10000) {
+            return res.status(400).json({ message: "globalFeePercentBp must be 0-10000 (basis points), or null to clear" });
+          }
+          overridePatch.percentBp = n;
         }
-        overridePatch.percentBp = n;
       }
       if (globalFeeFixedCents !== undefined) {
-        const n = Number(globalFeeFixedCents);
-        if (!Number.isFinite(n) || n < 0 || n > 9999) {
-          return res.status(400).json({ message: "globalFeeFixedCents must be 0-9999" });
+        if (globalFeeFixedCents === null) {
+          overridePatch.fixedCents = null;
+        } else {
+          const n = Number(globalFeeFixedCents);
+          if (!Number.isFinite(n) || n < 0 || n > 9999) {
+            return res.status(400).json({ message: "globalFeeFixedCents must be 0-9999, or null to clear" });
+          }
+          overridePatch.fixedCents = n;
         }
-        overridePatch.fixedCents = n;
       }
       if (Object.keys(overridePatch).length > 0) {
         await setStripeFeeOverride(overridePatch);

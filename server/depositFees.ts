@@ -68,11 +68,17 @@ export async function getStripeFeeOverride(): Promise<StripeFeeOverride> {
   };
 }
 
+// Pass `null` for either field to clear (delete) that override and fall back
+// to per-location config / hard defaults. `undefined` leaves the field untouched.
 export async function setStripeFeeOverride(override: { percentBp?: number | null; fixedCents?: number | null }): Promise<void> {
-  if (override.percentBp != null && Number.isFinite(override.percentBp)) {
+  if (override.percentBp === null) {
+    await storage.deleteGlobalSetting(STRIPE_FEE_PERCENT_BP_KEY);
+  } else if (override.percentBp !== undefined && Number.isFinite(override.percentBp)) {
     await storage.setGlobalSetting(STRIPE_FEE_PERCENT_BP_KEY, String(Math.max(0, Math.floor(Number(override.percentBp)))));
   }
-  if (override.fixedCents != null && Number.isFinite(override.fixedCents)) {
+  if (override.fixedCents === null) {
+    await storage.deleteGlobalSetting(STRIPE_FEE_FIXED_CENTS_KEY);
+  } else if (override.fixedCents !== undefined && Number.isFinite(override.fixedCents)) {
     await storage.setGlobalSetting(STRIPE_FEE_FIXED_CENTS_KEY, String(Math.max(0, Math.floor(Number(override.fixedCents)))));
   }
 }

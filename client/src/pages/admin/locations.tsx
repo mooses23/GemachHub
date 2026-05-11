@@ -314,8 +314,10 @@ function StripeSettingsForm() {
       };
       const trimmedPct = globalFeePercentBp.trim();
       const trimmedFixed = globalFeeFixedCents.trim();
-      if (trimmedPct !== "") body.globalFeePercentBp = Number(trimmedPct);
-      if (trimmedFixed !== "") body.globalFeeFixedCents = Number(trimmedFixed);
+      // Send null when blank so the backend clears the override and we fall back
+      // to per-location config / defaults.
+      body.globalFeePercentBp = trimmedPct === "" ? null : Number(trimmedPct);
+      body.globalFeeFixedCents = trimmedFixed === "" ? null : Number(trimmedFixed);
       const res = await apiRequest("PATCH", "/api/admin/settings/stripe", body);
       return res.json();
     },
