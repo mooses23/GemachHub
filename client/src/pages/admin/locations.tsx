@@ -876,14 +876,6 @@ export default function AdminLocations() {
     }
   }, [welcomeChannel]);
 
-  // When channel changes in bulk mode (and message is NOT customized), reset to the channel-appropriate template.
-  useEffect(() => {
-    if (welcomeTarget && welcomeTarget.kind !== "single" && !isCustomMessage) {
-      setMessageBody(getBulkTemplateEN(welcomeChannel));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [welcomeChannel]);
-
   type ChannelResult = { ok: boolean; sid?: string; error?: string; hint?: string };
   type SendOneResponse = {
     success: boolean;
@@ -1270,6 +1262,24 @@ export default function AdminLocations() {
     return { en, he };
   }, [welcomeTarget, locations, selectedIds, welcomeChannel]);
 
+  // The one eligible recipient when the bulk path narrows to exactly one
+  // (matches the channel-eligibility filter used for the recipient list UI).
+  // Used to prefill substituted message text instead of {{tokens}}.
+  const bulkSingleEligible = useMemo<Location | null>(() => {
+    if (!welcomeTarget || welcomeTarget.kind === "single") return null;
+    const ch = welcomeChannel;
+    const candidates = welcomeTarget.kind === "selected"
+      ? locations.filter((l) => selectedIds.has(l.id))
+      : locations.filter((l) => l.isActive !== false && !l.onboardedAt);
+    const sendable = candidates.filter((l) => {
+      if (ch === "sms") return !!l.phone;
+      if (ch === "whatsapp") return !!l.phone;
+      if (ch === "email") return !!l.email;
+      return !!l.phone || !!l.email;
+    });
+    return sendable.length === 1 ? sendable[0] : null;
+  }, [welcomeTarget, locations, selectedIds, welcomeChannel]);
+
   const bulkPreviewEnQuery = useQuery<WelcomePreviewData>({
     queryKey: ["/api/admin/locations/preview-bulk-en", bulkPreviewSamples.en?.id ?? null],
     queryFn: async () => {
@@ -1289,6 +1299,50 @@ export default function AdminLocations() {
     enabled: welcomeDialogOpen && welcomeTarget != null && welcomeTarget.kind !== "single" && !!bulkPreviewSamples.he,
   });
 
+  // The single bulk preview that matches `bulkSingleEligible`, if any.
+  const bulkSinglePreview: WelcomePreviewData | null = bulkSingleEligible
+    ? (bulkPreviewEnQuery.data?.location.id === bulkSingleEligible.id
+        ? bulkPreviewEnQuery.data
+        : bulkPreviewHeQuery.data?.location.id === bulkSingleEligible.id
+          ? bulkPreviewHeQuery.data
+          : null)
+    : null;
+
+  // Bulk-mode body sync. When the bulk path narrows to exactly one eligible
+  // recipient, prefill the editable textarea with the server-substituted body
+  // for that recipient (same source the per-recipient preview returns), so the
+  // admin sees real text instead of {{tokens}}. Otherwise (multi-recipient),
+  // reset to the channel-appropriate template. Skipped once admin customises,
+  // EXCEPT on a single→multi transition we always revert to the bulk template
+  // (the substituted text would no longer be valid for multiple recipients).
+  const prevBulkSingleIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!welcomeTarget || welcomeTarget.kind === "single") {
+      prevBulkSingleIdRef.current = null;
+      return;
+    }
+    const prevSingleId = prevBulkSingleIdRef.current;
+    const currSingleId = bulkSingleEligible?.id ?? null;
+    const transitionedToMulti = prevSingleId !== null && currSingleId === null;
+    prevBulkSingleIdRef.current = currSingleId;
+
+    if (transitionedToMulti) {
+      setMessageBody(getBulkTemplateEN(welcomeChannel));
+      setIsCustomMessage(false);
+      return;
+    }
+    if (isCustomMessage) return;
+    if (bulkSingleEligible) {
+      if (bulkSinglePreview) {
+        const lang = bulkSinglePreview.message.resolvedLanguage;
+        const msg = bulkSinglePreview.message[lang];
+        setMessageBody(welcomeChannel === "email" ? msg.emailBody : msg.body);
+      }
+    } else {
+      setMessageBody(getBulkTemplateEN(welcomeChannel));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [welcomeChannel, bulkSingleEligible, bulkSinglePreview, welcomeTarget?.kind]);
 
   // Eligible for bulk "not onboarded" send (SMS or email available)
   const eligibleNotOnboarded = useMemo(
@@ -2701,6 +2755,91 @@ export default function AdminLocations() {
               {/* Bulk message body — editable template + live sample preview */}
               {welcomeTarget && welcomeTarget.kind !== "single" && (
                 <div className="space-y-3">
+                  {bulkSingleEligible ? (
+                    /* Single-eligible-recipient prefill: show real substituted text instead of {{tokens}}. */
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Message</Label>
+                        {isCustomMessage && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-medium" data-testid="custom-message-badge">
+                            Custom message
+                          </span>
+                        )}
+                      </div>
+                      {!bulkSinglePreview && (
+                        <div className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Loading preview…
+                        </div>
+                      )}
+                      {bulkSinglePreview && (
+                        <>
+                          <Tabs
+                            defaultValue={bulkSinglePreview.message.resolvedLanguage}
+                            onValueChange={(lang) => {
+                              const msg = bulkSinglePreview.message[lang as "en" | "he"];
+                              const body = welcomeChannel === "email" ? msg.emailBody : msg.body;
+                              setMessageBody(body);
+                              setIsCustomMessage(false);
+                            }}
+                            className="mt-2"
+                          >
+                            <TabsList className="grid grid-cols-2 w-full">
+                              <TabsTrigger value="en" data-testid="bulk-single-tab-en">English {bulkSinglePreview.message.resolvedLanguage === "en" && "(default)"}</TabsTrigger>
+                              <TabsTrigger value="he" data-testid="bulk-single-tab-he">עברית {bulkSinglePreview.message.resolvedLanguage === "he" && "(default)"}</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="en">
+                              <Textarea
+                                className="mt-1 text-sm leading-relaxed min-h-[140px] resize-y font-sans"
+                                value={messageBody}
+                                onChange={(e) => handleMessageBodyChange(e.target.value)}
+                                dir="ltr"
+                                data-testid="bulk-single-body-en"
+                                placeholder="Message body…"
+                              />
+                            </TabsContent>
+                            <TabsContent value="he">
+                              <Textarea
+                                className="mt-1 text-sm leading-relaxed min-h-[140px] resize-y font-sans"
+                                value={messageBody}
+                                onChange={(e) => handleMessageBodyChange(e.target.value)}
+                                dir="rtl"
+                                data-testid="bulk-single-body-he"
+                                placeholder="גוף ההודעה…"
+                              />
+                            </TabsContent>
+                          </Tabs>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-[10px] text-muted-foreground">You can freely edit the message above before sending.</p>
+                            {isCustomMessage && (
+                              <button
+                                type="button"
+                                className="text-[10px] text-primary hover:underline shrink-0"
+                                onClick={() => {
+                                  const lang = bulkSinglePreview.message.resolvedLanguage;
+                                  const msg = bulkSinglePreview.message[lang];
+                                  const body = welcomeChannel === "email" ? msg.emailBody : msg.body;
+                                  setMessageBody(body);
+                                  setIsCustomMessage(false);
+                                }}
+                              >
+                                Reset to template
+                              </button>
+                            )}
+                          </div>
+                          {bulkSinglePreview.welcomeUrl && (
+                            <a
+                              href={bulkSinglePreview.welcomeUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-primary inline-flex items-center gap-1 mt-1"
+                            >
+                              <ExternalLink className="h-3 w-3" /> Open welcome link in a new tab
+                            </a>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ) : (
                   <div>
                     <div className="flex items-center justify-between">
                       <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -2741,9 +2880,11 @@ export default function AdminLocations() {
                         : "Each recipient receives a server-generated default for their language. Load EN or HE template above to customize."}
                     </p>
                   </div>
+                  )}
 
-                  {/* Live preview — first selected recipient with "and N more" context */}
-                  {(bulkPreviewSamples.en || bulkPreviewSamples.he) && (() => {
+                  {/* Live preview — first selected recipient with "and N more" context.
+                      Hidden when there's a single eligible recipient (the editable textarea above already shows the real text). */}
+                  {!bulkSingleEligible && (bulkPreviewSamples.en || bulkPreviewSamples.he) && (() => {
                     const primarySample = bulkPreviewSamples.en || bulkPreviewSamples.he;
                     const primaryQuery = bulkPreviewSamples.en ? bulkPreviewEnQuery : bulkPreviewHeQuery;
                     const primaryLang = bulkPreviewSamples.en ? "en" : "he";
