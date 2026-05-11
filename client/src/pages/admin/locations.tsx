@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLocations, getRegions, updateLocation, deleteLocation } from "@/lib/api";
-import { Region, Location, OPERATOR_WELCOME_CHANNELS, type OperatorWelcomeChannel, type MessageSendLog } from "@shared/schema";
+import { Region, Location, CityCategory, OPERATOR_WELCOME_CHANNELS, type OperatorWelcomeChannel, type MessageSendLog } from "@shared/schema";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -693,6 +693,7 @@ export default function AdminLocations() {
   });
   const [expandedRegions, setExpandedRegions] = useState<Set<number>>(new Set());
   const regionRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const cityCategoryRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -1251,6 +1252,10 @@ export default function AdminLocations() {
     queryKey: ["/api/locations"],
   });
 
+  const { data: cityCategories = [] } = useQuery<CityCategory[]>({
+    queryKey: ["/api/city-categories"],
+  });
+
   // Bulk preview samples for non-single sends
   const bulkPreviewSamples = useMemo(() => {
     if (!welcomeTarget || welcomeTarget.kind === "single") return { en: null as Location | null, he: null as Location | null };
@@ -1453,13 +1458,29 @@ export default function AdminLocations() {
 
   const groupedLocations = useMemo(() => {
     const sortedRegions = [...regions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    const ccByRegion = new Map<number, CityCategory[]>();
+    for (const cc of cityCategories) {
+      const arr = ccByRegion.get(cc.regionId) ?? [];
+      arr.push(cc);
+      ccByRegion.set(cc.regionId, arr);
+    }
     return sortedRegions
-      .map(region => ({
-        region,
-        locations: filteredLocations.filter(l => l.regionId === region.id),
-      }))
+      .map(region => {
+        const regionLocs = filteredLocations.filter(l => l.regionId === region.id);
+        const sortedCcs = (ccByRegion.get(region.id) ?? [])
+          .slice()
+          .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+        const communityGroups: { cityCategory: CityCategory | null; locations: Location[] }[] = [];
+        for (const cc of sortedCcs) {
+          const locs = regionLocs.filter(l => l.cityCategoryId === cc.id);
+          if (locs.length > 0) communityGroups.push({ cityCategory: cc, locations: locs });
+        }
+        const uncategorized = regionLocs.filter(l => !l.cityCategoryId || !sortedCcs.some(c => c.id === l.cityCategoryId));
+        if (uncategorized.length > 0) communityGroups.push({ cityCategory: null, locations: uncategorized });
+        return { region, locations: regionLocs, communityGroups };
+      })
       .filter(g => g.locations.length > 0);
-  }, [regions, filteredLocations]);
+  }, [regions, cityCategories, filteredLocations]);
 
   // All visible location IDs (for select-all in current view)
   const allVisibleIds = useMemo(() => filteredLocations.map(l => l.id), [filteredLocations]);
@@ -1491,6 +1512,16 @@ export default function AdminLocations() {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
       setExpandedRegions(prev => { const next = new Set(prev); next.add(regionId); return next; });
     }
+  };
+
+  const scrollToCityCategory = (regionId: number, cityCategoryId: number | null) => {
+    setExpandedRegions(prev => { const next = new Set(prev); next.add(regionId); return next; });
+    const key = `${regionId}:${cityCategoryId ?? "none"}`;
+    requestAnimationFrame(() => {
+      const el = cityCategoryRefs.current[key];
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      else regionRefs.current[regionId]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const totalLocations = locations.length;
@@ -1774,19 +1805,45 @@ export default function AdminLocations() {
               )}
             </div>
 
-            {/* Region quick-jump pill bar */}
-            {groupedLocations.length > 1 && (
-              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-6 py-2 flex flex-wrap gap-2">
-                {groupedLocations.map(({ region }) => {
+            {/* Region quick-jump pill bar with community chips beneath each region */}
+            {groupedLocations.length >= 1 && (
+              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-6 py-2 space-y-2">
+                {groupedLocations.map(({ region, communityGroups }) => {
                   const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
+                  const showChips = communityGroups.length > 1
+                    || (communityGroups.length === 1 && communityGroups[0].cityCategory !== null);
                   return (
-                    <button
-                      key={region.id}
-                      onClick={() => scrollToRegion(region.id)}
-                      className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors hover:bg-primary hover:text-primary-foreground hover:border-primary"
-                    >
-                      {regionName}
-                    </button>
+                    <div key={region.id} className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => scrollToRegion(region.id)}
+                        className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition-colors hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                        data-testid={`pill-region-${region.id}`}
+                      >
+                        {regionName}
+                      </button>
+                      {showChips && (
+                        <>
+                          <span className="text-muted-foreground text-xs">›</span>
+                          {communityGroups.map(({ cityCategory, locations: locs }) => {
+                            const ccName = cityCategory
+                              ? (language === "he" && cityCategory.nameHe ? cityCategory.nameHe : cityCategory.name)
+                              : t('uncategorized') || "Other";
+                            const key = cityCategory?.id ?? "none";
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => scrollToCityCategory(region.id, cityCategory?.id ?? null)}
+                                className="inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground hover:border-secondary"
+                                data-testid={`chip-community-${region.id}-${key}`}
+                              >
+                                {ccName}
+                                <span className="text-[10px] opacity-70">({locs.length})</span>
+                              </button>
+                            );
+                          })}
+                        </>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -1812,7 +1869,7 @@ export default function AdminLocations() {
               </div>
             ) : (
               <div className="divide-y">
-                {groupedLocations.map(({ region, locations: regionLocs }) => {
+                {groupedLocations.map(({ region, locations: regionLocs, communityGroups }) => {
                   const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
                   const isExpanded = isFilterActive || expandedRegions.has(region.id);
                   const regionIds = regionLocs.map(l => l.id);
@@ -1866,7 +1923,49 @@ export default function AdminLocations() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {regionLocs.map((location) => {
+                              {communityGroups.map(({ cityCategory, locations: ccLocs }) => {
+                                const ccKey = `${region.id}:${cityCategory?.id ?? "none"}`;
+                                const ccName = cityCategory
+                                  ? (language === "he" && cityCategory.nameHe ? cityCategory.nameHe : cityCategory.name)
+                                  : (t('uncategorized') || "Other");
+                                const ccIds = ccLocs.map(l => l.id);
+                                const allCcSelected = ccIds.length > 0 && ccIds.every(id => selectedIds.has(id));
+                                const showSubHeader = communityGroups.length > 1
+                                  || (communityGroups.length === 1 && communityGroups[0].cityCategory !== null);
+                                return (
+                                  <React.Fragment key={ccKey}>
+                                    {showSubHeader && (
+                                      <TableRow
+                                        ref={(el) => { cityCategoryRefs.current[ccKey] = el; }}
+                                        className="bg-muted/30 hover:bg-muted/40"
+                                        data-testid={`subheader-community-${ccKey}`}
+                                      >
+                                        <TableCell className="py-1.5">
+                                          <Checkbox
+                                            checked={allCcSelected}
+                                            onCheckedChange={(v) => {
+                                              setSelectedIds(prev => {
+                                                const next = new Set(prev);
+                                                if (v) ccIds.forEach(id => next.add(id));
+                                                else ccIds.forEach(id => next.delete(id));
+                                                return next;
+                                              });
+                                            }}
+                                            aria-label={`Select all in ${ccName}`}
+                                          />
+                                        </TableCell>
+                                        <TableCell colSpan={6} className="py-1.5">
+                                          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                            <MapPin className="h-3 w-3" />
+                                            <span>{ccName}</span>
+                                            <Badge variant="outline" className="text-[10px] font-normal">
+                                              {ccLocs.length}
+                                            </Badge>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                    {ccLocs.map((location) => {
                                 const sms = location.welcomeSmsStatus;
                                 const em = location.welcomeEmailStatus;
                                 return (
@@ -2107,6 +2206,9 @@ export default function AdminLocations() {
                                       </DropdownMenu>
                                     </TableCell>
                                   </TableRow>
+                                );
+                              })}
+                                  </React.Fragment>
                                 );
                               })}
                             </TableBody>
