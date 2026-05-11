@@ -119,8 +119,68 @@ import {
   BarChart3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // ---- Helper sub-components ----
+
+function CommunityJumpPopover({
+  regionId,
+  regionName,
+  communityGroups,
+  language,
+  uncategorizedLabel,
+  onSelect,
+}: {
+  regionId: number;
+  regionName: string;
+  communityGroups: { cityCategory: CityCategory | null; locations: Location[] }[];
+  language: string;
+  uncategorizedLabel: string;
+  onSelect: (cityCategoryId: number | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="inline-flex items-center justify-center px-1.5 border-l rtl:border-l-0 rtl:border-r text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`Show communities in ${regionName}`}
+          data-testid={`pill-region-${regionId}-communities`}
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-64 p-2 z-50"
+        data-testid={`popover-communities-${regionId}`}
+      >
+        <div className="flex flex-wrap gap-1.5">
+          {communityGroups.map(({ cityCategory, locations: locs }) => {
+            const ccName = cityCategory
+              ? (language === "he" && cityCategory.nameHe ? cityCategory.nameHe : cityCategory.name)
+              : uncategorizedLabel;
+            const key = cityCategory?.id ?? "none";
+            return (
+              <button
+                key={key}
+                onClick={() => {
+                  onSelect(cityCategory?.id ?? null);
+                  setOpen(false);
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground hover:border-secondary"
+                data-testid={`chip-community-${regionId}-${key}`}
+              >
+                {ccName}
+                <span className="text-[10px] opacity-70">({locs.length})</span>
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 
 function NoPhoneBadge({ onClick }: { onClick?: () => void }) {
@@ -1859,47 +1919,40 @@ export default function AdminLocations() {
               )}
             </div>
 
-            {/* Region quick-jump pill bar with community chips beneath each region */}
+            {/* Region quick-jump pill bar (compact, single row); communities are revealed on demand via popover */}
             {groupedLocations.length >= 1 && (
-              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-6 py-2 space-y-2">
-                {groupedLocations.map(({ region, communityGroups }) => {
-                  const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
-                  const showChips = communityGroups.length > 1
-                    || (communityGroups.length === 1 && communityGroups[0].cityCategory !== null);
-                  return (
-                    <div key={region.id} className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => scrollToRegion(region.id)}
-                        className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition-colors hover:bg-primary hover:text-primary-foreground hover:border-primary"
-                        data-testid={`pill-region-${region.id}`}
+              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-6 py-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {groupedLocations.map(({ region, communityGroups }) => {
+                    const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
+                    const hasCommunities = communityGroups.length > 1
+                      || (communityGroups.length === 1 && communityGroups[0].cityCategory !== null);
+                    return (
+                      <div
+                        key={region.id}
+                        className="inline-flex items-stretch rounded-full border overflow-hidden"
                       >
-                        {regionName}
-                      </button>
-                      {showChips && (
-                        <>
-                          <span className="text-muted-foreground text-xs">›</span>
-                          {communityGroups.map(({ cityCategory, locations: locs }) => {
-                            const ccName = cityCategory
-                              ? (language === "he" && cityCategory.nameHe ? cityCategory.nameHe : cityCategory.name)
-                              : t('uncategorized') || "Other";
-                            const key = cityCategory?.id ?? "none";
-                            return (
-                              <button
-                                key={key}
-                                onClick={() => scrollToCityCategory(region.id, cityCategory?.id ?? null)}
-                                className="inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground hover:border-secondary"
-                                data-testid={`chip-community-${region.id}-${key}`}
-                              >
-                                {ccName}
-                                <span className="text-[10px] opacity-70">({locs.length})</span>
-                              </button>
-                            );
-                          })}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                        <button
+                          onClick={() => scrollToRegion(region.id)}
+                          className="inline-flex items-center px-3 py-1 text-xs font-semibold transition-colors hover:bg-primary hover:text-primary-foreground"
+                          data-testid={`pill-region-${region.id}`}
+                        >
+                          {regionName}
+                        </button>
+                        {hasCommunities && (
+                          <CommunityJumpPopover
+                            regionId={region.id}
+                            regionName={regionName}
+                            communityGroups={communityGroups}
+                            language={language}
+                            uncategorizedLabel={t('uncategorized') || "Other"}
+                            onSelect={(ccId) => scrollToCityCategory(region.id, ccId)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
