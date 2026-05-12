@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import type { ElementType } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLocations, getTransactions, markTransactionReturned } from "@/lib/api";
@@ -58,6 +58,8 @@ import {
   CheckCircle2,
   Clock,
   Activity,
+  ArrowUpDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import {
   Collapsible,
@@ -288,6 +290,28 @@ function TransactionCard({ transaction, locationName, onEdit, onRefund, t }: Tra
   );
 }
 
+type SortKey = "date-desc" | "date-asc" | "status-active" | "status-returned" | "deposit-desc" | "deposit-asc";
+
+const PAGE_SIZE = 20;
+
+function readUrlParams() {
+  if (typeof window === "undefined") return { status: "all" as const, sort: "date-desc" as SortKey, page: 1 };
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const s = sp.get("status");
+    const rawSort = sp.get("sort") as SortKey | null;
+    const rawPage = parseInt(sp.get("page") ?? "1", 10);
+    const validSorts: SortKey[] = ["date-desc", "date-asc", "status-active", "status-returned", "deposit-desc", "deposit-asc"];
+    return {
+      status: (s === "active" || s === "open" || s === "pending" ? "active" : s === "returned" ? "returned" : "all") as "all" | "active" | "returned",
+      sort: (rawSort && validSorts.includes(rawSort) ? rawSort : "date-desc") as SortKey,
+      page: isNaN(rawPage) || rawPage < 1 ? 1 : rawPage,
+    };
+  } catch {
+    return { status: "all" as const, sort: "date-desc" as SortKey, page: 1 };
+  }
+}
+
 export default function AdminTransactions() {
   const { toast } = useToast();
   const { t, language } = useLanguage();
@@ -296,16 +320,11 @@ export default function AdminTransactions() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "returned">(() => {
-    if (typeof window === "undefined") return "all";
-    try {
-      const sp = new URLSearchParams(window.location.search);
-      const s = sp.get("status");
-      if (s === "active" || s === "open" || s === "pending") return "active";
-      if (s === "returned") return "returned";
-    } catch {}
-    return "all";
-  });
+
+  const initialParams = readUrlParams();
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "returned">(initialParams.status);
+  const [sortKey, setSortKey] = useState<SortKey>(initialParams.sort);
+  const [visibleCount, setVisibleCount] = useState(initialParams.page * PAGE_SIZE);
 
   const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
   const [refundTransaction, setRefundTransaction] = useState<Transaction | null>(null);
@@ -314,7 +333,31 @@ export default function AdminTransactions() {
   const [refundNotes, setRefundNotes] = useState("");
   const [confirmStep, setConfirmStep] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  // analyticsOpen drives the <Collapsible> open state
+
+  // Sync sort/status/page to URL
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (filterStatus === "all") sp.delete("status"); else sp.set("status", filterStatus);
+    if (sortKey === "date-desc") sp.delete("sort"); else sp.set("sort", sortKey);
+    const pageNum = Math.ceil(visibleCount / PAGE_SIZE);
+    if (pageNum <= 1) sp.delete("page"); else sp.set("page", String(pageNum));
+    const newSearch = sp.toString();
+    const newUrl = newSearch ? `${window.location.pathname}?${newSearch}` : window.location.pathname;
+    if (window.location.search !== (newSearch ? `?${newSearch}` : "")) {
+      window.history.replaceState(null, "", newUrl);
+    }
+  }, [filterStatus, sortKey, visibleCount]);
+
+  // Reset pagination when filter/sort/search changes
+  const handleSetFilterStatus = useCallback((s: "all" | "active" | "returned") => {
+    setFilterStatus(s);
+    setVisibleCount(PAGE_SIZE);
+  }, []);
+
+  const handleSetSortKey = useCallback((s: SortKey) => {
+    setSortKey(s);
+    setVisibleCount(PAGE_SIZE);
+  }, []);
 
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
@@ -377,18 +420,47 @@ export default function AdminTransactions() {
     return language === "he" && location.nameHe ? location.nameHe : location.name;
   };
 
-  const filteredTransactions = transactions.filter((transaction) => {
-    if (filterStatus === "active" && transaction.isReturned) return false;
-    if (filterStatus === "returned" && !transaction.isReturned) return false;
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      transaction.borrowerName.toLowerCase().includes(searchLower) ||
-      (transaction.borrowerEmail && transaction.borrowerEmail.toLowerCase().includes(searchLower)) ||
-      (transaction.borrowerPhone && transaction.borrowerPhone.toLowerCase().includes(searchLower)) ||
-      getLocationNameById(transaction.locationId).toLowerCase().includes(searchLower)
-    );
-  });
+  const filteredTransactions = useMemo(() => {
+    const filtered = transactions.filter((transaction) => {
+      if (filterStatus === "active" && transaction.isReturned) return false;
+      if (filterStatus === "returned" && !transaction.isReturned) return false;
+      if (!searchTerm) return true;
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        transaction.borrowerName.toLowerCase().includes(searchLower) ||
+        (transaction.borrowerEmail && transaction.borrowerEmail.toLowerCase().includes(searchLower)) ||
+        (transaction.borrowerPhone && transaction.borrowerPhone.toLowerCase().includes(searchLower)) ||
+        getLocationNameById(transaction.locationId).toLowerCase().includes(searchLower)
+      );
+    });
+
+    filtered.sort((a, b) => {
+      switch (sortKey) {
+        case "date-asc":
+          return new Date(a.borrowDate).getTime() - new Date(b.borrowDate).getTime();
+        case "date-desc":
+          return new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime();
+        case "status-active":
+          if (a.isReturned === b.isReturned) return 0;
+          return a.isReturned ? 1 : -1;
+        case "status-returned":
+          if (a.isReturned === b.isReturned) return 0;
+          return a.isReturned ? -1 : 1;
+        case "deposit-desc":
+          return (b.depositAmount ?? 0) - (a.depositAmount ?? 0);
+        case "deposit-asc":
+          return (a.depositAmount ?? 0) - (b.depositAmount ?? 0);
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, filterStatus, searchTerm, sortKey, locations, language]);
+
+  const visibleTransactions = filteredTransactions.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredTransactions.length;
 
   // ── Analytics computations ──────────────────────────────────────────
   const returnedCount = useMemo(() => transactions.filter((t) => t.isReturned).length, [transactions]);
@@ -503,16 +575,16 @@ export default function AdminTransactions() {
             placeholder={t("search")}
             className="ps-10"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(PAGE_SIZE); }}
           />
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <div className="flex gap-1 overflow-x-auto">
             <Button
               variant={filterStatus === "all" ? "default" : "outline"}
               size="sm"
               className="whitespace-nowrap"
-              onClick={() => setFilterStatus("all")}
+              onClick={() => handleSetFilterStatus("all")}
             >
               {t("allTransactions")}
             </Button>
@@ -520,7 +592,7 @@ export default function AdminTransactions() {
               variant={filterStatus === "active" ? "default" : "outline"}
               size="sm"
               className="whitespace-nowrap"
-              onClick={() => setFilterStatus("active")}
+              onClick={() => handleSetFilterStatus("active")}
             >
               {t("activeOnly")}
             </Button>
@@ -528,11 +600,61 @@ export default function AdminTransactions() {
               variant={filterStatus === "returned" ? "default" : "outline"}
               size="sm"
               className="whitespace-nowrap"
-              onClick={() => setFilterStatus("returned")}
+              onClick={() => handleSetFilterStatus("returned")}
             >
               {t("returnedOnly")}
             </Button>
           </div>
+
+          {/* Sort dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="whitespace-nowrap gap-1.5">
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                {sortKey === "date-desc" && (t("sortDateNewest") || "Newest first")}
+                {sortKey === "date-asc" && (t("sortDateOldest") || "Oldest first")}
+                {sortKey === "status-active" && (t("sortActiveFirst") || "Active first")}
+                {sortKey === "status-returned" && (t("sortReturnedFirst") || "Returned first")}
+                {sortKey === "deposit-desc" && (t("sortDepositHigh") || "Deposit ↓")}
+                {sortKey === "deposit-asc" && (t("sortDepositLow") || "Deposit ↑")}
+                <ChevronDown className="h-3 w-3 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>{t("sortBy") || "Sort by"}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground py-1 px-2">
+                {t("borrowDate") || "Borrow Date"}
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleSetSortKey("date-desc")} className={sortKey === "date-desc" ? "bg-accent" : ""}>
+                {t("sortDateNewest") || "Newest first"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSetSortKey("date-asc")} className={sortKey === "date-asc" ? "bg-accent" : ""}>
+                {t("sortDateOldest") || "Oldest first"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground py-1 px-2">
+                {t("status") || "Status"}
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleSetSortKey("status-active")} className={sortKey === "status-active" ? "bg-accent" : ""}>
+                {t("sortActiveFirst") || "Active first"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSetSortKey("status-returned")} className={sortKey === "status-returned" ? "bg-accent" : ""}>
+                {t("sortReturnedFirst") || "Returned first"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground py-1 px-2">
+                {t("depositAmount") || "Deposit Amount"}
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleSetSortKey("deposit-desc")} className={sortKey === "deposit-desc" ? "bg-accent" : ""}>
+                {t("sortDepositHigh") || "Highest first"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSetSortKey("deposit-asc")} className={sortKey === "deposit-asc" ? "bg-accent" : ""}>
+                {t("sortDepositLow") || "Lowest first"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             size="icon"
             variant="outline"
@@ -548,6 +670,15 @@ export default function AdminTransactions() {
       </div>
 
       {/* ── Transaction card grid ───────────────────────────────────────── */}
+      {/* Results count */}
+      {!txLoading && filteredTransactions.length > 0 && (
+        <p className="text-xs text-slate-400 mb-3">
+          {t("showingResults") || "Showing"} {visibleTransactions.length}{" "}
+          {t("ofLabel") || "of"} {filteredTransactions.length}{" "}
+          {t("transactionsLabel") || "transactions"}
+        </p>
+      )}
+
       {txLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -567,18 +698,35 @@ export default function AdminTransactions() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {filteredTransactions.map((transaction) => (
-            <TransactionCard
-              key={transaction.id}
-              transaction={transaction}
-              locationName={getLocationNameById(transaction.locationId)}
-              onEdit={handleEditTransaction}
-              onRefund={openRefundDialog}
-              t={t}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {visibleTransactions.map((transaction) => (
+              <TransactionCard
+                key={transaction.id}
+                transaction={transaction}
+                locationName={getLocationNameById(transaction.locationId)}
+                onEdit={handleEditTransaction}
+                onRefund={openRefundDialog}
+                t={t}
+              />
+            ))}
+          </div>
+          {hasMore && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              >
+                <ChevronsUpDown className="h-4 w-4" />
+                {t("loadMore") || "Load more"}{" "}
+                <span className="text-muted-foreground text-xs">
+                  ({filteredTransactions.length - visibleCount} {t("remaining") || "remaining"})
+                </span>
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Analytics section (collapsible, closed by default) ─────────── */}
