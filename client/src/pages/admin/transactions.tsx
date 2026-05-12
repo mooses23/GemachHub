@@ -60,7 +60,10 @@ import {
   Activity,
   ArrowUpDown,
   ChevronsUpDown,
+  X,
+  ListChecks,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -139,9 +142,12 @@ interface TransactionCardProps {
   onEdit: (t: Transaction) => void;
   onRefund: (t: Transaction) => void;
   t: (key: string) => string;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: number) => void;
 }
 
-function TransactionCard({ transaction, locationName, onEdit, onRefund, t }: TransactionCardProps) {
+function TransactionCard({ transaction, locationName, onEdit, onRefund, t, selectionMode, isSelected, onToggleSelect }: TransactionCardProps) {
   const isOverdue =
     !transaction.isReturned &&
     transaction.expectedReturnDate &&
@@ -157,10 +163,24 @@ function TransactionCard({ transaction, locationName, onEdit, onRefund, t }: Tra
   })();
 
   return (
-    <div className="glass-card rounded-xl border border-white/10 backdrop-blur-sm bg-white/5 p-4 flex flex-col gap-3 relative">
+    <div
+      className={`glass-card rounded-xl border backdrop-blur-sm bg-white/5 p-4 flex flex-col gap-3 relative transition-colors ${
+        isSelected ? "border-primary/60 bg-primary/10" : "border-white/10"
+      }`}
+    >
       {/* Header row: name + status + actions */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
+          {!transaction.isReturned && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => onToggleSelect?.(transaction.id)}
+              onClick={(e) => e.stopPropagation()}
+              className={`shrink-0 transition-opacity data-[state=checked]:bg-primary data-[state=checked]:border-primary ${
+                selectionMode ? "opacity-100 border-primary/60" : "opacity-30 hover:opacity-80 border-white/40"
+              }`}
+            />
+          )}
           <div className="p-1.5 rounded-full bg-primary/20 shrink-0">
             <User className="h-3.5 w-3.5 text-primary" />
           </div>
@@ -348,6 +368,22 @@ export default function AdminTransactions() {
   const [confirmStep, setConfirmStep] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
+  // ── Bulk selection state ────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const selectionMode = selectedIds.size > 0;
+
   // Sync sort/status/page to URL
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -366,11 +402,13 @@ export default function AdminTransactions() {
   const handleSetFilterStatus = useCallback((s: "all" | "active" | "returned") => {
     setFilterStatus(s);
     setVisibleCount(PAGE_SIZE);
+    setSelectedIds(new Set());
   }, []);
 
   const handleSetSortKey = useCallback((s: SortKey) => {
     setSortKey(s);
     setVisibleCount(PAGE_SIZE);
+    setSelectedIds(new Set());
   }, []);
 
   const { data: locations = [] } = useQuery<Location[]>({
@@ -388,6 +426,34 @@ export default function AdminTransactions() {
       toast({ title: t("success"), description: t("transactionUpdatedSuccess") });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       closeRefundDialog();
+    },
+    onError: (error) => {
+      toast({ title: t("error"), description: `${t("failedToUpdateStatus")} ${error.message}`, variant: "destructive" });
+    },
+  });
+
+  const bulkMarkReturnedMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const results = await Promise.allSettled(
+        ids.map((id) => markTransactionReturned(id, { refundAmount: 0 }))
+      );
+      const failed = results.filter((r) => r.status === "rejected").length;
+      const succeeded = results.length - failed;
+      return { succeeded, failed };
+    },
+    onSuccess: ({ succeeded, failed }) => {
+      if (failed === 0) {
+        toast({ title: t("success"), description: `${succeeded} ${t("transactionsLabel") || "transactions"} marked as returned.` });
+      } else {
+        toast({
+          title: "Partial success",
+          description: `${succeeded} marked as returned; ${failed} failed. Please retry the remaining items.`,
+          variant: "destructive",
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      setIsBulkConfirmOpen(false);
+      clearSelection();
     },
     onError: (error) => {
       toast({ title: t("error"), description: `${t("failedToUpdateStatus")} ${error.message}`, variant: "destructive" });
@@ -589,7 +655,7 @@ export default function AdminTransactions() {
             placeholder={t("search")}
             className="ps-10"
             value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(PAGE_SIZE); }}
+            onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(PAGE_SIZE); setSelectedIds(new Set()); }}
           />
         </div>
         <div className="flex gap-2 items-center flex-wrap">
@@ -683,6 +749,35 @@ export default function AdminTransactions() {
         </div>
       </div>
 
+      {/* ── Bulk action bar ─────────────────────────────────────────────── */}
+      {selectionMode && (
+        <div className="sticky top-2 z-20 mb-3 flex items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 backdrop-blur-md px-4 py-3 shadow-lg">
+          <div className="flex items-center gap-2 text-sm font-medium text-white">
+            <ListChecks className="h-4 w-4 text-primary" />
+            {selectedIds.size} {selectedIds.size === 1 ? (t("transactionLabel") || "transaction") : (t("transactionsLabel") || "transactions")} selected
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+              onClick={() => setIsBulkConfirmOpen(true)}
+            >
+              <RotateCw className="h-3.5 w-3.5" />
+              Mark {selectedIds.size} as Returned
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-slate-300 hover:text-white hover:bg-white/10 h-8 w-8 p-0"
+              onClick={clearSelection}
+              aria-label="Clear selection"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ── Transaction card grid ───────────────────────────────────────── */}
       {/* Results count */}
       {!txLoading && filteredTransactions.length > 0 && (
@@ -722,6 +817,9 @@ export default function AdminTransactions() {
                 onEdit={handleEditTransaction}
                 onRefund={openRefundDialog}
                 t={t}
+                selectionMode={selectionMode}
+                isSelected={selectedIds.has(transaction.id)}
+                onToggleSelect={toggleSelect}
               />
             ))}
           </div>
@@ -917,6 +1015,52 @@ export default function AdminTransactions() {
           {editingTransaction && (
             <TransactionForm transaction={editingTransaction} locations={locations} onSuccess={closeEditDialog} />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bulk confirm dialog ──────────────────────────────────────────── */}
+      <Dialog open={isBulkConfirmOpen} onOpenChange={(open) => { if (!open) setIsBulkConfirmOpen(false); }}>
+        <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5" />
+              Mark {selectedIds.size} as Returned
+            </DialogTitle>
+            <DialogDescription>
+              The following borrows will be marked as returned with no refund recorded. You can process refunds individually afterwards.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-2 max-h-64 overflow-y-auto">
+            {transactions
+              .filter((tx) => selectedIds.has(tx.id))
+              .map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span className="font-medium text-white truncate">{tx.borrowerName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 text-xs text-slate-400">
+                    <MapPin className="h-3 w-3" />
+                    <span>{getLocationNameById(tx.locationId)}</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsBulkConfirmOpen(false)} disabled={bulkMarkReturnedMutation.isPending}>
+              {t("cancel")}
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+              onClick={() => bulkMarkReturnedMutation.mutate(Array.from(selectedIds))}
+              disabled={bulkMarkReturnedMutation.isPending}
+            >
+              <RotateCw className="h-4 w-4" />
+              {bulkMarkReturnedMutation.isPending ? "Processing…" : `Confirm — Mark ${selectedIds.size} Returned`}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
