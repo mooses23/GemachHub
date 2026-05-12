@@ -781,6 +781,10 @@ export default function AdminLocations() {
   // ===== Bulk selection (for the main table) =====
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  // ===== Drill-in navigation =====
+  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
+  const [selectedCityCategoryId, setSelectedCityCategoryId] = useState<number | "all">("all");
+
   // ===== Onboarding (SMS / Email welcome) =====
   const [isRegionDialogOpen, setIsRegionDialogOpen] = useState(false);
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
@@ -1642,6 +1646,46 @@ export default function AdminLocations() {
   const activeLocations = locations.filter(l => l.isActive).length;
   const inactiveLocations = totalLocations - activeLocations;
 
+  // Default selected region to the first one once regions load
+  useEffect(() => {
+    if (selectedRegionId === null && regions.length > 0) {
+      setSelectedRegionId(regions[0].id);
+    }
+  }, [regions, selectedRegionId]);
+
+  // Per-region stats for the compact region strip (uses ALL locations, not filtered)
+  const regionStats = useMemo(() => {
+    const sortedRegions = [...regions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    return sortedRegions.map(region => {
+      const regionLocs = locations.filter(l => l.regionId === region.id);
+      const notOnboarded = regionLocs.filter(l => !l.onboardedAt).length;
+      const missingContact = regionLocs.filter(l => !l.phone && !l.email).length;
+      return { region, count: regionLocs.length, notOnboarded, missingContact };
+    });
+  }, [regions, locations]);
+
+  // Communities (cityCategories) for the currently-selected region, derived
+  // from groupedLocations so counts respect current filters.
+  const selectedRegionGroup = useMemo(
+    () => groupedLocations.find(g => g.region.id === selectedRegionId) ?? null,
+    [groupedLocations, selectedRegionId]
+  );
+
+  // Locations to render in the cards grid: filtered + region + community
+  const visibleLocations = useMemo(() => {
+    if (selectedRegionId === null) return [] as Location[];
+    let locs = filteredLocations.filter(l => l.regionId === selectedRegionId);
+    if (selectedCityCategoryId !== "all") {
+      locs = locs.filter(l => l.cityCategoryId === selectedCityCategoryId);
+    }
+    return locs;
+  }, [filteredLocations, selectedRegionId, selectedCityCategoryId]);
+
+  const selectedRegion = regions.find(r => r.id === selectedRegionId) ?? null;
+  const selectedRegionName = selectedRegion
+    ? (language === "he" && selectedRegion.nameHe ? selectedRegion.nameHe : selectedRegion.name)
+    : "";
+
   // Determine bulk send label based on channel for "send to selected" button
   const selectedCount = selectedIds.size;
   const messageableCount = locations.filter((l) => selectedIds.has(l.id) && (!!l.phone || !!l.email)).length;
@@ -1695,44 +1739,142 @@ export default function AdminLocations() {
           initialTab={settingsInitialTab}
         />
 
-        {/* Compact square stat tiles */}
-        <div className="grid grid-cols-3 gap-3 mb-6 max-w-md">
-          <Card>
-            <CardContent className="p-3 flex flex-col items-center justify-center aspect-square text-center">
-              <Building2 className="h-5 w-5 text-blue-600 mb-1" />
-              <p className="text-xl font-bold leading-none">{totalLocations}</p>
-              <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{t('totalLocations')}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 flex flex-col items-center justify-center aspect-square text-center">
-              <CheckCircle className="h-5 w-5 text-green-600 mb-1" />
-              <p className="text-xl font-bold leading-none">{activeLocations}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">{t('active')}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 flex flex-col items-center justify-center aspect-square text-center">
-              <XCircle className="h-5 w-5 text-gray-500 mb-1" />
-              <p className="text-xl font-bold leading-none">{inactiveLocations}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">{t('inactive')}</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* ===================================================================
+            DRILL-IN LOCATIONS MANAGEMENT (Direction 1 redesign)
+            =================================================================== */}
+        <div className="pb-32">
+          {/* Compact Region Strip */}
+          <div className="flex gap-3 overflow-x-auto pb-3 mb-5 -mx-2 px-2">
+            {regionStats.map(({ region, count, notOnboarded, missingContact }) => {
+              const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
+              const isActive = selectedRegionId === region.id;
+              return (
+                <button
+                  key={region.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRegionId(region.id);
+                    setSelectedCityCategoryId("all");
+                  }}
+                  className={`flex-shrink-0 text-left p-4 rounded-2xl transition-all border min-w-[200px] ${
+                    isActive
+                      ? "bg-primary/20 border-primary/50 shadow-[0_0_20px_rgba(59,130,246,0.2)]"
+                      : "glass-card hover:bg-white/5"
+                  }`}
+                  data-testid={`region-card-${region.id}`}
+                >
+                  <h3 className="text-foreground font-semibold flex items-center gap-2">
+                    {regionName}
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    <Badge variant="secondary" className="text-xs">
+                      {count} {count === 1 ? t('locationSingular') : t('locations')}
+                    </Badge>
+                    {notOnboarded > 0 && (
+                      <Badge variant="outline" className="text-xs bg-red-500/15 text-red-300 border-red-500/30">
+                        {notOnboarded} not onboarded
+                      </Badge>
+                    )}
+                    {missingContact > 0 && (
+                      <Badge variant="outline" className="text-xs bg-orange-500/15 text-orange-300 border-orange-500/30">
+                        {missingContact} missing contact
+                      </Badge>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                <div>
-                  <CardTitle>{t('locations')}</CardTitle>
-                  <CardDescription>{t('manageAllGemachLocations')}</CardDescription>
+          {selectedRegionId === null ? (
+            // Region grid (no region selected) — minimal toolbar
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 glass-panel p-4 rounded-2xl">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('search')}
+                    className="pl-9 h-9"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
                 </div>
-                {/* Bulk welcome action buttons */}
-                <div className="flex flex-wrap gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  onClick={() => setIsCreateDialogOpen(true)}
+                  data-testid="button-add-location-region-grid"
+                  className="h-9"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  {t('addNewLocation')}
+                </Button>
+              </div>
+              <div className="text-sm text-muted-foreground text-center py-8">
+                Select a region above to view its locations.
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Breadcrumb + Toolbar */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 glass-panel p-4 rounded-2xl">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRegionId(null)}
+                    className="inline-flex items-center hover:text-foreground transition-colors"
+                    aria-label="Back to all regions"
+                    data-testid="button-breadcrumb-home"
+                  >
+                    <Home className="h-4 w-4" />
+                  </button>
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="text-foreground font-medium">{selectedRegionName}</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative flex-1 min-w-[180px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t('search')}
+                      className="pl-9 h-9"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      data-testid="input-search-locations"
+                    />
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-9 w-[140px]">
+                      <SelectValue placeholder={t('status')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('allStatuses')}</SelectItem>
+                      <SelectItem value="active">{t('activeOnly')}</SelectItem>
+                      <SelectItem value="inactive">{t('inactiveOnly')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={onboardingFilter}
+                    onValueChange={(v) => {
+                      try { localStorage.setItem("adminOnboardingFilter", v); } catch {}
+                      setOnboardingFilter(v);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-[160px]">
+                      <SelectValue placeholder="Contact status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All contacts</SelectItem>
+                      <SelectItem value="not-sent">Not messaged</SelectItem>
+                      <SelectItem value="sent">Messaged (awaiting)</SelectItem>
+                      <SelectItem value="failed">Failed delivery</SelectItem>
+                      <SelectItem value="onboarded">Onboarded</SelectItem>
+                      <SelectItem value="no-phone">No phone (cannot send)</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-9"
                     onClick={() => setSettingsOpen(true)}
                     data-testid="button-open-settings"
                   >
@@ -1740,138 +1882,20 @@ export default function AdminLocations() {
                     Settings
                   </Button>
                   <Button
-                    variant="outline"
                     size="sm"
+                    className="h-9"
                     onClick={() => setIsCreateDialogOpen(true)}
                     data-testid="button-add-location-card-header"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     {t('addNewLocation')}
                   </Button>
-                  {eligibleNotOnboarded.length > 0 ? (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={openAllNotOnboardedPicker}
-                        disabled={dialogIsPending}
-                        data-testid="button-onboarding-all-not-onboarded"
-                      >
-                        <Send className="h-4 w-4 mr-1" />
-                        Message Locations ({eligibleNotOnboarded.length})
-                      </Button>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help shrink-0" />
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-xs text-xs">
-                            <p>
-                              Counts locations that haven't been onboarded yet and have at least one contact method (phone or email).
-                            </p>
-                            <p className="mt-1 text-muted-foreground">
-                              Excluded: already onboarded locations, and locations missing both a phone number and email address.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-xs font-normal border-green-500 text-green-700 bg-green-50">
-                        <CheckCircle className="h-3 w-3 mr-1 text-green-600" />
-                        All locations set up
-                      </Badge>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help shrink-0" />
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-xs text-xs">
-                            <p>
-                              All eligible locations have already been onboarded.
-                            </p>
-                            <p className="mt-1 text-muted-foreground">
-                              Eligible locations are those not yet onboarded with at least one contact method (phone or email). Locations missing both are excluded.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  )}
-                  {selectedCount > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={openSelectedPicker}
-                        disabled={dialogIsPending}
-                        data-testid="button-onboarding-bulk-selected"
-                      >
-                        <Send className="h-4 w-4 mr-1" />
-                        Message Selected ({messageableCount < selectedCount ? `${messageableCount} of ${selectedCount}` : selectedCount})
-                      </Button>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help shrink-0" />
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-xs text-xs">
-                            <p>
-                              Only selected locations with at least one contact method (phone or email) will receive a message.
-                            </p>
-                            <p className="mt-1 text-muted-foreground">
-                              Selected locations missing both phone and email are excluded.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* Service Status Bar */}
-              <ServiceStatusBar status={serviceStatusQuery.data} loading={serviceStatusQuery.isLoading} />
-
-              {/* Filters */}
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('search')}
-                    className="pl-10"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('filterByStatus')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('allStatuses')}</SelectItem>
-                    <SelectItem value="active">{t('activeOnly')}</SelectItem>
-                    <SelectItem value="inactive">{t('inactiveOnly')}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={onboardingFilter} onValueChange={v => { try { localStorage.setItem("adminOnboardingFilter", v); } catch {} setOnboardingFilter(v); }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Contact status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All contacts</SelectItem>
-                    <SelectItem value="not-sent">Not messaged</SelectItem>
-                    <SelectItem value="sent">Messaged (awaiting)</SelectItem>
-                    <SelectItem value="failed">Failed delivery</SelectItem>
-                    <SelectItem value="onboarded">Onboarded</SelectItem>
-                    <SelectItem value="no-phone">No phone (cannot send)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
+              {/* Active filters chips */}
               {(statusFilter !== "all" || searchTerm || onboardingFilter !== "all") && (
-                <div className="mt-1 flex flex-wrap gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center">
                   <span className="text-sm text-muted-foreground">{t('activeFilters')}:</span>
                   {searchTerm && (
                     <Badge variant="secondary" className="flex items-center gap-1">
@@ -1891,444 +1915,307 @@ export default function AdminLocations() {
                       <button onClick={() => setOnboardingFilter("all")} className="ml-1 hover:text-destructive">×</button>
                     </Badge>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); }} className="text-xs">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); }}
+                    className="text-xs"
+                  >
                     {t('clearAll')}
                   </Button>
                 </div>
               )}
-            </div>
-          </CardHeader>
 
-          <CardContent className="px-0 pb-0">
-            {/* Summary + expand/collapse all */}
-            <div className="flex items-center justify-between px-6 pb-3">
-              <div className="text-sm text-muted-foreground">
-                {t('showing')} {filteredLocations.length} / {totalLocations} {t('locations')}
-                {selectedCount > 0 && (
-                  <span className="ml-2 text-primary font-medium">· {selectedCount} selected</span>
-                )}
-              </div>
-              {groupedLocations.length > 1 && (
-                <button
-                  onClick={toggleAll}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                >
-                  <ChevronsUpDown className="h-3 w-3" />
-                  {allExpanded ? t('collapseAll') : t('expandAll')}
-                </button>
+              {/* Service Status Bar */}
+              <ServiceStatusBar status={serviceStatusQuery.data} loading={serviceStatusQuery.isLoading} />
+
+              {/* Community pills */}
+              {selectedRegionGroup && selectedRegionGroup.communityGroups.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCityCategoryId("all")}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      selectedCityCategoryId === "all"
+                        ? "bg-secondary text-secondary-foreground shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                        : "glass-panel hover:bg-white/10 text-foreground/80"
+                    }`}
+                    data-testid="pill-community-all"
+                  >
+                    All
+                  </button>
+                  {selectedRegionGroup.communityGroups.map(({ cityCategory, locations: ccLocs }) => {
+                    const ccId = cityCategory?.id ?? null;
+                    const ccName = cityCategory
+                      ? (language === "he" && cityCategory.nameHe ? cityCategory.nameHe : cityCategory.name)
+                      : (t('uncategorized') || "Other");
+                    if (ccId === null) return null;
+                    const isSel = selectedCityCategoryId === ccId;
+                    return (
+                      <button
+                        key={ccId}
+                        type="button"
+                        onClick={() => setSelectedCityCategoryId(ccId)}
+                        className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                          isSel
+                            ? "bg-secondary text-secondary-foreground shadow-[0_0_15px_rgba(249,115,22,0.3)]"
+                            : "glass-panel hover:bg-white/10 text-foreground/80"
+                        }`}
+                        data-testid={`pill-community-${ccId}`}
+                      >
+                        {ccName}
+                        <span className="ml-1.5 text-xs opacity-70">({ccLocs.length})</span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            </div>
 
-            {/* Region quick-jump pill bar (compact, single row); communities are revealed on demand via popover */}
-            {groupedLocations.length >= 1 && (
-              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-6 py-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  {groupedLocations.map(({ region, communityGroups }) => {
-                    const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
-                    const hasCommunities = communityGroups.length > 1
-                      || (communityGroups.length === 1 && communityGroups[0].cityCategory !== null);
+              {/* Summary row */}
+              <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+                <div>
+                  {t('showing')} {visibleLocations.length} / {totalLocations} {t('locations')}
+                  {selectedCount > 0 && (
+                    <span className="ml-2 text-primary font-medium">· {selectedCount} selected</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Cards grid OR empty state */}
+              {visibleLocations.length === 0 ? (
+                <div className="glass-card p-8 rounded-2xl text-center">
+                  {isFilterActive ? (
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground">{t('noLocationsMatch')}</p>
+                      <p className="text-sm text-muted-foreground/70">{t('tryAdjustingSearch')}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); }}
+                      >
+                        {t('clearAll')}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground">{t('noLocationsFound')}</p>
+                      <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
+                        {t('addNewLocation')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {visibleLocations.map((location) => {
+                    const isSelected = selectedIds.has(location.id);
+                    const isOnboarded = !!location.onboardedAt;
                     return (
                       <div
-                        key={region.id}
-                        className="inline-flex items-stretch rounded-full border overflow-hidden"
+                        key={location.id}
+                        className={`glass-card p-5 rounded-2xl relative overflow-hidden transition-all duration-300 border ${
+                          isSelected
+                            ? "border-primary/50 bg-primary/5 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
+                            : "border-white/10 hover:border-white/20"
+                        }`}
+                        data-testid={`card-location-${location.id}`}
                       >
-                        <button
-                          onClick={() => scrollToRegion(region.id)}
-                          className="inline-flex items-center px-3 py-1 text-xs font-semibold transition-colors hover:bg-primary hover:text-primary-foreground"
-                          data-testid={`pill-region-${region.id}`}
-                        >
-                          {regionName}
-                        </button>
-                        {hasCommunities && (
-                          <CommunityJumpPopover
-                            regionId={region.id}
-                            regionName={regionName}
-                            communityGroups={communityGroups}
-                            language={language}
-                            uncategorizedLabel={t('uncategorized') || "Other"}
-                            onSelect={(ccId) => scrollToCityCategory(region.id, ccId)}
+                        <div className="absolute top-3 right-3 z-10 flex gap-2 items-center">
+                          <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                                data-testid={`menu-location-${location.id}`}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52">
+                              <DropdownMenuLabel>{t('actions')}</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleEditLocation(location)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                {t('editLocation')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleChangePinForLocation(location)}>
+                                <KeyRound className="mr-2 h-4 w-4" />
+                                Change PIN
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setRestockEmailTarget(location)}
+                                disabled={!location.email}
+                              >
+                                <Mail className="mr-2 h-4 w-4" />
+                                {t('sendRestockEmail')}
+                              </DropdownMenuItem>
+                              {!isOnboarded && (
+                                <DropdownMenuItem onClick={() => openSinglePicker(location)}>
+                                  <Send className="mr-2 h-4 w-4" />
+                                  Send Welcome
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteLocation(location)}
+                                className="text-red-500 focus:text-red-500"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {t('deleteLocationConfirm')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(v) => toggleOne(location.id, !!v)}
+                            aria-label={`Select ${location.name}`}
+                            className="w-5 h-5"
+                            data-testid={`checkbox-location-${location.id}`}
                           />
-                        )}
+                        </div>
+
+                        <div className="pr-20">
+                          <h4 className="text-lg font-bold text-foreground mb-1 leading-tight">
+                            {localized(location, "name")}
+                          </h4>
+                          {location.locationCode && (
+                            <Badge variant="outline" className="text-xs font-mono mb-3">
+                              {location.locationCode}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 mb-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="text-foreground/90">{localized(location, "contactPerson")}</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <Phone className={`h-4 w-4 mt-0.5 shrink-0 ${location.phone ? "text-muted-foreground" : "text-orange-400/70"}`} />
+                            {location.phone ? (
+                              <button
+                                type="button"
+                                onClick={() => handleEditPhone(location)}
+                                className="text-foreground/90 hover:text-foreground hover:underline transition-colors text-left"
+                                data-testid={`btn-edit-phone-${location.id}`}
+                              >
+                                {location.phone}
+                              </button>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] py-0 border-orange-500/40 text-orange-400 bg-orange-500/10 cursor-pointer"
+                                onClick={() => handleEditPhone(location)}
+                              >
+                                MISSING PHONE
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <Mail className={`h-4 w-4 mt-0.5 shrink-0 ${location.email ? "text-muted-foreground" : "text-orange-400/70"}`} />
+                            {location.email ? (
+                              <button
+                                type="button"
+                                onClick={() => handleEditEmail(location)}
+                                className="text-foreground/90 hover:text-foreground hover:underline transition-colors text-left truncate"
+                                title={location.email}
+                              >
+                                {location.email}
+                              </button>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] py-0 border-orange-500/40 text-orange-400 bg-orange-500/10 cursor-pointer"
+                                onClick={() => handleEditEmail(location)}
+                              >
+                                MISSING EMAIL
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <button
+                              type="button"
+                              onClick={() => handleChangePinForLocation(location)}
+                              className="font-mono text-foreground/80 hover:text-foreground bg-white/5 px-2 py-0.5 rounded transition-colors"
+                              data-testid={`btn-change-pin-${location.id}`}
+                            >
+                              ••••
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 pt-3 border-t border-white/10">
+                          <Badge
+                            variant="outline"
+                            className={`border-transparent ${location.isActive ? "bg-emerald-500/15 text-emerald-300" : "bg-muted text-muted-foreground"}`}
+                          >
+                            {location.isActive ? t('active') : t('inactive')}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={`border-transparent ${isOnboarded ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}
+                          >
+                            {isOnboarded ? "Onboarded" : "Not onboarded"}
+                          </Badge>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sticky bulk-action bar */}
+        {selectedCount > 0 && (
+          <div className="fixed bottom-0 md:bottom-8 left-0 right-0 z-50 flex justify-center animate-in slide-in-from-bottom-8 duration-300 p-4 md:p-0 pointer-events-none">
+            <div className="glass-panel pointer-events-auto w-full md:w-auto rounded-2xl md:rounded-full px-5 py-3 flex flex-col md:flex-row items-center gap-3 md:gap-5 shadow-[0_10px_40px_rgba(0,0,0,0.5),0_0_20px_rgba(59,130,246,0.15)] border border-primary/30">
+              <div className="flex items-center gap-2">
+                <div className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-[0_0_10px_rgba(59,130,246,0.5)]">
+                  {selectedCount}
+                </div>
+                <span className="text-foreground font-medium text-sm">selected</span>
               </div>
-            )}
-
-            {/* Region-grouped sections */}
-            {groupedLocations.length === 0 ? (
-              <div className="px-6 py-8 text-center">
-                {isFilterActive ? (
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground">{t('noLocationsMatch')}</p>
-                    <p className="text-sm text-gray-500">{t('tryAdjustingSearch')}</p>
-                    <Button variant="outline" size="sm" onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); }}>
-                      {t('clearAll')}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground">{t('noLocationsFound')}</p>
-                    <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">{t('addNewLocation')}</Button>
-                  </div>
-                )}
+              <div className="hidden md:block h-8 w-px bg-white/10" />
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <Button
+                  size="sm"
+                  className="rounded-full flex-1 md:flex-none"
+                  onClick={openSelectedPicker}
+                  disabled={dialogIsPending}
+                  data-testid="button-bulk-message"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Message ({messageableCount}/{selectedCount})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-full flex-1 md:flex-none"
+                  onClick={openSelectedPicker}
+                  disabled={dialogIsPending}
+                  data-testid="button-bulk-send-welcome"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Welcome
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="rounded-full shrink-0"
+                  onClick={() => setSelectedIds(new Set())}
+                  aria-label="Clear selection"
+                  data-testid="button-bulk-clear"
+                >
+                  <XCircle className="h-5 w-5" />
+                </Button>
               </div>
-            ) : (
-              <div className="divide-y">
-                {groupedLocations.map(({ region, locations: regionLocs, communityGroups }) => {
-                  const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
-                  const isExpanded = isFilterActive || expandedRegions.has(region.id);
-                  const regionIds = regionLocs.map(l => l.id);
-                  const allRegionSelected = regionIds.every(id => selectedIds.has(id));
-                  return (
-                    <div key={region.id} ref={(el) => { regionRefs.current[region.id] = el; }}>
-                      {/* Section header */}
-                      <button
-                        className={`w-full flex items-center justify-between px-6 py-3 transition-colors text-left ${isFilterActive ? "cursor-default" : "hover:bg-muted/40"}`}
-                        onClick={() => { if (!isFilterActive) toggleRegion(region.id); }}
-                        aria-expanded={isExpanded}
-                      >
-                        <div className="flex items-center gap-2">
-                          {isExpanded
-                            ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                            : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                          }
-                          <span className="font-semibold text-sm">{regionName}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {regionLocs.length} {regionLocs.length === 1 ? t('locationSingular') : t('locations')}
-                          </Badge>
-                        </div>
-                      </button>
-
-                      {/* Collapsible table */}
-                      {isExpanded && (
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-8">
-                                  <Checkbox
-                                    checked={regionIds.length > 0 && allRegionSelected}
-                                    onCheckedChange={(v) => {
-                                      setSelectedIds(prev => {
-                                        const next = new Set(prev);
-                                        if (v) regionIds.forEach(id => next.add(id));
-                                        else regionIds.forEach(id => next.delete(id));
-                                        return next;
-                                      });
-                                    }}
-                                    aria-label={`Select all in ${regionName}`}
-                                  />
-                                </TableHead>
-                                <TableHead className="min-w-[200px]">{t('name')}</TableHead>
-                                <TableHead className="min-w-[180px] hidden md:table-cell">{t('coordinatorName')}</TableHead>
-                                <TableHead className="min-w-[80px] hidden lg:table-cell">PIN</TableHead>
-                                <TableHead className="min-w-[120px]">Contacts</TableHead>
-                                <TableHead className="min-w-[80px]">{t('status')}</TableHead>
-                                <TableHead className="min-w-[80px]">{t('actions')}</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {communityGroups.map(({ cityCategory, locations: ccLocs }) => {
-                                const ccKey = `${region.id}:${cityCategory?.id ?? "none"}`;
-                                const ccName = cityCategory
-                                  ? (language === "he" && cityCategory.nameHe ? cityCategory.nameHe : cityCategory.name)
-                                  : (t('uncategorized') || "Other");
-                                const ccIds = ccLocs.map(l => l.id);
-                                const allCcSelected = ccIds.length > 0 && ccIds.every(id => selectedIds.has(id));
-                                const showSubHeader = communityGroups.length > 1
-                                  || (communityGroups.length === 1 && communityGroups[0].cityCategory !== null);
-                                return (
-                                  <React.Fragment key={ccKey}>
-                                    {showSubHeader && (
-                                      <TableRow
-                                        ref={(el) => { cityCategoryRefs.current[ccKey] = el; }}
-                                        className="bg-muted/30 hover:bg-muted/40"
-                                        data-testid={`subheader-community-${ccKey}`}
-                                      >
-                                        <TableCell className="py-1.5">
-                                          <Checkbox
-                                            checked={allCcSelected}
-                                            onCheckedChange={(v) => {
-                                              setSelectedIds(prev => {
-                                                const next = new Set(prev);
-                                                if (v) ccIds.forEach(id => next.add(id));
-                                                else ccIds.forEach(id => next.delete(id));
-                                                return next;
-                                              });
-                                            }}
-                                            aria-label={`Select all in ${ccName}`}
-                                          />
-                                        </TableCell>
-                                        <TableCell colSpan={6} className="py-1.5">
-                                          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                            <MapPin className="h-3 w-3" />
-                                            <span>{ccName}</span>
-                                            <Badge variant="outline" className="text-[10px] font-normal">
-                                              {ccLocs.length}
-                                            </Badge>
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    )}
-                                    {ccLocs.map((location) => {
-                                const sms = location.welcomeSmsStatus;
-                                const em = location.welcomeEmailStatus;
-                                return (
-                                  <TableRow key={location.id} data-testid={`row-location-${location.id}`}>
-                                    <TableCell>
-                                      <Checkbox
-                                        checked={selectedIds.has(location.id)}
-                                        onCheckedChange={(v) => toggleOne(location.id, !!v)}
-                                        aria-label={`Select ${location.name}`}
-                                        data-testid={`checkbox-location-${location.id}`}
-                                      />
-                                    </TableCell>
-                                    <TableCell className="font-medium">
-                                      <div className="flex items-center gap-2">
-                                        <span>{localized(location, "name")}</span>
-                                        {location.locationCode && (
-                                          <Badge variant="outline" className="text-xs">{location.locationCode}</Badge>
-                                        )}
-                                      </div>
-                                      <div className="text-xs text-muted-foreground flex items-center mt-1">
-                                        <MapPin className="h-3 w-3 mr-1" />
-                                        {localized(location, "address")}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell">
-                                      <div>{localized(location, "contactPerson")}</div>
-                                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <Phone className="h-3 w-3 mr-1 shrink-0" />
-                                        {location.phone ? (
-                                          <button
-                                            className="hover:text-foreground hover:underline transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded"
-                                            onClick={() => handleEditPhone(location)}
-                                            title="Click to edit phone number"
-                                            data-testid={`btn-edit-phone-${location.id}`}
-                                          >
-                                            {location.phone}
-                                          </button>
-                                        ) : (
-                                          <span className="italic">No phone</span>
-                                        )}
-                                      </div>
-                                      <div className="text-xs text-muted-foreground flex items-center">
-                                        <Mail className="h-3 w-3 mr-1" />
-                                        {location.email ? (
-                                          <button
-                                            className="hover:text-foreground hover:underline transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded"
-                                            onClick={() => handleEditEmail(location)}
-                                            title="Click to edit email address"
-                                          >
-                                            {location.email}
-                                          </button>
-                                        ) : (
-                                          <span className="italic">No email</span>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="hidden lg:table-cell">
-                                      {location.operatorPin ? (
-                                        <Badge variant="outline" className="text-xs bg-muted text-muted-foreground border-border">PIN set</Badge>
-                                      ) : (
-                                        <Badge variant="outline" className="text-xs bg-red-100 text-red-700 border-red-200">No PIN</Badge>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      {(() => {
-                                        // Build message history for ALL rows (including onboarded)
-                                        type ChannelTs = { channel: "sms" | "whatsapp" | "email"; at: Date };
-                                        const candidates: ChannelTs[] = [];
-                                        if (location.welcomeSmsSentAt) candidates.push({ channel: "sms", at: new Date(location.welcomeSmsSentAt as unknown as string) });
-                                        if (location.welcomeWhatsappSentAt) candidates.push({ channel: "whatsapp", at: new Date(location.welcomeWhatsappSentAt as unknown as string) });
-                                        if (location.welcomeEmailSentAt) candidates.push({ channel: "email", at: new Date(location.welcomeEmailSentAt as unknown as string) });
-                                        const latest = candidates.sort((a, b) => b.at.getTime() - a.at.getTime())[0] ?? null;
-                                        const daysAgo = latest ? Math.max(0, Math.floor((Date.now() - latest.at.getTime()) / 86400000)) : null;
-                                        const waStatus = location.welcomeWhatsappStatus?.toLowerCase();
-                                        const waIconColor = waStatus === "delivered" ? "text-green-600"
-                                          : (waStatus === "failed" || waStatus === "undelivered") ? "text-red-500"
-                                          : "text-muted-foreground";
-                                        const smsStatus = location.welcomeSmsStatus?.toLowerCase();
-                                        const smsIconColor = smsStatus === "delivered" ? "text-green-600"
-                                          : (smsStatus === "failed" || smsStatus === "undelivered") ? "text-red-500"
-                                          : "text-muted-foreground";
-                                        const emailStatus = location.welcomeEmailStatus?.toLowerCase();
-                                        const emailIconColor = emailStatus === "delivered" ? "text-green-600"
-                                          : emailStatus === "failed" ? "text-red-500"
-                                          : "text-muted-foreground";
-                                        const channelIcon = latest?.channel === "sms"
-                                          ? <MessageSquare className={`h-3 w-3 shrink-0 ${smsIconColor}`} />
-                                          : latest?.channel === "whatsapp"
-                                          ? <MessageCircle className={`h-3 w-3 shrink-0 ${waIconColor}`} />
-                                          : latest?.channel === "email"
-                                          ? <Mail className={`h-3 w-3 shrink-0 ${emailIconColor}`} />
-                                          : null;
-                                        const hasFailure = sms === "failed" || em === "failed" || waStatus === "failed" || waStatus === "undelivered";
-                                        // Per-channel tooltip rows
-                                        type ChannelRow = { key: "sms" | "whatsapp" | "email"; label: string; sentAt: Date | null; status: string | null; error: string | null };
-                                        const channelRows: ChannelRow[] = [
-                                          { key: "sms", label: "SMS", sentAt: location.welcomeSmsSentAt ? new Date(location.welcomeSmsSentAt as unknown as string) : null, status: location.welcomeSmsStatus ?? null, error: location.welcomeSmsError ?? null },
-                                          { key: "whatsapp", label: "WhatsApp", sentAt: location.welcomeWhatsappSentAt ? new Date(location.welcomeWhatsappSentAt as unknown as string) : null, status: location.welcomeWhatsappStatus ?? null, error: location.welcomeWhatsappError ?? null },
-                                          { key: "email", label: "Email", sentAt: location.welcomeEmailSentAt ? new Date(location.welcomeEmailSentAt as unknown as string) : null, status: location.welcomeEmailStatus ?? null, error: location.welcomeEmailError ?? null },
-                                        ];
-                                        // Broaden attempt detection: sentAt OR non-null status/error counts as an attempt
-                                        const hasAnyAttempt = candidates.length > 0 || channelRows.some(r => r.status || r.error);
-                                        // Always show all 3 channels; non-attempted ones show "not sent"
-                                        const tooltipRows = channelRows;
-                                        const fmtTimestamp = (d: Date) => d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-                                        const statusColor = (s: string | null) => {
-                                          if (!s) return "text-muted-foreground";
-                                          if (s === "delivered") return "text-green-500";
-                                          if (s === "sent" || s === "queued") return "text-blue-400";
-                                          if (s === "failed" || s === "undelivered") return "text-red-400";
-                                          return "text-muted-foreground";
-                                        };
-                                        const channelRowIcon = (key: "sms" | "whatsapp" | "email") =>
-                                          key === "sms" ? <MessageSquare className={`h-3 w-3 shrink-0 ${smsIconColor}`} />
-                                          : key === "whatsapp" ? <MessageCircle className={`h-3 w-3 shrink-0 ${waIconColor}`} />
-                                          : <Mail className={`h-3 w-3 shrink-0 ${emailIconColor}`} />;
-
-                                        const mainContent = (
-                                          <div className="flex flex-col gap-0.5" data-testid={`contacts-cell-${location.id}`}>
-                                            {location.onboardedAt && (
-                                              <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700 w-fit">Onboarded</Badge>
-                                            )}
-                                            {latest ? (
-                                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground" data-testid={`last-messaged-${location.id}`}>
-                                                {channelIcon}
-                                                <span>{daysAgo === 0 ? "Today" : daysAgo === 1 ? "1 day ago" : `${daysAgo} days ago`}</span>
-                                              </div>
-                                            ) : !location.onboardedAt ? (
-                                              <Badge variant="outline" className="text-xs text-muted-foreground w-fit">Not messaged</Badge>
-                                            ) : null}
-                                            {hasFailure && (
-                                              <Badge variant="destructive" className="text-xs w-fit">Failed</Badge>
-                                            )}
-                                            {!location.phone && <NoPhoneBadge onClick={() => handleEditLocation(location, true)} />}
-                                          </div>
-                                        );
-
-                                        if (!hasAnyAttempt) return mainContent;
-
-                                        return (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <div className="cursor-default w-fit" data-testid={`contacts-cell-${location.id}`}>
-                                                <div className="flex flex-col gap-0.5">
-                                                  {location.onboardedAt && (
-                                                    <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700 w-fit">Onboarded</Badge>
-                                                  )}
-                                                  {latest ? (
-                                                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground" data-testid={`last-messaged-${location.id}`}>
-                                                      {channelIcon}
-                                                      <span>{daysAgo === 0 ? "Today" : daysAgo === 1 ? "1 day ago" : `${daysAgo} days ago`}</span>
-                                                    </div>
-                                                  ) : !location.onboardedAt ? (
-                                                    <Badge variant="outline" className="text-xs text-muted-foreground w-fit">Not messaged</Badge>
-                                                  ) : null}
-                                                  {hasFailure && (
-                                                    <Badge variant="destructive" className="text-xs w-fit">Failed</Badge>
-                                                  )}
-                                                  {!location.phone && <NoPhoneBadge onClick={() => handleEditLocation(location, true)} />}
-                                                </div>
-                                              </div>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="left" className="max-w-[220px] p-2" data-testid={`contacts-tooltip-${location.id}`}>
-                                              <p className="text-[10px] font-semibold mb-1.5 text-foreground/80 uppercase tracking-wide">Message history</p>
-                                              <div className="space-y-1.5">
-                                                {tooltipRows.map(row => (
-                                                  <div key={row.key} className="flex items-start gap-1.5">
-                                                    <span className="mt-0.5">{channelRowIcon(row.key)}</span>
-                                                    <div className="flex flex-col min-w-0">
-                                                      <div className="flex items-center gap-1.5">
-                                                        <span className="text-[11px] font-medium text-foreground">{row.label}</span>
-                                                        <span className={`text-[10px] font-medium ${row.status ? statusColor(row.status) : "text-muted-foreground/60"}`}>
-                                                          {row.status ?? "not sent"}
-                                                        </span>
-                                                      </div>
-                                                      {row.sentAt ? (
-                                                        <span className="text-[10px] text-muted-foreground">{fmtTimestamp(row.sentAt)}</span>
-                                                      ) : (
-                                                        <span className="text-[10px] text-muted-foreground/50">—</span>
-                                                      )}
-                                                      {row.error && (
-                                                        <span className="text-[10px] text-red-400 truncate" title={row.error}>Error: {row.error.slice(0, 40)}{row.error.length > 40 ? "…" : ""}</span>
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        );
-                                      })()}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Switch
-                                        checked={Boolean(location.isActive)}
-                                        onCheckedChange={() => toggleLocationStatus(location.id, Boolean(location.isActive))}
-                                      />
-                                    </TableCell>
-                                    <TableCell>
-                                      <DropdownMenu modal={false}>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" className="h-8 w-8 p-0">
-                                            <span className="sr-only">Open menu</span>
-                                            <MoreVertical className="h-4 w-4" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                          <DropdownMenuLabel>{t('actions')}</DropdownMenuLabel>
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem onClick={() => openSinglePicker(location)}>
-                                            <Send className="mr-2 h-4 w-4" />
-                                            Send Message
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => setRestockEmailTarget(location)} disabled={!location.email}>
-                                            <Mail className="mr-2 h-4 w-4" />
-                                            {t('sendRestockEmail')}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => handleEditLocation(location)}>
-                                            <Edit className="mr-2 h-4 w-4" />
-                                            {t('editLocation')}
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => handleChangePinForLocation(location)}>
-                                            <KeyRound className="mr-2 h-4 w-4" />
-                                            Change PIN
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => handleEditEmail(location)}>
-                                            <Mail className="mr-2 h-4 w-4" />
-                                            Edit Email
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() => handleDeleteLocation(location)}
-                                            className="text-red-600 focus:text-red-600"
-                                          >
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            {t('deleteLocationConfirm')}
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })}
-                                  </React.Fragment>
-                                );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        )}
 
         {/* Message Send History Panel */}
         <Card className="mt-4">
