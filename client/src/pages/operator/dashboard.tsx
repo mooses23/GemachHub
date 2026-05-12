@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { driver } from "driver.js";
 import type { Side } from "driver.js";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link, useLocation } from "wouter";
@@ -936,7 +936,7 @@ function RefundChargedDialog({
   );
 }
 
-function RecentActivity({ transactions, locationId, locationCode }: { transactions: Transaction[]; locationId: number; locationCode?: string }) {
+function RecentActivity({ transactions, locationId, locationCode, onStartReturn }: { transactions: Transaction[]; locationId: number; locationCode?: string; onStartReturn?: (tx: Transaction) => void }) {
   const { t, language } = useLanguage();
   const [refundTx, setRefundTx] = useState<Transaction | null>(null);
   const [showFindPast, setShowFindPast] = useState(false);
@@ -1019,6 +1019,18 @@ function RecentActivity({ transactions, locationId, locationCode }: { transactio
                   </div>
                   {!tx.isReturned && (
                     <ReturnReminderButton tx={tx} locationId={locationId} />
+                  )}
+                  {!tx.isReturned && onStartReturn && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onStartReturn(tx)}
+                      className="border-primary/40 text-primary hover:bg-primary/10"
+                      data-testid={`button-mark-returned-${tx.id}`}
+                    >
+                      <RotateCw className="h-3.5 w-3.5 me-1" />
+                      {t("markAsReturned") || "Mark Returned"}
+                    </Button>
                   )}
                   {isRefundable(tx) && (
                     <Button
@@ -3141,7 +3153,7 @@ export default function OperatorDashboard() {
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
             <div id="tour-restocking"><RestockingInstructions location={operatorLocation} /></div>
-            <RecentActivity transactions={transactions} locationId={operatorLocation.id} locationCode={operatorLocation.locationCode} />
+            <RecentActivity transactions={transactions} locationId={operatorLocation.id} locationCode={operatorLocation.locationCode} onStartReturn={() => setActiveTab("return")} />
           </TabsContent>
 
           <TabsContent value="lend">
