@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import type { ElementType } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,14 +14,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -54,8 +47,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Search, 
+import {
+  Search,
   MoreVertical,
   Check,
   X,
@@ -65,20 +58,30 @@ import {
   MapPin,
   Calendar,
   Clock,
-  ArrowLeft,
-  Home,
   Plus,
   Loader2,
   DollarSign,
   KeyRound,
   User,
   RotateCcw,
-  Info
+  Info,
+  ChevronDown,
+  ChevronUp,
+  BarChart3,
+  TrendingUp,
+  CheckCircle2,
+  XCircle,
+  Users,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, TrendingUp, BarChart3 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   LineChart,
   Line,
@@ -103,6 +106,227 @@ const locationFormSchema = insertLocationSchema.omit({ locationCode: true }).ext
 
 type LocationFormData = z.infer<typeof locationFormSchema>;
 
+function KpiTile({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: ElementType;
+  label: string;
+  value: number;
+  accent?: string;
+}) {
+  return (
+    <div className="glass-card rounded-xl p-4 flex items-start gap-3 border border-white/10 backdrop-blur-sm bg-white/5">
+      <div className={`p-2 rounded-lg shrink-0 ${accent ?? "bg-primary/20"}`}>
+        <Icon className="h-4 w-4 text-white" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">{label}</p>
+        <p className="text-xl font-bold text-white leading-tight mt-0.5">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function getStatusGlassBadge(status: string, t: (k: string) => string) {
+  switch (status) {
+    case "pending":
+      return (
+        <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 text-xs">
+          <Clock className="h-3 w-3 me-1" />
+          {t("pending")}
+        </Badge>
+      );
+    case "approved":
+      return (
+        <Badge className="bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/20 text-xs">
+          <CheckCircle2 className="h-3 w-3 me-1" />
+          {t("approved")}
+        </Badge>
+      );
+    case "rejected":
+      return (
+        <Badge className="bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/20 text-xs">
+          <XCircle className="h-3 w-3 me-1" />
+          {t("rejected")}
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline" className="text-xs">{t("unknown")}</Badge>;
+  }
+}
+
+interface ApplicationCardProps {
+  application: GemachApplication;
+  onView: (a: GemachApplication) => void;
+  onApprove: (a: GemachApplication) => void;
+  onReject: (id: number) => void;
+  onRestore: (id: number) => void;
+  onResend: (id: number) => void;
+  resendPending: boolean;
+  updatePending: boolean;
+  t: (key: string) => string;
+}
+
+function ApplicationCard({
+  application,
+  onView,
+  onApprove,
+  onReject,
+  onRestore,
+  onResend,
+  resendPending,
+  updatePending,
+  t,
+}: ApplicationCardProps) {
+  const fullName = `${application.firstName} ${application.lastName}`;
+  const locationLine = [application.city, application.state, application.country].filter(Boolean).join(", ");
+
+  return (
+    <div className="glass-card rounded-xl border border-white/10 backdrop-blur-sm bg-white/5 p-4 flex flex-col gap-3 relative">
+      {/* Header: name + status + action menu */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="p-1.5 rounded-full bg-primary/20 shrink-0">
+            <User className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <span className="font-semibold text-white truncate">{fullName}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {getStatusGlassBadge(application.status, t)}
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-7 w-7 p-0 text-slate-400 hover:text-white hover:bg-white/10"
+              >
+                <span className="sr-only">{t("openMenu")}</span>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>{t("actions")}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onView(application)}>
+                <Eye className="me-2 h-4 w-4" />
+                {t("viewDetails")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onResend(application.id)}
+                disabled={resendPending}
+              >
+                {resendPending ? (
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="me-2 h-4 w-4" />
+                )}
+                {t("resendConfirmationEmail")}
+              </DropdownMenuItem>
+              {application.status === "pending" && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => onApprove(application)}
+                    data-testid={`menu-approve-${application.id}`}
+                  >
+                    <Plus className="me-2 h-4 w-4 text-green-500" />
+                    {t("approveCreateLocation")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onReject(application.id)}
+                    data-testid={`menu-reject-${application.id}`}
+                  >
+                    <X className="me-2 h-4 w-4 text-red-500" />
+                    {t("rejectApplication")}
+                  </DropdownMenuItem>
+                </>
+              )}
+              {application.status !== "pending" && (
+                <DropdownMenuItem
+                  onClick={() => onRestore(application.id)}
+                  disabled={updatePending}
+                  data-testid={`menu-restore-${application.id}`}
+                >
+                  <RotateCcw className="me-2 h-4 w-4 text-blue-400" />
+                  {t("restoreToPending")}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Contact chips */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <span className="flex items-center gap-1 text-xs text-slate-400">
+          <Mail className="h-3 w-3 shrink-0" />
+          <span className="truncate max-w-[200px]">{application.email}</span>
+        </span>
+        {application.phone && (
+          <span className="flex items-center gap-1 text-xs text-slate-400">
+            <Phone className="h-3 w-3 shrink-0" />
+            {application.phone}
+          </span>
+        )}
+      </div>
+
+      {/* Location */}
+      {locationLine && (
+        <span className="flex items-center gap-1.5 text-xs text-slate-300">
+          <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          {locationLine}
+          {application.community && (
+            <span className="text-slate-500">· {application.community}</span>
+          )}
+        </span>
+      )}
+
+      {/* Dates row */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 border-t border-white/5 text-xs text-slate-400">
+        <span className="flex items-center gap-1">
+          <Calendar className="h-3 w-3 shrink-0" />
+          {t("submitted")}: {format(new Date(application.submittedAt), "MMM d, yyyy")}
+        </span>
+        {application.confirmationEmailSentAt ? (
+          <span className="flex items-center gap-1">
+            <Mail className="h-3 w-3 shrink-0" />
+            {t("emailed")}: {format(new Date(application.confirmationEmailSentAt), "MMM d, yyyy")}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-slate-500">
+            <Mail className="h-3 w-3 shrink-0" />
+            {t("neverEmailed")}
+          </span>
+        )}
+      </div>
+
+      {/* Quick-action buttons for pending applications */}
+      {application.status === "pending" && (
+        <div className="flex gap-2 pt-1">
+          <Button
+            size="sm"
+            className="flex-1 h-8 text-xs bg-green-600/80 hover:bg-green-600 text-white border-0"
+            onClick={() => onApprove(application)}
+          >
+            <Check className="h-3.5 w-3.5 me-1" />
+            {t("approve")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 h-8 text-xs border-white/10 text-slate-300 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30"
+            onClick={() => onReject(application.id)}
+          >
+            <X className="h-3.5 w-3.5 me-1" />
+            {t("reject")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminApplications() {
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -115,8 +339,9 @@ export default function AdminApplications() {
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [generatedInviteCode, setGeneratedInviteCode] = useState<string | null>(null);
   const [isInviteCodeDialogOpen, setIsInviteCodeDialogOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
-  const { data: applications = [] } = useQuery<GemachApplication[]>({
+  const { data: applications = [], isLoading } = useQuery<GemachApplication[]>({
     queryKey: ["/api/applications"],
   });
 
@@ -148,9 +373,6 @@ export default function AdminApplications() {
     },
   });
 
-  // Group all city categories by region for the searchable, cross-region dropdown
-  // shown on the approval dialog so the admin can pick any community without
-  // first switching the Region selector.
   const cityCategoriesByRegion = regions
     .slice()
     .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
@@ -167,27 +389,24 @@ export default function AdminApplications() {
     .filter((group) => group.categories.length > 0);
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) => 
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
       updateGemachApplicationStatus(id, status),
     onSuccess: () => {
-      toast({
-        title: t('statusUpdated'),
-        description: t('statusUpdateSuccess'),
-      });
+      toast({ title: t("statusUpdated"), description: t("statusUpdateSuccess") });
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
       setIsViewDialogOpen(false);
     },
     onError: (error) => {
       toast({
-        title: t('error'),
-        description: `${t('failedToUpdateStatus')} ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToUpdateStatus")} ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const approveWithLocationMutation = useMutation({
-    mutationFn: ({ id, locationData }: { id: number; locationData: InsertLocation }) => 
+    mutationFn: ({ id, locationData }: { id: number; locationData: InsertLocation }) =>
       approveApplicationWithLocation(id, locationData),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
@@ -195,22 +414,17 @@ export default function AdminApplications() {
       setIsApproveDialogOpen(false);
       setApproveApplication(null);
       form.reset();
-      
-      // Show invite code dialog
       if (data.inviteCode) {
         setGeneratedInviteCode(data.inviteCode);
         setIsInviteCodeDialogOpen(true);
       } else {
-        toast({
-          title: t('applicationApproved'),
-          description: t('applicationApprovedSuccess'),
-        });
+        toast({ title: t("applicationApproved"), description: t("applicationApprovedSuccess") });
       }
     },
     onError: (error) => {
       toast({
-        title: t('error'),
-        description: `${t('failedToApprove')} ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToApprove")} ${error.message}`,
         variant: "destructive",
       });
     },
@@ -219,15 +433,12 @@ export default function AdminApplications() {
   const resendConfirmationMutation = useMutation({
     mutationFn: (id: number) => resendApplicationConfirmationEmail(id),
     onSuccess: () => {
-      toast({
-        title: t('emailResent'),
-        description: t('emailResentSuccess'),
-      });
+      toast({ title: t("emailResent"), description: t("emailResentSuccess") });
     },
     onError: (error) => {
       toast({
-        title: t('error'),
-        description: `${t('failedToResendEmail')} ${error.message}`,
+        title: t("error"),
+        description: `${t("failedToResendEmail")} ${error.message}`,
         variant: "destructive",
       });
     },
@@ -238,9 +449,7 @@ export default function AdminApplications() {
   };
 
   const handleRestoreToPending = (id: number) => {
-    if (typeof window !== "undefined" && !window.confirm(t('restoreToPendingConfirm'))) {
-      return;
-    }
+    if (typeof window !== "undefined" && !window.confirm(t("restoreToPendingConfirm"))) return;
     updateStatusMutation.mutate({ id, status: "pending" });
   };
 
@@ -256,20 +465,16 @@ export default function AdminApplications() {
 
   const handleStartApproval = (application: GemachApplication) => {
     setApproveApplication(application);
-    
-    // Try to match applicant's community to an existing city category
     let matchedCityCategoryId: number | null = null;
     if (application.community) {
       const communityLower = application.community.toLowerCase().trim();
       const matchedCategory = cityCategories.find(
-        cat => cat.name.toLowerCase().trim() === communityLower ||
-               cat.slug.toLowerCase() === communityLower.replace(/\s+/g, '-')
+        (cat) =>
+          cat.name.toLowerCase().trim() === communityLower ||
+          cat.slug.toLowerCase() === communityLower.replace(/\s+/g, "-")
       );
-      if (matchedCategory) {
-        matchedCityCategoryId = matchedCategory.id;
-      }
+      if (matchedCategory) matchedCityCategoryId = matchedCategory.id;
     }
-    
     form.reset({
       name: `${application.firstName} ${application.lastName}'s Gemach`,
       contactPerson: `${application.firstName} ${application.lastName}`,
@@ -277,7 +482,9 @@ export default function AdminApplications() {
       zipCode: application.zipCode,
       phone: application.phone,
       email: application.email,
-      regionId: matchedCityCategoryId ? (cityCategories.find(c => c.id === matchedCityCategoryId)?.regionId ?? 1) : 1,
+      regionId: matchedCityCategoryId
+        ? (cityCategories.find((c) => c.id === matchedCityCategoryId)?.regionId ?? 1)
+        : 1,
       cityCategoryId: matchedCityCategoryId,
       operatorPin: "1234",
       isActive: true,
@@ -291,32 +498,27 @@ export default function AdminApplications() {
 
   const onSubmitApproval = (data: LocationFormData) => {
     if (!approveApplication) return;
-    
-    approveWithLocationMutation.mutate({ 
-      id: approveApplication.id, 
-      locationData: data as InsertLocation
-    });
+    approveWithLocationMutation.mutate({ id: approveApplication.id, locationData: data as InsertLocation });
   };
 
+  // Legacy badge used in the view dialog (light-mode style)
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">{t('pending')}</Badge>;
+        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">{t("pending")}</Badge>;
       case "approved":
-        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">{t('approved')}</Badge>;
+        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">{t("approved")}</Badge>;
       case "rejected":
-        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">{t('rejected')}</Badge>;
+        return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">{t("rejected")}</Badge>;
       default:
-        return <Badge variant="outline">{t('unknown')}</Badge>;
+        return <Badge variant="outline">{t("unknown")}</Badge>;
     }
   };
 
   const filteredApplications = applications
-    .filter(application => {
+    .filter((application) => {
       if (filterStatus !== "all" && application.status !== filterStatus) return false;
-
       if (!searchTerm) return true;
-
       const searchLower = searchTerm.toLowerCase();
       return (
         application.firstName.toLowerCase().includes(searchLower) ||
@@ -334,13 +536,11 @@ export default function AdminApplications() {
       return bd - ad;
     });
 
-  // Per-status counts shown on the filter buttons so admins can see at a
-  // glance how many approved/rejected applications are hidden behind a filter.
   const statusCounts = {
     all: applications.length,
-    pending: applications.filter(a => a.status === "pending").length,
-    approved: applications.filter(a => a.status === "approved").length,
-    rejected: applications.filter(a => a.status === "rejected").length,
+    pending: applications.filter((a) => a.status === "pending").length,
+    approved: applications.filter((a) => a.status === "approved").length,
+    rejected: applications.filter((a) => a.status === "rejected").length,
   };
   const hiddenNonPendingCount = statusCounts.approved + statusCounts.rejected;
 
@@ -353,386 +553,349 @@ export default function AdminApplications() {
       months.push(key);
     }
     const counts: Record<string, number> = {};
-    months.forEach(m => { counts[m] = 0; });
-    applications.forEach(app => {
+    months.forEach((m) => { counts[m] = 0; });
+    applications.forEach((app) => {
       if (!app.submittedAt) return;
       const d = new Date(app.submittedAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       if (counts[key] !== undefined) counts[key]++;
     });
-    return months.map(key => {
+    return months.map((key) => {
       const [year, month] = key.split("-");
-      const label = new Date(Number(year), Number(month) - 1).toLocaleString("default", { month: "short", year: "2-digit" });
+      const label = new Date(Number(year), Number(month) - 1).toLocaleString("default", {
+        month: "short",
+        year: "2-digit",
+      });
       return { month: label, Applications: counts[key] };
     });
   }, [applications]);
 
   return (
     <>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">{t('gemachApplications')}</h1>
-            <p className="text-muted-foreground">{t('reviewManageApplicationsDescription')}</p>
-          </div>
-        </div>
+      {/* ── Page header ───────────────────────────────────────────────── */}
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold">{t("gemachApplications")}</h1>
+        <p className="text-sm md:text-base text-muted-foreground">{t("reviewManageApplicationsDescription")}</p>
+      </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>{t('applications')}</CardTitle>
-            <CardDescription>
-              {t('reviewManageApplicationsFromVolunteers')}
-            </CardDescription>
-            <div className="mt-4 flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-grow">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('searchApplications')}
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+      {/* ── KPI strip ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <KpiTile icon={FileText} label={t("total")} value={statusCounts.all} />
+        <KpiTile icon={Clock} label={t("pending")} value={statusCounts.pending} accent="bg-amber-500/20" />
+        <KpiTile icon={CheckCircle2} label={t("approved")} value={statusCounts.approved} accent="bg-green-500/20" />
+        <KpiTile icon={XCircle} label={t("rejected")} value={statusCounts.rejected} accent="bg-red-500/20" />
+      </div>
+
+      {/* ── Search + filter bar ────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-grow">
+          <Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t("searchApplications")}
+            className="ps-10"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1 overflow-x-auto">
+          {(["all", "pending", "approved", "rejected"] as const).map((s) => (
+            <Button
+              key={s}
+              variant={filterStatus === s ? "default" : "outline"}
+              size="sm"
+              className="whitespace-nowrap"
+              onClick={() => setFilterStatus(s)}
+              data-testid={`filter-status-${s}`}
+            >
+              {t(s)} ({statusCounts[s]})
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pending-only note banner */}
+      {filterStatus === "pending" && hiddenNonPendingCount > 0 && (
+        <div
+          className="mb-4 flex items-start gap-2 rounded-md border border-blue-200/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-300"
+          data-testid="hidden-applications-note"
+        >
+          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <span>
+            {t("hiddenApplicationsNote")
+              .replace("{approved}", String(statusCounts.approved))
+              .replace("{rejected}", String(statusCounts.rejected))}
+          </span>
+        </div>
+      )}
+
+      {/* ── Application card grid ─────────────────────────────────────── */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+              <Skeleton className="h-5 w-36" />
+              <Skeleton className="h-4 w-52" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-44" />
+            </div>
+          ))}
+        </div>
+      ) : filteredApplications.length === 0 ? (
+        <div className="glass-card rounded-xl border border-white/10 bg-white/5 p-12 text-center">
+          <Users className="h-10 w-10 text-slate-500 mx-auto mb-3" />
+          <p className="text-slate-400 text-sm">
+            {searchTerm || filterStatus !== "all"
+              ? t("noApplicationsFoundCriteria")
+              : t("noApplicationsSubmittedYet")}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {filteredApplications.map((application) => (
+            <ApplicationCard
+              key={application.id}
+              application={application}
+              onView={handleViewApplication}
+              onApprove={handleStartApproval}
+              onReject={handleReject}
+              onRestore={handleRestoreToPending}
+              onResend={(id) => resendConfirmationMutation.mutate(id)}
+              resendPending={resendConfirmationMutation.isPending}
+              updatePending={updateStatusMutation.isPending}
+              t={t}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Analytics (collapsible, closed by default) ────────────────── */}
+      <div className="mt-8">
+        <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between gap-2 py-2 border-b border-border/40 text-left"
+            >
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                {t("analyticsNewApplications")}
+              </h2>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                {analyticsOpen ? (
+                  <><ChevronUp className="h-3.5 w-3.5" />{t("hide") || "Hide"}</>
+                ) : (
+                  <><ChevronDown className="h-3.5 w-3.5" />{t("show") || "Show"}</>
+                )}
+              </span>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    {t("analyticsNewApplications")}
+                  </CardTitle>
+                  <CardDescription>{t("analyticsLast12Months")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={appsByMonth} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                      <RechartsTooltip
+                        contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="Applications"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "hsl(var(--primary))" }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+
+      {/* ── View Application Dialog ────────────────────────────────────── */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>{t("applicationDetails")}</DialogTitle>
+            <DialogDescription>{t("reviewCompleteApplication")}</DialogDescription>
+          </DialogHeader>
+          {viewApplication && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">{t("firstName")}</h3>
+                  <p>{viewApplication.firstName}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">{t("lastName")}</h3>
+                  <p>{viewApplication.lastName}</p>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">{t("email")}</h3>
+                <p>{viewApplication.email}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">{t("phoneNumber")}</h3>
+                <p>{viewApplication.phone}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">{t("address")}</h3>
+                <p>{viewApplication.streetAddress}</p>
+                <p>
+                  {viewApplication.city}, {viewApplication.state} {viewApplication.zipCode}
+                </p>
+                <p>{viewApplication.country}</p>
+                {viewApplication.community && (
+                  <p className="text-muted-foreground text-sm mt-1">
+                    {t("community")}: {viewApplication.community}
+                  </p>
+                )}
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">{t("message")}</h3>
+                <Textarea
+                  value={viewApplication.message || t("noMessageProvided")}
+                  readOnly
+                  className="h-24 mt-1"
                 />
               </div>
-              <div className="-mx-1 px-1 overflow-x-auto sm:overflow-visible">
-                <div className="flex gap-2 min-w-max sm:min-w-0 sm:flex-wrap">
-                  <Button
-                    variant={filterStatus === "all" ? "default" : "outline"}
-                    size="sm"
-                    className="whitespace-nowrap"
-                    onClick={() => setFilterStatus("all")}
-                    data-testid="filter-status-all"
-                  >
-                    {t('all')} ({statusCounts.all})
-                  </Button>
-                  <Button
-                    variant={filterStatus === "pending" ? "default" : "outline"}
-                    size="sm"
-                    className="whitespace-nowrap"
-                    onClick={() => setFilterStatus("pending")}
-                    data-testid="filter-status-pending"
-                  >
-                    {t('pending')} ({statusCounts.pending})
-                  </Button>
-                  <Button
-                    variant={filterStatus === "approved" ? "default" : "outline"}
-                    size="sm"
-                    className="whitespace-nowrap"
-                    onClick={() => setFilterStatus("approved")}
-                    data-testid="filter-status-approved"
-                  >
-                    {t('approved')} ({statusCounts.approved})
-                  </Button>
-                  <Button
-                    variant={filterStatus === "rejected" ? "default" : "outline"}
-                    size="sm"
-                    className="whitespace-nowrap"
-                    onClick={() => setFilterStatus("rejected")}
-                    data-testid="filter-status-rejected"
-                  >
-                    {t('rejected')} ({statusCounts.rejected})
-                  </Button>
-                </div>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">{t("status")}</h3>
+                <div className="mt-1">{getStatusBadge(viewApplication.status)}</div>
               </div>
-            </div>
-            {filterStatus === "pending" && hiddenNonPendingCount > 0 && (
-              <div
-                className="mt-3 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900"
-                data-testid="hidden-applications-note"
-              >
-                <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <span>
-                  {t('hiddenApplicationsNote')
-                    .replace('{approved}', String(statusCounts.approved))
-                    .replace('{rejected}', String(statusCounts.rejected))}
-                </span>
-              </div>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('applicant')}</TableHead>
-                    <TableHead>{t('location')}</TableHead>
-                    <TableHead>{t('dateSubmitted')}</TableHead>
-                    <TableHead>{t('lastEmailed')}</TableHead>
-                    <TableHead>{t('status')}</TableHead>
-                    <TableHead>{t('actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredApplications.length > 0 ? (
-                    filteredApplications.map((application) => (
-                      <TableRow key={application.id}>
-                        <TableCell>
-                          <div className="font-medium">
-                            {application.firstName} {application.lastName}
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center">
-                            <Mail className="h-3 w-3 mr-1" />
-                            {application.email}
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {application.phone}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <MapPin className="h-4 w-4 mr-1 text-muted-foreground" />
-                            {application.city}, {application.state}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {application.country}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                            <span className="text-sm">
-                              {format(new Date(application.submittedAt), "MMM d, yyyy")}
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center mt-1">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {format(new Date(application.submittedAt), "h:mm a")}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {application.confirmationEmailSentAt ? (
-                            <div>
-                              <div className="flex items-center text-sm">
-                                <Mail className="h-3 w-3 mr-1 text-muted-foreground" />
-                                {format(new Date(application.confirmationEmailSentAt), "MMM d, yyyy")}
-                              </div>
-                              <div className="text-xs text-muted-foreground flex items-center mt-1">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {format(new Date(application.confirmationEmailSentAt), "h:mm a")}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">{t('neverEmailed')}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(application.status)}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">{t('openMenu')}</span>
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>{t('actions')}</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleViewApplication(application)}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                {t('viewDetails')}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => resendConfirmationMutation.mutate(application.id)}
-                                disabled={resendConfirmationMutation.isPending}
-                              >
-                                {resendConfirmationMutation.isPending ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Mail className="mr-2 h-4 w-4" />
-                                )}
-                                {t('resendConfirmationEmail')}
-                              </DropdownMenuItem>
-                              {application.status === "pending" && (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={() => handleStartApproval(application)}
-                                    data-testid={`menu-approve-${application.id}`}
-                                  >
-                                    <Plus className="mr-2 h-4 w-4 text-green-600" />
-                                    {t('approveCreateLocation')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleReject(application.id)}
-                                    data-testid={`menu-reject-${application.id}`}
-                                  >
-                                    <X className="mr-2 h-4 w-4 text-red-600" />
-                                    {t('rejectApplication')}
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {application.status !== "pending" && (
-                                <DropdownMenuItem
-                                  onClick={() => handleRestoreToPending(application.id)}
-                                  disabled={updateStatusMutation.isPending}
-                                  data-testid={`menu-restore-${application.id}`}
-                                >
-                                  <RotateCcw className="mr-2 h-4 w-4 text-blue-600" />
-                                  {t('restoreToPending')}
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
-                        {searchTerm || filterStatus !== "all" ? (
-                          <p className="text-muted-foreground">{t('noApplicationsFoundCriteria')}</p>
-                        ) : (
-                          <p className="text-muted-foreground">{t('noApplicationsSubmittedYet')}</p>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* View Application Dialog */}
-        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="sm:max-w-[550px]">
-            <DialogHeader>
-              <DialogTitle>{t('applicationDetails')}</DialogTitle>
-              <DialogDescription>
-                {t('reviewCompleteApplication')}
-              </DialogDescription>
-            </DialogHeader>
-            {viewApplication && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">{t('firstName')}</h3>
-                    <p>{viewApplication.firstName}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">{t('lastName')}</h3>
-                    <p>{viewApplication.lastName}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">{t('email')}</h3>
-                  <p>{viewApplication.email}</p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">{t('phoneNumber')}</h3>
-                  <p>{viewApplication.phone}</p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">{t('address')}</h3>
-                  <p>{viewApplication.streetAddress}</p>
-                  <p>{viewApplication.city}, {viewApplication.state} {viewApplication.zipCode}</p>
-                  <p>{viewApplication.country}</p>
-                  {viewApplication.community && (
-                    <p className="text-muted-foreground text-sm mt-1">{t('community')}: {viewApplication.community}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">{t('message')}</h3>
-                  <Textarea 
-                    value={viewApplication.message || t('noMessageProvided')} 
-                    readOnly 
-                    className="h-24 mt-1"
-                  />
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">{t('status')}</h3>
-                  <div className="mt-1">{getStatusBadge(viewApplication.status)}</div>
-                </div>
-                
-                <div className="flex justify-end space-x-2 pt-4">
-                  {viewApplication.status === "pending" && (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleReject(viewApplication.id)}
-                      >
-                        <X className="mr-2 h-4 w-4" />
-                        {t('rejectApplication')}
-                      </Button>
-                      <Button 
-                        onClick={() => {
-                          setIsViewDialogOpen(false);
-                          handleStartApproval(viewApplication);
-                        }}
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        {t('approveCreateLocation')}
-                      </Button>
-                    </>
-                  )}
-                  {viewApplication.status !== "pending" && (
-                    <Button onClick={() => setIsViewDialogOpen(false)}>
-                      {t('close')}
+              <div className="flex justify-end space-x-2 pt-4">
+                {viewApplication.status === "pending" && (
+                  <>
+                    <Button variant="outline" onClick={() => handleReject(viewApplication.id)}>
+                      <X className="me-2 h-4 w-4" />
+                      {t("rejectApplication")}
                     </Button>
-                  )}
-                </div>
+                    <Button
+                      onClick={() => {
+                        setIsViewDialogOpen(false);
+                        handleStartApproval(viewApplication);
+                      }}
+                    >
+                      <Plus className="me-2 h-4 w-4" />
+                      {t("approveCreateLocation")}
+                    </Button>
+                  </>
+                )}
+                {viewApplication.status !== "pending" && (
+                  <Button onClick={() => setIsViewDialogOpen(false)}>{t("close")}</Button>
+                )}
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-        {/* Approve Application & Create Location Dialog */}
-        <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
-          <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{t('approveApplicationCreateLocation')}</DialogTitle>
-              <DialogDescription>
-                {t('fillLocationDetailsApprove')}
-              </DialogDescription>
-            </DialogHeader>
-            {approveApplication && (
-              <div className="space-y-4">
-                <div className="bg-muted p-4 rounded-lg">
-                  <h4 className="font-medium mb-2">{t('applicantInformation')}</h4>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">{t('name')}:</span>{" "}
-                      {approveApplication.firstName} {approveApplication.lastName}
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('email')}:</span>{" "}
-                      {approveApplication.email}
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('phoneNumber')}:</span>{" "}
-                      {approveApplication.phone}
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-muted-foreground">{t('address')}:</span>{" "}
-                      {approveApplication.streetAddress}, {approveApplication.city}, {approveApplication.state} {approveApplication.zipCode}, {approveApplication.country}
-                      {approveApplication.community && ` (${approveApplication.community})`}
-                    </div>
+      {/* ── Approve & Create Location Dialog ──────────────────────────── */}
+      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("approveApplicationCreateLocation")}</DialogTitle>
+            <DialogDescription>{t("fillLocationDetailsApprove")}</DialogDescription>
+          </DialogHeader>
+          {approveApplication && (
+            <div className="space-y-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <h4 className="font-medium mb-2">{t("applicantInformation")}</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">{t("name")}:</span>{" "}
+                    {approveApplication.firstName} {approveApplication.lastName}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t("email")}:</span>{" "}
+                    {approveApplication.email}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t("phoneNumber")}:</span>{" "}
+                    {approveApplication.phone}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">{t("address")}:</span>{" "}
+                    {approveApplication.streetAddress}, {approveApplication.city},{" "}
+                    {approveApplication.state} {approveApplication.zipCode},{" "}
+                    {approveApplication.country}
+                    {approveApplication.community && ` (${approveApplication.community})`}
                   </div>
                 </div>
+              </div>
 
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmitApproval)} className="space-y-5">
-
-                    {/* Location Details section */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('locationName')}</span>
-                        <div className="flex-1 border-t border-border/60 ml-1" />
-                      </div>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmitApproval)} className="space-y-5">
+                  {/* Location Details section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {t("locationName")}
+                      </span>
+                      <div className="flex-1 border-t border-border/60 ms-1" />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-medium text-muted-foreground">{t("locationName")}</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                              placeholder="e.g., Brooklyn Baby Banz Gemach"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-medium text-muted-foreground">{t("fullAddress")}</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                              placeholder={t("addressPlaceholder")}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="name"
+                        name="zipCode"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs font-medium text-muted-foreground">{t('locationName')}</FormLabel>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("zipCode")}</FormLabel>
                             <FormControl>
-                              <Input {...field} className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" placeholder="e.g., Brooklyn Baby Banz Gemach" />
+                              <Input
+                                {...field}
+                                className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                                value={field.value ?? ""}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -740,226 +903,17 @@ export default function AdminApplications() {
                       />
                       <FormField
                         control={form.control}
-                        name="address"
+                        name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs font-medium text-muted-foreground">{t('fullAddress')}</FormLabel>
-                            <FormControl>
-                              <Input {...field} className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" placeholder={t('addressPlaceholder')} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="zipCode"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('zipCode')}</FormLabel>
-                              <FormControl>
-                                <Input {...field} className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" value={field.value ?? ""} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="phone"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('phoneNumber')}</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                                  <Input {...field} type="tel" className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-medium text-muted-foreground">{t('email')}</FormLabel>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("phoneNumber")}</FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                                <Input {...field} type="email" className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Operator & Region section */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('contactPerson')} &amp; {t('region')}</span>
-                        <div className="flex-1 border-t border-border/60 ml-1" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="contactPerson"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('contactPerson')}</FormLabel>
-                              <FormControl>
-                                <Input {...field} className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="regionId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('region')}</FormLabel>
-                              <Select 
-                                onValueChange={(value) => {
-                                  field.onChange(parseInt(value));
-                                  form.setValue("cityCategoryId", null);
-                                }}
-                                value={field.value?.toString()}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
-                                    <SelectValue placeholder={t('selectRegion')} />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {regions.map((region) => (
-                                    <SelectItem key={region.id} value={region.id.toString()}>
-                                      {region.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="cityCategoryId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs font-medium text-muted-foreground">
-                                {t('communityCategory')}
-                                {approveApplication?.community && (
-                                  <span className="ml-1.5 text-[10px] text-muted-foreground/70">
-                                    ({t('applicantSelected')}: {approveApplication.community})
-                                  </span>
-                                )}
-                              </FormLabel>
-                              <Select 
-                                onValueChange={(value) => {
-                                  if (value === "none") {
-                                    field.onChange(null);
-                                    return;
-                                  }
-                                  const id = parseInt(value);
-                                  field.onChange(id);
-                                  // Auto-sync the Region selector to match the picked community
-                                  // so admins don't have to switch regions first.
-                                  const picked = cityCategories.find((c) => c.id === id);
-                                  if (picked && picked.regionId !== form.getValues("regionId")) {
-                                    form.setValue("regionId", picked.regionId, { shouldDirty: true });
-                                  }
-                                }}
-                                value={field.value?.toString() ?? "none"}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
-                                    <SelectValue placeholder={t('selectCommunityCategory')} />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent className="max-h-80">
-                                  <SelectItem value="none">{t('noCategoryOption')}</SelectItem>
-                                  {cityCategoriesByRegion.map((group) => (
-                                    <div key={group.region.id}>
-                                      <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                        {group.region.name}
-                                      </div>
-                                      {group.categories.map((category) => (
-                                        <SelectItem key={category.id} value={category.id.toString()}>
-                                          {category.name}
-                                          {category.stateCode ? (
-                                            <span className="ml-1 text-muted-foreground">, {category.stateCode}</span>
-                                          ) : null}
-                                        </SelectItem>
-                                      ))}
-                                    </div>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="operatorPin"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs font-medium text-muted-foreground">{t('operatorPIN')}</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                                  <Input 
-                                    {...field}
-                                    className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
-                                    placeholder={t('pinPlaceholder')}
-                                    value={field.value ?? ""}
-                                    maxLength={6}
-                                    inputMode="numeric"
-                                    onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                                  />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Deposit section */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('depositAmount')}</span>
-                        <div className="flex-1 border-t border-border/60 ml-1" />
-                      </div>
-                      <FormField
-                        control={form.control}
-                        name="depositAmount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-medium text-muted-foreground">{t('depositAmount')} ($)</FormLabel>
-                            <FormControl>
-                              <div className="relative max-w-[10rem]">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                                <Input 
-                                  {...field} 
-                                  type="number"
-                                  className="h-11 pl-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
-                                  value={field.value ?? 20}
-                                  onChange={(e) => field.onChange(parseInt(e.target.value) || 20)}
+                                <Phone className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                <Input
+                                  {...field}
+                                  type="tel"
+                                  className="h-11 ps-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
                                 />
                               </div>
                             </FormControl>
@@ -968,163 +922,278 @@ export default function AdminApplications() {
                         )}
                       />
                     </div>
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-medium text-muted-foreground">{t("email")}</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                              <Input
+                                {...field}
+                                type="email"
+                                className="h-11 ps-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                    <div className="border-t border-border/60 pt-4 flex justify-end gap-3">
-                      <Button 
-                        type="button"
-                        variant="outline"
-                        className="h-11 px-6 text-sm"
-                        onClick={() => {
-                          setIsApproveDialogOpen(false);
-                          setApproveApplication(null);
-                          form.reset();
-                        }}
-                      >
-                        {t('cancel')}
-                      </Button>
-                      <Button 
-                        type="submit"
-                        className="h-11 px-6 text-sm"
-                        disabled={approveWithLocationMutation.isPending}
-                      >
-                        {approveWithLocationMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {t('creatingLocation')}
-                          </>
-                        ) : (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            {t('approveCreateLocation')}
-                          </>
-                        )}
-                      </Button>
+                  {/* Operator & Region section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {t("contactPerson")} &amp; {t("region")}
+                      </span>
+                      <div className="flex-1 border-t border-border/60 ms-1" />
                     </div>
-                  </form>
-                </Form>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="contactPerson"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("contactPerson")}</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="regionId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("region")}</FormLabel>
+                            <Select
+                              onValueChange={(value) => {
+                                field.onChange(parseInt(value));
+                                form.setValue("cityCategoryId", null);
+                              }}
+                              value={field.value?.toString()}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
+                                  <SelectValue placeholder={t("selectRegion")} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {regions.map((region) => (
+                                  <SelectItem key={region.id} value={region.id.toString()}>
+                                    {region.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="cityCategoryId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">
+                              {t("communityCategory")}
+                              {approveApplication?.community && (
+                                <span className="ms-1.5 text-[10px] text-muted-foreground/70">
+                                  ({t("applicantSelected")}: {approveApplication.community})
+                                </span>
+                              )}
+                            </FormLabel>
+                            <Select
+                              onValueChange={(value) => {
+                                if (value === "none") {
+                                  field.onChange(null);
+                                  return;
+                                }
+                                const id = parseInt(value);
+                                field.onChange(id);
+                                const picked = cityCategories.find((c) => c.id === id);
+                                if (picked && picked.regionId !== form.getValues("regionId")) {
+                                  form.setValue("regionId", picked.regionId, { shouldDirty: true });
+                                }
+                              }}
+                              value={field.value?.toString() ?? "none"}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
+                                  <SelectValue placeholder={t("selectCommunityCategory")} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="max-h-80">
+                                <SelectItem value="none">{t("noCategoryOption")}</SelectItem>
+                                {cityCategoriesByRegion.map((group) => (
+                                  <div key={group.region.id}>
+                                    <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                      {group.region.name}
+                                    </div>
+                                    {group.categories.map((category) => (
+                                      <SelectItem key={category.id} value={category.id.toString()}>
+                                        {category.name}
+                                        {category.stateCode ? (
+                                          <span className="ms-1 text-muted-foreground">, {category.stateCode}</span>
+                                        ) : null}
+                                      </SelectItem>
+                                    ))}
+                                  </div>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="operatorPin"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("operatorPIN")}</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <KeyRound className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                <Input
+                                  {...field}
+                                  className="h-11 ps-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                                  placeholder={t("pinPlaceholder")}
+                                  value={field.value ?? ""}
+                                  maxLength={6}
+                                  inputMode="numeric"
+                                  onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
 
-        {/* Invite Code Success Dialog */}
-        <Dialog open={isInviteCodeDialogOpen} onOpenChange={setIsInviteCodeDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-500" />
-                {t('applicationApproved')}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {t('applicationApprovedSuccessWithCode')} {t('shareInviteCodeDescription')}
-              </p>
-              <div className="bg-muted p-4 rounded-lg text-center">
-                <p className="text-xs text-muted-foreground mb-2">{t('inviteCode')}</p>
-                <p className="text-2xl font-mono font-bold tracking-wider">{generatedInviteCode}</p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t('inviteCodeOnceUse')}
-              </p>
-              <div className="flex justify-end">
-                <Button 
-                  onClick={() => {
-                    if (generatedInviteCode) {
-                      navigator.clipboard.writeText(generatedInviteCode);
-                      toast({
-                        title: t('copied'),
-                        description: t('inviteCodeCopied'),
-                      });
-                    }
-                  }}
-                  variant="outline"
-                  className="mr-2"
-                >
-                  {t('copyCode')}
-                </Button>
-                <Button onClick={() => setIsInviteCodeDialogOpen(false)}>
-                  {t('done')}
-                </Button>
-              </div>
+                  {/* Deposit section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {t("depositAmount")}
+                      </span>
+                      <div className="flex-1 border-t border-border/60 ms-1" />
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="depositAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-medium text-muted-foreground">
+                            {t("depositAmount")} ($)
+                          </FormLabel>
+                          <FormControl>
+                            <div className="relative max-w-[10rem]">
+                              <DollarSign className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                              <Input
+                                {...field}
+                                type="number"
+                                className="h-11 ps-9 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                                value={field.value ?? 20}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 20)}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="border-t border-border/60 pt-4 flex justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 px-6 text-sm"
+                      onClick={() => {
+                        setIsApproveDialogOpen(false);
+                        setApproveApplication(null);
+                        form.reset();
+                      }}
+                    >
+                      {t("cancel")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="h-11 px-6 text-sm"
+                      disabled={approveWithLocationMutation.isPending}
+                    >
+                      {approveWithLocationMutation.isPending ? (
+                        <>
+                          <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                          {t("creatingLocation")}
+                        </>
+                      ) : (
+                        <>
+                          <Check className="me-2 h-4 w-4" />
+                          {t("approveCreateLocation")}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
             </div>
-          </DialogContent>
-        </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
 
-        {/* ── Applications Analytics ── */}
-        <div className="mt-10 space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-muted-foreground" />
-              {t('analyticsNewApplications')}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">{t('analyticsMonthlyApplications')}</p>
+      {/* ── Invite Code Success Dialog ─────────────────────────────────── */}
+      <Dialog open={isInviteCodeDialogOpen} onOpenChange={setIsInviteCodeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-green-500" />
+              {t("applicationApproved")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {t("applicationApprovedSuccessWithCode")} {t("shareInviteCodeDescription")}
+            </p>
+            <div className="bg-muted p-4 rounded-lg text-center">
+              <p className="text-xs text-muted-foreground mb-2">{t("inviteCode")}</p>
+              <p className="text-2xl font-mono font-bold tracking-wider">{generatedInviteCode}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("inviteCodeOnceUse")}</p>
+            <div className="flex justify-end">
+              <Button
+                onClick={() => {
+                  if (generatedInviteCode) {
+                    navigator.clipboard.writeText(generatedInviteCode);
+                    toast({ title: t("copied"), description: t("inviteCodeCopied") });
+                  }
+                }}
+                variant="outline"
+                className="me-2"
+              >
+                {t("copyCode")}
+              </Button>
+              <Button onClick={() => setIsInviteCodeDialogOpen(false)}>{t("done")}</Button>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-5 flex items-start gap-4">
-                <div className="p-2.5 rounded-lg bg-primary/10 shrink-0">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('total')}</p>
-                  <p className="text-2xl font-bold mt-0.5">{statusCounts.all}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5 flex items-start gap-4">
-                <div className="p-2.5 rounded-lg bg-amber-100 shrink-0">
-                  <TrendingUp className="h-5 w-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('pending')}</p>
-                  <p className="text-2xl font-bold mt-0.5">{statusCounts.pending}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5 flex items-start gap-4">
-                <div className="p-2.5 rounded-lg bg-green-100 shrink-0">
-                  <Check className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('approved')}</p>
-                  <p className="text-2xl font-bold mt-0.5">{statusCounts.approved}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                {t('analyticsNewApplications')}
-              </CardTitle>
-              <CardDescription>{t('analyticsLast12Months')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={appsByMonth} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <RechartsTooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))" }} />
-                  <Line
-                    type="monotone"
-                    dataKey="Applications"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: "hsl(var(--primary))" }}
-                    activeDot={{ r: 5 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
