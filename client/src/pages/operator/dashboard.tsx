@@ -3095,7 +3095,7 @@ export default function OperatorDashboard() {
       </div>
 
       <div className="container py-6">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <Tabs value={activeTab} onValueChange={(v) => { if (v !== "return") setPendingReturnTx(null); setActiveTab(v as any); }}>
           <div className="flex flex-col gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-white">{language === "he" && operatorLocation.nameHe ? operatorLocation.nameHe : operatorLocation.name}</h1>
