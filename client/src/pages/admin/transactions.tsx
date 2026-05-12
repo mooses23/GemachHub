@@ -793,6 +793,22 @@ export default function AdminTransactions() {
   const visibleTransactions = filteredTransactions.slice(0, visibleCount);
   const hasMore = visibleCount < filteredTransactions.length;
 
+  // ── Select-all helpers ────────────────────────────────────────────────
+  // Operates on the full filtered list (not just the paginated slice) so an
+  // admin can bulk-process every matching borrow regardless of load-more state.
+  const selectableFilteredIds = useMemo(
+    () => filteredTransactions.filter((tx) => !tx.isReturned).map((tx) => tx.id),
+    [filteredTransactions]
+  );
+
+  const allFilteredSelected =
+    selectableFilteredIds.length > 0 &&
+    selectableFilteredIds.every((id) => selectedIds.has(id));
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(selectableFilteredIds));
+  }, [selectableFilteredIds]);
+
   // ── Cards expiring soon (banner) ─────────────────────────────────────
   const expiringCards = useMemo(() =>
     transactions.filter((tx) => {
@@ -1083,6 +1099,24 @@ export default function AdminTransactions() {
           <div className="flex items-center gap-2 text-sm font-medium text-white">
             <ListChecks className="h-4 w-4 text-primary" />
             {selectedIds.size} {selectedIds.size === 1 ? (t("transactionLabel") || "transaction") : (t("transactionsLabel") || "transactions")} selected
+            {/* Select all / Deselect all toggle */}
+            {!allFilteredSelected ? (
+              <button
+                type="button"
+                onClick={selectAll}
+                className="text-xs text-primary/80 hover:text-primary underline underline-offset-2 ml-1"
+              >
+                Select all {selectableFilteredIds.length}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="text-xs text-slate-400 hover:text-slate-200 underline underline-offset-2 ml-1"
+              >
+                Deselect all
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button
