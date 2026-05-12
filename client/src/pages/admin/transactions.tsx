@@ -59,6 +59,11 @@ import {
   Clock,
   Activity,
 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { format } from "date-fns";
 import {
   Tooltip,
@@ -191,6 +196,12 @@ function TransactionCard({ transaction, locationName, onEdit, onRefund, t }: Tra
                   {t("markAsReturned")}
                 </DropdownMenuItem>
               )}
+              {!transaction.isReturned && (
+                <DropdownMenuItem onClick={() => onRefund(transaction)}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {t("processRefund")}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -303,6 +314,7 @@ export default function AdminTransactions() {
   const [refundNotes, setRefundNotes] = useState("");
   const [confirmStep, setConfirmStep] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  // analyticsOpen drives the <Collapsible> open state
 
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
@@ -486,10 +498,10 @@ export default function AdminTransactions() {
       {/* ── Search / filter bar + add button ───────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-grow">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t("search")}
-            className="pl-10"
+            className="ps-10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -571,25 +583,27 @@ export default function AdminTransactions() {
 
       {/* ── Analytics section (collapsible, closed by default) ─────────── */}
       <div className="mt-8">
-        <button
-          type="button"
-          onClick={() => setAnalyticsOpen((v) => !v)}
-          className="w-full flex items-center justify-between gap-2 py-2 border-b border-border/40 text-left group"
-        >
-          <h2 className="text-base font-semibold flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            {t("analyticsReports")}
-          </h2>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            {analyticsOpen ? (
-              <><ChevronUp className="h-3.5 w-3.5" />{t("hide") || "Hide"}</>
-            ) : (
-              <><ChevronDown className="h-3.5 w-3.5" />{t("show") || "Show"}</>
-            )}
-          </span>
-        </button>
+        <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between gap-2 py-2 border-b border-border/40 text-left"
+            >
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                {t("analyticsReports")}
+              </h2>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                {analyticsOpen ? (
+                  <><ChevronUp className="h-3.5 w-3.5" />{t("hide") || "Hide"}</>
+                ) : (
+                  <><ChevronDown className="h-3.5 w-3.5" />{t("show") || "Show"}</>
+                )}
+              </span>
+            </button>
+          </CollapsibleTrigger>
 
-        {analyticsOpen && (
+          <CollapsibleContent>
           <div className="mt-4 space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Monthly volume bar chart */}
@@ -717,7 +731,8 @@ export default function AdminTransactions() {
               </Card>
             </div>
           </div>
-        )}
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {/* ── Dialogs ─────────────────────────────────────────────────────── */}
