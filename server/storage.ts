@@ -153,6 +153,8 @@ export interface IStorage {
   getReturnReminderEvents(transactionId: number): Promise<ReturnReminderEventWithSender[]>;
   getReturnReminderEventBySid(sid: string): Promise<ReturnReminderEvent | undefined>;
   updateReturnReminderDeliveryStatus(sid: string, status: string, errorCode?: string | null): Promise<void>;
+  /** Update the welcome SMS or WhatsApp delivery status on the locations row whose SID matches. Returns undefined when no row matched. */
+  updateWelcomeDeliveryStatus(sid: string, channel: 'sms' | 'whatsapp', status: string, errorMessage?: string): Promise<Location | undefined>;
   markPhoneOptedOut(borrowerPhone: string): Promise<void>;
   /**
    * Returns true if any SMS reminder to the given phone number was ever marked
@@ -2920,6 +2922,30 @@ export class MemStorage implements IStorage {
       deliveryStatusUpdatedAt: new Date(),
       deliveryErrorCode: errorCode ?? null,
     });
+  }
+
+  async updateWelcomeDeliveryStatus(sid: string, channel: 'sms' | 'whatsapp', status: string, errorMessage?: string): Promise<Location | undefined> {
+    const now = new Date();
+    for (const [key, loc] of Array.from(this.locations.entries())) {
+      const sidField = channel === 'sms' ? loc.welcomeSmsSid : loc.welcomeWhatsappSid;
+      if (sidField !== sid) continue;
+      const patch: Partial<Location> = {};
+      if (channel === 'sms') {
+        patch.welcomeSmsStatus = status;
+        if (status === 'delivered') patch.welcomeSmsDeliveredAt = now;
+        if (errorMessage) patch.welcomeSmsError = errorMessage;
+        else if (status === 'delivered' || status === 'sent') patch.welcomeSmsError = null;
+      } else {
+        patch.welcomeWhatsappStatus = status;
+        if (status === 'delivered') patch.welcomeWhatsappDeliveredAt = now;
+        if (errorMessage) patch.welcomeWhatsappError = errorMessage;
+        else if (status === 'delivered' || status === 'sent') patch.welcomeWhatsappError = null;
+      }
+      const updated = { ...loc, ...patch };
+      this.locations.set(key, updated);
+      return updated;
+    }
+    return undefined;
   }
 
   async markPhoneOptedOut(borrowerPhone: string): Promise<void> {

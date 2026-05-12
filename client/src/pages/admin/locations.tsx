@@ -2343,6 +2343,29 @@ export default function AdminLocations() {
                           >
                             {isOnboarded ? "Onboarded" : "Not onboarded"}
                           </Badge>
+                          {(() => {
+                            const sms = location.welcomeSmsStatus?.toLowerCase();
+                            const wa = location.welcomeWhatsappStatus?.toLowerCase();
+                            const isUndelivered = sms === 'undelivered' || sms === 'failed' || wa === 'undelivered' || wa === 'failed';
+                            if (!isUndelivered) return null;
+                            const errorText = location.welcomeSmsError || location.welcomeWhatsappError || null;
+                            const channel = (sms === 'undelivered' || sms === 'failed') ? 'SMS' : 'WhatsApp';
+                            return (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant="outline"
+                                    className="border-red-500/40 bg-red-500/15 text-red-300 cursor-help"
+                                  >
+                                    {channel} undelivered
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs text-xs">
+                                  {errorText || "Twilio reported the message was not delivered. Check your A2P campaign registration."}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })()}
                         </div>
                       </div>
                     );

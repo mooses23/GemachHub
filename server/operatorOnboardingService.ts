@@ -411,6 +411,32 @@ export async function getOnboardingTwilioStatus() {
 }
 
 /**
+ * Maps common Twilio error codes to short human-readable messages so admins
+ * see "A2P campaign not approved" instead of the raw numeric code. The list
+ * focuses on codes that arise in practice with A2P 10DLC / carrier filtering.
+ */
+function translateTwilioErrorCode(code: string): string {
+  const map: Record<string, string> = {
+    '21211': 'Invalid phone number',
+    '21408': 'Region/country blocked on this account',
+    '21610': 'Recipient has opted out (STOP)',
+    '21614': 'Landline — cannot receive SMS',
+    '30001': 'Message queue overflow',
+    '30002': 'Account suspended',
+    '30003': 'Handset unreachable',
+    '30004': 'Message blocked by carrier',
+    '30005': 'Unknown destination handset',
+    '30006': 'Landline or carrier with no SMS support',
+    '30007': 'Carrier violation — A2P registration may be required',
+    '30008': 'Unknown carrier error',
+    '30034': 'A2P 10DLC campaign not yet approved — message blocked until campaign is registered',
+    '30035': 'A2P 10DLC brand not registered',
+    '30036': 'A2P 10DLC daily send cap exceeded',
+  };
+  return map[code] ?? `Twilio error ${code}`;
+}
+
+/**
  * Ingest a Twilio status callback (form-encoded) and update the cached
  * delivery state on whichever location row owns the matching SID. Returns
  * a small summary for logging/route response.
@@ -423,7 +449,9 @@ export async function ingestTwilioStatusCallback(body: Record<string, any>): Pro
   const sid = String(body?.MessageSid || body?.SmsSid || '').trim();
   const rawStatus = String(body?.MessageStatus || body?.SmsStatus || '').toLowerCase().trim();
   if (!sid || !rawStatus) return { matched: false };
-  const errorMessage = body?.ErrorMessage ? String(body.ErrorMessage) : (body?.ErrorCode ? `Twilio error ${body.ErrorCode}` : undefined);
+  const errorCode = body?.ErrorCode ? String(body.ErrorCode) : undefined;
+  const rawErrorMessage = body?.ErrorMessage ? String(body.ErrorMessage) : undefined;
+  const errorMessage = rawErrorMessage || (errorCode ? translateTwilioErrorCode(errorCode) : undefined);
   const channel: 'sms' | 'whatsapp' = String(body?.From || '').startsWith('whatsapp:') ? 'whatsapp' : 'sms';
   let updated = await storage.updateWelcomeDeliveryStatus(sid, channel, rawStatus, errorMessage);
   if (!updated) {

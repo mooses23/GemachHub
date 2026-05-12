@@ -345,8 +345,11 @@ const TWILIO_ERROR_REASONS: Record<string, string> = {
   '30004': 'message blocked',
   '30005': 'unknown handset',
   '30006': 'landline / no SMS',
-  '30007': 'carrier violation',
+  '30007': 'carrier violation — A2P required',
   '30008': 'unknown carrier error',
+  '30034': 'A2P campaign not approved',
+  '30035': 'A2P brand not registered',
+  '30036': 'A2P daily cap exceeded',
 };
 
 // Maps a Twilio delivery status to a colour token and label key.
@@ -404,6 +407,13 @@ function ReminderHistoryTimeline({ tx, locationId }: { tx: Transaction; location
   const unknownLabel = t('reminderHistorySenderUnknown');
   // Surface a warning banner if any SMS for this borrower was opted-out (STOP).
   const hasOptedOut = events.some(ev => ev.channel === 'sms' && ev.deliveryStatus === 'opted_out');
+  // Surface a warning banner if any SMS was blocked by A2P / carrier filtering.
+  const A2P_CODES = new Set(['30034', '30035', '30007', '30004']);
+  const hasA2pBlock = events.some(
+    ev => ev.channel === 'sms' &&
+      (ev.deliveryStatus === 'undelivered' || ev.deliveryStatus === 'failed') &&
+      ev.deliveryErrorCode != null && A2P_CODES.has(ev.deliveryErrorCode),
+  );
   // The section is "active" if the count says reminders were sent OR if the
   // server returned events (covers delivery-only rows that don't bump the count).
   const hasAnyActivity = reminderCount > 0 || events.length > 0;
@@ -439,6 +449,15 @@ function ReminderHistoryTimeline({ tx, locationId }: { tx: Transaction; location
         >
           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
           <span>{t('reminderDeliveryOptedOutWarning')}</span>
+        </div>
+      )}
+      {hasA2pBlock && (
+        <div
+          className="mb-2 flex items-start gap-2 rounded border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs text-red-300"
+          data-testid={`reminder-a2p-block-warning-${tx.id}`}
+        >
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          <span>SMS was blocked by the carrier — your A2P 10DLC campaign may not be approved yet. Texts will start going through once the campaign is registered and approved.</span>
         </div>
       )}
       {isLoading ? (

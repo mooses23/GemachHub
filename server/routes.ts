@@ -3783,6 +3783,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`[twilio-status-webhook] SID=${MessageSid} status=${MessageStatus}${ErrorCode ? ` errorCode=${ErrorCode}` : ''}`);
         await storage.updateReturnReminderDeliveryStatus(MessageSid, MessageStatus, ErrorCode ?? null);
+        // Also attempt to update welcome-message delivery status in case this SID
+        // belongs to an operator onboarding SMS/WhatsApp (e.g. if the Twilio console
+        // was configured with this URL instead of /api/twilio/onboarding-status).
+        const welcomeResult = await ingestTwilioStatusCallback(req.body || {});
+        if (welcomeResult.matched) {
+          console.log(`[twilio-status-webhook] updated welcome ${welcomeResult.channel} status → ${welcomeResult.status}`);
+        }
         res.sendStatus(204);
       } catch (err: any) {
         console.error('[twilio-status-webhook] error:', err);
