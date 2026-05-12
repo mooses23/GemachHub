@@ -838,10 +838,17 @@ export default function AdminTransactions() {
     transactions.filter((tx) => {
       if (tx.isReturned || !hasActiveCard(tx)) return false;
       const days = cardDaysUntilExpiry(tx, maxCardAgeDays);
-      return days !== null && days <= CARD_EXPIRY_WARN_DAYS;
+      return days !== null && days >= 0 && days <= CARD_EXPIRY_WARN_DAYS;
     }),
     [transactions, maxCardAgeDays]
   );
+
+  // ── Filter button counts ──────────────────────────────────────────────
+  const cardOnFileCount = useMemo(
+    () => transactions.filter((tx) => !tx.isReturned && hasActiveCard(tx)).length,
+    [transactions]
+  );
+  const expiringSoonCount = expiringCards.length;
 
   // ── Analytics computations ────────────────────────────────────────────
   const returnedCount = useMemo(() => transactions.filter((t) => t.isReturned).length, [transactions]);
@@ -1060,6 +1067,11 @@ export default function AdminTransactions() {
             >
               <CreditCard className="h-3.5 w-3.5" />
               {t("cardOnFile") || "Card on file"}
+              {cardOnFileCount > 0 && (
+                <span className="ml-0.5 rounded-full bg-white/20 px-1.5 py-0.5 text-xs font-semibold leading-none">
+                  {cardOnFileCount}
+                </span>
+              )}
             </Button>
             <Button
               variant={filterStatus === "expiring-soon" ? "default" : "outline"}
@@ -1069,6 +1081,11 @@ export default function AdminTransactions() {
             >
               <AlertTriangle className="h-3.5 w-3.5" />
               {t("expiringSoon") || "Expiring soon"}
+              {expiringSoonCount > 0 && (
+                <span className="ml-0.5 rounded-full bg-white/20 px-1.5 py-0.5 text-xs font-semibold leading-none">
+                  {expiringSoonCount}
+                </span>
+              )}
             </Button>
           </div>
 
