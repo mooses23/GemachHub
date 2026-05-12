@@ -533,6 +533,7 @@ export default function AdminTransactions() {
   // ── Bulk selection state ─────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
+  const [bulkRefundAll, setBulkRefundAll] = useState(true);
 
   const toggleSelect = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -601,9 +602,14 @@ export default function AdminTransactions() {
   });
 
   const bulkMarkReturnedMutation = useMutation({
-    mutationFn: async (ids: number[]) => {
+    mutationFn: async ({ ids, refundAll }: { ids: number[]; refundAll: boolean }) => {
+      const selectedTxns = transactions.filter((tx) => ids.includes(tx.id));
       const results = await Promise.allSettled(
-        ids.map((id) => markTransactionReturned(id, { refundAmount: 0 }))
+        ids.map((id) => {
+          const tx = selectedTxns.find((t) => t.id === id);
+          const refundAmount = refundAll ? (tx?.depositAmount ?? 20) : 0;
+          return markTransactionReturned(id, { refundAmount });
+        })
       );
       const failed = results.filter((r) => r.status === "rejected").length;
       const succeeded = results.length - failed;
@@ -1122,7 +1128,7 @@ export default function AdminTransactions() {
             <Button
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
-              onClick={() => setIsBulkConfirmOpen(true)}
+              onClick={() => { setBulkRefundAll(true); setIsBulkConfirmOpen(true); }}
             >
               <RotateCw className="h-3.5 w-3.5" />
               Mark {selectedIds.size} as Returned
@@ -1392,11 +1398,11 @@ export default function AdminTransactions() {
               Mark {selectedIds.size} as Returned
             </DialogTitle>
             <DialogDescription>
-              The following borrows will be marked as returned with no refund recorded. You can process refunds individually afterwards.
+              Review the borrows below and choose whether to refund deposits at the same time.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-4 space-y-2 max-h-64 overflow-y-auto">
+          <div className="py-2 space-y-2 max-h-56 overflow-y-auto">
             {transactions
               .filter((tx) => selectedIds.has(tx.id))
               .map((tx) => (
@@ -1405,12 +1411,49 @@ export default function AdminTransactions() {
                     <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span className="font-medium text-white truncate">{tx.borrowerName}</span>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 text-xs text-slate-400">
-                    <MapPin className="h-3 w-3" />
-                    <span>{getLocationNameById(tx.locationId)}</span>
+                  <div className="flex items-center gap-3 shrink-0 text-xs text-slate-400">
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      <span>{getLocationNameById(tx.locationId)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-emerald-400 font-medium">
+                      <DollarSign className="h-3 w-3" />
+                      <span>{((tx.depositAmount ?? 20)).toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
               ))}
+          </div>
+
+          {/* Refund toggle */}
+          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium text-white">Refund all deposits</Label>
+                <p className="text-xs text-slate-400">Issue a full refund for each borrow in this batch.</p>
+              </div>
+              <Switch
+                checked={bulkRefundAll}
+                onCheckedChange={setBulkRefundAll}
+                disabled={bulkMarkReturnedMutation.isPending}
+              />
+            </div>
+            {bulkRefundAll && (
+              <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                <span className="text-xs text-slate-400">Total to be refunded</span>
+                <span className="text-sm font-semibold text-emerald-400">
+                  ${transactions
+                    .filter((tx) => selectedIds.has(tx.id))
+                    .reduce((sum, tx) => sum + (tx.depositAmount ?? 20), 0)
+                    .toFixed(2)}
+                </span>
+              </div>
+            )}
+            {!bulkRefundAll && (
+              <p className="text-xs text-amber-400 pt-1 border-t border-white/10">
+                No refunds will be processed — you can handle them individually afterwards.
+              </p>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
@@ -1419,11 +1462,15 @@ export default function AdminTransactions() {
             </Button>
             <Button
               className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
-              onClick={() => bulkMarkReturnedMutation.mutate(Array.from(selectedIds))}
+              onClick={() => bulkMarkReturnedMutation.mutate({ ids: Array.from(selectedIds), refundAll: bulkRefundAll })}
               disabled={bulkMarkReturnedMutation.isPending}
             >
               <RotateCw className="h-4 w-4" />
-              {bulkMarkReturnedMutation.isPending ? "Processing…" : `Confirm — Mark ${selectedIds.size} Returned`}
+              {bulkMarkReturnedMutation.isPending
+                ? "Processing…"
+                : bulkRefundAll
+                  ? `Confirm — Return & Refund ${selectedIds.size}`
+                  : `Confirm — Mark ${selectedIds.size} Returned`}
             </Button>
           </DialogFooter>
         </DialogContent>
