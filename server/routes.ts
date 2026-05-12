@@ -5628,6 +5628,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: remove (detach) the saved card from a transaction.
+  // Useful when a borrower asks to delete their card on file, or when an
+  // operator wants to clear stale card data that is no longer chargeable.
+  app.delete("/api/admin/transactions/:id/card", async (req, res) => {
+    if (!req.isAuthenticated() || !((req.user as any)?.isAdmin)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    try {
+      const transactionId = parseInt(req.params.id);
+      if (!Number.isFinite(transactionId) || transactionId <= 0) {
+        return res.status(400).json({ message: "Invalid transaction id" });
+      }
+      const tx = await storage.getTransaction(transactionId);
+      if (!tx) return res.status(404).json({ message: "Transaction not found" });
+
+      const stripe = getStripeClient();
+
+      // Detach the payment method from Stripe so it cannot be charged again.
+      if (tx.stripePaymentMethodId) {
+        try {
+          await stripe.paymentMethods.detach(tx.stripePaymentMethodId);
+        } catch (stripeErr: any) {
+          // If already detached (resource_missing) that's fine.
+          if (stripeErr?.code !== 'resource_missing') throw stripeErr;
+        }
+      }
+
+      // Clear card-related fields on the transaction row.
+      await storage.updateTransaction(transactionId, {
+        stripePaymentMethodId: null as any,
+        stripeSetupIntentId: null as any,
+        cardSavedAt: null as any,
+        payLaterStatus: 'DECLINED' as any,
+      });
+
+      await storage.createAuditLog({
+        actorUserId: (req.user as any).id,
+        actorType: 'admin',
+        action: 'card_removed',
+        entityType: 'transaction',
+        entityId: transactionId,
+        afterJson: JSON.stringify({ reason: 'Admin removed saved card', previousPaymentMethodId: tx.stripePaymentMethodId }),
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("admin/transactions/:id/card DELETE error:", error);
+      res.status(500).json({ message: error.message || "Failed to remove card" });
+    }
+  });
+
   // ============================================================
   // ADMIN DASHBOARD ENDPOINTS (system status, recent activity,
   // bulk mark-all-read, transactions CSV export)

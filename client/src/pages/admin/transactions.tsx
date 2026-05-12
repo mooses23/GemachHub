@@ -21,6 +21,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,6 +72,11 @@ import {
   ChevronsUpDown,
   X,
   ListChecks,
+  CreditCard,
+  Zap,
+  Link2,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -69,7 +84,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import {
   Tooltip,
   TooltipContent,
@@ -89,9 +104,13 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { apiRequest } from "@/lib/queryClient";
 
 const CHART_COLORS = ["hsl(var(--primary))", "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"];
 const PIE_COLORS = ["hsl(var(--primary))", "#94a3b8"];
+
+// Days before card expiry to start showing warnings
+const CARD_EXPIRY_WARN_DAYS = 14;
 
 function KpiTile({
   icon: Icon,
@@ -136,18 +155,51 @@ function formatMonth(key: string) {
   return new Date(Number(year), Number(month) - 1).toLocaleString("default", { month: "short", year: "2-digit" });
 }
 
+/** Returns days until a saved card hits the stale-card limit, or null if not applicable. */
+function cardDaysUntilExpiry(transaction: Transaction, maxCardAgeDays: number): number | null {
+  if (!transaction.cardSavedAt || !transaction.stripePaymentMethodId) return null;
+  const savedAt = new Date(transaction.cardSavedAt);
+  const expiryDate = new Date(savedAt.getTime() + maxCardAgeDays * 24 * 60 * 60 * 1000);
+  return differenceInDays(expiryDate, new Date());
+}
+
+/** True if this transaction has a saved card that is chargeable or approaching expiry. */
+function hasActiveCard(transaction: Transaction): boolean {
+  return !!(
+    transaction.stripePaymentMethodId &&
+    (transaction.payLaterStatus === "CARD_SETUP_COMPLETE" || transaction.payLaterStatus === "APPROVED")
+  );
+}
+
 interface TransactionCardProps {
   transaction: Transaction;
   locationName: string;
   onEdit: (t: Transaction) => void;
   onRefund: (t: Transaction) => void;
+  onCharge: (t: Transaction) => void;
+  onResendCardLink: (t: Transaction) => void;
+  onRemoveCard: (t: Transaction) => void;
   t: (key: string) => string;
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: number) => void;
+  maxCardAgeDays: number;
 }
 
-function TransactionCard({ transaction, locationName, onEdit, onRefund, t, selectionMode, isSelected, onToggleSelect }: TransactionCardProps) {
+function TransactionCard({
+  transaction,
+  locationName,
+  onEdit,
+  onRefund,
+  onCharge,
+  onResendCardLink,
+  onRemoveCard,
+  t,
+  selectionMode,
+  isSelected,
+  onToggleSelect,
+  maxCardAgeDays,
+}: TransactionCardProps) {
   const isOverdue =
     !transaction.isReturned &&
     transaction.expectedReturnDate &&
@@ -162,10 +214,15 @@ function TransactionCard({ transaction, locationName, onEdit, onRefund, t, selec
     return "partial";
   })();
 
+  const cardChargeable = hasActiveCard(transaction);
+  const daysUntilExpiry = cardDaysUntilExpiry(transaction, maxCardAgeDays);
+  const cardExpiringSoon = cardChargeable && daysUntilExpiry !== null && daysUntilExpiry <= CARD_EXPIRY_WARN_DAYS;
+  const cardExpired = cardChargeable && daysUntilExpiry !== null && daysUntilExpiry < 0;
+
   return (
     <div
       className={`glass-card rounded-xl border backdrop-blur-sm bg-white/5 p-4 flex flex-col gap-3 relative transition-colors ${
-        isSelected ? "border-primary/60 bg-primary/10" : "border-white/10"
+        isSelected ? "border-primary/60 bg-primary/10" : cardExpiringSoon ? "border-amber-500/40" : "border-white/10"
       }`}
     >
       {/* Header row: name + status + actions */}
@@ -198,6 +255,34 @@ function TransactionCard({ transaction, locationName, onEdit, onRefund, t, selec
               {isOverdue ? t("overdue") || "Overdue" : t("activeBorrow")}
             </Badge>
           )}
+          {/* Card status badge */}
+          {cardChargeable && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    className={`text-xs border gap-1 cursor-default ${
+                      cardExpired
+                        ? "bg-red-500/20 text-red-300 border-red-500/30"
+                        : cardExpiringSoon
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                        : "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                    }`}
+                  >
+                    <CreditCard className="h-3 w-3" />
+                    {cardExpired ? "Card expired" : cardExpiringSoon ? `Expires ${daysUntilExpiry}d` : "Card saved"}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {cardExpired
+                    ? "This saved card is past its authorization limit and can no longer be charged. Request a new card or remove it."
+                    : cardExpiringSoon
+                    ? `Card authorization expires in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"}. Charge now or ask borrower to re-enter their card.`
+                    : `Card on file — can be charged if item is not returned.`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-7 w-7 p-0 text-slate-400 hover:text-white hover:bg-white/10">
@@ -224,10 +309,61 @@ function TransactionCard({ transaction, locationName, onEdit, onRefund, t, selec
                   {t("processRefund")}
                 </DropdownMenuItem>
               )}
+              {/* Card actions — only shown when a card is on file */}
+              {cardChargeable && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground py-1 px-2">
+                    Card on file
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => onCharge(transaction)}
+                    className="text-orange-400 focus:text-orange-400"
+                  >
+                    <Zap className="mr-2 h-4 w-4" />
+                    Charge card
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onResendCardLink(transaction)}>
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Resend card-update link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onRemoveCard(transaction)}
+                    className="text-red-400 focus:text-red-400"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Remove card
+                  </DropdownMenuItem>
+                </>
+              )}
+              {/* Resend link even when card setup is pending */}
+              {transaction.payLaterStatus === "CARD_SETUP_PENDING" && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onResendCardLink(transaction)}>
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Resend card-setup link
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Card expiry warning strip */}
+      {cardExpiringSoon && !cardExpired && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs text-amber-300">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>Card authorization expires in <strong>{daysUntilExpiry} day{daysUntilExpiry === 1 ? "" : "s"}</strong> — charge or ask borrower to update.</span>
+        </div>
+      )}
+      {cardExpired && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-300">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          <span>Card authorization has <strong>expired</strong> — request a new card or remove it.</span>
+        </div>
+      )}
 
       {/* Contact chips */}
       <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -307,9 +443,9 @@ function TransactionCard({ transaction, locationName, onEdit, onRefund, t, selec
         )}
       </div>
 
-      {/* Quick-action button for active borrows */}
+      {/* Quick-action buttons for active borrows */}
       {!transaction.isReturned && (
-        <div className="pt-1 border-t border-white/5">
+        <div className={`pt-1 border-t border-white/5 grid gap-2 ${cardChargeable ? "grid-cols-2" : "grid-cols-1"}`}>
           <Button
             size="sm"
             className="w-full bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 hover:border-primary/50 text-xs font-medium"
@@ -318,6 +454,22 @@ function TransactionCard({ transaction, locationName, onEdit, onRefund, t, selec
             <RotateCw className="h-3.5 w-3.5 mr-1.5" />
             {t("markAsReturned")}
           </Button>
+          {cardChargeable && (
+            <Button
+              size="sm"
+              className={`w-full text-xs font-medium border ${
+                cardExpired
+                  ? "bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30"
+                  : cardExpiringSoon
+                  ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30"
+                  : "bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 border-orange-500/30"
+              }`}
+              onClick={() => onCharge(transaction)}
+            >
+              <Zap className="h-3.5 w-3.5 mr-1.5" />
+              Charge card
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -368,7 +520,17 @@ export default function AdminTransactions() {
   const [confirmStep, setConfirmStep] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
-  // ── Bulk selection state ────────────────────────────────────────────
+  // ── Charge card dialog state ─────────────────────────────────────────
+  const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false);
+  const [chargeTransaction, setChargeTransaction] = useState<Transaction | null>(null);
+  const [chargeNote, setChargeNote] = useState("");
+  const [chargeConfirmStep, setChargeConfirmStep] = useState(false);
+
+  // ── Remove card dialog state ─────────────────────────────────────────
+  const [isRemoveCardDialogOpen, setIsRemoveCardDialogOpen] = useState(false);
+  const [removeCardTransaction, setRemoveCardTransaction] = useState<Transaction | null>(null);
+
+  // ── Bulk selection state ─────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
 
@@ -419,6 +581,12 @@ export default function AdminTransactions() {
     queryKey: ["/api/transactions"],
   });
 
+  // Fetch the max card age so we can compute card expiry warnings client-side
+  const { data: stripeSettings } = useQuery<{ maxCardAgeDays: number }>({
+    queryKey: ["/api/operator/stripe-settings"],
+  });
+  const maxCardAgeDays = stripeSettings?.maxCardAgeDays ?? 90;
+
   const markReturnedMutation = useMutation({
     mutationFn: ({ id, refundAmount, notes }: { id: number; refundAmount?: number; notes?: string }) =>
       markTransactionReturned(id, { refundAmount, notes }),
@@ -460,6 +628,70 @@ export default function AdminTransactions() {
     },
   });
 
+  // ── Charge card mutation ─────────────────────────────────────────────
+  const chargeCardMutation = useMutation({
+    mutationFn: ({ id, operatorNote }: { id: number; operatorNote?: string }) =>
+      apiRequest("POST", `/api/operator/transactions/${id}/charge`, { operatorNote }),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "Card charged", description: "The card was charged successfully." });
+      } else if (data.requiresAction) {
+        toast({
+          title: "Authentication required",
+          description: "The borrower needs to complete additional authentication. A link has been sent to them.",
+        });
+      } else {
+        toast({
+          title: "Charge failed",
+          description: data.errorMessage || "Failed to charge the card.",
+          variant: "destructive",
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      closeChargeDialog();
+    },
+    onError: (error: any) => {
+      toast({ title: "Charge failed", description: error.message || "Failed to charge the card.", variant: "destructive" });
+    },
+  });
+
+  // ── Resend card link mutation ────────────────────────────────────────
+  const resendCardLinkMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("POST", `/api/operator/transactions/${id}/request-new-card`, {}),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      const link = data.statusUrl || "";
+      toast({
+        title: "Card-update link created",
+        description: link
+          ? `Send this link to the borrower: ${link}`
+          : "A new card-setup link has been generated.",
+        duration: 8000,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed", description: error.message || "Could not generate card link.", variant: "destructive" });
+    },
+  });
+
+  // ── Remove card mutation ─────────────────────────────────────────────
+  const removeCardMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest("DELETE", `/api/admin/transactions/${id}/card`, {}),
+    onSuccess: () => {
+      toast({ title: "Card removed", description: "The saved card has been detached from this transaction." });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      setIsRemoveCardDialogOpen(false);
+      setRemoveCardTransaction(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed", description: error.message || "Could not remove card.", variant: "destructive" });
+    },
+  });
+
   const openRefundDialog = (transaction: Transaction) => {
     setRefundTransaction(transaction);
     setIsFullRefund(true);
@@ -482,6 +714,25 @@ export default function AdminTransactions() {
     if (!refundTransaction) return;
     const amount = isFullRefund ? refundTransaction.depositAmount : parseFloat(refundAmount);
     markReturnedMutation.mutate({ id: refundTransaction.id, refundAmount: amount || 0, notes: refundNotes || undefined });
+  };
+
+  const openChargeDialog = (transaction: Transaction) => {
+    setChargeTransaction(transaction);
+    setChargeNote("");
+    setChargeConfirmStep(false);
+    setIsChargeDialogOpen(true);
+  };
+
+  const closeChargeDialog = () => {
+    setIsChargeDialogOpen(false);
+    setChargeTransaction(null);
+    setChargeNote("");
+    setChargeConfirmStep(false);
+  };
+
+  const handleCharge = () => {
+    if (!chargeTransaction) return;
+    chargeCardMutation.mutate({ id: chargeTransaction.id, operatorNote: chargeNote || undefined });
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
@@ -542,7 +793,17 @@ export default function AdminTransactions() {
   const visibleTransactions = filteredTransactions.slice(0, visibleCount);
   const hasMore = visibleCount < filteredTransactions.length;
 
-  // ── Analytics computations ──────────────────────────────────────────
+  // ── Cards expiring soon (banner) ─────────────────────────────────────
+  const expiringCards = useMemo(() =>
+    transactions.filter((tx) => {
+      if (tx.isReturned || !hasActiveCard(tx)) return false;
+      const days = cardDaysUntilExpiry(tx, maxCardAgeDays);
+      return days !== null && days <= CARD_EXPIRY_WARN_DAYS;
+    }),
+    [transactions, maxCardAgeDays]
+  );
+
+  // ── Analytics computations ────────────────────────────────────────────
   const returnedCount = useMemo(() => transactions.filter((t) => t.isReturned).length, [transactions]);
   const activeBorrows = transactions.length - returnedCount;
   const returnRate = transactions.length > 0 ? Math.round((returnedCount / transactions.length) * 100) : 0;
@@ -603,7 +864,7 @@ export default function AdminTransactions() {
 
   return (
     <>
-      {/* ── Page header ────────────────────────────────────────────────── */}
+      {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">{t("transactionManagement")}</h1>
         <p className="text-sm md:text-base text-muted-foreground">{t("trackDepositsAndBorrowing")}</p>
@@ -616,7 +877,74 @@ export default function AdminTransactions() {
         </p>
       </div>
 
-      {/* ── KPI strip ──────────────────────────────────────────────────── */}
+      {/* ── Cards-expiring-soon alert banner ────────────────────────────── */}
+      {!txLoading && expiringCards.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+            <span className="text-sm font-semibold text-amber-300">
+              {expiringCards.length} saved card{expiringCards.length > 1 ? "s" : ""} expiring soon
+            </span>
+            <span className="text-xs text-amber-400/80 ml-auto">
+              Charge, request an update, or remove before authorization expires.
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {expiringCards.map((tx) => {
+              const days = cardDaysUntilExpiry(tx, maxCardAgeDays);
+              const expired = days !== null && days < 0;
+              return (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <User className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                    <span className="font-medium text-white truncate">{tx.borrowerName}</span>
+                    <span className="text-amber-400/70 shrink-0">
+                      {expired ? "expired" : `${days}d left`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[10px] text-amber-300 hover:text-white hover:bg-amber-500/20"
+                      onClick={() => openChargeDialog(tx)}
+                      title="Charge card now"
+                    >
+                      <Zap className="h-3 w-3 mr-1" />
+                      Charge
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[10px] text-slate-300 hover:text-white hover:bg-white/10"
+                      onClick={() => resendCardLinkMutation.mutate(tx.id)}
+                      disabled={resendCardLinkMutation.isPending}
+                      title="Send borrower a link to update their card"
+                    >
+                      <Link2 className="h-3 w-3 mr-1" />
+                      Update
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[10px] text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      onClick={() => { setRemoveCardTransaction(tx); setIsRemoveCardDialogOpen(true); }}
+                      title="Remove saved card"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── KPI strip ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <KpiTile
           icon={Package}
@@ -647,7 +975,7 @@ export default function AdminTransactions() {
         />
       </div>
 
-      {/* ── Search / filter bar + add button ───────────────────────────── */}
+      {/* ── Search / filter bar + add button ────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-grow">
           <Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -749,7 +1077,7 @@ export default function AdminTransactions() {
         </div>
       </div>
 
-      {/* ── Bulk action bar ─────────────────────────────────────────────── */}
+      {/* ── Bulk action bar ──────────────────────────────────────────────── */}
       {selectionMode && (
         <div className="sticky top-2 z-20 mb-3 flex items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 backdrop-blur-md px-4 py-3 shadow-lg">
           <div className="flex items-center gap-2 text-sm font-medium text-white">
@@ -778,8 +1106,7 @@ export default function AdminTransactions() {
         </div>
       )}
 
-      {/* ── Transaction card grid ───────────────────────────────────────── */}
-      {/* Results count */}
+      {/* ── Transaction card grid ────────────────────────────────────────── */}
       {!txLoading && filteredTransactions.length > 0 && (
         <p className="text-xs text-slate-400 mb-3">
           {t("showingResults") || "Showing"} {visibleTransactions.length}{" "}
@@ -816,10 +1143,14 @@ export default function AdminTransactions() {
                 locationName={getLocationNameById(transaction.locationId)}
                 onEdit={handleEditTransaction}
                 onRefund={openRefundDialog}
+                onCharge={openChargeDialog}
+                onResendCardLink={(tx) => resendCardLinkMutation.mutate(tx.id)}
+                onRemoveCard={(tx) => { setRemoveCardTransaction(tx); setIsRemoveCardDialogOpen(true); }}
                 t={t}
                 selectionMode={selectionMode}
                 isSelected={selectedIds.has(transaction.id)}
                 onToggleSelect={toggleSelect}
+                maxCardAgeDays={maxCardAgeDays}
               />
             ))}
           </div>
@@ -841,7 +1172,7 @@ export default function AdminTransactions() {
         </>
       )}
 
-      {/* ── Analytics section (collapsible, closed by default) ─────────── */}
+      {/* ── Analytics section (collapsible, closed by default) ──────────── */}
       <div className="mt-8">
         <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
           <CollapsibleTrigger asChild>
@@ -995,7 +1326,7 @@ export default function AdminTransactions() {
         </Collapsible>
       </div>
 
-      {/* ── Dialogs ─────────────────────────────────────────────────────── */}
+      {/* ── Dialogs ──────────────────────────────────────────────────────── */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1064,6 +1395,7 @@ export default function AdminTransactions() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Return / Refund dialog ───────────────────────────────────────── */}
       <Dialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
         <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1204,6 +1536,164 @@ export default function AdminTransactions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Charge card dialog ───────────────────────────────────────────── */}
+      <Dialog open={isChargeDialogOpen} onOpenChange={(open) => { if (!open) closeChargeDialog(); }}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-orange-400" />
+              Charge saved card
+            </DialogTitle>
+            <DialogDescription>
+              This will charge the borrower's saved card off-session. They will receive a notification before and after the charge.
+            </DialogDescription>
+          </DialogHeader>
+
+          {chargeTransaction && !chargeConfirmStep && (
+            <div className="space-y-5 py-2">
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Borrower</span>
+                  <span className="font-medium">{chargeTransaction.borrowerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount to charge</span>
+                  <span className="font-bold text-orange-300">
+                    ${((chargeTransaction.amountPlannedCents ?? chargeTransaction.depositAmount * 100) / 100).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Card status</span>
+                  <span className="flex items-center gap-1 text-blue-300">
+                    <CreditCard className="h-3 w-3" />
+                    {chargeTransaction.payLaterStatus === "APPROVED" ? "Approved" : "Card on file"}
+                  </span>
+                </div>
+                {chargeTransaction.cardSavedAt && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Card saved</span>
+                    <span className={
+                      cardDaysUntilExpiry(chargeTransaction, maxCardAgeDays) !== null &&
+                      (cardDaysUntilExpiry(chargeTransaction, maxCardAgeDays) ?? 999) <= CARD_EXPIRY_WARN_DAYS
+                        ? "text-amber-300"
+                        : "text-slate-300"
+                    }>
+                      {format(new Date(chargeTransaction.cardSavedAt), "MMM d, yyyy")}
+                      {(() => {
+                        const days = cardDaysUntilExpiry(chargeTransaction, maxCardAgeDays);
+                        if (days === null) return null;
+                        if (days < 0) return <span className="ml-1 text-red-400">(authorization expired)</span>;
+                        if (days <= CARD_EXPIRY_WARN_DAYS) return <span className="ml-1 text-amber-400">({days}d left)</span>;
+                        return null;
+                      })()}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="charge-note">Reason for charge (sent to borrower)</Label>
+                <Textarea
+                  id="charge-note"
+                  placeholder="e.g. Item not returned after 30 days — deposit forfeited"
+                  value={chargeNote}
+                  onChange={(e) => setChargeNote(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This message is included in the pre-charge notification to the borrower.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {chargeTransaction && chargeConfirmStep && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-4 space-y-3 text-sm">
+                <h4 className="font-semibold text-orange-300 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Confirm charge
+                </h4>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Borrower</span>
+                  <span className="font-medium">{chargeTransaction.borrowerName}</span>
+                </div>
+                <div className="flex justify-between border-t border-orange-500/20 pt-2">
+                  <span className="text-sm font-medium">Charge amount</span>
+                  <span className="font-bold text-lg text-orange-300">
+                    ${((chargeTransaction.amountPlannedCents ?? chargeTransaction.depositAmount * 100) / 100).toFixed(2)}
+                  </span>
+                </div>
+                {chargeNote && (
+                  <div className="border-t border-orange-500/20 pt-2">
+                    <span className="text-muted-foreground">Reason: </span>
+                    <span>{chargeNote}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The borrower will be notified via email or SMS before the charge is processed. This action cannot be undone.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            {!chargeConfirmStep ? (
+              <>
+                <Button variant="outline" onClick={closeChargeDialog}>Cancel</Button>
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700 text-white gap-1.5"
+                  onClick={() => setChargeConfirmStep(true)}
+                >
+                  <Zap className="h-4 w-4" />
+                  Review charge
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setChargeConfirmStep(false)} disabled={chargeCardMutation.isPending}>
+                  Back
+                </Button>
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700 text-white gap-1.5"
+                  onClick={handleCharge}
+                  disabled={chargeCardMutation.isPending}
+                >
+                  <Zap className="h-4 w-4" />
+                  {chargeCardMutation.isPending ? "Charging…" : "Confirm charge"}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Remove card confirm dialog ───────────────────────────────────── */}
+      <AlertDialog open={isRemoveCardDialogOpen} onOpenChange={(open) => { if (!open) { setIsRemoveCardDialogOpen(false); setRemoveCardTransaction(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-400" />
+              Remove saved card?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently detach the card from Stripe and remove it from{" "}
+              <strong>{removeCardTransaction?.borrowerName}</strong>'s transaction. The card cannot be charged afterwards. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeCardMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => removeCardTransaction && removeCardMutation.mutate(removeCardTransaction.id)}
+              disabled={removeCardMutation.isPending}
+            >
+              {removeCardMutation.isPending ? "Removing…" : "Remove card"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
