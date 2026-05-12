@@ -1571,18 +1571,20 @@ function ReturnWizard({
   location, 
   transactions,
   onComplete, 
-  onCancel 
+  onCancel,
+  initialTransaction,
 }: { 
   location: Location; 
   transactions: Transaction[];
   onComplete: () => void; 
   onCancel: () => void;
+  initialTransaction?: Transaction;
 }) {
   const { toast } = useToast();
   const { t, language } = useLanguage();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(initialTransaction ? 2 : 1);
   const [searchPhone, setSearchPhone] = useState("");
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(initialTransaction ?? null);
   const [refundAmount, setRefundAmount] = useState("");
   const [isPartialRefund, setIsPartialRefund] = useState(false);
   const [cardAction, setCardAction] = useState<"charge" | "release" | null>(null);
@@ -2874,6 +2876,7 @@ export default function OperatorDashboard() {
   const { t, language } = useLanguage();
   const [, setPath] = useLocation();
   const [activeTab, setActiveTab] = useState<"overview" | "lend" | "return" | "security">("overview");
+  const [pendingReturnTx, setPendingReturnTx] = useState<Transaction | null>(null);
   const [showPinPrompt, setShowPinPrompt] = useState(false);
   const [suppressPinPrompt, setSuppressPinPrompt] = useState(false);
   const [showAddStock, setShowAddStock] = useState(false);
@@ -3153,7 +3156,7 @@ export default function OperatorDashboard() {
               onEditStock={(color, qty) => { setEditStockColor(color); setEditStockQty(qty); }}
             />
             <div id="tour-restocking"><RestockingInstructions location={operatorLocation} /></div>
-            <RecentActivity transactions={transactions} locationId={operatorLocation.id} locationCode={operatorLocation.locationCode} onStartReturn={() => setActiveTab("return")} />
+            <RecentActivity transactions={transactions} locationId={operatorLocation.id} locationCode={operatorLocation.locationCode} onStartReturn={(tx) => { setPendingReturnTx(tx); setActiveTab("return"); }} />
           </TabsContent>
 
           <TabsContent value="lend">
@@ -3174,10 +3177,12 @@ export default function OperatorDashboard() {
             <Card className="glass-card">
               <CardContent className="pt-6">
                 <ReturnWizard
+                  key={pendingReturnTx?.id ?? 0}
                   location={operatorLocation}
                   transactions={transactions}
-                  onComplete={() => setActiveTab("overview")}
-                  onCancel={() => setActiveTab("overview")}
+                  initialTransaction={pendingReturnTx ?? undefined}
+                  onComplete={() => { setPendingReturnTx(null); setActiveTab("overview"); }}
+                  onCancel={() => { setPendingReturnTx(null); setActiveTab("overview"); }}
                 />
               </CardContent>
             </Card>
