@@ -1170,7 +1170,7 @@ export default function AdminLocations() {
   };
 
   const getOnboardingStatus = (loc: Location): "onboarded" | "sent" | "failed" | "not-sent" => {
-    if (loc.onboardedAt) return "onboarded";
+    if (loc.operatorPin && loc.operatorPin !== '1234') return "onboarded";
     const sms = loc.welcomeSmsStatus?.toLowerCase();
     const wa = loc.welcomeWhatsappStatus?.toLowerCase();
     const em = loc.welcomeEmailStatus?.toLowerCase();
@@ -1577,7 +1577,7 @@ export default function AdminLocations() {
     if (statusFilter === "inactive" && location.isActive) return false;
     if (onboardingFilter !== "all") {
       if (onboardingFilter === "no-phone") {
-        if (!!location.phone || !!location.onboardedAt) return false;
+        if (!!location.phone || (!!location.operatorPin && location.operatorPin !== '1234')) return false;
       } else {
         const obStatus = getOnboardingStatus(location);
         if (onboardingFilter === "not-sent" && obStatus !== "not-sent") return false;
