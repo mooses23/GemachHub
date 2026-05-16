@@ -247,7 +247,7 @@ export class DatabaseStorage implements IStorage {
     if (created?.address) {
       void (async () => {
         try {
-          const { geocodeAndStore } = await import("./geocoder");
+          const { geocodeAndStore } = await import("./geocoder.js");
           geocodeAndStore(created.id, created.address);
         } catch (err) {
           console.warn(`[createLocation] geocode dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -289,7 +289,7 @@ export class DatabaseStorage implements IStorage {
     if (addressChanged && newAddress) {
       void (async () => {
         try {
-          const { geocodeAndStore } = await import("./geocoder");
+          const { geocodeAndStore } = await import("./geocoder.js");
           geocodeAndStore(id, newAddress!);
         } catch (err) {
           console.warn(`[updateLocation] geocode dispatch failed: ${err instanceof Error ? err.message : String(err)}`);

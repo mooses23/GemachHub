@@ -14,7 +14,7 @@
 //  - In-process result cache (address -> coords) to avoid re-hitting the API
 //    when an admin saves a row without changing the address.
 
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 
 interface GeocodeResult {
   latitude: number;
