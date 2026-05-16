@@ -746,6 +746,9 @@ export default function AdminLocations() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Task #294: surface locations that have an address but no GPS coordinates,
+  // so admins can fix them in bulk instead of opening each one to discover them.
+  const [coordsFilter, setCoordsFilter] = useState<string>("all");
   const [onboardingFilter, setOnboardingFilter] = useState<string>(() => {
     try {
       return localStorage.getItem("adminOnboardingFilter") ?? "all";
@@ -1432,15 +1435,41 @@ export default function AdminLocations() {
     [locations]
   );
 
+  // Task #294: when the row-level re-geocode hits the new 422 "no precise match"
+  // path from Task #291, the admin needs the best-candidate panel to decide
+  // whether to accept it. We bypass apiRequest (which throws on non-2xx) so we
+  // can branch on status, then open the edit dialog where the panel lives.
   const regeocodeLocationMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest("POST", `/api/admin/locations/${id}/regeocode`);
-      return res.json();
+    mutationFn: async (id: number): Promise<{ id: number; status: "ok" | "needs_review"; message?: string }> => {
+      const res = await fetch(`/api/admin/locations/${id}/regeocode`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) return { id, status: "ok" };
+      const body = await res.json().catch(() => ({} as Record<string, unknown>));
+      const message = typeof body?.message === "string" ? body.message : res.statusText;
+      if (res.status === 422) return { id, status: "needs_review", message };
+      throw new Error(message);
     },
-    onSuccess: () => {
-      toast({ title: "Re-geocoded", description: "Coordinates updated successfully." });
-      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/location-tree"] });
+    onSuccess: (result) => {
+      if (result.status === "ok") {
+        toast({ title: "Re-geocoded", description: "Coordinates updated successfully." });
+        queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/location-tree"] });
+        return;
+      }
+      // No precise match — open the edit dialog so the admin can review the
+      // best candidate panel (rendered inside CoordinatesSection) and either
+      // accept it or paste manual coords.
+      const loc = locations.find(l => l.id === result.id);
+      if (loc) {
+        handleEditLocation(loc);
+      }
+      toast({
+        title: "Needs review",
+        description: result.message || "No precise match — review the suggested coordinates.",
+        variant: "destructive",
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Re-geocode failed", description: error.message, variant: "destructive" });
@@ -1593,6 +1622,13 @@ export default function AdminLocations() {
     }
     if (statusFilter === "active" && !location.isActive) return false;
     if (statusFilter === "inactive" && location.isActive) return false;
+    // Task #294: missing-coords filter. "missing" = has address but no lat/lng
+    // (the actionable case — no address means nothing to geocode).
+    if (coordsFilter === "missing") {
+      const hasAddress = !!(location.address || "").trim();
+      const hasCoords = location.latitude != null && location.longitude != null;
+      if (!hasAddress || hasCoords) return false;
+    }
     if (onboardingFilter !== "all") {
       if (onboardingFilter === "no-phone") {
         if (!!location.phone || (!!location.operatorPin && location.operatorPin !== '1234')) return false;
@@ -1605,7 +1641,14 @@ export default function AdminLocations() {
       }
     }
     return true;
-  }), [locations, searchTerm, statusFilter, onboardingFilter, regions, language]);
+  }), [locations, searchTerm, statusFilter, coordsFilter, onboardingFilter, regions, language]);
+
+  // Task #294: count of locations that need GPS attention (has address, no coords).
+  // Drives the summary badge + one-click "Show only these" shortcut.
+  const missingCoordsCount = useMemo(
+    () => locations.filter(l => !!(l.address || "").trim() && (l.latitude == null || l.longitude == null)).length,
+    [locations],
+  );
 
   const groupedLocations = useMemo(() => {
     const sortedRegions = [...regions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
@@ -1640,7 +1683,7 @@ export default function AdminLocations() {
   // matching regions via the `isFilterActive` flag below, so search results
   // remain visible without requiring a manual expand.
 
-  const isFilterActive = searchTerm !== "" || statusFilter !== "all" || onboardingFilter !== "all";
+  const isFilterActive = searchTerm !== "" || statusFilter !== "all" || onboardingFilter !== "all" || coordsFilter !== "all";
 
   const toggleRegion = useCallback((regionId: number) => {
     setExpandedRegions(prev => {
@@ -1819,6 +1862,19 @@ export default function AdminLocations() {
                   <SelectItem value="inactive">{t('inactiveOnly')}</SelectItem>
                 </SelectContent>
               </Select>
+              {/* Task #294: GPS coverage filter — surfaces locations with an
+                  address but no coordinates, so admins can re-geocode in bulk. */}
+              <Select value={coordsFilter} onValueChange={setCoordsFilter}>
+                <SelectTrigger className="h-9 w-[180px]" data-testid="select-coords-filter">
+                  <SelectValue placeholder="Coordinates" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All coordinates</SelectItem>
+                  <SelectItem value="missing">
+                    Missing coordinates{missingCoordsCount > 0 ? ` (${missingCoordsCount})` : ""}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
               <Select
                 value={onboardingFilter}
                 onValueChange={(v) => {
@@ -1860,8 +1916,37 @@ export default function AdminLocations() {
             </div>
           </div>
 
+          {/* Task #294: summary banner — one-click shortcut to the missing-coords
+              view, only shown when there's actionable work AND the filter isn't
+              already on. Sits above the filter chips so it doesn't disappear
+              when other filters become active. */}
+          {missingCoordsCount > 0 && coordsFilter !== "missing" && (
+            <div
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2"
+              data-testid="banner-missing-coords"
+            >
+              <div className="flex items-center gap-2 text-sm text-amber-100">
+                <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>{missingCoordsCount}</strong>{" "}
+                  {missingCoordsCount === 1 ? "location is" : "locations are"} missing GPS
+                  coordinates — borrowers won't see them in "Find nearest to me".
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+                onClick={() => setCoordsFilter("missing")}
+                data-testid="btn-show-missing-coords"
+              >
+                Show only these
+              </Button>
+            </div>
+          )}
+
           {/* Active filters chips */}
-          {(statusFilter !== "all" || searchTerm || onboardingFilter !== "all") && (
+          {(statusFilter !== "all" || searchTerm || onboardingFilter !== "all" || coordsFilter !== "all") && (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm text-muted-foreground">{t('activeFilters')}:</span>
               {searchTerm && (
@@ -1882,10 +1967,16 @@ export default function AdminLocations() {
                   <button onClick={() => setOnboardingFilter("all")} className="ml-1 hover:text-destructive">×</button>
                 </Badge>
               )}
+              {coordsFilter !== "all" && (
+                <Badge variant="secondary" className="flex items-center gap-1" data-testid="chip-coords-filter">
+                  Coordinates: {coordsFilter === "missing" ? "Missing" : coordsFilter}
+                  <button onClick={() => setCoordsFilter("all")} className="ml-1 hover:text-destructive">×</button>
+                </Badge>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); }}
+                onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); setCoordsFilter("all"); }}
                 className="text-xs"
               >
                 {t('clearAll')}
