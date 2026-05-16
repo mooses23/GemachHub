@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { useCardDensity } from "@/hooks/use-card-density";
 import { CardDensityToggle } from "./card-density-toggle";
+import { useLanguage } from "@/hooks/use-language";
+import { pickLocalized } from "@/lib/localized-record";
 interface LocationFinderProps {
   initialRegion?: string;
 }
@@ -16,6 +18,7 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
   const [activeRegion, setActiveRegion] = useState(initialRegion);
   const [searchTerm, setSearchTerm] = useState("");
   const [cardDensity, setCardDensity] = useCardDensity();
+  const { language } = useLanguage();
   
   const { data: regions = [] } = useQuery<Region[]>({
     queryKey: ["/api/regions"],
@@ -101,7 +104,7 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
                     location={location}
                     locationNumber={index + 1}
                     density={cardDensity}
-                    regionName={region?.name}
+                    regionName={region ? pickLocalized(region, "name", language) : undefined}
                   />
                 );
               })
