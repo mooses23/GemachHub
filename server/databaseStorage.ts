@@ -259,18 +259,28 @@ export class DatabaseStorage implements IStorage {
 
   async updateLocation(id: number, data: Partial<InsertLocation> & { latitude?: number | null; longitude?: number | null; geocodedAt?: Date | null }): Promise<Location> {
     // Detect address change BEFORE the write so we can re-geocode after.
+    // Task #263: when address is cleared (empty/null), also null out any
+    // stale coordinates so the location stops appearing in nearest-sort.
     let addressChanged = false;
     let newAddress: string | null = null;
-    if (typeof data.address === "string" && data.address.trim().length > 0) {
+    const writeData: typeof data = { ...data };
+    if (typeof data.address === "string") {
+      const trimmed = data.address.trim();
       const existing = await db.select({ address: locations.address }).from(locations).where(eq(locations.id, id)).limit(1);
-      const prevAddress = existing[0]?.address ?? null;
-      if (data.address.trim() !== (prevAddress ?? "").trim()) {
+      const prevAddress = (existing[0]?.address ?? "").trim();
+      if (trimmed.length === 0) {
+        if (prevAddress.length > 0) {
+          writeData.latitude = null;
+          writeData.longitude = null;
+          writeData.geocodedAt = null;
+        }
+      } else if (trimmed !== prevAddress) {
         addressChanged = true;
-        newAddress = data.address.trim();
+        newAddress = trimmed;
       }
     }
     const result = await db.update(locations)
-      .set(data)
+      .set(writeData)
       .where(eq(locations.id, id))
       .returning();
     if (result.length === 0) {
