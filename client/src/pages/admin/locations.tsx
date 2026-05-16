@@ -785,6 +785,7 @@ export default function AdminLocations() {
   // ===== Drill-in navigation =====
   const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
   const [selectedCityCategoryId, setSelectedCityCategoryId] = useState<number | "all">("all");
+  const [selectedDistrictFilter, setSelectedDistrictFilter] = useState<string | null>(null);
 
   // ===== Onboarding (SMS / Email welcome) =====
   const [isRegionDialogOpen, setIsRegionDialogOpen] = useState(false);
@@ -1681,15 +1682,21 @@ export default function AdminLocations() {
     [groupedLocations, selectedRegionId]
   );
 
-  // Locations to render in the cards grid: filtered + region + community
+  // Locations to render in the cards grid: filtered + region + district (Israel) + community
   const visibleLocations = useMemo(() => {
     if (selectedRegionId === null) return [] as Location[];
     let locs = filteredLocations.filter(l => l.regionId === selectedRegionId);
+    if (selectedDistrictFilter) {
+      locs = locs.filter(l => {
+        const cc = l.cityCategoryId ? cityCategories.find(c => c.id === l.cityCategoryId) : null;
+        return cc?.districtCode === selectedDistrictFilter;
+      });
+    }
     if (selectedCityCategoryId !== "all") {
       locs = locs.filter(l => l.cityCategoryId === selectedCityCategoryId);
     }
     return locs;
-  }, [filteredLocations, selectedRegionId, selectedCityCategoryId]);
+  }, [filteredLocations, selectedRegionId, selectedDistrictFilter, selectedCityCategoryId, cityCategories]);
 
   const selectedRegion = regions.find(r => r.id === selectedRegionId) ?? null;
   const selectedRegionName = selectedRegion
@@ -1760,7 +1767,7 @@ export default function AdminLocations() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <button
                 type="button"
-                onClick={() => setSelectedRegionId(null)}
+                onClick={() => { setSelectedRegionId(null); setSelectedDistrictFilter(null); }}
                 className="inline-flex items-center hover:text-foreground transition-colors"
                 aria-label="Back to all regions"
                 data-testid="button-breadcrumb-home"
@@ -2081,6 +2088,7 @@ export default function AdminLocations() {
                     onClick={() => {
                       setSelectedRegionId(region.id);
                       setSelectedCityCategoryId("all");
+                      setSelectedDistrictFilter(null);
                     }}
                     className="text-left w-full pr-8"
                     data-testid={`region-card-button-${region.id}`}
@@ -2115,6 +2123,43 @@ export default function AdminLocations() {
             </div>
           ) : (
             <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* District filter chip row — shown only for Israeli regions */}
+              {selectedRegionGroup && selectedRegionGroup.region.slug === "israel" && (() => {
+                const presentDistricts = IL_DISTRICT_ORDER.filter(d =>
+                  selectedRegionGroup.communityGroups.some(g => g.cityCategory?.districtCode === d)
+                );
+                if (presentDistricts.length < 2) return null;
+                return (
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Button
+                      variant={selectedDistrictFilter === null ? "default" : "outline"}
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => { setSelectedDistrictFilter(null); setSelectedCityCategoryId("all"); }}
+                    >
+                      {t("allDistricts")}
+                    </Button>
+                    {presentDistricts.map(d => {
+                      const count = selectedRegionGroup.communityGroups
+                        .filter(g => g.cityCategory?.districtCode === d)
+                        .reduce((s, g) => s + g.locations.length, 0);
+                      return (
+                        <Button
+                          key={d}
+                          variant={selectedDistrictFilter === d ? "default" : "outline"}
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => { setSelectedDistrictFilter(d); setSelectedCityCategoryId("all"); }}
+                        >
+                          {localizeIsraelDistrict(language as "en" | "he", d)}
+                          <span className="ms-1.5 text-xs opacity-70">({count})</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
               {/* Community pills with bulk-select checkboxes */}
               {selectedRegionGroup && selectedRegionGroup.communityGroups.length > 0 && (
                 <div className="flex flex-wrap gap-2 items-center">
@@ -2152,8 +2197,13 @@ export default function AdminLocations() {
                         ? (g.cityCategory?.districtCode ?? null)
                         : (g.cityCategory?.stateCode ?? null);
 
-                    const withGroup = selectedRegionGroup.communityGroups.filter(g => getGroupKey(g) !== null);
-                    const withoutGroup = selectedRegionGroup.communityGroups.filter(g => getGroupKey(g) === null);
+                    // When a district filter is active, only show community pills for that district
+                    const communityGroups = (isIsraelRegion && selectedDistrictFilter)
+                      ? selectedRegionGroup.communityGroups.filter(g => g.cityCategory?.districtCode === selectedDistrictFilter)
+                      : selectedRegionGroup.communityGroups;
+
+                    const withGroup = communityGroups.filter(g => getGroupKey(g) !== null);
+                    const withoutGroup = communityGroups.filter(g => getGroupKey(g) === null);
                     const groupOrder: string[] = isIsraelRegion
                       ? IL_DISTRICT_ORDER.filter(d => withGroup.some(g => g.cityCategory?.districtCode === d))
                       : [];

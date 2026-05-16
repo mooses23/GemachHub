@@ -172,7 +172,8 @@ export class DatabaseStorage implements IStorage {
       isPopular: cityCategory.isPopular ?? false,
       description: cityCategory.description ?? null,
       descriptionHe: cityCategory.descriptionHe ?? null,
-      stateCode: cityCategory.stateCode ?? null
+      stateCode: cityCategory.stateCode ?? null,
+      districtCode: cityCategory.districtCode ?? null,
     }).returning();
     return result[0];
   }
