@@ -111,12 +111,29 @@ export function HierarchicalLocationSearch() {
     }
     setLocating(true);
     setLocError(null);
+    // Task #298: belt-and-braces timeout in case the underlying
+    // getCurrentPosition never fires its callbacks (seen on some Android
+    // browsers after the permission prompt is dismissed silently).
+    let settled = false;
+    const hardTimeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setLocating(false);
+      setUserCoords(null);
+      setLocError(t("locationPermissionError"));
+    }, 12000);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(hardTimeout);
         setUserCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
         setLocating(false);
       },
       (err) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(hardTimeout);
         setLocating(false);
         setUserCoords(null);
         setLocError(err.code === err.PERMISSION_DENIED ? t("locationPermissionDenied") : t("locationPermissionError"));
@@ -226,6 +243,11 @@ export function HierarchicalLocationSearch() {
     }
     return m;
   }, [userCoords, locations]);
+
+  // Task #298: when geolocation succeeded but no location in the dataset has
+  // its own precise coords, surface an inline notice so the user understands
+  // why nothing reordered.
+  const noMappedNearby = nearestActive && distanceMap.size === 0;
 
   // Which city IDs are within CITY_RADIUS_KM of the user, and what's the
   // nearest region (for Tier 3)?
@@ -502,6 +524,9 @@ export function HierarchicalLocationSearch() {
               {locError && (
                 <p className="text-xs text-red-300" data-testid="text-location-error">{locError}</p>
               )}
+              {!locError && noMappedNearby && (
+                <p className="text-xs text-amber-300" data-testid="text-no-mapped-nearby">{t("nearestNoMappedGemach")}</p>
+              )}
             </div>
           )}
         </div>
@@ -563,7 +588,11 @@ export function HierarchicalLocationSearch() {
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 px-4 md:px-0 ${cardDensity === "compact" ? "gap-2 md:gap-3" : "gap-4 md:gap-6"}`}>
               {sortedByDistance.map((location: Location) => {
                 const tier = tierMap.get(location.id) ?? 4;
-                const proximityLabel = tier === 2 ? t("proximitySameCity") : tier === 3 ? t("proximitySameRegion") : null;
+                // Task #298: Tier 2/3 cards now show a single neutral
+                // "Approximate location" badge instead of split same-city /
+                // same-region labels. Tier 1 keeps the precise "X mi away"
+                // distance badge (handled inside LocationCard).
+                const proximityLabel = tier === 2 || tier === 3 ? t("approximateLocation") : null;
                 return (
                   <LocationCard
                     key={location.id}
@@ -738,6 +767,9 @@ export function HierarchicalLocationSearch() {
             )}
             {locError && (
               <p className="text-xs text-red-300" data-testid="text-location-error-region">{locError}</p>
+            )}
+            {!locError && noMappedNearby && (
+              <p className="text-xs text-amber-300" data-testid="text-no-mapped-nearby-region">{t("nearestNoMappedGemach")}</p>
             )}
           </div>
         )}

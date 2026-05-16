@@ -3,12 +3,12 @@ export function looksLikeStreetAddress(value: string | null | undefined): boolea
   if (raw.length === 0) return true;
   if (raw.length < 5) return false;
 
-  const hasDigit = /\d/.test(raw);
+  const tokens = raw.split(/[\s,./\\-]+/).filter(Boolean);
 
-  const letterTokens = raw
-    .split(/[\s,./\\-]+/)
-    .filter((tok) => /[A-Za-z\u0590-\u05FF]/.test(tok));
+  const hasStandaloneNumber = tokens.some((tok) => /^\d{1,5}[A-Za-z\u0590-\u05FF]?$/.test(tok));
+
+  const letterTokens = tokens.filter((tok) => /[A-Za-z\u0590-\u05FF]/.test(tok));
   const letterWordCount = letterTokens.filter((tok) => tok.length >= 2).length;
 
-  return hasDigit && letterWordCount >= 1;
+  return hasStandaloneNumber && letterWordCount >= 2;
 }

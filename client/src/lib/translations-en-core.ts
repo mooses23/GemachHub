@@ -91,6 +91,8 @@ const enCore = {
     proximityOther: "other",
     proximitySameCity: "~same city",
     proximitySameRegion: "~same region",
+    approximateLocation: "Approximate location",
+    nearestNoMappedGemach: "We couldn't find a gemach with mapped coordinates near you yet.",
     locating: "Locating…",
     locationPermissionDenied: "Location permission denied. Please enable it in your browser to find the nearest gemach.",
     locationPermissionError: "Could not get your location. Please try again.",

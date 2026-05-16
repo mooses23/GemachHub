@@ -1,7 +1,8 @@
-// Task #263 + #268: small "Directions" deep-link button shown on every location
-// card. Opens a popover with Google Maps / Waze / Apple Maps (mac/iOS only)
-// links. Hidden when the location has no postal address — or, per Task #268,
-// when we don't have a precise (street-level) coordinate for it yet.
+// Task #263 + #268 + #298: small "Directions" deep-link button shown on every
+// location card. Opens a popover with Google Maps / Waze / Apple Maps (mac/iOS
+// only) links. Hidden when the location's stored address doesn't look like a
+// full street address (street name + house number) — see Task #298 for the
+// gating rationale.
 import { Navigation } from "lucide-react";
 import {
   Popover,
@@ -10,11 +11,13 @@ import {
 } from "@/components/ui/popover";
 import { useLanguage } from "@/hooks/use-language";
 import { SiGooglemaps, SiWaze, SiApple } from "react-icons/si";
+import { looksLikeStreetAddress } from "@/lib/address-heuristic";
 
 interface DirectionsButtonProps {
   address?: string | null;
-  // Task #268: cards pass this in so the button stays hidden when the gemach
-  // only has an area-level address (no precise lat/lng from the geocoder).
+  // Task #298: kept for backwards-compat with existing call sites, but the
+  // primary gate is now the address heuristic. `hasCoords === false` is still
+  // honoured as a secondary suppression signal.
   hasCoords?: boolean;
   variant?: "dark" | "light";
 }
@@ -30,79 +33,70 @@ function detectPlatform(): Platform {
   return "other";
 }
 
-// Task #268: native deep links — open the actual map app on mobile instead of
-// bouncing through the browser. We try the native scheme first; if the app
-// takes over (page hides) we stop there. Otherwise we open the https
-// fallback in a new tab after a short delay so the user still gets directions.
-function openWithFallback(nativeUrl: string, httpsFallback: string): void {
-  const start = Date.now();
-  let cancelled = false;
-  // If the app launches, the document becomes hidden as the OS switches
-  // away. Use that signal to cancel the https fallback.
+// Task #298: rewritten native-app deep-link flow. The previous hidden-iframe
+// trick is widely blocked on modern mobile browsers and was leaving users on
+// blank tabs. Standard pattern instead: nudge the OS to the native scheme via
+// `window.location.href`; if the app picks it up the document becomes hidden,
+// and we cancel the https fallback. Otherwise we open the web version after a
+// short delay.
+function openNativeWithFallback(nativeUrl: string, httpsFallback: string): void {
+  let switchedAway = false;
   const onVisibility = () => {
-    if (document.hidden) cancelled = true;
+    if (document.hidden) switchedAway = true;
   };
   document.addEventListener("visibilitychange", onVisibility);
   try {
-    // Hidden iframe avoids replacing the current page if the scheme is
-    // unsupported (Android Chrome handles this gracefully on Android too).
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = nativeUrl;
-    document.body.appendChild(iframe);
-    setTimeout(() => {
-      try { document.body.removeChild(iframe); } catch { /* noop */ }
-    }, 1200);
+    window.location.href = nativeUrl;
   } catch {
-    try { window.location.href = nativeUrl; } catch { /* noop */ }
+    /* noop — fallback below will run */
   }
   window.setTimeout(() => {
     document.removeEventListener("visibilitychange", onVisibility);
-    if (cancelled) return;
-    // Native app didn't pick it up — open the web version instead.
-    if (Date.now() - start < 1800) {
-      try { window.open(httpsFallback, "_blank", "noopener,noreferrer"); } catch { /* noop */ }
+    if (switchedAway || document.hidden) return;
+    try {
+      window.open(httpsFallback, "_blank", "noopener,noreferrer");
+    } catch {
+      try { window.location.href = httpsFallback; } catch { /* noop */ }
     }
-  }, 1500);
+  }, 1200);
 }
 
 export function DirectionsButton({ address, hasCoords, variant = "dark" }: DirectionsButtonProps) {
   const { t } = useLanguage();
   const trimmed = address?.trim();
   if (!trimmed) return null;
-  // Task #268: suppress when the geocoder didn't get a precise fix. Falsy
-  // (undefined/false/null) → hide. Older call sites that don't pass this prop
-  // would also hide; we update them at the same time so they still render.
+  // Task #298: primary gate — only render when the address itself looks like a
+  // real street address (street + number). City-only / neighborhood / free-text
+  // entries never get a Directions link, even if coords were saved.
+  if (!looksLikeStreetAddress(trimmed)) return null;
+  // Secondary guard: keep older suppression where the geocoder explicitly
+  // failed to find any coords (e.g. very ambiguous input).
   if (hasCoords === false) return null;
 
   const encoded = encodeURIComponent(trimmed);
   const googleHttps = `https://www.google.com/maps/dir/?api=1&destination=${encoded}`;
   const wazeHttps = `https://www.waze.com/ul?q=${encoded}&navigate=yes`;
-  const appleHttps = `https://maps.apple.com/?q=${encoded}`;
+  const appleHttps = `https://maps.apple.com/?daddr=${encoded}`;
 
   const platform = detectPlatform();
-  const googleNative =
-    platform === "ios" ? `comgooglemaps://?daddr=${encoded}&directionsmode=driving` :
-    platform === "android" ? `geo:0,0?q=${encoded}` :
-    null;
-  const wazeNative =
-    platform === "ios" || platform === "android"
-      ? `waze://?q=${encoded}&navigate=yes`
-      : null;
+  // Native schemes — only used on iOS. On Android we let the https URL navigate
+  // normally so Chrome's intent system can offer "Open in Maps app".
+  const googleNative = platform === "ios" ? `comgooglemaps://?daddr=${encoded}&directionsmode=driving` : null;
+  const wazeNative = platform === "ios" ? `waze://?q=${encoded}&navigate=yes` : null;
   const appleNative = platform === "ios" ? `maps://?daddr=${encoded}` : null;
 
   const onMapClick = (nativeUrl: string | null, httpsUrl: string) => (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!nativeUrl) {
-      // Desktop / unknown platform — let the anchor's https href + target
-      // _blank handle it normally. (No preventDefault.)
+      // Desktop / Android / unknown — let the anchor's https href + target
+      // _blank handle navigation normally. No preventDefault, so middle-click
+      // and right-click "open in new tab" keep working.
       return;
     }
-    // Mobile — prevent the browser tab so the user doesn't end up with both
-    // the native app and a duplicate web page. openWithFallback opens the
-    // web version only if the native app didn't take over.
+    // iOS — prevent the default web navigation so the user isn't dropped on a
+    // blank tab while the native app launches.
     e.preventDefault();
-    openWithFallback(nativeUrl, httpsUrl);
+    openNativeWithFallback(nativeUrl, httpsUrl);
   };
 
   const triggerClass =

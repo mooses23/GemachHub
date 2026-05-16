@@ -94,6 +94,8 @@ const dict: Record<CoreTranslationKey, string> = {
     proximityOther: "אחר",
     proximitySameCity: "~אותה עיר",
     proximitySameRegion: "~אותו אזור",
+    approximateLocation: "מיקום משוער",
+    nearestNoMappedGemach: "לא מצאנו גמ\"ח עם מיקום מדויק קרוב אליך עדיין.",
     locating: "מאתר…",
     locationPermissionDenied: "הגישה למיקום נדחתה. אנא הפעל אותה בדפדפן כדי למצוא את הגמ\"ח הקרוב.",
     locationPermissionError: "לא הצלחנו לקבל את המיקום שלך. נסה שוב.",
