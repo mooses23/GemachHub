@@ -57,16 +57,26 @@ export function HierarchicalLocationSearch() {
   // haversine sort. Coords never leave the browser. The user's preferred sort
   // mode + last-known coords are persisted in localStorage so the choice
   // survives reloads within the session.
+  // Session-scoped persistence with freshness check: coords expire after 30 min
+  // so stale locations don't silently reorder the list after long idle periods.
   const NEAREST_STORAGE_KEY = "gemach:nearest";
+  const NEAREST_MAX_AGE_MS = 30 * 60 * 1000;
   const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>(() => {
     if (typeof window === "undefined") return null;
     try {
-      const raw = window.localStorage.getItem(NEAREST_STORAGE_KEY);
+      const raw = window.sessionStorage.getItem(NEAREST_STORAGE_KEY);
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as { lat?: number; lon?: number };
-      if (typeof parsed?.lat === "number" && typeof parsed?.lon === "number") {
+      const parsed = JSON.parse(raw) as { lat?: number; lon?: number; mode?: string; savedAt?: number };
+      if (
+        parsed?.mode === "nearest" &&
+        typeof parsed?.lat === "number" &&
+        typeof parsed?.lon === "number" &&
+        typeof parsed?.savedAt === "number" &&
+        Date.now() - parsed.savedAt < NEAREST_MAX_AGE_MS
+      ) {
         return { lat: parsed.lat, lon: parsed.lon };
       }
+      window.sessionStorage.removeItem(NEAREST_STORAGE_KEY);
     } catch {}
     return null;
   });
@@ -77,9 +87,12 @@ export function HierarchicalLocationSearch() {
     if (typeof window === "undefined") return;
     try {
       if (userCoords) {
-        window.localStorage.setItem(NEAREST_STORAGE_KEY, JSON.stringify(userCoords));
+        window.sessionStorage.setItem(
+          NEAREST_STORAGE_KEY,
+          JSON.stringify({ mode: "nearest", lat: userCoords.lat, lon: userCoords.lon, savedAt: Date.now() }),
+        );
       } else {
-        window.localStorage.removeItem(NEAREST_STORAGE_KEY);
+        window.sessionStorage.removeItem(NEAREST_STORAGE_KEY);
       }
     } catch {}
   }, [userCoords]);
