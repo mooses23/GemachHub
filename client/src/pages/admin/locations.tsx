@@ -2410,15 +2410,47 @@ export default function AdminLocations() {
                               </Badge>
                             )}
                             {(() => {
+                              const region = regions.find(r => r.id === location.regionId);
                               const cc = location.cityCategoryId
                                 ? cityCategories.find(c => c.id === location.cityCategoryId)
                                 : null;
-                              if (!cc?.districtCode) return null;
-                              return (
-                                <Badge className="text-[10px] py-0 bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                                  {localizeIsraelDistrict(language as "en" | "he", cc.districtCode)}
-                                </Badge>
-                              );
+
+                              // No community assigned at all
+                              if (!location.cityCategoryId) {
+                                return (
+                                  <Badge className="text-[10px] py-0 bg-amber-500/15 text-amber-300 border border-amber-500/30 gap-0.5">
+                                    <AlertTriangle className="h-2.5 w-2.5" />
+                                    No community
+                                  </Badge>
+                                );
+                              }
+                              // Israel — missing district
+                              if (region?.slug === "israel" && !cc?.districtCode) {
+                                return (
+                                  <Badge className="text-[10px] py-0 bg-amber-500/15 text-amber-300 border border-amber-500/30 gap-0.5">
+                                    <AlertTriangle className="h-2.5 w-2.5" />
+                                    No district
+                                  </Badge>
+                                );
+                              }
+                              // USA — missing state
+                              if (region?.slug === "united-states" && !cc?.stateCode) {
+                                return (
+                                  <Badge className="text-[10px] py-0 bg-amber-500/15 text-amber-300 border border-amber-500/30 gap-0.5">
+                                    <AlertTriangle className="h-2.5 w-2.5" />
+                                    No state
+                                  </Badge>
+                                );
+                              }
+                              // Israel — has district → show blue badge
+                              if (region?.slug === "israel" && cc?.districtCode) {
+                                return (
+                                  <Badge className="text-[10px] py-0 bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                                    {localizeIsraelDistrict(language as "en" | "he", cc.districtCode)}
+                                  </Badge>
+                                );
+                              }
+                              return null;
                             })()}
                           </div>
                         </div>

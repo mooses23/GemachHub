@@ -20,12 +20,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, Globe, Layers, Plus, Star, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Edit, Globe, Layers, Plus, Star, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegionForm } from "@/components/admin/region-form";
 import { CommunityForm } from "@/components/admin/community-form";
 import { deleteCityCategory } from "@/lib/api";
 import type { CityCategory, Location, Region } from "@shared/schema";
+import { IL_DISTRICT_ORDER, localizeIsraelDistrict } from "@/lib/location-names";
 
 interface TaxonomyPanelProps {
   open: boolean;
@@ -58,6 +59,12 @@ export function TaxonomyPanel({
     enabled: open,
   });
 
+  const regionByIdMap = useMemo(() => {
+    const m = new Map<number, Region>();
+    for (const r of regions) m.set(r.id, r);
+    return m;
+  }, [regions]);
+
   const locationCountByCommunityId = useMemo(() => {
     const map = new Map<number, number>();
     for (const l of locations) {
@@ -67,24 +74,59 @@ export function TaxonomyPanel({
     return map;
   }, [locations]);
 
-  // Group communities: Region -> State -> Community[]
   const groupedCommunities = useMemo(() => {
     const sortedRegions = [...regions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
     return sortedRegions.map((region) => {
       const inRegion = communities.filter((c) => c.regionId === region.id);
+      const isIsrael = region.slug === "israel";
+      const isUS = region.slug === "united-states";
+
+      if (isIsrael) {
+        // Group by districtCode using IL_DISTRICT_ORDER; unassigned → "__none__"
+        const byDistrict = new Map<string, CityCategory[]>();
+        for (const c of inRegion) {
+          const key = c.districtCode || "__none__";
+          if (!byDistrict.has(key)) byDistrict.set(key, []);
+          byDistrict.get(key)!.push(c);
+        }
+        const groups = [
+          ...IL_DISTRICT_ORDER.filter(d => byDistrict.has(d)).map(d => ({
+            code: d,
+            label: localizeIsraelDistrict("en", d),
+            isFloating: false,
+            items: (byDistrict.get(d) ?? []).sort(
+              (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name)
+            ),
+          })),
+          ...(byDistrict.has("__none__") ? [{
+            code: "__none__",
+            label: "No district",
+            isFloating: true,
+            items: (byDistrict.get("__none__") ?? []).sort(
+              (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name)
+            ),
+          }] : []),
+        ];
+        return { region, isIsrael, isUS, groups };
+      }
+
+      // Default: group by stateCode (USA) or flat (others)
       const byState = new Map<string, CityCategory[]>();
       for (const c of inRegion) {
         const key = c.stateCode || "";
         if (!byState.has(key)) byState.set(key, []);
         byState.get(key)!.push(c);
       }
-      const states = Array.from(byState.entries())
+      const groups = Array.from(byState.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([code, items]) => ({
           code,
+          label: code || "",
+          isFloating: false,
           items: items.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name)),
         }));
-      return { region, states };
+
+      return { region, isIsrael, isUS, groups };
     });
   }, [regions, communities]);
 
@@ -109,7 +151,48 @@ export function TaxonomyPanel({
     setDeletingCommunity(null);
   };
 
-  // ----- Subviews -----
+  const getFloatingBadge = (c: CityCategory): React.ReactNode => {
+    const region = regionByIdMap.get(c.regionId);
+    if (!region) return null;
+    if (region.slug === "israel" && !c.districtCode) {
+      return (
+        <Badge variant="outline" className="text-[10px] border-amber-400 bg-amber-50 text-amber-800 gap-0.5">
+          <AlertTriangle className="h-2.5 w-2.5" />
+          No district
+        </Badge>
+      );
+    }
+    if (region.slug === "united-states" && !c.stateCode) {
+      return (
+        <Badge variant="outline" className="text-[10px] border-amber-400 bg-amber-50 text-amber-800 gap-0.5">
+          <AlertTriangle className="h-2.5 w-2.5" />
+          No state
+        </Badge>
+      );
+    }
+    return null;
+  };
+
+  const getAssignedBadge = (c: CityCategory): React.ReactNode => {
+    const region = regionByIdMap.get(c.regionId);
+    if (!region) return null;
+    if (region.slug === "israel" && c.districtCode) {
+      return (
+        <Badge className="text-[10px] py-0 bg-blue-500/15 text-blue-700 border border-blue-400/40">
+          {localizeIsraelDistrict("en", c.districtCode)}
+        </Badge>
+      );
+    }
+    if (region.slug === "united-states" && c.stateCode) {
+      return (
+        <Badge className="text-[10px] py-0 bg-blue-500/15 text-blue-700 border border-blue-400/40">
+          {c.stateCode}
+        </Badge>
+      );
+    }
+    return null;
+  };
+
   const showRegionForm = creatingRegion || editingRegion;
   const showCommunityForm = creatingCommunity || editingCommunity;
 
@@ -226,8 +309,8 @@ export function TaxonomyPanel({
                     <p className="text-sm text-muted-foreground">No communities yet. Create one to get started.</p>
                   ) : (
                     <div className="space-y-4">
-                      {groupedCommunities.map(({ region, states }) => {
-                        if (states.length === 0) return null;
+                      {groupedCommunities.map(({ region, groups }) => {
+                        if (groups.length === 0) return null;
                         return (
                           <div key={region.id}>
                             <div className="flex items-center gap-2 mb-1.5">
@@ -235,14 +318,19 @@ export function TaxonomyPanel({
                               <span className="text-sm font-semibold">{region.name}</span>
                             </div>
                             <div className="space-y-3 pl-2 border-l border-border/40 ml-1">
-                              {states.map(({ code, items }) => (
+                              {groups.map(({ code, label, isFloating, items }) => (
                                 <div key={code || "_"}>
-                                  {code && (
-                                    <p className="text-xs font-medium text-muted-foreground mb-1 mt-1">{code}</p>
+                                  {label && (
+                                    <p className={`text-xs font-medium mb-1 mt-1 flex items-center gap-1 ${isFloating ? "text-amber-600" : "text-muted-foreground"}`}>
+                                      {isFloating && <AlertTriangle className="h-3 w-3" />}
+                                      {label}
+                                    </p>
                                   )}
                                   <div className="rounded-lg border border-border/60 divide-y divide-border/40 overflow-hidden">
                                     {items.map((c) => {
                                       const count = locationCountByCommunityId.get(c.id) ?? 0;
+                                      const floatingBadge = getFloatingBadge(c);
+                                      const assignedBadge = getAssignedBadge(c);
                                       return (
                                         <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-background hover:bg-muted/30 transition-colors">
                                           <div className="min-w-0 flex-1">
@@ -256,6 +344,7 @@ export function TaxonomyPanel({
                                                 </Badge>
                                               )}
                                               <Badge variant="outline" className="text-[10px]">{count} location{count === 1 ? "" : "s"}</Badge>
+                                              {floatingBadge ?? assignedBadge}
                                             </div>
                                           </div>
                                           <div className="flex items-center gap-1 shrink-0">

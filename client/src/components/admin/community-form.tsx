@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { LoaderCircle, Globe, Settings, AlertTriangle } from "lucide-react";
 import type { CityCategory, Region } from "@shared/schema";
+import { IL_DISTRICT_ORDER, localizeIsraelDistrict } from "@/lib/location-names";
 
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -41,6 +42,7 @@ const communitySchema = z.object({
   slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/, "Slug may only contain lowercase letters, numbers, and hyphens"),
   regionId: z.number().int().positive("Region is required"),
   stateCode: z.string().optional().nullable(),
+  districtCode: z.string().optional().nullable(),
   displayOrder: z.number().int().min(0),
   isPopular: z.boolean(),
   description: z.string().optional().nullable(),
@@ -97,6 +99,7 @@ export function CommunityForm({
           slug: community.slug,
           regionId: community.regionId,
           stateCode: community.stateCode ?? "",
+          districtCode: community.districtCode ?? "",
           displayOrder: community.displayOrder ?? 0,
           isPopular: !!community.isPopular,
           description: community.description ?? "",
@@ -108,6 +111,7 @@ export function CommunityForm({
           slug: initialName ? slugify(initialName) : "",
           regionId: defaultRegionId ?? regions[0]?.id ?? 1,
           stateCode: defaultStateCode ?? "",
+          districtCode: "",
           displayOrder: 0,
           isPopular: false,
           description: "",
@@ -124,25 +128,29 @@ export function CommunityForm({
     }
   }, [watchedName, community, form]);
 
-  const isUS = React.useMemo(() => {
-    const r = regions.find((x) => x.id === watchedRegionId);
-    return r?.slug === "united-states";
-  }, [watchedRegionId, regions]);
+  const selectedRegion = React.useMemo(
+    () => regions.find((x) => x.id === watchedRegionId),
+    [watchedRegionId, regions]
+  );
+  const isUS = selectedRegion?.slug === "united-states";
+  const isIsrael = selectedRegion?.slug === "israel";
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/city-categories"] });
     queryClient.invalidateQueries({ queryKey: ["/api/location-tree"] });
   };
 
+  const buildPayload = (data: CommunityFormData): CityCategoryInput => ({
+    ...data,
+    nameHe: data.nameHe || null,
+    stateCode: isUS ? data.stateCode || null : null,
+    districtCode: isIsrael ? data.districtCode || null : null,
+    description: data.description || null,
+    descriptionHe: data.descriptionHe || null,
+  } as CityCategoryInput);
+
   const createMutation = useMutation({
-    mutationFn: (data: CommunityFormData) =>
-      createCityCategory({
-        ...data,
-        nameHe: data.nameHe || null,
-        stateCode: isUS ? data.stateCode || null : null,
-        description: data.description || null,
-        descriptionHe: data.descriptionHe || null,
-      } as CityCategoryInput),
+    mutationFn: (data: CommunityFormData) => createCityCategory(buildPayload(data)),
     onSuccess: (created: CityCategory) => {
       toast({ title: "Success", description: "Community created." });
       invalidateAll();
@@ -156,13 +164,7 @@ export function CommunityForm({
 
   const updateMutation = useMutation({
     mutationFn: (data: CommunityFormData) =>
-      updateCityCategory(community!.id, {
-        ...data,
-        nameHe: data.nameHe || null,
-        stateCode: isUS ? data.stateCode || null : null,
-        description: data.description || null,
-        descriptionHe: data.descriptionHe || null,
-      }),
+      updateCityCategory(community!.id, buildPayload(data)),
     onSuccess: (updated: CityCategory) => {
       toast({ title: "Success", description: "Community updated." });
       invalidateAll();
@@ -228,7 +230,11 @@ export function CommunityForm({
               <FormItem>
                 <FormLabel className={labelClass}>Region</FormLabel>
                 <Select
-                  onValueChange={(v) => field.onChange(parseInt(v, 10))}
+                  onValueChange={(v) => {
+                    field.onChange(parseInt(v, 10));
+                    form.setValue("stateCode", "");
+                    form.setValue("districtCode", "");
+                  }}
                   value={String(field.value || "")}
                 >
                   <FormControl>
@@ -247,6 +253,7 @@ export function CommunityForm({
             )}
           />
 
+          {/* State — US only */}
           <FormField
             control={form.control}
             name="stateCode"
@@ -275,6 +282,37 @@ export function CommunityForm({
             )}
           />
         </div>
+
+        {/* District — Israel only */}
+        <FormField
+          control={form.control}
+          name="districtCode"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className={labelClass}>District (Israel only)</FormLabel>
+              <Select
+                onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}
+                value={field.value || "__none__"}
+                disabled={!isIsrael}
+              >
+                <FormControl>
+                  <SelectTrigger className={inputClass}>
+                    <SelectValue placeholder={isIsrael ? "Select a district" : "—"} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="__none__">— None —</SelectItem>
+                  {IL_DISTRICT_ORDER.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {localizeIsraelDistrict("en", code)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
