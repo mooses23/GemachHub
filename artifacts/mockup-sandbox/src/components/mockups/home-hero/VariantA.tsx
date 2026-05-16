@@ -31,16 +31,15 @@ export function VariantA() {
                   <picture>
                     <source
                       type="image/webp"
-                      srcSet="/__mockup/images/hero-384.webp 384w, /__mockup/images/hero-640.webp 640w, /__mockup/images/hero-1024.webp 1024w"
+                      srcSet="/__mockup/images/heroA-384.webp 384w, /__mockup/images/heroA-640.webp 640w, /__mockup/images/heroA-1024.webp 1024w"
                       sizes="(max-width: 768px) 144px, 192px"
                     />
                     <img
-                      src="/__mockup/images/hero-640.jpg"
-                      srcSet="/__mockup/images/hero-384.jpg 384w, /__mockup/images/hero-640.jpg 640w, /__mockup/images/hero-1024.jpg 1024w"
+                      src="/__mockup/images/heroA-640.jpg"
+                      srcSet="/__mockup/images/heroA-384.jpg 384w, /__mockup/images/heroA-640.jpg 640w, /__mockup/images/heroA-1024.jpg 1024w"
                       sizes="(max-width: 768px) 144px, 192px"
-                      alt="Founder's mother holding her grandchild"
+                      alt="Founder's mother with her grandchild wearing Baby Banz earmuffs"
                       className="w-full h-full object-cover"
-                      style={{ filter: 'brightness(1.04) contrast(1.04) saturate(1.05)' }}
                     />
                   </picture>
                 </div>
