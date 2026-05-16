@@ -367,7 +367,10 @@ function RestockingInstructions({ location }: { location: Location }) {
           stopCodePolling(); stopCodeCountdown();
         }
         // status === 'pending' → keep polling
-      } catch { consecutiveCodeErrorsRef.current++; }
+      } catch {
+        consecutiveCodeErrorsRef.current++;
+        if (consecutiveCodeErrorsRef.current >= 5) setCodePollStatus('gmail_down');
+      }
     };
     doPoll(); // immediate first check
     codePollIntervalRef.current = setInterval(doPoll, 2000);
@@ -491,16 +494,17 @@ function RestockingInstructions({ location }: { location: Location }) {
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold text-white">{t('internationalOrders')}</h4>
                 {regionalBanz ? (
-                  <a
-                    href={regionalBanz.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 rounded-lg text-blue-300 text-xs font-medium transition-colors"
+                  <button
+                    onClick={() => handleOpenBanzAndWatch(regionalBanz.url)}
+                    disabled={requestCodeMutation.isPending}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 rounded-lg text-blue-300 text-xs font-medium transition-colors disabled:opacity-60"
                   >
-                    <ShoppingCart className="h-3.5 w-3.5" />
-                    {t('reorderNow')}
+                    {requestCodeMutation.isPending
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <ShoppingCart className="h-3.5 w-3.5" />}
+                    {t('restockOpenAndWatch')}
                     <ExternalLink className="h-3 w-3" />
-                  </a>
+                  </button>
                 ) : (
                   <a
                     href="https://www.myus.com"
