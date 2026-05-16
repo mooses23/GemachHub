@@ -3586,11 +3586,10 @@ export default function OperatorDashboard() {
     setProfileName(operatorLocation.contactPerson || "");
     setProfilePhone(operatorLocation.phone || "");
     setProfileEmail(operatorLocation.email || "");
-    const pref = (operatorLocation as any).contactPreference as
-      | OperatorContactPreference
-      | null
-      | undefined;
-    setProfileContactPref(pref && OPERATOR_CONTACT_PREFERENCES.includes(pref) ? pref : "phone");
+    const pref = operatorLocation.contactPreference;
+    const isValid = (v: string | null): v is OperatorContactPreference =>
+      v !== null && (OPERATOR_CONTACT_PREFERENCES as readonly string[]).includes(v);
+    setProfileContactPref(isValid(pref) ? pref : "phone");
   }, [operatorLocation?.id]);
 
   // Heuristic: highlight when the email looks like a shared default (same domain
@@ -3620,7 +3619,7 @@ export default function OperatorDashboard() {
     },
   });
 
-  const updateProfileMutation = useMutation({
+  const updateProfileMutation = useMutation<{ success: boolean; location: Location }, Error>({
     mutationFn: async () => {
       const res = await apiRequest("PATCH", "/api/operator/profile", {
         contactPerson: profileName.trim(),
@@ -3628,18 +3627,25 @@ export default function OperatorDashboard() {
         email: profileEmail.trim(),
         contactPreference: profileContactPref,
       });
-      return res.json();
+      return res.json() as Promise<{ success: boolean; location: Location }>;
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       toast({ title: t("profileUpdated"), description: t("profileUpdatedDescription") });
-      try {
-        const updatedLoc = data?.location;
-        if (updatedLoc && operatorLocation) {
-          const merged = { ...operatorLocation, ...updatedLoc };
+      const updatedLoc = data?.location;
+      if (updatedLoc && operatorLocation) {
+        const merged: Location = { ...operatorLocation, ...updatedLoc };
+        try {
           localStorage.setItem("operatorLocation", JSON.stringify(merged));
-          refreshLocation();
+        } catch (err) {
+          console.error("Failed to persist updated operator location to localStorage", err);
+          toast({
+            title: t("error"),
+            description: t("profileUpdatedDescription"),
+            variant: "destructive",
+          });
         }
-      } catch {}
+        refreshLocation();
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
     },
     onError: (error: Error) => {
@@ -4079,9 +4085,9 @@ export default function OperatorDashboard() {
                     <div className="flex flex-col gap-2">
                       {OPERATOR_CONTACT_PREFERENCES.map((pref) => {
                         const labelKey =
-                          pref === "phone" ? "contactMethodPhone"
-                          : pref === "whatsapp" ? "contactMethodWhatsapp"
-                          : "contactMethodEmail";
+                          pref === "phone" ? "contactMethodPhone" as const
+                          : pref === "whatsapp" ? "contactMethodWhatsapp" as const
+                          : "contactMethodEmail" as const;
                         const Icon = pref === "phone" ? Phone : pref === "whatsapp" ? MessageSquare : Mail;
                         const checked = profileContactPref === pref;
                         return (
@@ -4101,7 +4107,7 @@ export default function OperatorDashboard() {
                               data-testid={`checkbox-contact-pref-${pref}`}
                             />
                             <Icon className="h-4 w-4 text-slate-300" />
-                            <span className="text-sm text-white">{t(labelKey as any)}</span>
+                            <span className="text-sm text-white">{t(labelKey)}</span>
                           </label>
                         );
                       })}

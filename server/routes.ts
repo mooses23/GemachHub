@@ -28,7 +28,7 @@ import {
   summarizeResults,
   ingestTwilioStatusCallback,
 } from "./operatorOnboardingService.js";
-import { OPERATOR_WELCOME_CHANNELS, OPERATOR_CONTACT_PREFERENCES, type PayLaterStatus } from "../shared/schema.js";
+import { OPERATOR_WELCOME_CHANNELS, OPERATOR_CONTACT_PREFERENCES, type PayLaterStatus, type InsertLocation, type OperatorContactPreference } from "../shared/schema.js";
 import { buildScenariosSeedBody, SCENARIOS_RESETTABLE_TITLES } from "../shared/scenarios-content.js";
 import { getShippingRegion, getRegionalBanzInfo } from "../shared/region-utils.js";
 import { scoreContactSpam } from "./spam-heuristic.js";
@@ -902,14 +902,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Location not found" });
       }
 
-      const patch: any = { contactPerson, phone, email };
+      const patch: Partial<InsertLocation> & {
+        contactPreference?: OperatorContactPreference;
+        contactPreferenceSetAt?: Date;
+      } = { contactPerson, phone, email };
       if (existing.contactPreference !== contactPreference) {
         patch.contactPreference = contactPreference;
         patch.contactPreferenceSetAt = new Date();
       }
 
       const updated = await storage.updateLocation(operatorLocationId, patch);
-      const { operatorPin, claimToken, ...safe } = updated as any;
+      const { operatorPin: _pin, claimToken: _token, ...safe } = updated;
       res.json({ success: true, location: safe });
     } catch (error) {
       console.error("Error updating operator profile:", error);
