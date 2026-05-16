@@ -888,6 +888,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone: z.string().trim().min(1, "Phone is required").max(40),
         email: z.string().trim().email("Valid email is required").max(200),
         contactPreference: z.enum(OPERATOR_CONTACT_PREFERENCES),
+        // Task #263: optional postal "Directions address" used for map deep-links
+        // and silent server-side geocoding (lat/lng never exposed to operators).
+        address: z.string().trim().max(500).optional().nullable(),
       });
 
       const parseResult = profileSchema.safeParse(req.body);
@@ -895,7 +898,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid data", errors: parseResult.error.errors });
       }
 
-      const { contactPerson, phone, email, contactPreference } = parseResult.data;
+      const { contactPerson, phone, email, contactPreference, address } = parseResult.data;
 
       const existing = await storage.getLocation(operatorLocationId);
       if (!existing) {
@@ -905,14 +908,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const patch: Partial<InsertLocation> & {
         contactPreference?: OperatorContactPreference;
         contactPreferenceSetAt?: Date;
+        latitude?: number | null;
+        longitude?: number | null;
+        geocodedAt?: Date | null;
       } = { contactPerson, phone, email };
       if (existing.contactPreference !== contactPreference) {
         patch.contactPreference = contactPreference;
         patch.contactPreferenceSetAt = new Date();
       }
+      // Task #263: allow address clearing — when empty/null, also null out
+      // any stale geocoded coordinates so the Directions button disappears.
+      if (address !== undefined) {
+        const trimmed = (address ?? "").trim();
+        patch.address = trimmed;
+        if (trimmed.length === 0) {
+          patch.latitude = null;
+          patch.longitude = null;
+          patch.geocodedAt = null;
+        }
+      }
 
       const updated = await storage.updateLocation(operatorLocationId, patch);
-      const { operatorPin: _pin, claimToken: _token, ...safe } = updated;
+      // Strip secrets and coords — operators must never see lat/lng.
+      const { operatorPin: _pin, claimToken: _token, latitude: _lat, longitude: _lng, geocodedAt: _gca, ...safe } = updated as any;
       res.json({ success: true, location: safe });
     } catch (error) {
       console.error("Error updating operator profile:", error);
@@ -2022,7 +2040,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Location not found" });
       }
       
-      const { operatorPin, ...locationWithoutPin } = location;
+      // Task #263: operators must never see lat/lng — strip alongside the PIN.
+      const { operatorPin, latitude: _lat, longitude: _lng, geocodedAt: _gca, ...locationWithoutPin } = location as any;
       res.json({ ...locationWithoutPin, pinIsDefault: operatorPin === '1234' });
     } catch (error) {
       console.error("Error fetching operator location:", error);

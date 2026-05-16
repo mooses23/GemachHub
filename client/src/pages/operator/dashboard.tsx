@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { driver } from "driver.js";
 import type { Side } from "driver.js";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck, RefreshCw, Minimize2, Maximize2, UserCog } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck, RefreshCw, Minimize2, Maximize2, UserCog, MapPin } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link, useLocation } from "wouter";
@@ -3581,11 +3581,14 @@ export default function OperatorDashboard() {
   const [profileEmail, setProfileEmail] = useState("");
   const [profileContactPref, setProfileContactPref] =
     useState<OperatorContactPreference>("phone");
+  // Task #263: postal "Directions address" — server geocodes silently.
+  const [profileAddress, setProfileAddress] = useState("");
   useEffect(() => {
     if (!operatorLocation) return;
     setProfileName(operatorLocation.contactPerson || "");
     setProfilePhone(operatorLocation.phone || "");
     setProfileEmail(operatorLocation.email || "");
+    setProfileAddress(operatorLocation.address || "");
     const pref = operatorLocation.contactPreference;
     const isValid = (v: string | null): v is OperatorContactPreference =>
       v !== null && (OPERATOR_CONTACT_PREFERENCES as readonly string[]).includes(v);
@@ -3626,6 +3629,7 @@ export default function OperatorDashboard() {
         phone: profilePhone.trim(),
         email: profileEmail.trim(),
         contactPreference: profileContactPref,
+        address: profileAddress.trim(),
       });
       return res.json() as Promise<{ success: boolean; location: Location }>;
     },
@@ -4057,6 +4061,21 @@ export default function OperatorDashboard() {
                       onChange={(e) => setProfilePhone(e.target.value)}
                       data-testid="input-profile-phone"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-address" className="text-slate-300 flex items-center gap-1.5">
+                      <MapPin className="h-4 w-4" />
+                      {t('directionsAddress')}
+                    </Label>
+                    <Input
+                      id="profile-address"
+                      type="text"
+                      className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+                      value={profileAddress}
+                      onChange={(e) => setProfileAddress(e.target.value)}
+                      data-testid="input-profile-address"
+                    />
+                    <p className="text-xs text-slate-400">{t('directionsAddressHint')}</p>
                   </div>
                   <div className="space-y-2 rounded-lg border border-amber-400/40 bg-amber-400/5 p-3">
                     <Label htmlFor="profile-email" className="text-amber-200 flex items-center gap-1.5">

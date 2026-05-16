@@ -6,6 +6,7 @@ import { ContactActionsLight } from "@/components/ui/contact-actions";
 import { useLocation } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
 import { pickLocalized } from "@/lib/localized-record";
+import { DirectionsButton, formatDistance } from "./directions-button";
 
 const COLOR_SWATCHES: Record<string, string> = {
   red: "#EF4444",
@@ -47,9 +48,10 @@ function InventoryCircle({ color, quantity }: { color: string; quantity: number 
 interface LocationCardProps {
   location: Location;
   locationNumber?: number;
+  distanceKm?: number | null;
 }
 
-export function LocationCard({ location, locationNumber }: LocationCardProps) {
+export function LocationCard({ location, locationNumber, distanceKm }: LocationCardProps) {
   const [, navigate] = useLocation();
   const { t, language } = useLanguage();
   const locName = pickLocalized(location, "name", language);
@@ -84,10 +86,18 @@ export function LocationCard({ location, locationNumber }: LocationCardProps) {
                 </div>
               )}
               <h3 className="text-xl font-semibold">{locName}</h3>
+              {typeof distanceKm === "number" && Number.isFinite(distanceKm) && (
+                <p className="text-xs text-blue-600 font-medium mt-1" data-testid={`text-distance-${location.id}`}>
+                  {formatDistance(distanceKm, language, t)}
+                </p>
+              )}
             </div>
-            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-              {location.isActive ? t("active") : t("inactive")}
-            </span>
+            <div className="flex flex-col items-end gap-2">
+              <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                {location.isActive ? t("active") : t("inactive")}
+              </span>
+              <DirectionsButton address={locAddress} variant="light" />
+            </div>
           </div>
           <div className="mb-4 text-neutral-600">
             <p className="flex items-center mb-2">

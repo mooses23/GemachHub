@@ -242,16 +242,49 @@ export class DatabaseStorage implements IStorage {
       cityCategoryId: insertLocation.cityCategoryId ?? null,
       operatorPin: insertLocation.operatorPin ?? null
     }).returning();
-    return result[0];
+    const created = result[0];
+    // Task #263: silently geocode the postal address in the background.
+    if (created?.address) {
+      void (async () => {
+        try {
+          const { geocodeAndStore } = await import("./geocoder");
+          geocodeAndStore(created.id, created.address);
+        } catch (err) {
+          console.warn(`[createLocation] geocode dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      })();
+    }
+    return created;
   }
 
-  async updateLocation(id: number, data: Partial<InsertLocation>): Promise<Location> {
+  async updateLocation(id: number, data: Partial<InsertLocation> & { latitude?: number | null; longitude?: number | null; geocodedAt?: Date | null }): Promise<Location> {
+    // Detect address change BEFORE the write so we can re-geocode after.
+    let addressChanged = false;
+    let newAddress: string | null = null;
+    if (typeof data.address === "string" && data.address.trim().length > 0) {
+      const existing = await db.select({ address: locations.address }).from(locations).where(eq(locations.id, id)).limit(1);
+      const prevAddress = existing[0]?.address ?? null;
+      if (data.address.trim() !== (prevAddress ?? "").trim()) {
+        addressChanged = true;
+        newAddress = data.address.trim();
+      }
+    }
     const result = await db.update(locations)
       .set(data)
       .where(eq(locations.id, id))
       .returning();
     if (result.length === 0) {
       throw new Error(`Location with id ${id} not found`);
+    }
+    if (addressChanged && newAddress) {
+      void (async () => {
+        try {
+          const { geocodeAndStore } = await import("./geocoder");
+          geocodeAndStore(id, newAddress!);
+        } catch (err) {
+          console.warn(`[updateLocation] geocode dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      })();
     }
     return result[0];
   }
@@ -1638,6 +1671,11 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   `));
   await safe("create index kb_embeddings_source_idx", () => db.execute(sql`CREATE INDEX IF NOT EXISTS kb_embeddings_source_idx ON kb_embeddings (source_kind, source_id, chunk_idx)`));
   // Task #35: operator onboarding (SMS+WhatsApp claim flow) on locations
+  // Task #263: silent geocoding columns for "Find nearest to me".
+  await safe("add locations.latitude", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION`));
+  await safe("add locations.longitude", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION`));
+  await safe("add locations.geocoded_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS geocoded_at TIMESTAMP`));
+
   await safe("add locations.claim_token", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS claim_token TEXT`));
   await safe("add locations.claim_token_created_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS claim_token_created_at TIMESTAMP`));
   await safe("add locations.welcome_sent_at", () => db.execute(sql`ALTER TABLE locations ADD COLUMN IF NOT EXISTS welcome_sent_at TIMESTAMP`));

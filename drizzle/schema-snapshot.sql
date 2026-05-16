@@ -387,7 +387,10 @@ CREATE TABLE public.locations (
     processing_fee_fixed integer DEFAULT 30,
     welcome_email_status text,
     welcome_email_error text,
-    welcome_email_sent_at timestamp without time zone
+    welcome_email_sent_at timestamp without time zone,
+    latitude double precision,
+    longitude double precision,
+    geocoded_at timestamp without time zone
 );
 
 -- Name: locations_id_seq; Type: SEQUENCE; Schema: public; Owner: -

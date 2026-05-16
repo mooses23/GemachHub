@@ -78,6 +78,23 @@ const dict: Record<CoreTranslationKey, string> = {
     tributePara4: "המורשת שלה ממשיכה לעשות שינוי בכל יום מחדש.",
 
     // Refund / pay-later refund flow (Task #38)
+
+    // Task #263: directions + find-nearest
+    directions: "ניווט",
+    openInMaps: "פתח במפות",
+    googleMaps: "Google Maps",
+    waze: "Waze",
+    appleMaps: "Apple Maps",
+    findNearestToMe: "מצא את הקרוב אליי",
+    sortedByDistance: "ממוין לפי מרחק ממך",
+    clearNearest: "נקה",
+    locating: "מאתר…",
+    locationPermissionDenied: "הגישה למיקום נדחתה. אנא הפעל אותה בדפדפן כדי למצוא את הגמ\"ח הקרוב.",
+    locationPermissionError: "לא הצלחנו לקבל את המיקום שלך. נסה שוב.",
+    distanceMi: "{n} מייל ממך",
+    distanceKm: "{n} ק\"מ ממך",
+    directionsAddress: "כתובת לניווט",
+    directionsAddressHint: "הכתובת המלאה שהמבקרים ישתמשו בה כדי להגיע אליך. מוצגת בכרטיס הציבורי של הסניף שלך.",
 };
 
 export default dict;

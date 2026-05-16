@@ -2551,6 +2551,9 @@ export class MemStorage implements IStorage {
       contactPreference: null,
       contactPreferenceSetAt: null,
       onboardedAt: null,
+      latitude: null,
+      longitude: null,
+      geocodedAt: null,
     };
     this.locations.set(id, location);
     return location;

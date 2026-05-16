@@ -75,6 +75,23 @@ const enCore = {
     tributePara4: "Her legacy continues to make a difference every day.",
 
     earmuffsGemach: "Earmuffs Gemach",
+
+    // Task #263: directions + find-nearest
+    directions: "Directions",
+    openInMaps: "Open in Maps",
+    googleMaps: "Google Maps",
+    waze: "Waze",
+    appleMaps: "Apple Maps",
+    findNearestToMe: "Find nearest to me",
+    sortedByDistance: "Sorted by distance from you",
+    clearNearest: "Clear",
+    locating: "Locating…",
+    locationPermissionDenied: "Location permission denied. Please enable it in your browser to find the nearest gemach.",
+    locationPermissionError: "Could not get your location. Please try again.",
+    distanceMi: "{n} mi away",
+    distanceKm: "{n} km away",
+    directionsAddress: "Directions address",
+    directionsAddressHint: "The postal address visitors will use to navigate to you. Shown on your public location card.",
 } as const;
 
 export default enCore;

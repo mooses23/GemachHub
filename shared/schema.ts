@@ -180,6 +180,12 @@ export const locations = pgTable("locations", {
   contactPreference: text("contact_preference"), // 'phone' | 'whatsapp' | 'email' | null
   contactPreferenceSetAt: timestamp("contact_preference_set_at"),
   onboardedAt: timestamp("onboarded_at"),
+  // Task #263: silent server-side geocoding of `address` via Nominatim/OSM so
+  // public "Find nearest to me" can compute haversine distance client-side.
+  // Operators never see these — only the postal `address` field they edit.
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  geocodedAt: timestamp("geocoded_at"),
 });
 
 // "both" is retained here for backward-compatibility with stored location defaults and legacy API

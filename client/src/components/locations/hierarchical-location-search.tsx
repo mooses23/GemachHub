@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package, Mail, Star, User } from "lucide-react";
+import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package, Mail, Star, User, Navigation2, Loader2, X } from "lucide-react";
 import { ContactActions } from "@/components/ui/contact-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,19 @@ import { useLanguage } from "@/hooks/use-language";
 import { localizeUSState } from "@/lib/location-names";
 import { pickLocalized } from "@/lib/localized-record";
 import type { Location, Region } from "@/lib/types";
+import { DirectionsButton, formatDistance } from "./directions-button";
+
+// Task #263: haversine distance in km between two lat/lng pairs.
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371; // earth radius in km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
 
 type CityCategory = {
   id: number;
@@ -39,6 +52,40 @@ export function HierarchicalLocationSearch() {
   const [selectedCommunity, setSelectedCommunity] = useState<CityCategory | null>(null);
   const [showCommunityView, setShowCommunityView] = useState(false);
   const [initialRegionApplied, setInitialRegionApplied] = useState(false);
+
+  // Task #263: "Find nearest to me" — browser geolocation + client-side
+  // haversine sort. Coords never leave the browser.
+  const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState<string | null>(null);
+
+  const requestNearest = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocError(t("locationPermissionError"));
+      return;
+    }
+    setLocating(true);
+    setLocError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setUserCoords(null);
+        setLocError(err.code === err.PERMISSION_DENIED ? t("locationPermissionDenied") : t("locationPermissionError"));
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  const clearNearest = () => {
+    setUserCoords(null);
+    setLocError(null);
+  };
+
+  const nearestActive = !!userCoords;
 
   // Single combined fetch — the server returns regions, city categories and
   // sanitised locations in one round-trip. This replaces three separate
@@ -114,6 +161,32 @@ export function HierarchicalLocationSearch() {
 
     return filtered;
   }, [locations, searchQuery, regionsMap, selectedRegion]);
+
+  // Task #263: compute distance + sorted list when "Find nearest" is active.
+  // Locations without coordinates sink to the bottom in their original order.
+  const distanceMap = useMemo(() => {
+    if (!userCoords) return new Map<number, number>();
+    const m = new Map<number, number>();
+    for (const loc of locations) {
+      const anyLoc = loc as Location & { latitude?: number | null; longitude?: number | null };
+      if (typeof anyLoc.latitude === "number" && typeof anyLoc.longitude === "number") {
+        m.set(loc.id, haversineKm(userCoords.lat, userCoords.lon, anyLoc.latitude, anyLoc.longitude));
+      }
+    }
+    return m;
+  }, [userCoords, locations]);
+
+  const sortedByDistance = useMemo(() => {
+    if (!userCoords) return [] as Location[];
+    const withCoords: Location[] = [];
+    const withoutCoords: Location[] = [];
+    for (const loc of filteredLocations) {
+      if (distanceMap.has(loc.id)) withCoords.push(loc);
+      else withoutCoords.push(loc);
+    }
+    withCoords.sort((a, b) => (distanceMap.get(a.id) ?? Infinity) - (distanceMap.get(b.id) ?? Infinity));
+    return [...withCoords, ...withoutCoords];
+  }, [userCoords, filteredLocations, distanceMap]);
 
   const usStates = useMemo(() => {
     if (!selectedRegion || selectedRegion.slug !== "united-states") return [];
@@ -220,6 +293,38 @@ export function HierarchicalLocationSearch() {
               className="w-full pl-12 pr-4 py-4 md:py-5 text-base md:text-lg rounded-full input-glass placeholder:text-slate-500"
             />
           </div>
+          {/* Task #263: Find nearest to me */}
+          <div className="max-w-2xl mx-auto mt-3 flex flex-col items-center gap-2">
+            {!nearestActive ? (
+              <button
+                type="button"
+                onClick={requestNearest}
+                disabled={locating}
+                className="btn-glass-primary inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium disabled:opacity-60"
+                data-testid="button-find-nearest"
+              >
+                {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation2 className="h-4 w-4" />}
+                {locating ? t("locating") : t("findNearestToMe")}
+              </button>
+            ) : (
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/15 border border-blue-400/30 text-sm text-blue-100">
+                <Navigation2 className="h-4 w-4" />
+                <span>{t("sortedByDistance")}</span>
+                <button
+                  type="button"
+                  onClick={clearNearest}
+                  className="inline-flex items-center gap-1 text-xs text-blue-200 hover:text-white"
+                  data-testid="button-clear-nearest"
+                >
+                  <X className="h-3 w-3" />
+                  {t("clearNearest")}
+                </button>
+              </div>
+            )}
+            {locError && (
+              <p className="text-xs text-red-300" data-testid="text-location-error">{locError}</p>
+            )}
+          </div>
         </div>
 
         {isInitialLoading ? (
@@ -247,6 +352,24 @@ export function HierarchicalLocationSearch() {
                     </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        ) : nearestActive ? (
+          <div className="space-y-8">
+            <div className="text-center">
+              <p className="text-slate-400">
+                {t("showing")} <span className="font-semibold text-white">{sortedByDistance.length}</span> {t("locations")}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 px-4 md:px-0">
+              {sortedByDistance.map((location: Location) => (
+                <LocationCard
+                  key={location.id}
+                  location={location}
+                  region={regionsMap[location.regionId]}
+                  distanceKm={distanceMap.get(location.id) ?? null}
+                />
               ))}
             </div>
           </div>
@@ -593,9 +716,10 @@ function InventoryCircle({ color, quantity }: { color: string; quantity: number 
 interface LocationCardProps {
   location: Location;
   region: Region;
+  distanceKm?: number | null;
 }
 
-function LocationCard({ location, region }: LocationCardProps) {
+function LocationCard({ location, region, distanceKm }: LocationCardProps) {
   const { t, language } = useLanguage();
   const [, navigate] = useLocation();
   const locName = pickLocalized(location, "name", language);
@@ -622,7 +746,7 @@ function LocationCard({ location, region }: LocationCardProps) {
   return (
     <div onClick={handleCardClick} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") navigate(`/self-deposit?locationId=${location.id}`); }}>
       <div className="glass-card glass-card-hover glass-highlight rounded-2xl cursor-pointer p-6">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-4 gap-2">
           <div>
             <span className="inline-block px-2 py-1 mb-2 text-xs font-mono rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30">
               {location.locationCode}
@@ -630,7 +754,13 @@ function LocationCard({ location, region }: LocationCardProps) {
             <h3 className="text-lg font-semibold text-white">
               {locName}
             </h3>
+            {typeof distanceKm === "number" && Number.isFinite(distanceKm) && (
+              <p className="text-xs text-blue-300 font-medium mt-1" data-testid={`text-distance-${location.id}`}>
+                {formatDistance(distanceKm, language, t)}
+              </p>
+            )}
           </div>
+          <DirectionsButton address={locAddress} variant="dark" />
         </div>
         
         <div className="space-y-3">

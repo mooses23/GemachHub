@@ -244,6 +244,16 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
     startRefundReconciliation();
     void backfillPendingCashPayments();
+    // Task #263: best-effort one-shot backfill of missing lat/lng for existing
+    // locations via Nominatim. Runs in background, rate-limited to 1 req/sec.
+    void (async () => {
+      try {
+        const { backfillMissingGeocodes } = await import("./geocoder");
+        await backfillMissingGeocodes();
+      } catch (err) {
+        console.warn(`[index] geocoder backfill failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    })();
     // Task #177 — weekly schema-snapshot drift check; emails admin if the
     // live DB diverges from drizzle/schema-snapshot.sql.
     startSchemaSnapshotCron();
