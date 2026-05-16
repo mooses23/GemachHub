@@ -27,6 +27,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { SuggestiveInput } from "@/components/ui/suggestive-input";
+import type { CanonicalEntry } from "@/lib/name-suggest";
 import { Button } from "@/components/ui/button";
 import { LoaderCircle, Phone, Mail, DollarSign, MapPin, User, Globe, AlertTriangle, Crosshair, Save, MessageCircle, Percent } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -451,16 +453,62 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
 
   const watchedRegionId = form.watch("regionId");
   const [communityDialogOpen, setCommunityDialogOpen] = useState(false);
+  const watchedCityCategoryId = form.watch("cityCategoryId");
+  const [communityQuickFind, setCommunityQuickFind] = useState("");
 
   const { data: communities = [] } = useQuery<CityCategory[]>({
     queryKey: ["/api/city-categories"],
   });
+
+  const { data: allLocations = [] } = useQuery<Location[]>({
+    queryKey: ["/api/locations"],
+  });
+
+  const nameEntries: CanonicalEntry[] = React.useMemo(
+    () =>
+      allLocations
+        .filter((l) => !location || l.id !== location.id)
+        .map((l) => ({ id: l.id, en: l.name, he: l.nameHe ?? null })),
+    [allLocations, location],
+  );
+
+  const contactPersonEntries: CanonicalEntry[] = React.useMemo(
+    () =>
+      allLocations
+        .filter((l) => !location || l.id !== location.id)
+        .map((l) => ({
+          id: l.id,
+          en: l.contactPerson ?? null,
+          he: l.contactPersonHe ?? null,
+        }))
+        .filter((e) => e.en || e.he),
+    [allLocations, location],
+  );
 
   const filteredCommunities = React.useMemo(
     () => communities
       .filter((c) => c.regionId === watchedRegionId)
       .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name)),
     [communities, watchedRegionId],
+  );
+
+  React.useEffect(() => {
+    if (!watchedCityCategoryId) {
+      setCommunityQuickFind("");
+      return;
+    }
+    const match = communities.find((c) => c.id === watchedCityCategoryId);
+    setCommunityQuickFind(match?.name ?? "");
+  }, [watchedCityCategoryId, communities]);
+
+  const communityQuickFindEntries: CanonicalEntry[] = React.useMemo(
+    () =>
+      filteredCommunities.map((c) => ({
+        id: c.id,
+        en: c.name,
+        he: c.nameHe ?? null,
+      })),
+    [filteredCommunities],
   );
 
   const createMutation = useMutation({
@@ -560,11 +608,14 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
                 <FormItem>
                   <FormLabel className={labelClass}>English</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
+                    <SuggestiveInput
+                      name={field.name}
+                      inputRef={field.ref}
+                      onBlur={field.onBlur}
                       className={inputClass}
                       value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={field.onChange}
+                      entries={nameEntries}
                     />
                   </FormControl>
                   <FormMessage />
@@ -578,12 +629,16 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
                 <FormItem>
                   <FormLabel className={labelClass}>עברית</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
+                    <SuggestiveInput
+                      name={field.name}
+                      inputRef={field.ref}
+                      onBlur={field.onBlur}
                       dir="rtl"
                       className={inputClass}
                       value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={field.onChange}
+                      entries={nameEntries}
+                      matchOptions={{ preferCanonical: "he" }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -603,11 +658,14 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
                 <FormItem>
                   <FormLabel className={labelClass}>English</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
+                    <SuggestiveInput
+                      name={field.name}
+                      inputRef={field.ref}
+                      onBlur={field.onBlur}
                       className={inputClass}
                       value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={field.onChange}
+                      entries={contactPersonEntries}
                     />
                   </FormControl>
                   <FormMessage />
@@ -621,12 +679,16 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
                 <FormItem>
                   <FormLabel className={labelClass}>עברית</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
+                    <SuggestiveInput
+                      name={field.name}
+                      inputRef={field.ref}
+                      onBlur={field.onBlur}
                       dir="rtl"
                       className={inputClass}
                       value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={field.onChange}
+                      entries={contactPersonEntries}
+                      matchOptions={{ preferCanonical: "he" }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -818,32 +880,60 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
             render={({ field }) => (
               <FormItem>
                 <FormLabel className={labelClass}>Community</FormLabel>
-                <div className="flex items-center gap-2">
-                  <Select
-                    onValueChange={(value) => {
-                      if (value === "__new__") {
-                        setCommunityDialogOpen(true);
-                        return;
-                      }
-                      field.onChange(value === "__none__" ? null : parseInt(value, 10));
+                <div className="space-y-2">
+                  <SuggestiveInput
+                    placeholder="Type to find an existing community…"
+                    value={communityQuickFind}
+                    onChange={(value) => {
+                      setCommunityQuickFind(value);
+                      const match = filteredCommunities.find(
+                        (c) =>
+                          c.name.toLowerCase() === value.trim().toLowerCase() ||
+                          (c.nameHe ?? "").toLowerCase() === value.trim().toLowerCase(),
+                      );
+                      if (match) field.onChange(match.id);
                     }}
-                    value={field.value ? String(field.value) : "__none__"}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
-                        <SelectValue placeholder="Select a community" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
-                      {filteredCommunities.map((c) => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name}{c.stateCode ? ` (${c.stateCode})` : ""}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="__new__">+ Add new community…</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    entries={communityQuickFindEntries}
+                    className="h-10 text-sm border-border/70"
+                    data-testid="input-community-quickfind"
+                  />
+                  <FormDescription className="text-xs">
+                    Quick-find an existing community — pick from the list below to save.
+                  </FormDescription>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      onValueChange={(value) => {
+                        if (value === "__new__") {
+                          setCommunityDialogOpen(true);
+                          return;
+                        }
+                        const nextId = value === "__none__" ? null : parseInt(value, 10);
+                        field.onChange(nextId);
+                        if (nextId) {
+                          const match = filteredCommunities.find((c) => c.id === nextId);
+                          setCommunityQuickFind(match?.name ?? "");
+                        } else {
+                          setCommunityQuickFind("");
+                        }
+                      }}
+                      value={field.value ? String(field.value) : "__none__"}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="h-11 text-sm border-border/70 hover:border-border transition-colors">
+                          <SelectValue placeholder="Select a community" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">— None —</SelectItem>
+                        {filteredCommunities.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.name}{c.stateCode ? ` (${c.stateCode})` : ""}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="__new__">+ Add new community…</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <FormMessage />
               </FormItem>

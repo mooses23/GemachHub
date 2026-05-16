@@ -19,6 +19,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { SuggestiveInput } from "@/components/ui/suggestive-input";
+import type { CanonicalEntry } from "@/lib/name-suggest";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -122,6 +124,14 @@ export function CommunityForm({
   });
 
   const watchedName = form.watch("name");
+
+  const nameEntries: CanonicalEntry[] = React.useMemo(
+    () =>
+      (communities ?? [])
+        .filter((c) => !community || c.id !== community.id)
+        .map((c) => ({ id: c.id, en: c.name, he: c.nameHe ?? null })),
+    [communities, community],
+  );
   const watchedRegionId = form.watch("regionId");
   const watchedDisplayOrder = form.watch("displayOrder");
   const watchedStateCode = form.watch("stateCode");
@@ -209,7 +219,18 @@ export function CommunityForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel className={labelClass}>English</FormLabel>
-                <FormControl><Input {...field} className={inputClass} placeholder="e.g., Brooklyn" /></FormControl>
+                <FormControl>
+                  <SuggestiveInput
+                    name={field.name}
+                    inputRef={field.ref}
+                    onBlur={field.onBlur}
+                    className={inputClass}
+                    placeholder="e.g., Brooklyn"
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    entries={nameEntries}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -220,7 +241,20 @@ export function CommunityForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel className={labelClass}>עברית</FormLabel>
-                <FormControl><Input {...field} value={field.value ?? ""} dir="rtl" className={inputClass} placeholder="ברוקלין" /></FormControl>
+                <FormControl>
+                  <SuggestiveInput
+                    name={field.name}
+                    inputRef={field.ref}
+                    onBlur={field.onBlur}
+                    dir="rtl"
+                    className={inputClass}
+                    placeholder="ברוקלין"
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    entries={nameEntries}
+                    matchOptions={{ preferCanonical: "he" }}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

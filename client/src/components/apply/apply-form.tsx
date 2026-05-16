@@ -33,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { SuggestiveInput } from "@/components/ui/suggestive-input";
+import type { CanonicalEntry } from "@/lib/name-suggest";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -88,6 +90,12 @@ export function ApplyForm() {
     const region = regions.find(r => r.id === regionId);
     return region?.name || "Other";
   };
+
+  const communityEntries: CanonicalEntry[] = cityCategories.map((cat) => ({
+    id: cat.id,
+    en: cat.name,
+    he: cat.nameHe ?? null,
+  }));
 
   const categoriesByRegion = cityCategories.reduce((acc, cat) => {
     const regionName = getRegionName(cat.regionId);
@@ -243,7 +251,14 @@ export function ApplyForm() {
                     <FormItem>
                       <FormLabel className="text-slate-200">{t("city")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <SuggestiveInput
+                          name={field.name}
+                          inputRef={field.ref}
+                          onBlur={field.onBlur}
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          entries={communityEntries}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -344,10 +359,14 @@ export function ApplyForm() {
                     ) : (
                       <div className="space-y-2">
                         <FormControl>
-                          <Input
+                          <SuggestiveInput
+                            name={field.name}
+                            inputRef={field.ref}
+                            onBlur={field.onBlur}
                             placeholder={t("enterCommunityNamePlaceholder")}
-                            {...field}
                             value={field.value ?? ""}
+                            onChange={field.onChange}
+                            entries={communityEntries}
                           />
                         </FormControl>
                         <Button

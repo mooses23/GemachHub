@@ -1,7 +1,7 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { createRegion, updateRegion } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { SuggestiveInput } from "@/components/ui/suggestive-input";
+import type { CanonicalEntry } from "@/lib/name-suggest";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { LoaderCircle, Globe, Settings, AlertTriangle, FileText } from "lucide-react";
@@ -94,6 +96,18 @@ export function RegionForm({ region, onSuccess }: RegionFormProps) {
       descriptionHe: "",
     },
   });
+
+  const { data: allRegions = [] } = useQuery<Region[]>({
+    queryKey: ["/api/regions"],
+  });
+
+  const nameEntries: CanonicalEntry[] = React.useMemo(
+    () =>
+      allRegions
+        .filter((r) => !region || r.id !== region.id)
+        .map((r) => ({ id: r.id, en: r.name, he: r.nameHe ?? null })),
+    [allRegions, region],
+  );
 
   const watchedName = form.watch("name");
   React.useEffect(() => {
@@ -175,7 +189,16 @@ export function RegionForm({ region, onSuccess }: RegionFormProps) {
                 <FormItem>
                   <FormLabel className={labelClass}>English</FormLabel>
                   <FormControl>
-                    <Input {...field} className={inputClass} placeholder="e.g., North America" />
+                    <SuggestiveInput
+                      name={field.name}
+                      inputRef={field.ref}
+                      onBlur={field.onBlur}
+                      className={inputClass}
+                      placeholder="e.g., North America"
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      entries={nameEntries}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -188,13 +211,17 @@ export function RegionForm({ region, onSuccess }: RegionFormProps) {
                 <FormItem>
                   <FormLabel className={labelClass}>עברית</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
+                    <SuggestiveInput
+                      name={field.name}
+                      inputRef={field.ref}
+                      onBlur={field.onBlur}
                       dir="rtl"
                       className={inputClass}
                       value={field.value ?? ""}
-                      onChange={(e) => field.onChange(e.target.value)}
+                      onChange={field.onChange}
                       placeholder="לדוגמה: אמריקה הצפונית"
+                      entries={nameEntries}
+                      matchOptions={{ preferCanonical: "he" }}
                     />
                   </FormControl>
                   <FormMessage />
