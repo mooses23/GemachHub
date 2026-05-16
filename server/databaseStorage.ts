@@ -24,6 +24,7 @@ import {
   disputes, type Dispute, type InsertDispute,
   messageSendLogs, type MessageSendLog, type InsertMessageSendLog,
   restockCodeRequests, type RestockCodeRequest,
+  restockShipments, type RestockShipment,
   type KbSourceKind,
   type PayLaterStatus
 } from '../shared/schema.js';
@@ -1451,6 +1452,63 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return result[0] ?? null;
   }
+
+  // Task #250: Restock shipment tracking
+  async upsertRestockShipment(
+    locationId: number,
+    data: {
+      orderedAt: Date;
+      detectedAt?: Date | null;
+      trackingNumber?: string | null;
+      carrier?: string | null;
+      estimatedDelivery?: string | null;
+      rawEmailSnippet?: string | null;
+      dismissed?: boolean;
+    }
+  ): Promise<RestockShipment> {
+    const result = await db
+      .insert(restockShipments)
+      .values({
+        locationId,
+        orderedAt: data.orderedAt,
+        detectedAt: data.detectedAt ?? null,
+        trackingNumber: data.trackingNumber ?? null,
+        carrier: data.carrier ?? null,
+        estimatedDelivery: data.estimatedDelivery ?? null,
+        rawEmailSnippet: data.rawEmailSnippet ?? null,
+        dismissed: data.dismissed ?? false,
+      })
+      .onConflictDoUpdate({
+        target: restockShipments.locationId,
+        set: {
+          orderedAt: data.orderedAt,
+          detectedAt: data.detectedAt ?? null,
+          trackingNumber: data.trackingNumber ?? null,
+          carrier: data.carrier ?? null,
+          estimatedDelivery: data.estimatedDelivery ?? null,
+          rawEmailSnippet: data.rawEmailSnippet ?? null,
+          dismissed: data.dismissed ?? false,
+        },
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getRestockShipment(locationId: number): Promise<RestockShipment | undefined> {
+    const result = await db
+      .select()
+      .from(restockShipments)
+      .where(eq(restockShipments.locationId, locationId))
+      .limit(1);
+    return result[0];
+  }
+
+  async dismissRestockShipment(locationId: number): Promise<void> {
+    await db
+      .update(restockShipments)
+      .set({ dismissed: true })
+      .where(eq(restockShipments.locationId, locationId));
+  }
 }
 
 let schemaUpgradesRun = false;
@@ -1707,6 +1765,21 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   await safe("create unique index restock_code_requests_claimed_email_uq", () => db.execute(sql`
     CREATE UNIQUE INDEX IF NOT EXISTS restock_code_requests_claimed_email_uq
       ON restock_code_requests (claimed_email_id) WHERE claimed_email_id IS NOT NULL
+  `));
+
+  // Task #250: restock_shipments table — one active shipment record per location
+  await safe("create table restock_shipments", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS restock_shipments (
+      id SERIAL PRIMARY KEY,
+      location_id INTEGER NOT NULL UNIQUE,
+      ordered_at TIMESTAMP NOT NULL,
+      detected_at TIMESTAMP,
+      tracking_number TEXT,
+      carrier TEXT,
+      estimated_delivery TEXT,
+      raw_email_snippet TEXT,
+      dismissed BOOLEAN NOT NULL DEFAULT false
+    )
   `));
 
   // Task #70: pay-later refund_amount data-fix. Wrapped via safe() so a failure

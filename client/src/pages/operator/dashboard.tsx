@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { driver } from "driver.js";
 import type { Side } from "driver.js";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link, useLocation } from "wouter";
@@ -402,19 +402,155 @@ function VerificationCodeDialog() {
   );
 }
 
+type ShipmentDetectResult =
+  | { status: 'none' }
+  | { status: 'pending' }
+  | { status: 'found'; trackingNumber: string; carrier: string; estimatedDelivery: string | null; trackingUrl: string };
+
+type RestockShipmentRecord = {
+  id: number;
+  locationId: number;
+  orderedAt: string;
+  detectedAt: string | null;
+  trackingNumber: string | null;
+  carrier: string | null;
+  estimatedDelivery: string | null;
+  dismissed: boolean;
+};
+
 function RestockingInstructions({ location }: { location: Location }) {
   const { t } = useLanguage();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [trackingCopied, setTrackingCopied] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: regions = [] } = useQuery<Region[]>({
     queryKey: ['/api/regions'],
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: shipment, isLoading: shipmentLoading } = useQuery<RestockShipmentRecord | null>({
+    queryKey: ['/api/operator/restock-shipment'],
+    staleTime: 0,
+  });
+
   const region = regions.find(r => r.id === location.regionId);
   const shippingRegion = getShippingRegion(region?.slug, region?.name);
   const regionalBanz = getRegionalBanzInfo(region?.slug, region?.name);
   const isUsCanada = shippingRegion === 'us-canada';
+
+  const [pollingStatus, setPollingStatus] = useState<'idle' | 'polling' | 'found' | 'error'>('idle');
+  const [detectedShipment, setDetectedShipment] = useState<{ trackingNumber: string; carrier: string; estimatedDelivery: string | null; trackingUrl: string } | null>(null);
+  const [confirmDismiss, setConfirmDismiss] = useState(false);
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
+  };
+
+  const consecutiveErrorsRef = useRef(0);
+
+  const startPolling = () => {
+    stopPolling();
+    setPollingStatus('polling');
+    consecutiveErrorsRef.current = 0;
+    const doDetect = async () => {
+      try {
+        const res = await fetch('/api/operator/restock-shipment/detect');
+        if (!res.ok) {
+          // 401 = session expired, 403 = scope mismatch → stop polling with error
+          if (res.status === 401 || res.status === 403) {
+            setPollingStatus('error');
+            stopPolling();
+            return;
+          }
+          // Other server errors — count consecutive failures before giving up
+          consecutiveErrorsRef.current += 1;
+          if (consecutiveErrorsRef.current >= 5) {
+            setPollingStatus('error');
+            stopPolling();
+          }
+          return;
+        }
+        consecutiveErrorsRef.current = 0;
+        const data: ShipmentDetectResult = await res.json();
+        if (data.status === 'found') {
+          setDetectedShipment({ trackingNumber: data.trackingNumber, carrier: data.carrier, estimatedDelivery: data.estimatedDelivery, trackingUrl: data.trackingUrl });
+          setPollingStatus('found');
+          stopPolling();
+          queryClient.invalidateQueries({ queryKey: ['/api/operator/restock-shipment'] });
+        } else if (data.status === 'none') {
+          setPollingStatus('idle');
+          stopPolling();
+        }
+        // status === 'pending' → keep polling
+      } catch {
+        consecutiveErrorsRef.current += 1;
+        if (consecutiveErrorsRef.current >= 5) {
+          setPollingStatus('error');
+          stopPolling();
+        }
+      }
+    };
+    doDetect();
+    pollIntervalRef.current = setInterval(doDetect, 10_000);
+  };
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, []);
+
+  // When shipment loads with an existing tracking number, populate state
+  useEffect(() => {
+    if (shipment?.trackingNumber && !shipment.dismissed) {
+      const carrier = shipment.carrier ?? 'Carrier';
+      const tn = shipment.trackingNumber;
+      let trackingUrl = `https://www.google.com/search?q=${encodeURIComponent(carrier + ' track ' + tn)}`;
+      switch (carrier.toUpperCase()) {
+        case 'UPS': trackingUrl = `https://www.ups.com/track?tracknum=${encodeURIComponent(tn)}`; break;
+        case 'FEDEX': trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(tn)}`; break;
+        case 'USPS': trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(tn)}`; break;
+        case 'DHL': trackingUrl = `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(tn)}&brand=DHL`; break;
+      }
+      setDetectedShipment({ trackingNumber: tn, carrier, estimatedDelivery: shipment.estimatedDelivery ?? null, trackingUrl });
+      setPollingStatus('found');
+    } else if (shipment && !shipment.trackingNumber && !shipment.dismissed && pollingStatus === 'idle') {
+      startPolling();
+    }
+  }, [shipment]);
+
+  const orderPlacedMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/operator/restock-shipment/order-placed'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/operator/restock-shipment'] });
+      setDetectedShipment(null);
+      startPolling();
+    },
+    onError: () => {
+      toast({ title: t('error'), description: t('restockOrderPlacedError'), variant: 'destructive' });
+    },
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: () => apiRequest('DELETE', '/api/operator/restock-shipment'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/operator/restock-shipment'] });
+      setDetectedShipment(null);
+      setPollingStatus('idle');
+      stopPolling();
+    },
+    onError: () => {
+      toast({ title: t('error'), description: t('restockDismissError'), variant: 'destructive' });
+    },
+  });
+
+  const handleCopyTracking = (tn: string) => {
+    navigator.clipboard.writeText(tn).then(() => {
+      setTrackingCopied(true);
+      setTimeout(() => setTrackingCopied(false), 2000);
+    }).catch(() => {});
+  };
 
   const handleCopy = (value: string, key: string) => {
     navigator.clipboard.writeText(value).then(() => {
@@ -575,6 +711,129 @@ function RestockingInstructions({ location }: { location: Location }) {
               <p className="text-xs text-slate-400 mt-0.5">{t('verificationCodeSectionDesc')}</p>
             </div>
             <VerificationCodeDialog />
+          </div>
+
+          {/* Task #250: Shipment tracking section */}
+          <div className="border-t border-white/10 pt-4">
+            {pollingStatus === 'found' && detectedShipment ? (
+              <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <PackageCheck className="h-4 w-4 text-green-400 flex-shrink-0" />
+                  <p className="text-sm font-semibold text-green-300">{t('restockShipmentDetected')}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <p className="text-slate-400 mb-0.5">{t('restockCarrier')}</p>
+                    <p className="text-white font-medium">{detectedShipment.carrier}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 mb-0.5">{t('restockTrackingNumber')}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-white font-mono text-xs">{detectedShipment.trackingNumber}</p>
+                      <button
+                        onClick={() => handleCopyTracking(detectedShipment.trackingNumber)}
+                        className="text-slate-400 hover:text-white transition-colors"
+                        title={t('copy')}
+                      >
+                        {trackingCopied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                      </button>
+                    </div>
+                  </div>
+                  {detectedShipment.estimatedDelivery && (
+                    <div className="col-span-2">
+                      <p className="text-slate-400 mb-0.5">{t('restockEstimatedDelivery')}</p>
+                      <p className="text-white">{detectedShipment.estimatedDelivery}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <a
+                    href={detectedShipment.trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 rounded-lg text-blue-300 text-xs font-medium transition-colors"
+                  >
+                    <Truck className="h-3.5 w-3.5" />
+                    {t('restockTrackOnCarrier')}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  {confirmDismiss ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-slate-300">{t('restockPackageArrivedConfirm')}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { dismissMutation.mutate(); setConfirmDismiss(false); }}
+                        disabled={dismissMutation.isPending}
+                        className="border-green-500/40 bg-green-500/10 hover:bg-green-500/20 text-green-300 text-xs h-7"
+                      >
+                        {dismissMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                        {t('confirm')}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmDismiss(false)}
+                        className="text-slate-400 hover:text-white text-xs h-7 px-2"
+                      >
+                        {t('cancel')}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirmDismiss(true)}
+                      className="border-white/20 bg-transparent hover:bg-white/10 text-slate-300 text-xs h-7"
+                    >
+                      {t('restockPackageArrived')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : pollingStatus === 'polling' ? (
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center gap-3">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-400 flex-shrink-0" />
+                <div>
+                  <p className="text-sm text-blue-300 font-medium">{t('restockWatchingForShipping')}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('restockWatchingDesc')}</p>
+                </div>
+              </div>
+            ) : pollingStatus === 'error' ? (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                  <p className="text-sm text-amber-300">{t('restockDetectError')}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => startPolling()}
+                  className="border-amber-500/40 bg-transparent hover:bg-amber-500/10 text-amber-300 text-xs h-7 whitespace-nowrap"
+                >
+                  {t('retry')}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-white">{t('restockOrderPlacedTitle')}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{t('restockOrderPlacedDesc')}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => orderPlacedMutation.mutate()}
+                  disabled={orderPlacedMutation.isPending || shipmentLoading}
+                  className="border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs h-8 whitespace-nowrap"
+                >
+                  {orderPlacedMutation.isPending
+                    ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />{t('sending')}</>
+                    : <><Check className="h-3 w-3 mr-1" />{t('restockIPlacedMyOrder')}</>
+                  }
+                </Button>
+              </div>
+            )}
           </div>
 
           {discountCodesBlock}

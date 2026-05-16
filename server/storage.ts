@@ -22,6 +22,7 @@ import {
   disputes, type Dispute, type InsertDispute,
   messageSendLogs, type MessageSendLog, type InsertMessageSendLog,
   restockCodeRequests, type RestockCodeRequest,
+  restockShipments, type RestockShipment,
   type KbSourceKind,
   type PayLaterStatus
 } from "../shared/schema.js";
@@ -244,6 +245,12 @@ export interface IStorage {
    *  NOTE: The OTP code is intentionally NOT stored in the database; it lives only in the server-side
    *  in-memory cache in routes.ts for the duration of the request window. */
   claimRestockCodeRequest(id: number, emailId: string): Promise<RestockCodeRequest | null>;
+
+  // Task #250: Restock shipment tracking
+  /** Upsert a shipment record for a location. When orderedAt is supplied fresh, clears prior tracking fields. */
+  upsertRestockShipment(locationId: number, data: { orderedAt: Date; detectedAt?: Date | null; trackingNumber?: string | null; carrier?: string | null; estimatedDelivery?: string | null; rawEmailSnippet?: string | null; dismissed?: boolean }): Promise<RestockShipment>;
+  getRestockShipment(locationId: number): Promise<RestockShipment | undefined>;
+  dismissRestockShipment(locationId: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -3505,6 +3512,47 @@ export class MemStorage implements IStorage {
 
   async claimRestockCodeRequest(_id: number, _emailId: string): Promise<RestockCodeRequest | null> {
     throw new Error("Not implemented in MemStorage");
+  }
+
+  private _restockShipments: Map<number, RestockShipment> = new Map();
+
+  async upsertRestockShipment(
+    locationId: number,
+    data: {
+      orderedAt: Date;
+      detectedAt?: Date | null;
+      trackingNumber?: string | null;
+      carrier?: string | null;
+      estimatedDelivery?: string | null;
+      rawEmailSnippet?: string | null;
+      dismissed?: boolean;
+    }
+  ): Promise<RestockShipment> {
+    const existing = this._restockShipments.get(locationId);
+    const record: RestockShipment = {
+      id: existing?.id ?? (this._restockShipments.size + 1),
+      locationId,
+      orderedAt: data.orderedAt,
+      detectedAt: data.detectedAt ?? null,
+      trackingNumber: data.trackingNumber ?? null,
+      carrier: data.carrier ?? null,
+      estimatedDelivery: data.estimatedDelivery ?? null,
+      rawEmailSnippet: data.rawEmailSnippet ?? null,
+      dismissed: data.dismissed ?? false,
+    };
+    this._restockShipments.set(locationId, record);
+    return record;
+  }
+
+  async getRestockShipment(locationId: number): Promise<RestockShipment | undefined> {
+    return this._restockShipments.get(locationId);
+  }
+
+  async dismissRestockShipment(locationId: number): Promise<void> {
+    const existing = this._restockShipments.get(locationId);
+    if (existing) {
+      this._restockShipments.set(locationId, { ...existing, dismissed: true });
+    }
   }
 }
 

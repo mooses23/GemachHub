@@ -6215,7 +6215,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const afterSeconds = Math.floor(globalEarliest.requestedAt.getTime() / 1000);
       let gmailResult: Awaited<ReturnType<typeof listEmails>>;
       try {
-        gmailResult = await listEmails(30, undefined, 'all', `after:${afterSeconds}`);
+        // Fetch up to 100 messages: larger window reduces missed OTP-claim emails
+        // in high-volume inboxes (previously 30; same limit used for shipment detect).
+        gmailResult = await listEmails(100, undefined, 'all', `after:${afterSeconds}`);
       } catch (gmailErr) {
         console.error("restock-code poll: Gmail unavailable:", gmailErr);
         return res.json({ status: 'pending' });
@@ -6260,6 +6262,224 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: unknown) {
       console.error("restock-code/poll error:", err);
       return res.json({ status: 'pending' }); // graceful — keep client polling
+    }
+  });
+
+  // ============================================================
+  // OPERATOR: Restock shipment tracking (Task #250)
+  // After placing an order, the coordinator signals "I placed my order"
+  // which creates a shipment record, then polls for a shipping-confirmation
+  // email in the shared Gmail inbox to extract the tracking number.
+  // ============================================================
+
+  /** Returns true if the email looks like a shipping confirmation. */
+  function isShippingConfirmationEmail(subject: string, body: string): boolean {
+    const text = `${subject} ${body}`.toLowerCase();
+    return /ship|track|dispatch|order.{0,15}confirm|confirm.{0,15}order|your order|on its way|out for delivery/.test(text);
+  }
+
+  /** Infer carrier from tracking number format or sender domain. */
+  function inferCarrier(trackingNumber: string, from: string): string {
+    const tn = trackingNumber.replace(/\s/g, '').toUpperCase();
+    const sender = from.toLowerCase();
+    if (/ups\.com/.test(sender) || /^1Z[A-Z0-9]{16}$/.test(tn)) return 'UPS';
+    if (/fedex\.com/.test(sender) || /^\d{12}$/.test(tn) || /^\d{15}$/.test(tn) || /^\d{20}$/.test(tn)) return 'FedEx';
+    if (/usps\.com/.test(sender) || /^9\d{21}$/.test(tn) || /^9\d{15}$/.test(tn)) return 'USPS';
+    if (/dhl\.com/.test(sender) || /^\d{10}$/.test(tn) || /^[0-9]{7}$/.test(tn)) return 'DHL';
+    return 'Carrier';
+  }
+
+  /** Build a carrier tracking URL from carrier name and tracking number. */
+  function carrierTrackingUrl(carrier: string, trackingNumber: string): string {
+    const tn = encodeURIComponent(trackingNumber);
+    switch (carrier.toUpperCase()) {
+      case 'UPS': return `https://www.ups.com/track?tracknum=${tn}`;
+      case 'FEDEX': return `https://www.fedex.com/fedextrack/?trknbr=${tn}`;
+      case 'USPS': return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${tn}`;
+      case 'DHL': return `https://www.dhl.com/en/express/tracking.html?AWB=${tn}&brand=DHL`;
+      default: return `https://www.google.com/search?q=${encodeURIComponent(carrier + ' track ' + trackingNumber)}`;
+    }
+  }
+
+  /** Extract a tracking number from email text. Covers UPS (1Z...), FedEx (12/15/20 digits),
+   *  USPS (9xxxxxx...), DHL, and generic 12-22 char alphanumeric codes near "tracking" keywords. */
+  function extractTrackingNumber(text: string): string | null {
+    const plain = text.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ');
+    // UPS
+    const ups = plain.match(/\b(1Z[A-Z0-9]{16})\b/i);
+    if (ups) return ups[1].toUpperCase();
+    // USPS
+    const usps = plain.match(/\b(9[0-9]{21}|9[0-9]{15})\b/);
+    if (usps) return usps[1];
+    // FedEx 20-digit
+    const fedex20 = plain.match(/\b(\d{20})\b/);
+    if (fedex20) return fedex20[1];
+    // Generic tracking number near keyword (12-22 alphanumeric chars)
+    const generic =
+      plain.match(/(?:tracking\s*(?:number|#|no\.?|num)?[:\s]*)\b([A-Z0-9]{12,22})\b/i) ||
+      plain.match(/\b([A-Z0-9]{12,22})\b\s*(?:is your tracking|tracking number)/i);
+    if (generic) return generic[1];
+    // FedEx 12/15-digit
+    const fedex = plain.match(/\b(\d{12}|\d{15})\b/);
+    if (fedex) return fedex[1];
+    return null;
+  }
+
+  /** Extract estimated delivery text from email body (e.g. "Estimated delivery: Monday, Jan 20"). */
+  function extractEstimatedDelivery(text: string): string | null {
+    const plain = text.replace(/<[^>]+>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ');
+    const m =
+      plain.match(/estimated\s+(?:delivery|arrival)[:\s]+([A-Za-z0-9,\s]{5,40}?)(?:[\.\n]|$)/i) ||
+      plain.match(/(?:expected|arrives?|delivery)\s+(?:by|on)[:\s]+([A-Za-z0-9,\s]{5,40}?)(?:[\.\n]|$)/i);
+    if (!m) return null;
+    return m[1].replace(/\s+/g, ' ').trim().substring(0, 60) || null;
+  }
+
+  app.post("/api/operator/restock-shipment/order-placed", async (req, res) => {
+    const operatorLocId = getOperatorLocationId(req);
+    if (!operatorLocId || isAdminScope(operatorLocId)) {
+      return res.status(operatorLocId ? 403 : 401).json({ message: "Operator login required" });
+    }
+    try {
+      const record = await storage.upsertRestockShipment(operatorLocId, {
+        orderedAt: new Date(),
+        detectedAt: null,
+        trackingNumber: null,
+        carrier: null,
+        estimatedDelivery: null,
+        rawEmailSnippet: null,
+        dismissed: false,
+      });
+      return res.json(record);
+    } catch (err: unknown) {
+      console.error("restock-shipment/order-placed error:", err);
+      return res.status(500).json({ message: "Failed to record order" });
+    }
+  });
+
+  app.get("/api/operator/restock-shipment", async (req, res) => {
+    const operatorLocId = getOperatorLocationId(req);
+    if (!operatorLocId || isAdminScope(operatorLocId)) {
+      return res.status(operatorLocId ? 403 : 401).json({ message: "Operator login required" });
+    }
+    try {
+      const record = await storage.getRestockShipment(operatorLocId);
+      if (!record) return res.json(null);
+      return res.json(record);
+    } catch (err: unknown) {
+      console.error("restock-shipment GET error:", err);
+      return res.status(500).json({ message: "Failed to fetch shipment" });
+    }
+  });
+
+  app.get("/api/operator/restock-shipment/detect", async (req, res) => {
+    const operatorLocId = getOperatorLocationId(req);
+    if (!operatorLocId || isAdminScope(operatorLocId)) {
+      return res.status(operatorLocId ? 403 : 401).json({ message: "Operator login required" });
+    }
+    try {
+      const record = await storage.getRestockShipment(operatorLocId);
+      if (!record || record.dismissed) return res.json({ status: 'none' });
+
+      // Already detected — return cached result
+      if (record.trackingNumber) {
+        return res.json({
+          status: 'found',
+          trackingNumber: record.trackingNumber,
+          carrier: record.carrier,
+          estimatedDelivery: record.estimatedDelivery,
+          trackingUrl: carrierTrackingUrl(record.carrier ?? 'Carrier', record.trackingNumber),
+        });
+      }
+
+      // Scan Gmail for shipping confirmation emails after orderedAt
+      const afterSeconds = Math.floor(record.orderedAt.getTime() / 1000);
+      let gmailResult: Awaited<ReturnType<typeof listEmails>>;
+      try {
+        gmailResult = await listEmails(100, undefined, 'all', `after:${afterSeconds}`);
+      } catch {
+        return res.json({ status: 'pending' });
+      }
+
+      // Known sender domains for Baby Banz / BanzWorld orders (used to score
+      // matches; we don't hard-block unknowns because some regions ship from
+      // local distributors, but a recognised domain boosts confidence).
+      const KNOWN_BANZ_DOMAINS = [
+        'banzworld.com', 'babybanz.com', 'babybanz.com.au',
+        'ups.com', 'fedex.com', 'usps.com', 'dhl.com',
+        'shopify.com', 'aftership.com', 'easyship.com',
+      ];
+
+      // Sort emails oldest-first so the first confirmed shipping email is used
+      // rather than a later follow-up / re-shipment notification.
+      const sortedEmails = [...gmailResult.emails].sort((a, b) => {
+        const ta = a.date ? new Date(a.date).getTime() : 0;
+        const tb = b.date ? new Date(b.date).getTime() : 0;
+        return ta - tb;
+      });
+
+      // Prefer emails from known domains; fall back to any shipping email if none match.
+      const scoreEmail = (fromAddr: string): number => {
+        const domain = (fromAddr.match(/@([\w.-]+)/) ?? [])[1]?.toLowerCase() ?? '';
+        return KNOWN_BANZ_DOMAINS.some(d => domain.endsWith(d)) ? 1 : 0;
+      };
+
+      const candidates = sortedEmails.filter(msg => {
+        const emailMs = msg.date ? new Date(msg.date).getTime() : 0;
+        if (emailMs > 0 && emailMs < record.orderedAt.getTime()) return false;
+        const subject = msg.subject ?? '';
+        const body = msg.body ?? msg.snippet ?? '';
+        return isShippingConfirmationEmail(subject, body) && extractTrackingNumber(`${subject} ${body}`) !== null;
+      });
+
+      // Pick best candidate: known-domain first, then oldest remaining
+      const best = candidates.sort((a, b) => scoreEmail(b.from ?? '') - scoreEmail(a.from ?? ''))[0];
+
+      if (best) {
+        const subject = best.subject ?? '';
+        const body = best.body ?? best.snippet ?? '';
+        const trackingNumber = extractTrackingNumber(`${subject} ${body}`)!;
+        const carrier = inferCarrier(trackingNumber, best.from ?? '');
+        const estimatedDelivery = extractEstimatedDelivery(`${subject} ${body}`);
+        const snippet = `${subject} | ${body.substring(0, 200)}`;
+
+        await storage.upsertRestockShipment(operatorLocId, {
+          orderedAt: record.orderedAt,
+          detectedAt: new Date(),
+          trackingNumber,
+          carrier,
+          estimatedDelivery,
+          rawEmailSnippet: snippet,
+          dismissed: false,
+        });
+
+        return res.json({
+          status: 'found',
+          trackingNumber,
+          carrier,
+          estimatedDelivery,
+          trackingUrl: carrierTrackingUrl(carrier, trackingNumber),
+        });
+      }
+
+      return res.json({ status: 'pending' });
+    } catch (err: unknown) {
+      console.error("restock-shipment/detect error:", err);
+      return res.json({ status: 'pending' });
+    }
+  });
+
+  app.delete("/api/operator/restock-shipment", async (req, res) => {
+    const operatorLocId = getOperatorLocationId(req);
+    if (!operatorLocId || isAdminScope(operatorLocId)) {
+      return res.status(operatorLocId ? 403 : 401).json({ message: "Operator login required" });
+    }
+    try {
+      await storage.dismissRestockShipment(operatorLocId);
+      return res.json({ ok: true });
+    } catch (err: unknown) {
+      console.error("restock-shipment DELETE error:", err);
+      return res.status(500).json({ message: "Failed to dismiss shipment" });
     }
   });
 

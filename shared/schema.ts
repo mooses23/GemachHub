@@ -701,3 +701,18 @@ export const restockCodeRequests = pgTable("restock_code_requests", {
 
 export type RestockCodeRequest = typeof restockCodeRequests.$inferSelect;
 
+// Task #250: Restock shipment tracking — one active record per location
+export const restockShipments = pgTable("restock_shipments", {
+  id: serial("id").primaryKey(),
+  locationId: integer("location_id").notNull().unique(),
+  orderedAt: timestamp("ordered_at").notNull(),
+  detectedAt: timestamp("detected_at"),
+  trackingNumber: text("tracking_number"),
+  carrier: text("carrier"),
+  estimatedDelivery: text("estimated_delivery"),
+  rawEmailSnippet: text("raw_email_snippet"),
+  dismissed: boolean("dismissed").notNull().default(false),
+});
+
+export type RestockShipment = typeof restockShipments.$inferSelect;
+
