@@ -542,9 +542,52 @@ export function HierarchicalLocationSearch() {
             placeholder={`${t("searchLocationsIn")} ${pickLocalized(selectedRegion, "name", language)}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 text-base rounded-full input-glass placeholder:text-slate-500"
+            className="w-full pl-12 pr-14 py-4 text-base rounded-full input-glass placeholder:text-slate-500"
           />
+          {/* Task #268: same pin toggle as the continent landing bar. */}
+          <button
+            type="button"
+            onClick={nearestActive ? clearNearest : requestNearest}
+            disabled={locating}
+            aria-label={nearestActive ? t("clearNearest") : t("findNearestToMe")}
+            aria-pressed={nearestActive}
+            title={nearestActive ? t("sortedByDistance") : t("findNearestToMe")}
+            className={`absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-10 w-10 rounded-full transition-colors disabled:opacity-60 ${
+              nearestActive
+                ? "bg-blue-500/30 text-blue-100 border border-blue-400/40 hover:bg-blue-500/40"
+                : "bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 hover:text-white"
+            }`}
+            data-testid="button-find-nearest-region"
+          >
+            {locating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Navigation2 className="h-4 w-4" />
+            )}
+          </button>
         </div>
+        {(nearestActive || locError) && (
+          <div className="max-w-2xl mx-auto mt-2 flex flex-col items-center gap-1">
+            {nearestActive && (
+              <div className="inline-flex items-center gap-2 text-xs text-blue-200">
+                <Navigation2 className="h-3 w-3" />
+                <span>{t("sortedByDistance")}</span>
+                <button
+                  type="button"
+                  onClick={clearNearest}
+                  className="inline-flex items-center gap-0.5 text-blue-300 hover:text-white"
+                  data-testid="button-clear-nearest-region"
+                >
+                  <X className="h-3 w-3" />
+                  {t("clearNearest")}
+                </button>
+              </div>
+            )}
+            {locError && (
+              <p className="text-xs text-red-300" data-testid="text-location-error-region">{locError}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedRegion.slug === "united-states" && usStates.length > 0 && (
