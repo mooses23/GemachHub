@@ -448,6 +448,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { regions: populatedRegions, cityCategories: populatedCityCategories } =
         filterLocationTree(regions, cityCategories, locations);
 
+      // Task #290: sort by admin-defined displayOrder ascending so that the
+      // "Sort position" field in the admin community/region forms is honored
+      // end-to-end by every consumer of /api/location-tree (e.g. Tiberias).
+      const byDisplayOrderThenName = <T extends { displayOrder?: number | null; name: string }>(
+        a: T,
+        b: T,
+      ) => ((a.displayOrder ?? 0) - (b.displayOrder ?? 0)) || a.name.localeCompare(b.name);
+      populatedRegions.sort(byDisplayOrderThenName);
+      populatedCityCategories.sort(byDisplayOrderThenName);
+
       const admin = viewerIsAdmin(req);
       // no-cache (not no-store): browser stores the response for ETag-based
       // conditional GETs but must revalidate before serving it — stale data

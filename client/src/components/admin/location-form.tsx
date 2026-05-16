@@ -321,7 +321,7 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
       cashOnly: location.cashOnly || false,
       depositAmount: location.depositAmount || 20,
       paymentMethods: location.paymentMethods ?? ["cash"],
-      contactPreference: (location as any).contactPreference ?? null,
+      contactPreference: location.contactPreference ?? null,
       processingFeePercent: location.processingFeePercent ?? 300,
       processingFeeFixed: location.processingFeeFixed ?? 30,
     } : {
