@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { driver } from "driver.js";
 import type { Side } from "driver.js";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck, RefreshCw } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck, RefreshCw, Minimize2, Maximize2, UserCog } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link, useLocation } from "wouter";
@@ -10,7 +10,7 @@ import { useOperatorAuth } from "@/hooks/use-operator-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
-import { Transaction, Location, Region, HEADBAND_COLORS, InventoryByColor, ReturnReminderEventWithSender } from "@shared/schema";
+import { Transaction, Location, Region, HEADBAND_COLORS, InventoryByColor, ReturnReminderEventWithSender, OPERATOR_CONTACT_PREFERENCES, type OperatorContactPreference } from "@shared/schema";
 import { isPhoneSendableViaSms } from "@shared/phone";
 import { getShippingRegion, getRegionalBanzInfo } from "@shared/region-utils";
 import { Input } from "@/components/ui/input";
@@ -3539,7 +3539,7 @@ function PayLaterTransactions({ location }: { location: Location }) {
 
 
 export default function OperatorDashboard() {
-  const { operatorLocation, isLoading: isOperatorLoading, logout } = useOperatorAuth();
+  const { operatorLocation, isLoading: isOperatorLoading, logout, refreshLocation } = useOperatorAuth();
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const [, setPath] = useLocation();
@@ -3555,6 +3555,51 @@ export default function OperatorDashboard() {
   const [confirmPin, setConfirmPin] = useState("");
   const tourStartedRef = useRef(false);
 
+  // Compact-view toggle for the Overview stat cards (persisted per location).
+  const compactStatsStorageKey = operatorLocation
+    ? `operatorStatsCompact:${operatorLocation.id}`
+    : null;
+  const [compactStats, setCompactStats] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !compactStatsStorageKey) return false;
+    return localStorage.getItem(compactStatsStorageKey) === "1";
+  });
+  useEffect(() => {
+    if (!compactStatsStorageKey || typeof window === "undefined") return;
+    const stored = localStorage.getItem(compactStatsStorageKey) === "1";
+    if (stored !== compactStats) setCompactStats(stored);
+    // Only re-sync when the location id changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compactStatsStorageKey]);
+  useEffect(() => {
+    if (!compactStatsStorageKey || typeof window === "undefined") return;
+    localStorage.setItem(compactStatsStorageKey, compactStats ? "1" : "0");
+  }, [compactStatsStorageKey, compactStats]);
+
+  // Profile form state (display name / phone / email / preferred contact method).
+  const [profileName, setProfileName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileContactPref, setProfileContactPref] =
+    useState<OperatorContactPreference>("phone");
+  useEffect(() => {
+    if (!operatorLocation) return;
+    setProfileName(operatorLocation.contactPerson || "");
+    setProfilePhone(operatorLocation.phone || "");
+    setProfileEmail(operatorLocation.email || "");
+    const pref = (operatorLocation as any).contactPreference as
+      | OperatorContactPreference
+      | null
+      | undefined;
+    setProfileContactPref(pref && OPERATOR_CONTACT_PREFERENCES.includes(pref) ? pref : "phone");
+  }, [operatorLocation?.id]);
+
+  // Heuristic: highlight when the email looks like a shared default (same domain
+  // seeded across many gemach rows) so operators are nudged to use their own.
+  const sharedDefaultEmailMarkers = ["earmuffsgemach", "babybanzgemach", "gemach@"];
+  const emailLooksLikeDefault =
+    !!profileEmail &&
+    sharedDefaultEmailMarkers.some((m) => profileEmail.toLowerCase().includes(m));
+
   const changePinMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("PATCH", "/api/operator/pin", { currentPin, newPin, confirmPin });
@@ -3569,6 +3614,33 @@ export default function OperatorDashboard() {
       if (operatorLocation) {
         localStorage.removeItem(`pinPromptSuppressed:${operatorLocation.id}`);
       }
+    },
+    onError: (error: Error) => {
+      toast({ title: t("error"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", "/api/operator/profile", {
+        contactPerson: profileName.trim(),
+        phone: profilePhone.trim(),
+        email: profileEmail.trim(),
+        contactPreference: profileContactPref,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: t("profileUpdated"), description: t("profileUpdatedDescription") });
+      try {
+        const updatedLoc = data?.location;
+        if (updatedLoc && operatorLocation) {
+          const merged = { ...operatorLocation, ...updatedLoc };
+          localStorage.setItem("operatorLocation", JSON.stringify(merged));
+          refreshLocation();
+        }
+      } catch {}
+      queryClient.invalidateQueries({ queryKey: ["/api/operator/location"] });
     },
     onError: (error: Error) => {
       toast({ title: t("error"), description: error.message, variant: "destructive" });
@@ -3787,36 +3859,48 @@ export default function OperatorDashboard() {
               </TabsTrigger>
               <TabsTrigger id="tour-tab-security" value="security" className="gap-1.5 data-[state=active]:bg-white/15 data-[state=active]:text-white">
                 <KeyRound className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">{t('security')}</span>
-                <span className="sm:hidden text-xs">{t('pinShort')}</span>
+                <span className="hidden sm:inline">{t('pinAndProfile')}</span>
+                <span className="sm:hidden text-xs">{t('pinAndProfileShort')}</span>
               </TabsTrigger>
             </TabsList>
           </div>
 
-          <div id="tour-stat-cards" className="grid gap-4 md:grid-cols-3 mb-6">
-            <Card className="glass-card">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-white">{inventoryData?.total || 0}</div>
-                <p className="text-sm text-slate-400">{t('totalHeadbandsInStock')}</p>
-              </CardContent>
-            </Card>
-            <Card className="glass-card">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-white">{activeLoans}</div>
-                <p className="text-sm text-slate-400">{t('activeBorrow')}</p>
-              </CardContent>
-            </Card>
-            <Card className="glass-card">
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-white">
-                  ${transactions.filter(tx => !tx.isReturned).reduce((sum, tx) => sum + tx.depositAmount, 0).toFixed(0)}
-                </div>
-                <p className="text-sm text-slate-400">{t('depositsHeld')}</p>
-              </CardContent>
-            </Card>
-          </div>
-
           <TabsContent value="overview" className="space-y-6">
+            <div id="tour-stat-cards">
+              <div className="flex justify-end mb-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-slate-300 hover:text-white hover:bg-white/10"
+                  onClick={() => setCompactStats((v) => !v)}
+                  aria-pressed={compactStats}
+                  data-testid="button-toggle-stats-compact"
+                >
+                  {compactStats ? (
+                    <><Maximize2 className="h-3.5 w-3.5 mr-1" /> {t('expandView')}</>
+                  ) : (
+                    <><Minimize2 className="h-3.5 w-3.5 mr-1" /> {t('compactView')}</>
+                  )}
+                </Button>
+              </div>
+              <div className={`grid gap-3 md:gap-4 grid-cols-2 mb-6`}>
+                <Card className="glass-card">
+                  <CardContent className={compactStats ? "py-2 px-3" : "pt-6"}>
+                    <div className={compactStats ? "text-base font-semibold text-white" : "text-2xl font-bold text-white"}>{activeLoans}</div>
+                    <p className={compactStats ? "text-xs text-slate-400" : "text-sm text-slate-400"}>{t('activeBorrow')}</p>
+                  </CardContent>
+                </Card>
+                <Card className="glass-card">
+                  <CardContent className={compactStats ? "py-2 px-3" : "pt-6"}>
+                    <div className={compactStats ? "text-base font-semibold text-white" : "text-2xl font-bold text-white"}>
+                      ${transactions.filter(tx => !tx.isReturned).reduce((sum, tx) => sum + tx.depositAmount, 0).toFixed(0)}
+                    </div>
+                    <p className={compactStats ? "text-xs text-slate-400" : "text-sm text-slate-400"}>{t('depositsHeld')}</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
             <StockOverview 
               inventory={inventoryData?.inventory || []} 
               totalStock={inventoryData?.total || 0} 
@@ -3926,6 +4010,118 @@ export default function OperatorDashboard() {
                       <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('saving')}</>
                     ) : (
                       <><ShieldCheck className="h-4 w-4 mr-2" /> {t('updatePin')}</>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card mt-6">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <UserCog className="h-5 w-5" />
+                  {t('yourProfile')}
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  {t('yourProfileDescription')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="max-w-md space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-name" className="text-slate-300">{t('displayName')}</Label>
+                    <Input
+                      id="profile-name"
+                      type="text"
+                      placeholder={t('profileNamePlaceholder')}
+                      className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      data-testid="input-profile-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-phone" className="text-slate-300">{t('profilePhoneLabel')}</Label>
+                    <Input
+                      id="profile-phone"
+                      type="tel"
+                      placeholder={t('profilePhonePlaceholder')}
+                      className="bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+                      value={profilePhone}
+                      onChange={(e) => setProfilePhone(e.target.value)}
+                      data-testid="input-profile-phone"
+                    />
+                  </div>
+                  <div className="space-y-2 rounded-lg border border-amber-400/40 bg-amber-400/5 p-3">
+                    <Label htmlFor="profile-email" className="text-amber-200 flex items-center gap-1.5">
+                      <Mail className="h-4 w-4" />
+                      {t('emailAddress')}
+                    </Label>
+                    <Input
+                      id="profile-email"
+                      type="email"
+                      placeholder={t('profileEmailPlaceholder')}
+                      className="bg-white/10 border-amber-300/40 text-white placeholder:text-slate-500 focus-visible:ring-amber-400/60"
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
+                      data-testid="input-profile-email"
+                    />
+                    <p className="text-xs text-amber-200/90">{t('emailHighlightNote')}</p>
+                    {emailLooksLikeDefault && (
+                      <p className="text-xs text-amber-300 font-medium flex items-start gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                        {t('emailLooksLikeDefaultWarning')}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">{t('preferredContactMethod')}</Label>
+                    <div className="flex flex-col gap-2">
+                      {OPERATOR_CONTACT_PREFERENCES.map((pref) => {
+                        const labelKey =
+                          pref === "phone" ? "contactMethodPhone"
+                          : pref === "whatsapp" ? "contactMethodWhatsapp"
+                          : "contactMethodEmail";
+                        const Icon = pref === "phone" ? Phone : pref === "whatsapp" ? MessageSquare : Mail;
+                        const checked = profileContactPref === pref;
+                        return (
+                          <label
+                            key={pref}
+                            htmlFor={`contact-pref-${pref}`}
+                            className={`flex items-center gap-3 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+                              checked
+                                ? "border-primary/60 bg-primary/10"
+                                : "border-white/10 bg-white/5 hover:bg-white/10"
+                            }`}
+                          >
+                            <Checkbox
+                              id={`contact-pref-${pref}`}
+                              checked={checked}
+                              onCheckedChange={(v) => { if (v) setProfileContactPref(pref); }}
+                              data-testid={`checkbox-contact-pref-${pref}`}
+                            />
+                            <Icon className="h-4 w-4 text-slate-300" />
+                            <span className="text-sm text-white">{t(labelKey as any)}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full"
+                    onClick={() => updateProfileMutation.mutate()}
+                    disabled={
+                      updateProfileMutation.isPending ||
+                      profileName.trim().length === 0 ||
+                      profilePhone.trim().length === 0 ||
+                      profileEmail.trim().length === 0
+                    }
+                    data-testid="button-save-profile"
+                  >
+                    {updateProfileMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {t('saving')}</>
+                    ) : (
+                      <><Check className="h-4 w-4 mr-2" /> {t('saveProfile')}</>
                     )}
                   </Button>
                 </div>

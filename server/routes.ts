@@ -874,6 +874,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // OPERATOR PROFILE UPDATE ROUTE (session-scoped, edits display name / phone /
+  // email / preferred contact method on the operator's own location).
+  app.patch("/api/operator/profile", async (req, res) => {
+    try {
+      const operatorLocationId = getOperatorLocationId(req);
+      if (!operatorLocationId || isAdminScope(operatorLocationId)) {
+        return res.status(401).json({ message: "Operator authentication required" });
+      }
+
+      const profileSchema = z.object({
+        contactPerson: z.string().trim().min(1, "Display name is required").max(120),
+        phone: z.string().trim().min(1, "Phone is required").max(40),
+        email: z.string().trim().email("Valid email is required").max(200),
+        contactPreference: z.enum(OPERATOR_CONTACT_PREFERENCES),
+      });
+
+      const parseResult = profileSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid data", errors: parseResult.error.errors });
+      }
+
+      const { contactPerson, phone, email, contactPreference } = parseResult.data;
+
+      const existing = await storage.getLocation(operatorLocationId);
+      if (!existing) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+
+      const patch: any = { contactPerson, phone, email };
+      if (existing.contactPreference !== contactPreference) {
+        patch.contactPreference = contactPreference;
+        patch.contactPreferenceSetAt = new Date();
+      }
+
+      const updated = await storage.updateLocation(operatorLocationId, patch);
+      const { operatorPin, claimToken, ...safe } = updated as any;
+      res.json({ success: true, location: safe });
+    } catch (error) {
+      console.error("Error updating operator profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // ADMIN PIN CHANGE ROUTE (admin-only, no current PIN required)
   app.patch("/api/admin/locations/:id/pin", async (req, res) => {
     try {

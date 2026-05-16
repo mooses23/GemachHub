@@ -1201,6 +1201,26 @@ const dict: Record<RestTranslationKey, string> = {
     pinUpdated: "הקוד עודכן",
     pinUpdatedDescription: "קוד הגישה שלך שונה בהצלחה.",
 
+    // PIN + Profile tab
+    pinAndProfile: "קוד + פרופיל",
+    pinAndProfileShort: "קוד+",
+    yourProfile: "הפרופיל שלך",
+    yourProfileDescription: "שמרו את פרטי הקשר שלכם מעודכנים כדי שנוכל ושואלים יוכלו להגיע אליכם.",
+    profileNamePlaceholder: "השם שלכם כפי שמוצג לשואלים",
+    profilePhoneLabel: "מספר טלפון",
+    profilePhonePlaceholder: "למשל: +972 50 123 4567",
+    profileEmailPlaceholder: "you@example.com",
+    emailHighlightNote: "נא להשתמש באימייל האישי שלכם — סניפים רבים עדיין משתמשים בכתובת ברירת המחדל המשותפת.",
+    emailLooksLikeDefaultWarning: "נראה שזו כתובת ברירת מחדל משותפת. אנא החליפו לאימייל האישי שלכם כדי לקבל את ההודעות שלכם.",
+    preferredContactMethod: "אופן יצירת קשר מועדף",
+    contactMethodPhone: "שיחת טלפון",
+    contactMethodWhatsapp: "וואטסאפ",
+    contactMethodEmail: "אימייל",
+    saveProfile: "שמור פרופיל",
+    profileUpdated: "הפרופיל עודכן",
+    profileUpdatedDescription: "פרטי הפרופיל שלכם נשמרו.",
+    expandView: "תצוגה רגילה",
+
     // Founder's tribute (landing page)
     originalChargeLabel: "חיוב מקורי",
     alreadyRefundedLabel: "כבר הוחזר",

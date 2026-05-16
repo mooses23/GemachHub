@@ -1200,6 +1200,26 @@ const enRest = {
     pinUpdated: "PIN Updated",
     pinUpdatedDescription: "Your PIN has been changed successfully.",
 
+    // PIN + Profile tab
+    pinAndProfile: "PIN + Profile",
+    pinAndProfileShort: "PIN+",
+    yourProfile: "Your Profile",
+    yourProfileDescription: "Keep your contact details up to date so we and borrowers can reach you.",
+    profileNamePlaceholder: "Your name as shown to borrowers",
+    profilePhoneLabel: "Phone number",
+    profilePhonePlaceholder: "e.g. +1 555 123 4567",
+    profileEmailPlaceholder: "you@example.com",
+    emailHighlightNote: "Please use your own personal email — many locations still share the same default address.",
+    emailLooksLikeDefaultWarning: "This looks like a shared default email. Please replace it with your own so you receive your messages.",
+    preferredContactMethod: "Preferred contact method",
+    contactMethodPhone: "Phone call",
+    contactMethodWhatsapp: "WhatsApp",
+    contactMethodEmail: "Email",
+    saveProfile: "Save Profile",
+    profileUpdated: "Profile updated",
+    profileUpdatedDescription: "Your profile details were saved.",
+    expandView: "Expand view",
+
     // Refund / pay-later refund flow (Task #38)
     originalChargeLabel: "Original charge",
     alreadyRefundedLabel: "Already refunded",
