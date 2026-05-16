@@ -89,7 +89,8 @@ export const deleteCityCategory = async (id: number) => {
 
 // Gemach Applications API
 export const submitGemachApplication = async (data: InsertGemachApplication) => {
-  return apiRequest("POST", "/api/applications", data);
+  const lang = typeof window !== "undefined" ? (localStorage.getItem("language") || "en") : "en";
+  return apiRequest("POST", `/api/applications?lang=${encodeURIComponent(lang)}`, data);
 };
 
 export const getGemachApplications = async () => {

@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getGemachApplications, updateGemachApplicationStatus, approveApplicationWithLocation, resendApplicationConfirmationEmail } from "@/lib/api";
+import { apiRequest } from "@/lib/queryClient";
+import { BilingualValue } from "@/components/admin/bilingual-value";
 import { GemachApplication, Region, InsertLocation, insertLocationSchema, CityCategory } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
@@ -463,28 +465,51 @@ export default function AdminApplications() {
     return parts.join(", ");
   };
 
-  const handleStartApproval = (application: GemachApplication) => {
+  const handleStartApproval = async (application: GemachApplication) => {
     setApproveApplication(application);
-    let matchedCityCategoryId: number | null = null;
-    if (application.community) {
+
+    // Task #289: prefer server-side suggested matches when present; otherwise
+    // fall back to the original client-side fuzzy match.
+    let matchedCityCategoryId: number | null = application.suggestedCityCategoryId ?? null;
+    let matchedRegionId: number | null = application.suggestedRegionId ?? null;
+    if (!matchedCityCategoryId && application.community) {
       const communityLower = application.community.toLowerCase().trim();
       const matchedCategory = cityCategories.find(
         (cat) =>
           cat.name.toLowerCase().trim() === communityLower ||
           cat.slug.toLowerCase() === communityLower.replace(/\s+/g, "-")
       );
-      if (matchedCategory) matchedCityCategoryId = matchedCategory.id;
+      if (matchedCategory) {
+        matchedCityCategoryId = matchedCategory.id;
+        matchedRegionId = matchedRegionId ?? matchedCategory.regionId;
+      }
     }
+
+    // Direction: the applicant's submitted language is the "source" half;
+    // we translate to the opposite to populate the other column.
+    const isHe = /[\u0590-\u05FF]/;
+    const submittedLang: "en" | "he" =
+      (application.submittedLang as "en" | "he" | null) ||
+      (isHe.test(`${application.firstName} ${application.lastName} ${application.city} ${application.community ?? ""}`) ? "he" : "en");
+    const oppositeLang: "en" | "he" = submittedLang === "he" ? "en" : "he";
+
+    const srcName = submittedLang === "he"
+      ? `הגמ"ח של ${application.firstName} ${application.lastName}`
+      : `${application.firstName} ${application.lastName}'s Gemach`;
+    const srcContact = `${application.firstName} ${application.lastName}`;
+    const srcAddress = getFullAddress(application);
+
     form.reset({
-      name: `${application.firstName} ${application.lastName}'s Gemach`,
-      contactPerson: `${application.firstName} ${application.lastName}`,
-      address: getFullAddress(application),
+      name: submittedLang === "en" ? srcName : "",
+      nameHe: submittedLang === "he" ? srcName : "",
+      contactPerson: submittedLang === "en" ? srcContact : "",
+      contactPersonHe: submittedLang === "he" ? srcContact : "",
+      address: submittedLang === "en" ? srcAddress : "",
+      addressHe: submittedLang === "he" ? srcAddress : "",
       zipCode: application.zipCode,
       phone: application.phone,
       email: application.email,
-      regionId: matchedCityCategoryId
-        ? (cityCategories.find((c) => c.id === matchedCityCategoryId)?.regionId ?? 1)
-        : 1,
+      regionId: matchedRegionId ?? 1,
       cityCategoryId: matchedCityCategoryId,
       operatorPin: "1234",
       isActive: true,
@@ -492,8 +517,31 @@ export default function AdminApplications() {
       depositAmount: 20,
       paymentMethods: ["cash"],
       processingFeePercent: 300,
-    });
+    } as any);
     setIsApproveDialogOpen(true);
+
+    // Pre-translate the opposite-language column so the dialog opens with
+    // both languages populated. Fire-and-forget; UI degrades gracefully if
+    // the service is unavailable (admin can still type the missing side).
+    try {
+      const res = await apiRequest("POST", "/api/translate", {
+        items: [
+          { text: srcName, from: submittedLang, to: oppositeLang },
+          { text: srcContact, from: submittedLang, to: oppositeLang },
+          { text: srcAddress, from: submittedLang, to: oppositeLang },
+        ],
+      });
+      const data = await res.json();
+      const [nameRes, contactRes, addressRes] = data.results || [];
+      const oppName = oppositeLang === "he" ? "nameHe" : "name";
+      const oppContact = oppositeLang === "he" ? "contactPersonHe" : "contactPerson";
+      const oppAddress = oppositeLang === "he" ? "addressHe" : "address";
+      if (nameRes?.translated) form.setValue(oppName as any, nameRes.translated, { shouldDirty: false });
+      if (contactRes?.translated) form.setValue(oppContact as any, contactRes.translated, { shouldDirty: false });
+      if (addressRes?.translated) form.setValue(oppAddress as any, addressRes.translated, { shouldDirty: false });
+    } catch (err) {
+      console.warn("[approve] pre-translate failed:", err);
+    }
   };
 
   const onSubmitApproval = (data: LocationFormData) => {
@@ -759,6 +807,30 @@ export default function AdminApplications() {
                   {viewApplication.city}, {viewApplication.state} {viewApplication.zipCode}
                 </p>
                 <p>{viewApplication.country}</p>
+                {/* Task #289: auto-translate to the opposite of the submitted
+                    language so admins always see both renditions. */}
+                {(() => {
+                  const sub = (viewApplication.submittedLang as "en" | "he" | null) || "en";
+                  const opp: "en" | "he" = sub === "he" ? "en" : "he";
+                  return (
+                    <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                      <div>
+                        <span className="opacity-70 me-1">{t("city")} ({opp}):</span>
+                        <BilingualValue value={viewApplication.city} valueLang={sub} targetLang={opp} />
+                      </div>
+                      <div>
+                        <span className="opacity-70 me-1">{t("country")} ({opp}):</span>
+                        <BilingualValue value={viewApplication.country} valueLang={sub} targetLang={opp} />
+                      </div>
+                      {viewApplication.community && (
+                        <div>
+                          <span className="opacity-70 me-1">{t("community")} ({opp}):</span>
+                          <BilingualValue value={viewApplication.community} valueLang={sub} targetLang={opp} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 {viewApplication.community && (
                   <p className="text-muted-foreground text-sm mt-1">
                     {t("community")}: {viewApplication.community}
@@ -849,40 +921,81 @@ export default function AdminApplications() {
                       </span>
                       <div className="flex-1 border-t border-border/60 ms-1" />
                     </div>
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-medium text-muted-foreground">{t("locationName")}</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
-                              placeholder="e.g., Brooklyn Baby Banz Gemach"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-medium text-muted-foreground">{t("fullAddress")}</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              className="h-11 text-sm border-border/70 hover:border-border transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
-                              placeholder={t("addressPlaceholder")}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("locationName")} (EN)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                className="h-11 text-sm"
+                                placeholder="e.g., Brooklyn Baby Banz Gemach"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={"nameHe" as any}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("locationName")} (HE)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                value={field.value ?? ""}
+                                dir="rtl"
+                                className="h-11 text-sm"
+                                placeholder="גמ״ח"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="address"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("fullAddress")} (EN)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                className="h-11 text-sm"
+                                placeholder={t("addressPlaceholder")}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={"addressHe" as any}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium text-muted-foreground">{t("fullAddress")} (HE)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                value={field.value ?? ""}
+                                dir="rtl"
+                                className="h-11 text-sm"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}

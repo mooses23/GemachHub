@@ -40,6 +40,7 @@ import {
 } from "./openai-client.js";
 import { filterLocationTree } from "./location-tree-filter.js";
 import { geocodeAddress, geocodeAddressDetailed, clearGeocodeCacheForAddress, getCachedCityCenters, hasMissingCityCenters, backfillCityCenters } from "./geocoder.js";
+import { translate, detectLang, type SupportedLang } from "./translation-service.js";
 import { z } from "zod";
 import { computeReplyWasEdited } from "./reply-edit-detection.js";
 
@@ -1769,6 +1770,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ────────────────────────────────────────────────────────────────────────
+  // TRANSLATION ROUTES (Task #289) — auto-translate display layer
+  // ────────────────────────────────────────────────────────────────────────
+  // POST /api/translate — batched lookup. Body: { items: [{ text, from?, to }] }
+  // Returns { results: [{ text, translated, source, target, isAdminCorrected, fromCache }] }
+  // Admin-only because the cache backs admin-edit "corrections" and we don't
+  // want to expose a free public translation proxy.
+  const translateItemSchema = z.object({
+    text: z.string().min(1).max(2000),
+    from: z.enum(["en", "he"]).optional(),
+    to: z.enum(["en", "he"]),
+  });
+  const translateBatchSchema = z.object({
+    items: z.array(translateItemSchema).min(1).max(50),
+  });
+  app.post("/api/translate", requireRole(["admin"]), async (req, res) => {
+    try {
+      const { items } = translateBatchSchema.parse(req.body);
+      const results = await Promise.all(items.map(async (item) => {
+        const from: SupportedLang = (item.from as SupportedLang | undefined) ?? detectLang(item.text);
+        const to = item.to as SupportedLang;
+        if (from === to) {
+          return { text: item.text, translated: item.text, source: from, target: to, isAdminCorrected: false, fromCache: false };
+        }
+        const cached = await storage.getTranslationCacheEntry(item.text, from, to);
+        if (cached) {
+          return {
+            text: item.text,
+            translated: cached.translatedText,
+            source: from,
+            target: to,
+            isAdminCorrected: cached.isAdminCorrected,
+            fromCache: true,
+          };
+        }
+        const result = await translate(item.text, from, to);
+        if (result.translated) {
+          await storage.upsertTranslationCacheEntry({
+            sourceText: item.text,
+            sourceLang: from,
+            targetLang: to,
+            translatedText: result.translated,
+            isAdminCorrected: false,
+          }).catch((err) => console.warn("[translate] cache write failed:", err));
+        }
+        return {
+          text: item.text,
+          translated: result.translated,
+          source: from,
+          target: to,
+          isAdminCorrected: false,
+          fromCache: false,
+          error: result.error,
+        };
+      }));
+      res.json({ results });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid batch", errors: error.errors });
+      }
+      console.error("Translation batch failed:", error);
+      res.status(500).json({ message: "Translation failed" });
+    }
+  });
+
+  // POST /api/translate/correction — persists an admin-corrected translation
+  // for a (text, from, to) tuple. Optional recordType/recordId/fieldKey lets
+  // the caller also patch the canonical column on the underlying record so
+  // future renders never need to translate at all.
+  const correctionSchema = z.object({
+    text: z.string().min(1).max(2000),
+    from: z.enum(["en", "he"]),
+    to: z.enum(["en", "he"]),
+    translatedText: z.string().min(1).max(2000),
+    recordType: z.enum(["location", "region", "cityCategory"]).optional(),
+    recordId: z.number().int().positive().optional(),
+    fieldKey: z.enum(["name", "description"]).optional(),
+  });
+  app.post("/api/translate/correction", requireRole(["admin"]), async (req, res) => {
+    try {
+      const body = correctionSchema.parse(req.body);
+      await storage.upsertTranslationCacheEntry({
+        sourceText: body.text,
+        sourceLang: body.from,
+        targetLang: body.to,
+        translatedText: body.translatedText,
+        isAdminCorrected: true,
+      });
+      // If the caller pointed us at a specific record, mirror the correction
+      // into that record's "other-language" column so it becomes canonical.
+      if (body.recordType && body.recordId && body.fieldKey && body.to === "he") {
+        const col = body.fieldKey === "name" ? "nameHe" : "descriptionHe";
+        try {
+          if (body.recordType === "location") {
+            await storage.updateLocation(body.recordId, { [col]: body.translatedText } as any);
+          } else if (body.recordType === "region") {
+            await storage.updateRegion(body.recordId, { [col]: body.translatedText } as any);
+          } else if (body.recordType === "cityCategory") {
+            await storage.updateCityCategory(body.recordId, { [col]: body.translatedText } as any);
+          }
+        } catch (writeErr) {
+          console.warn("[translate/correction] canonical write failed:", writeErr);
+        }
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid correction", errors: error.errors });
+      }
+      console.error("Translation correction failed:", error);
+      res.status(500).json({ message: "Failed to save correction" });
+    }
+  });
+
   // APPLICATIONS ROUTES
   // Admin-only — applicant rows contain PII (name, email, phone, address,
   // free-text message). Public form posts are still allowed below.
@@ -1785,7 +1900,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/applications", async (req, res) => {
     try {
       const applicationData = insertGemachApplicationSchema.parse(req.body);
-      const application = await storage.createApplication(applicationData);
+
+      // Task #289: stamp submittedLang from the active locale (sent by the
+      // apply form as ?lang=he|en, falling back to Accept-Language detection).
+      const queryLang = String(req.query.lang || "").toLowerCase();
+      let submittedLang: SupportedLang = queryLang === "he" || queryLang === "en"
+        ? (queryLang as SupportedLang)
+        : detectLang(`${applicationData.firstName} ${applicationData.lastName} ${applicationData.city} ${applicationData.community ?? ""} ${applicationData.message ?? ""}`);
+
+      // Best-effort country → region match (case-insensitive substring) and
+      // community → city-category match (exact + slug fallback). Both are
+      // pre-selected with a "Suggested" badge inside Approve & Create Location.
+      let suggestedRegionId: number | null = null;
+      let suggestedCityCategoryId: number | null = null;
+      try {
+        const country = (applicationData.country || "").trim().toLowerCase();
+        if (country) {
+          const regions = await storage.getAllRegions();
+          const match = regions.find((r) =>
+            r.name.toLowerCase().includes(country) || country.includes(r.name.toLowerCase()) || r.slug === country.replace(/\s+/g, "-")
+          );
+          if (match) suggestedRegionId = match.id;
+        }
+        const community = (applicationData.community || "").trim().toLowerCase();
+        if (community) {
+          const cats = await storage.getAllCityCategories();
+          const match = cats.find((c) =>
+            c.name.toLowerCase() === community || c.slug === community.replace(/\s+/g, "-")
+          );
+          if (match) {
+            suggestedCityCategoryId = match.id;
+            if (!suggestedRegionId) suggestedRegionId = match.regionId;
+          }
+        }
+      } catch (matchErr) {
+        console.warn("[applications] suggestion matcher failed:", matchErr);
+      }
+
+      const application = await storage.createApplication({
+        ...applicationData,
+        submittedLang,
+        suggestedRegionId,
+        suggestedCityCategoryId,
+      } as any);
       res.status(201).json(application);
 
       // Fire emails asynchronously so they never block the response.

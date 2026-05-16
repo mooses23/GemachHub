@@ -23,6 +23,7 @@ import {
   messageSendLogs, type MessageSendLog, type InsertMessageSendLog,
   restockCodeRequests, type RestockCodeRequest,
   restockShipments, type RestockShipment,
+  type TranslationCacheEntry,
   type KbSourceKind,
   type PayLaterStatus
 } from "../shared/schema.js";
@@ -115,7 +116,7 @@ export interface IStorage {
   // GemachApplication operations
   getAllApplications(): Promise<GemachApplication[]>;
   getApplication(id: number): Promise<GemachApplication | undefined>;
-  createApplication(application: InsertGemachApplication): Promise<GemachApplication>;
+  createApplication(application: InsertGemachApplication & { submittedLang?: string | null; suggestedRegionId?: number | null; suggestedCityCategoryId?: number | null }): Promise<GemachApplication>;
   updateApplication(id: number, data: Partial<GemachApplication>): Promise<GemachApplication>;
   recordApplicationStatusChange(change: InsertApplicationStatusChange): Promise<ApplicationStatusChange>;
   getApplicationStatusChanges(applicationId: number): Promise<ApplicationStatusChange[]>;
@@ -260,6 +261,10 @@ export interface IStorage {
   dismissRestockShipment(locationId: number): Promise<void>;
   /** Task #254: Return all non-dismissed restock shipments joined with location names. */
   listActiveRestockShipments(): Promise<Array<RestockShipment & { locationName: string }>>;
+
+  // Task #289: Translation cache
+  getTranslationCacheEntry(sourceText: string, sourceLang: string, targetLang: string): Promise<TranslationCacheEntry | undefined>;
+  upsertTranslationCacheEntry(entry: { sourceText: string; sourceLang: string; targetLang: string; translatedText: string; isAdminCorrected?: boolean }): Promise<TranslationCacheEntry>;
 }
 
 export class MemStorage implements IStorage {
@@ -2680,16 +2685,19 @@ export class MemStorage implements IStorage {
     return this.applications.get(id);
   }
 
-  async createApplication(insertApplication: InsertGemachApplication): Promise<GemachApplication> {
+  async createApplication(insertApplication: InsertGemachApplication & { submittedLang?: string | null; suggestedRegionId?: number | null; suggestedCityCategoryId?: number | null }): Promise<GemachApplication> {
     const id = this.applicationCounter++;
-    const application: GemachApplication = { 
-      ...insertApplication, 
-      id, 
+    const application: GemachApplication = {
+      ...insertApplication,
+      id,
       status: "pending",
       submittedAt: new Date(),
       message: insertApplication.message ?? null,
       community: insertApplication.community ?? null,
-      confirmationEmailSentAt: null
+      confirmationEmailSentAt: null,
+      submittedLang: insertApplication.submittedLang ?? null,
+      suggestedRegionId: insertApplication.suggestedRegionId ?? null,
+      suggestedCityCategoryId: insertApplication.suggestedCityCategoryId ?? null,
     };
     this.applications.set(id, application);
     return application;
@@ -3591,6 +3599,32 @@ export class MemStorage implements IStorage {
       results.push({ ...shipment, locationName: loc?.name ?? `Location #${shipment.locationId}` });
     }
     return results;
+  }
+
+  // Task #289: Translation cache (in-memory)
+  private _translationCache: Map<string, TranslationCacheEntry> = new Map();
+  private _translationCacheCounter: number = 1;
+  private _translationCacheKey(s: string, from: string, to: string): string {
+    return `${from}\u0001${to}\u0001${s}`;
+  }
+  async getTranslationCacheEntry(sourceText: string, sourceLang: string, targetLang: string): Promise<TranslationCacheEntry | undefined> {
+    return this._translationCache.get(this._translationCacheKey(sourceText, sourceLang, targetLang));
+  }
+  async upsertTranslationCacheEntry(entry: { sourceText: string; sourceLang: string; targetLang: string; translatedText: string; isAdminCorrected?: boolean }): Promise<TranslationCacheEntry> {
+    const k = this._translationCacheKey(entry.sourceText, entry.sourceLang, entry.targetLang);
+    const existing = this._translationCache.get(k);
+    if (existing && existing.isAdminCorrected && !entry.isAdminCorrected) return existing;
+    const next: TranslationCacheEntry = {
+      id: existing?.id ?? this._translationCacheCounter++,
+      sourceText: entry.sourceText,
+      sourceLang: entry.sourceLang,
+      targetLang: entry.targetLang,
+      translatedText: entry.translatedText,
+      isAdminCorrected: entry.isAdminCorrected ?? existing?.isAdminCorrected ?? false,
+      updatedAt: new Date(),
+    };
+    this._translationCache.set(k, next);
+    return next;
   }
 }
 

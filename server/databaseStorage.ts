@@ -25,6 +25,7 @@ import {
   messageSendLogs, type MessageSendLog, type InsertMessageSendLog,
   restockCodeRequests, type RestockCodeRequest,
   restockShipments, type RestockShipment,
+  translationCache, type TranslationCacheEntry,
   type KbSourceKind,
   type PayLaterStatus
 } from '../shared/schema.js';
@@ -555,13 +556,16 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async createApplication(insertApplication: InsertGemachApplication): Promise<GemachApplication> {
+  async createApplication(insertApplication: InsertGemachApplication & { submittedLang?: string | null; suggestedRegionId?: number | null; suggestedCityCategoryId?: number | null }): Promise<GemachApplication> {
     const result = await db.insert(gemachApplications).values({
       ...insertApplication,
       status: "pending",
       submittedAt: new Date(),
       message: insertApplication.message ?? null,
-      community: insertApplication.community ?? null
+      community: insertApplication.community ?? null,
+      submittedLang: insertApplication.submittedLang ?? null,
+      suggestedRegionId: insertApplication.suggestedRegionId ?? null,
+      suggestedCityCategoryId: insertApplication.suggestedCityCategoryId ?? null,
     }).returning();
     return result[0];
   }
@@ -1576,6 +1580,44 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(restockShipments.orderedAt));
     return rows;
   }
+
+  // Task #289: Translation cache lookups
+  async getTranslationCacheEntry(sourceText: string, sourceLang: string, targetLang: string): Promise<TranslationCacheEntry | undefined> {
+    const rows = await db.select().from(translationCache)
+      .where(and(
+        eq(translationCache.sourceText, sourceText),
+        eq(translationCache.sourceLang, sourceLang),
+        eq(translationCache.targetLang, targetLang),
+      ))
+      .limit(1);
+    return rows[0];
+  }
+
+  async upsertTranslationCacheEntry(entry: { sourceText: string; sourceLang: string; targetLang: string; translatedText: string; isAdminCorrected?: boolean }): Promise<TranslationCacheEntry> {
+    const existing = await this.getTranslationCacheEntry(entry.sourceText, entry.sourceLang, entry.targetLang);
+    if (existing) {
+      // Admin-corrected entries are sticky: a non-corrected upsert (e.g. a
+      // fresh provider response) never overwrites an admin's manual fix.
+      if (existing.isAdminCorrected && !entry.isAdminCorrected) return existing;
+      const updated = await db.update(translationCache)
+        .set({
+          translatedText: entry.translatedText,
+          isAdminCorrected: entry.isAdminCorrected ?? existing.isAdminCorrected,
+          updatedAt: new Date(),
+        })
+        .where(eq(translationCache.id, existing.id))
+        .returning();
+      return updated[0];
+    }
+    const inserted = await db.insert(translationCache).values({
+      sourceText: entry.sourceText,
+      sourceLang: entry.sourceLang,
+      targetLang: entry.targetLang,
+      translatedText: entry.translatedText,
+      isAdminCorrected: entry.isAdminCorrected ?? false,
+    }).returning();
+    return inserted[0];
+  }
 }
 
 let schemaUpgradesRun = false;
@@ -1898,6 +1940,27 @@ export async function ensureSchemaUpgrades(): Promise<void> {
       console.log(`[ensureSchemaUpgrades] Task #70 data-fix: cleared stale refund_amount on ${fixedCount} pay-later transaction(s).`);
     }
   });
+
+  // Task #289: per-application source language + suggested region/community matches.
+  await safe("add gemach_applications.submitted_lang", () => db.execute(sql`ALTER TABLE gemach_applications ADD COLUMN IF NOT EXISTS submitted_lang TEXT`));
+  await safe("add gemach_applications.suggested_region_id", () => db.execute(sql`ALTER TABLE gemach_applications ADD COLUMN IF NOT EXISTS suggested_region_id INTEGER`));
+  await safe("add gemach_applications.suggested_city_category_id", () => db.execute(sql`ALTER TABLE gemach_applications ADD COLUMN IF NOT EXISTS suggested_city_category_id INTEGER`));
+  // Task #289: translation cache table (source-text + lang pair → translated).
+  await safe("create table translation_cache", () => db.execute(sql`
+    CREATE TABLE IF NOT EXISTS translation_cache (
+      id SERIAL PRIMARY KEY,
+      source_text TEXT NOT NULL,
+      source_lang TEXT NOT NULL,
+      target_lang TEXT NOT NULL,
+      translated_text TEXT NOT NULL,
+      is_admin_corrected BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await safe("create unique index translation_cache_lookup_idx", () => db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS translation_cache_lookup_idx
+      ON translation_cache (source_text, source_lang, target_lang)
+  `));
 
   // Only flip the run-once guard on full success; otherwise retry next boot.
   if (failures.length === 0) {

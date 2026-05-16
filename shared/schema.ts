@@ -249,6 +249,15 @@ export const gemachApplications = pgTable("gemach_applications", {
   status: text("status").notNull().default("pending"),
   submittedAt: timestamp("submitted_at").notNull().defaultNow(),
   confirmationEmailSentAt: timestamp("confirmation_email_sent_at"),
+  // Task #289: which language the applicant used when filling the form (en|he).
+  // Stamped server-side from the active locale at submit time. Drives whether
+  // admin views need to translate "the other side" via <BilingualValue>.
+  submittedLang: text("submitted_lang"),
+  // Task #289: best-effort suggestions from the country/community matcher run
+  // at submit time. Pre-selected (with a "Suggested" badge) when an admin
+  // opens "Approve & Create Location". Both nullable — admin always confirms.
+  suggestedRegionId: integer("suggested_region_id"),
+  suggestedCityCategoryId: integer("suggested_city_category_id"),
 });
 
 export const insertGemachApplicationSchema = createInsertSchema(gemachApplications).pick({
@@ -477,6 +486,22 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
+
+// Task #289: Translation cache for the auto-translate admin display layer.
+// Keyed by (source_text, source_lang, target_lang). When an admin corrects an
+// auto-translation inline, we set is_admin_corrected = true so the cache
+// always wins over a future provider response for the same source string.
+export const translationCache = pgTable("translation_cache", {
+  id: serial("id").primaryKey(),
+  sourceText: text("source_text").notNull(),
+  sourceLang: text("source_lang").notNull(),
+  targetLang: text("target_lang").notNull(),
+  translatedText: text("translated_text").notNull(),
+  isAdminCorrected: boolean("is_admin_corrected").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type TranslationCacheEntry = typeof translationCache.$inferSelect;
 
 // Global Settings schema
 export const globalSettings = pgTable("global_settings", {
