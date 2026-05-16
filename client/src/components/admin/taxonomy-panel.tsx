@@ -267,23 +267,15 @@ export function TaxonomyPanel({
                     <div className="rounded-lg border border-border/60 divide-y divide-border/40 overflow-hidden">
                       {regions.map((r) => (
                         <div key={r.id} className="flex items-center justify-between px-3 py-2 bg-background hover:bg-muted/30 transition-colors">
-                          <div>
-                            <span className="text-sm font-medium">{r.name}</span>
-                            {r.nameHe ? (
-                              <span className="ml-2 text-xs text-muted-foreground" dir="rtl">{r.nameHe}</span>
-                            ) : (
-                              <span className="ml-2 text-xs">
-                                <BilingualValue
-                                  value={r.name}
-                                  valueLang="en"
-                                  targetLang="he"
-                                  allowEdit
-                                  recordType="region"
-                                  recordId={r.id}
-                                  fieldKey="name"
-                                />
-                              </span>
-                            )}
+                          <div className="text-sm">
+                            <BilingualValue
+                              en={r.name}
+                              he={r.nameHe}
+                              allowEdit
+                              recordType="region"
+                              recordId={r.id}
+                              fieldKey="name"
+                            />
                           </div>
                           <Button
                             variant="ghost"
@@ -364,22 +356,16 @@ export function TaxonomyPanel({
                                         <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-background hover:bg-muted/30 transition-colors">
                                           <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                              <span className="text-sm font-medium truncate">{c.name}</span>
-                                              {c.nameHe ? (
-                                                <span className="text-xs text-muted-foreground" dir="rtl">{c.nameHe}</span>
-                                              ) : (
-                                                <span className="text-xs">
-                                                  <BilingualValue
-                                                    value={c.name}
-                                                    valueLang="en"
-                                                    targetLang="he"
-                                                    allowEdit
-                                                    recordType="cityCategory"
-                                                    recordId={c.id}
-                                                    fieldKey="name"
-                                                  />
-                                                </span>
-                                              )}
+                                              <span className="text-sm font-medium truncate">
+                                                <BilingualValue
+                                                  en={c.name}
+                                                  he={c.nameHe}
+                                                  allowEdit
+                                                  recordType="cityCategory"
+                                                  recordId={c.id}
+                                                  fieldKey="name"
+                                                />
+                                              </span>
                                               {c.isPopular && (
                                                 <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-800">
                                                   <Star className="h-2.5 w-2.5 mr-0.5" />
