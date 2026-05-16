@@ -105,6 +105,14 @@ interface LiveCoords {
   geocodedAt: Date | null;
 }
 
+interface BestCandidate {
+  latitude: number;
+  longitude: number;
+  displayName: string;
+  addressType: string | null;
+  class: string | null;
+}
+
 function CoordinatesSection({ location }: { location: Location }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -121,6 +129,9 @@ function CoordinatesSection({ location }: { location: Location }) {
     longitude: location.longitude ?? null,
     geocodedAt: toDateOrNull(location.geocodedAt),
   });
+  // Task #291: when re-geocode fails with a best candidate, surface it inline
+  // so admins can accept it with one click instead of typing coords manually.
+  const [bestCandidate, setBestCandidate] = useState<BestCandidate | null>(null);
 
   useEffect(() => {
     setLat(location.latitude != null ? String(location.latitude) : "");
@@ -130,35 +141,69 @@ function CoordinatesSection({ location }: { location: Location }) {
       longitude: location.longitude ?? null,
       geocodedAt: toDateOrNull(location.geocodedAt),
     });
+    setBestCandidate(null);
   }, [location.id, location.latitude, location.longitude, location.geocodedAt]);
 
   const regeocode = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/admin/locations/${location.id}/regeocode`);
-      return res.json() as Promise<{ latitude: number; longitude: number; geocodedAt: string | null }>;
-    },
-    onSuccess: (data) => {
-      setLat(String(data.latitude));
-      setLng(String(data.longitude));
-      setLive({
-        latitude: data.latitude,
-        longitude: data.longitude,
-        geocodedAt: toDateOrNull(data.geocodedAt),
+    mutationFn: async (): Promise<
+      | { ok: true; data: { latitude: number; longitude: number; geocodedAt: string | null } }
+      | { ok: false; message: string; candidate: BestCandidate | null }
+    > => {
+      // Task #291: bypass apiRequest so we can read the 422 body (which
+      // carries the best candidate) instead of throwing on the status code.
+      const res = await fetch(`/api/admin/locations/${location.id}/regeocode`, {
+        method: "POST",
+        credentials: "include",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/location-tree"] });
+      const body = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (res.ok) {
+        return {
+          ok: true,
+          data: body as { latitude: number; longitude: number; geocodedAt: string | null },
+        };
+      }
+      const message = typeof body?.message === "string" ? body.message : res.statusText;
+      const candidate = (body as { bestCandidate?: BestCandidate | null })?.bestCandidate ?? null;
+      return { ok: false, message, candidate };
+    },
+    onSuccess: (result) => {
+      if (result.ok) {
+        const data = result.data;
+        setLat(String(data.latitude));
+        setLng(String(data.longitude));
+        setLive({
+          latitude: data.latitude,
+          longitude: data.longitude,
+          geocodedAt: toDateOrNull(data.geocodedAt),
+        });
+        setBestCandidate(null);
+        queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/location-tree"] });
+        toast({
+          title: "Re-geocoded",
+          description: `New coords: ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`,
+        });
+        return;
+      }
+      // No precise match. If we have a candidate, show the inline panel
+      // instead of just toasting — the admin can accept it with one click.
+      setBestCandidate(result.candidate);
       toast({
-        title: "Re-geocoded",
-        description: `New coords: ${data.latitude.toFixed(5)}, ${data.longitude.toFixed(5)}`,
+        title: result.candidate ? "No precise match" : "Re-geocode failed",
+        description: result.candidate
+          ? "Review the best match below and accept if it looks right."
+          : result.message,
+        variant: "destructive",
       });
     },
     onError: (err: Error) => {
+      setBestCandidate(null);
       toast({ title: "Re-geocode failed", description: err.message, variant: "destructive" });
     },
   });
 
   const saveManual = useMutation({
-    mutationFn: async (payload: { latitude: number | null; longitude: number | null }) => {
+    mutationFn: async (payload: { latitude: number | null; longitude: number | null; reason?: string }) => {
       const res = await apiRequest(
         "PATCH",
         `/api/admin/locations/${location.id}/coordinates`,
@@ -172,6 +217,7 @@ function CoordinatesSection({ location }: { location: Location }) {
         longitude: data.longitude,
         geocodedAt: toDateOrNull(data.geocodedAt),
       });
+      setBestCandidate(null);
       queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/location-tree"] });
       toast({ title: "Coordinates saved" });
@@ -180,6 +226,21 @@ function CoordinatesSection({ location }: { location: Location }) {
       toast({ title: "Save failed", description: err.message, variant: "destructive" });
     },
   });
+
+  // Task #291: one-click acceptance of the best (area-level) candidate.
+  // Reuses the existing manual-coords endpoint with a reason for the audit log.
+  const handleAcceptBestCandidate = () => {
+    if (!bestCandidate) return;
+    setLat(String(bestCandidate.latitude));
+    setLng(String(bestCandidate.longitude));
+    saveManual.mutate({
+      latitude: bestCandidate.latitude,
+      longitude: bestCandidate.longitude,
+      // Task #291: tag this in the audit trail so future investigations can
+      // tell admin-accepted geocoder fallbacks apart from hand-typed coords.
+      reason: "accepted_best_candidate_from_regeocode",
+    });
+  };
 
   const handleSaveManual = () => {
     const trimmedLat = lat.trim();
@@ -235,6 +296,48 @@ function CoordinatesSection({ location }: { location: Location }) {
           <p className="text-xs text-amber-700 dark:text-amber-300">
             Add an English address above and save before re-geocoding.
           </p>
+        )}
+        {bestCandidate && (
+          <div
+            className="rounded-lg border border-amber-400/40 bg-amber-50/60 dark:bg-amber-500/10 p-3 space-y-2"
+            data-testid="panel-best-candidate"
+          >
+            <div className="text-xs font-medium text-amber-800 dark:text-amber-200">
+              No precise street-level match found. Best available:
+            </div>
+            <div className="text-xs text-amber-900 dark:text-amber-100 break-words">
+              {bestCandidate.displayName}
+            </div>
+            <div className="text-[11px] font-mono text-amber-900/80 dark:text-amber-100/80">
+              {bestCandidate.latitude.toFixed(5)}, {bestCandidate.longitude.toFixed(5)}
+              {bestCandidate.addressType ? ` · ${bestCandidate.addressType}` : ""}
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setBestCandidate(null)}
+                data-testid="btn-dismiss-best-candidate"
+              >
+                Dismiss
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="default"
+                onClick={handleAcceptBestCandidate}
+                disabled={saveManual.isPending}
+                data-testid="btn-accept-best-candidate"
+              >
+                {saveManual.isPending ? (
+                  <><LoaderCircle className="mr-2 h-3.5 w-3.5 animate-spin" />Saving…</>
+                ) : (
+                  <>Use these coordinates</>
+                )}
+              </Button>
+            </div>
+          </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1">

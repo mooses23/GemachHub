@@ -3,12 +3,21 @@
 // public "Find nearest to me" feature can sort by haversine distance.
 //
 // Task #268: only persist coordinates when Nominatim returns a street-level
-// match (house_number present, or a building-class result). Area-level matches
-// like "Miami Beach, FL" or "Detroit, MI" are dropped on the floor so the
-// public "Directions" button stays hidden — area coords led people to the
-// wrong place.
+// match. Area-level matches like "Miami Beach, FL" or "Detroit, MI" are
+// dropped so the public "Directions" button stays hidden — area coords led
+// people to the wrong place.
 //
 // Task #282: tiered proximity sort — city-center geocoding for fallback tiers.
+//
+// Task #291: the original precision heuristic was too strict — Nominatim very
+// often returns valid street-level hits tagged `road`, `place`, `residential`,
+// etc., with the house number nested in `display_name` rather than
+// `address.house_number`, so the old whitelist returned `null` and confirmed
+// good addresses never got coords. The relaxed heuristic accepts those shapes
+// when there's a numeric house-number context in the original query or in the
+// returned display name. Also exposes the best candidate to the caller (even
+// when it's area-level) so the admin re-geocode flow can offer "Use this
+// match anyway" instead of forcing manual lat/lng entry.
 //
 // Notes:
 //  - Nominatim usage policy: <= 1 req/sec, must set a descriptive User-Agent.
@@ -23,20 +32,59 @@ interface GeocodeResult {
   longitude: number;
 }
 
+// Detailed result returned from the admin re-geocode flow. When the geocoder
+// can't find a street-level match it still returns the best area-level
+// candidate so the UI can offer to accept it.
+export interface DetailedGeocodeResult {
+  precise: GeocodeResult | null;
+  // Best Nominatim row we saw, regardless of precision. Null only when
+  // Nominatim returned zero rows (or the upstream call failed).
+  bestCandidate: {
+    latitude: number;
+    longitude: number;
+    displayName: string;
+    addressType: string | null;
+    class: string | null;
+  } | null;
+}
+
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const USER_AGENT = "BabyBanzEarmuffsGemach/1.0 (admin@earmuffsgemach.com)";
 const MIN_INTERVAL_MS = 1100; // be polite — slightly over 1 req/sec
 
-// Nominatim address-result categories we consider "precise enough" for
-// turn-by-turn directions even when house_number is absent (e.g. a named
-// building/amenity). Anything else (city, town, suburb, county, state,
-// neighbourhood, etc.) is treated as area-level and discarded.
+// Task #291: Nominatim address-result categories considered "street-level"
+// directly (no extra checks). These rows pinpoint a building or named POI.
 const PRECISE_ADDRESS_TYPES = new Set([
   "house", "building", "amenity", "shop", "office",
   "school", "hospital", "place_of_worship", "synagogue",
 ]);
 const PRECISE_CLASSES = new Set([
   "building", "amenity", "shop", "office",
+]);
+
+// Task #291: rows tagged as a street/road. We promote these to "precise"
+// when the original query (or display_name) carries a numeric house number,
+// since Nominatim often resolves "123 Main St" to a row whose addresstype is
+// "road" instead of "house". These are the safe types — they represent
+// actual street geometry.
+const STREET_ADDRESS_TYPES = new Set(["road", "residential"]);
+
+// Task #291: weaker tier — neighbourhood/village/hamlet/place. These are
+// area-ish but small. Only promote to precise when the *query itself* (not
+// just the returned display_name, which always contains numeric postcodes)
+// has a house-number-shaped token, AND the row also reports a postcode or
+// road in its address details. This avoids treating "Five Towns, NY" or
+// "Jerusalem, Israel" as precise just because the display name contains a
+// ZIP-like number.
+const WEAK_STREET_ADDRESS_TYPES = new Set([
+  "place", "village", "hamlet", "neighbourhood",
+]);
+
+// Rows that are obviously area-only and should never be treated as precise
+// no matter how the query is phrased.
+const AREA_ADDRESS_TYPES = new Set([
+  "city", "town", "state", "county", "country", "region", "province",
+  "municipality", "postcode", "administrative",
 ]);
 
 const cache = new Map<string, GeocodeResult | null>();
@@ -73,18 +121,65 @@ interface NominatimRow {
   class?: string;
   type?: string;
   addresstype?: string;
+  display_name?: string;
   address?: {
     house_number?: string;
+    road?: string;
+    postcode?: string;
     [k: string]: unknown;
   };
 }
 
-function isPrecise(row: NominatimRow): boolean {
+// Task #291: did the original query carry a house-number-shaped token in its
+// first 80 chars? Restricted to the user-entered query (not display_name) to
+// avoid being fooled by ZIP codes that Nominatim always tacks onto the end of
+// every display name regardless of precision.
+function queryHasHouseNumber(query: string): boolean {
+  return /\b\d{1,5}[A-Za-z]?\b/.test((query || "").slice(0, 80));
+}
+
+// Same test against the display name, but only used for street-typed rows
+// (road/residential), where a numeric token strongly correlates with a real
+// house number — area-typed rows always contain a ZIP suffix and would slip
+// through if we considered display_name for them.
+function displayNameHasHouseNumber(displayName: string | undefined): boolean {
+  return /\b\d{1,5}[A-Za-z]?\b/.test((displayName || "").slice(0, 80));
+}
+
+function isPrecise(row: NominatimRow, query: string): boolean {
+  const at = row.addresstype?.toLowerCase() ?? null;
+  const cls = row.class?.toLowerCase() ?? null;
+
+  // Hard-reject obviously area-level rows even if the query had a number.
+  if (at && AREA_ADDRESS_TYPES.has(at)) return false;
+
+  // Exact house number returned by Nominatim — always precise.
   if (row.address?.house_number) return true;
-  const at = row.addresstype?.toLowerCase();
+
+  // Named building / amenity / etc.
   if (at && PRECISE_ADDRESS_TYPES.has(at)) return true;
-  const cls = row.class?.toLowerCase();
   if (cls && PRECISE_CLASSES.has(cls)) return true;
+
+  // Street-level row (road/residential, or class=highway) + numeric house
+  // number in the query OR in the row's display_name → accept. Streets are
+  // safe: a row tagged "road" with a number nearby is genuinely street-level.
+  if ((at && STREET_ADDRESS_TYPES.has(at)) || cls === "highway") {
+    if (queryHasHouseNumber(query) || displayNameHasHouseNumber(row.display_name)) {
+      return true;
+    }
+    return false;
+  }
+
+  // Weak street-ish types (neighbourhood/village/hamlet/place) — only accept
+  // when the *query* clearly has a house number AND Nominatim resolved an
+  // actual road or postcode in its address detail. This blocks "Five Towns,
+  // NY" style hits where the row is small but still area-level.
+  if (at && WEAK_STREET_ADDRESS_TYPES.has(at)) {
+    if (!queryHasHouseNumber(query)) return false;
+    if (row.address?.road || row.address?.postcode) return true;
+    return false;
+  }
+
   return false;
 }
 
@@ -93,6 +188,35 @@ function isPrecise(row: NominatimRow): boolean {
 export function clearGeocodeCacheForAddress(address: string): void {
   if (!address || typeof address !== "string") return;
   cache.delete(normalize(address));
+}
+
+async function fetchNominatimRows(address: string): Promise<NominatimRow[]> {
+  await acquireSlot();
+  const url = `${NOMINATIM_URL}?format=json&limit=5&addressdetails=1&q=${encodeURIComponent(address)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as NominatimRow[];
+    return Array.isArray(data) ? data : [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function rowToCoords(row: NominatimRow): GeocodeResult | null {
+  if (!row?.lat || !row?.lon) return null;
+  const lat = Number(row.lat);
+  const lon = Number(row.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { latitude: lat, longitude: lon };
 }
 
 export async function geocodeAddress(
@@ -108,46 +232,88 @@ export async function geocodeAddress(
   }
 
   try {
-    await acquireSlot();
+    const rows = await fetchNominatimRows(address);
     // Task #268: ask for several candidates and pick the first street-level
     // one. Nominatim's top hit for "123 Main St, Brooklyn" is often the
     // city-level result, with the actual street lower in the list.
-    const url = `${NOMINATIM_URL}?format=json&limit=5&addressdetails=1&q=${encodeURIComponent(address)}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "application/json",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (!res.ok) {
+    const preciseRow = rows.find((row) => row?.lat && row?.lon && isPrecise(row, address));
+    if (!preciseRow) {
+      // Task #291: leave a single targeted log line so future regressions are
+      // debuggable from production logs without having to add print debugging.
+      const top = rows[0];
+      console.log(
+        `[geocoder] precise match rejected for "${address}" — top row addresstype=${top?.addresstype ?? "?"} class=${top?.class ?? "?"}`,
+      );
       cache.set(key, null);
       return null;
     }
-    const data = (await res.json()) as NominatimRow[];
-    const candidates = Array.isArray(data) ? data : [];
-    const precise = candidates.find((row) => row?.lat && row?.lon && isPrecise(row));
-    if (!precise) {
-      // No street-level match in the top results — keep coords unset so the
-      // public "Directions" button stays hidden for this gemach.
+    const coords = rowToCoords(preciseRow);
+    if (!coords) {
       cache.set(key, null);
       return null;
     }
-    const lat = Number(precise.lat);
-    const lon = Number(precise.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      cache.set(key, null);
-      return null;
-    }
-    const result = { latitude: lat, longitude: lon };
-    cache.set(key, result);
-    return result;
+    console.log(
+      `[geocoder] precise match accepted for "${address}" — addresstype=${preciseRow.addresstype ?? "?"} class=${preciseRow.class ?? "?"}`,
+    );
+    cache.set(key, coords);
+    return coords;
   } catch (err) {
     console.warn(`[geocoder] failed for "${address}": ${err instanceof Error ? err.message : String(err)}`);
     return null;
+  }
+}
+
+// Task #291: detailed lookup used by the admin re-geocode flow. Always reports
+// the best candidate (even area-level) so the UI can offer "Use this match"
+// when the precision filter rejects everything.
+export async function geocodeAddressDetailed(address: string): Promise<DetailedGeocodeResult> {
+  if (!address || typeof address !== "string") {
+    return { precise: null, bestCandidate: null };
+  }
+  // Bypass cache — admins use this when something looks wrong, and the
+  // cached value may be null from an earlier strict pass.
+  cache.delete(normalize(address));
+  try {
+    const rows = await fetchNominatimRows(address);
+    if (rows.length === 0) {
+      console.log(`[geocoder] precise match rejected for "${address}" — no results`);
+      return { precise: null, bestCandidate: null };
+    }
+    const preciseRow = rows.find((row) => row?.lat && row?.lon && isPrecise(row, address));
+    let precise: GeocodeResult | null = null;
+    if (preciseRow) {
+      precise = rowToCoords(preciseRow);
+      if (precise) {
+        cache.set(normalize(address), precise);
+        console.log(
+          `[geocoder] precise match accepted for "${address}" — addresstype=${preciseRow.addresstype ?? "?"} class=${preciseRow.class ?? "?"}`,
+        );
+      }
+    } else {
+      console.log(
+        `[geocoder] precise match rejected for "${address}" — top row addresstype=${rows[0]?.addresstype ?? "?"} class=${rows[0]?.class ?? "?"}`,
+      );
+    }
+    // Best candidate = the precise row if we have one, otherwise the first
+    // row that has coordinates at all (even area-level).
+    const candidateRow = preciseRow ?? rows.find((row) => row?.lat && row?.lon) ?? null;
+    let bestCandidate: DetailedGeocodeResult["bestCandidate"] = null;
+    if (candidateRow) {
+      const coords = rowToCoords(candidateRow);
+      if (coords) {
+        bestCandidate = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          displayName: candidateRow.display_name?.trim() || address,
+          addressType: candidateRow.addresstype ?? null,
+          class: candidateRow.class ?? null,
+        };
+      }
+    }
+    return { precise, bestCandidate };
+  } catch (err) {
+    console.warn(`[geocoder] detailed lookup failed for "${address}": ${err instanceof Error ? err.message : String(err)}`);
+    return { precise: null, bestCandidate: null };
   }
 }
 
@@ -169,23 +335,21 @@ export function geocodeAndStore(locationId: number, address: string): void {
   })();
 }
 
-// Task #282: bump flag key so the corrected heuristic re-runs once on deploy.
-const STRICT_FLAG_KEY = "geocoder.strictRevalidationV2DoneAt";
+// Task #291: bump flag key so the relaxed heuristic re-runs once on deploy.
+// V1 = Task #268 strict pass (over-zealous, cleared too much).
+// V2 = Task #282 fixed-heuristic pass.
+// V3 = relax: re-evaluate cleared rows under the new precision rules, then
+//      backfillMissingGeocodes will repopulate anything still missing.
+const STRICT_FLAG_KEY = "geocoder.strictRevalidationV3DoneAt";
 
-// Task #268 / #282: one-time pass on startup. Clears coordinates on every
-// existing location whose address is obviously area-level. The original
-// heuristic only checked whether the address STARTS with a digit, which
-// incorrectly stripped valid coords from addresses like
-// "Bais Chaya Mushka, 3450 Sherbrooke St". The fixed heuristic checks
-// whether a digit sequence appears anywhere in the first 80 characters of
-// the address — real street addresses always have a house number somewhere
-// near the front.
+// Task #268 / #282 / #291: one-time pass on startup. Clears coordinates on
+// existing locations whose address has *no* digits in the first 80 chars,
+// because those queries can never produce a precise hit under the relaxed
+// heuristic either (no house number context = area-level only).
 async function clearLegacyImpreciseCoords(): Promise<number> {
   const all = await storage.getAllLocations();
-  // Fixed heuristic: look for any digit run in the first 80 chars.
-  // "3450 Sherbrooke St" → has "3450" near the front → keep coords.
-  // "Bais Chaya Mushka, 3450 Sherbrooke St" → has "3450" within 80 chars → keep coords.
-  // "Pico Area, …" or "Detroit, MI" → no digits in first 80 chars → area-level, clear.
+  // Look for any digit run in the first 80 chars. Real street addresses
+  // always have a house number somewhere near the front.
   const hasHouseNumber = (addr: string): boolean => /\d/.test(addr.slice(0, 80));
   let cleared = 0;
   for (const loc of all) {
@@ -208,8 +372,9 @@ async function clearLegacyImpreciseCoords(): Promise<number> {
 // One-shot backfill on startup. Rate-limited by the global throttle above.
 export async function backfillMissingGeocodes(): Promise<void> {
   try {
-    // Task #268 / #282: first-run strict revalidation — clear stale area-level
-    // coords once, then let the precision-filtered backfill repopulate.
+    // Task #268 / #282 / #291: first-run strict revalidation under V3 — clear
+    // stale area-level coords once, then let the precision-filtered backfill
+    // repopulate (now using the relaxed heuristic).
     try {
       const flag = await storage.getGlobalSetting(STRICT_FLAG_KEY);
       if (!flag?.value) {
@@ -219,7 +384,7 @@ export async function backfillMissingGeocodes(): Promise<void> {
         await storage.setGlobalSetting(STRICT_FLAG_KEY, new Date().toISOString());
         const cleared = await clearLegacyImpreciseCoords();
         if (cleared > 0) {
-          console.log(`[geocoder] strict revalidation v2: cleared ${cleared} area-level coordinate(s).`);
+          console.log(`[geocoder] strict revalidation v3: cleared ${cleared} area-level coordinate(s).`);
         }
       }
     } catch (err) {

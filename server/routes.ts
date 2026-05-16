@@ -39,7 +39,7 @@ import {
   migrateDomainInKnowledgeBase,
 } from "./openai-client.js";
 import { filterLocationTree } from "./location-tree-filter.js";
-import { geocodeAddress, clearGeocodeCacheForAddress, getCachedCityCenters, hasMissingCityCenters, backfillCityCenters } from "./geocoder.js";
+import { geocodeAddress, geocodeAddressDetailed, clearGeocodeCacheForAddress, getCachedCityCenters, hasMissingCityCenters, backfillCityCenters } from "./geocoder.js";
 import { z } from "zod";
 import { computeReplyWasEdited } from "./reply-edit-detection.js";
 
@@ -1022,19 +1022,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!address) {
         return res.status(400).json({ message: "Location has no address to geocode" });
       }
-      // Force a fresh hit even if the address is in cache.
+      // Task #291: detailed lookup so we can surface the best candidate to
+      // the admin UI even when nothing meets the precision bar.
       clearGeocodeCacheForAddress(address);
-      const coords = await geocodeAddress(address, { force: true });
-      if (!coords) {
-        return res.status(502).json({ message: "Geocoder returned no result for this address" });
-      }
+      const detailed = await geocodeAddressDetailed(address);
       const oldCoords = {
         latitude: existing.latitude ?? null,
         longitude: existing.longitude ?? null,
       };
+      if (!detailed.precise) {
+        // Honest 4xx with a human-readable reason and (when available) the
+        // best candidate so the UI can offer "Use these coordinates" instead
+        // of silently claiming success.
+        return res.status(422).json({
+          success: false,
+          message: detailed.bestCandidate
+            ? "No precise street-level match found for this address."
+            : "Nominatim returned no match for this address.",
+          bestCandidate: detailed.bestCandidate,
+        });
+      }
       const updated = await storage.updateLocation(id, {
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+        latitude: detailed.precise.latitude,
+        longitude: detailed.precise.longitude,
         geocodedAt: new Date(),
       });
       await AuditTrailService.logLocationGeocode(
@@ -1043,7 +1053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id,
         'REGEOCODE',
         oldCoords,
-        { latitude: coords.latitude, longitude: coords.longitude },
+        { latitude: detailed.precise.latitude, longitude: detailed.precise.longitude },
         {
           ipAddress: req.ip,
           userAgent: req.get('user-agent') || undefined,
