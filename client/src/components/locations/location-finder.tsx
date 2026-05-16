@@ -93,9 +93,18 @@ export function LocationFinder({ initialRegion = "united-states" }: LocationFind
         <div id="locations-results">
           <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${cardDensity === "compact" ? "gap-3" : "gap-6"}`}>
             {filteredLocations.length > 0 ? (
-              filteredLocations.map((location, index) => (
-                <LocationCard key={location.id} location={location} locationNumber={index + 1} density={cardDensity} />
-              ))
+              filteredLocations.map((location, index) => {
+                const region = regions.find(r => r.id === location.regionId);
+                return (
+                  <LocationCard
+                    key={location.id}
+                    location={location}
+                    locationNumber={index + 1}
+                    density={cardDensity}
+                    regionName={region?.name}
+                  />
+                );
+              })
             ) : (
               <div className="col-span-1 md:col-span-2 lg:col-span-3 py-8 text-center">
                 <p className="text-lg text-neutral-600">

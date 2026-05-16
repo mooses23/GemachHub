@@ -50,15 +50,18 @@ interface LocationCardProps {
   locationNumber?: number;
   distanceKm?: number | null;
   density?: "compact" | "full";
+  regionName?: string;
 }
 
-export function LocationCard({ location, locationNumber, distanceKm, density = "full" }: LocationCardProps) {
+export function LocationCard({ location, locationNumber, distanceKm, density = "full", regionName }: LocationCardProps) {
   const isCompact = density === "compact";
   const [, navigate] = useLocation();
   const { t, language } = useLanguage();
   const locName = pickLocalized(location, "name", language);
   const locContact = pickLocalized(location, "contactPerson", language);
   const locAddress = pickLocalized(location, "address", language);
+  // Task #271: short city/region label so geography stays visible in compact mode.
+  const cityRegionLabel = [location.city, regionName].filter(Boolean).join(", ");
   const { data: inventoryData } = useQuery<{ inventory: { color: string; quantity: number }[]; total: number }>({
     queryKey: ["/api/locations", location.id, "inventory"],
     queryFn: async () => {
@@ -88,6 +91,11 @@ export function LocationCard({ location, locationNumber, distanceKm, density = "
                 </div>
               )}
               <h3 className={`${isCompact ? "text-base" : "text-xl"} font-semibold truncate`}>{locName}</h3>
+              {isCompact && cityRegionLabel && (
+                <p className="text-xs text-neutral-500 mt-0.5 truncate" data-testid={`text-city-region-${location.id}`}>
+                  {cityRegionLabel}
+                </p>
+              )}
               {typeof distanceKm === "number" && Number.isFinite(distanceKm) && (
                 <p className="text-xs text-blue-600 font-medium mt-1" data-testid={`text-distance-${location.id}`}>
                   {formatDistance(distanceKm, language, t)}
