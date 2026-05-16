@@ -97,6 +97,10 @@ const enCore = {
     cardViewLabel: "Card view",
     cardViewCompact: "Compact",
     cardViewFull: "Full",
+
+    // Task #281: Israel district filtering
+    allDistricts: "All Districts",
+    districts: "Districts",
 } as const;
 
 export default enCore;

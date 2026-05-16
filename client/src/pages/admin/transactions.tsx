@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import type { ElementType } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLocations, getTransactions, markTransactionReturned } from "@/lib/api";
-import { Location, Transaction } from "@shared/schema";
+import { Location, Transaction, CityCategory } from "@shared/schema";
+import { localizeIsraelDistrict, IL_DISTRICT_ORDER } from "@/lib/location-names";
 import { TransactionForm } from "@/components/admin/transaction-form";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/hooks/use-language";
@@ -582,8 +583,14 @@ export default function AdminTransactions() {
     setSelectedIds(new Set());
   }, []);
 
+  const [filterDistrict, setFilterDistrict] = useState<string | null>(null);
+
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
+  });
+
+  const { data: cityCategories = [] } = useQuery<CityCategory[]>({
+    queryKey: ["/api/city-categories"],
   });
 
   const { data: transactions = [], isLoading: txLoading } = useQuery<Transaction[]>({
@@ -765,6 +772,29 @@ export default function AdminTransactions() {
     return language === "he" && location.nameHe ? location.nameHe : location.name;
   };
 
+  // Build a lookup: location id → districtCode (for Israeli locations)
+  const locationDistrictMap = useMemo(() => {
+    const ccById = new Map<number, CityCategory>(cityCategories.map((cc) => [cc.id, cc]));
+    const m = new Map<number, string>();
+    for (const loc of locations) {
+      if (loc.cityCategoryId) {
+        const cc = ccById.get(loc.cityCategoryId);
+        if (cc?.districtCode) m.set(loc.id, cc.districtCode);
+      }
+    }
+    return m;
+  }, [locations, cityCategories]);
+
+  // Districts that appear in the current transaction set (for Israel)
+  const availableIsraelDistricts = useMemo(() => {
+    const found = new Set<string>();
+    for (const tx of transactions) {
+      const dc = locationDistrictMap.get(tx.locationId);
+      if (dc) found.add(dc);
+    }
+    return IL_DISTRICT_ORDER.filter(d => found.has(d));
+  }, [transactions, locationDistrictMap]);
+
   const filteredTransactions = useMemo(() => {
     const filtered = transactions.filter((transaction) => {
       if (filterStatus === "active" && transaction.isReturned) return false;
@@ -778,6 +808,10 @@ export default function AdminTransactions() {
         if (!hasActiveCard(transaction)) return false;
         const days = cardDaysUntilExpiry(transaction, maxCardAgeDays);
         if (days === null || days < 0 || days > CARD_EXPIRY_WARN_DAYS) return false;
+      }
+      if (filterDistrict) {
+        const dc = locationDistrictMap.get(transaction.locationId);
+        if (dc !== filterDistrict) return false;
       }
       if (!searchTerm) return true;
       const searchLower = searchTerm.toLowerCase();
@@ -812,7 +846,7 @@ export default function AdminTransactions() {
 
     return filtered;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions, filterStatus, searchTerm, sortKey, locations, language, maxCardAgeDays]);
+  }, [transactions, filterStatus, filterDistrict, searchTerm, sortKey, locations, cityCategories, language, maxCardAgeDays, locationDistrictMap]);
 
   const visibleTransactions = filteredTransactions.slice(0, visibleCount);
   const hasMore = visibleCount < filteredTransactions.length;
@@ -1137,6 +1171,44 @@ export default function AdminTransactions() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* District filter — visible when Israel transactions exist */}
+          {availableIsraelDistricts.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={filterDistrict ? "default" : "outline"}
+                  size="sm"
+                  className="whitespace-nowrap gap-1.5"
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  {filterDistrict
+                    ? localizeIsraelDistrict(language as "en" | "he", filterDistrict)
+                    : (t("districts") || "Districts")}
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuLabel>{t("districts") || "Districts"}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => { setFilterDistrict(null); setVisibleCount(PAGE_SIZE); setSelectedIds(new Set()); }}
+                  className={!filterDistrict ? "bg-accent" : ""}
+                >
+                  {t("allDistricts") || "All Districts"}
+                </DropdownMenuItem>
+                {availableIsraelDistricts.map((dc) => (
+                  <DropdownMenuItem
+                    key={dc}
+                    onClick={() => { setFilterDistrict(dc); setVisibleCount(PAGE_SIZE); setSelectedIds(new Set()); }}
+                    className={filterDistrict === dc ? "bg-accent" : ""}
+                  >
+                    {localizeIsraelDistrict(language as "en" | "he", dc)}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <Button
             size="icon"

@@ -1851,6 +1851,27 @@ export async function ensureSchemaUpgrades(): Promise<void> {
     )
   `));
 
+  // Task #281: Israel district_code column + data backfill
+  await safe("add city_categories.district_code", () => db.execute(sql`ALTER TABLE city_categories ADD COLUMN IF NOT EXISTS district_code TEXT`));
+  await safe("Task #281 israel district_code backfill", () => db.execute(sql`
+    UPDATE city_categories SET district_code = CASE
+      WHEN slug IN ('haifa','kiryat-tivon','afula') THEN 'north'
+      WHEN slug IN ('tel-aviv','petach-tikvah','bnei-brak','kfar-chabad','lod','elad','rechovot','bnei-reem','moshav-yesodot') THEN 'central'
+      WHEN slug IN ('jerusalem','givat-zeev','telzstone-kiryat-yearim','neriya','beit-shemesh') THEN 'jerusalem'
+      WHEN slug IN ('maaleh-adumim','kochav-hashachar','beitar-illit','modiin-illit','shomron') THEN 'judea-samaria'
+      WHEN slug IN ('ashdod') THEN 'south'
+      ELSE district_code
+    END
+    WHERE district_code IS NULL
+      AND slug IN (
+        'haifa','kiryat-tivon','afula',
+        'tel-aviv','petach-tikvah','bnei-brak','kfar-chabad','lod','elad','rechovot','bnei-reem','moshav-yesodot',
+        'jerusalem','givat-zeev','telzstone-kiryat-yearim','neriya','beit-shemesh',
+        'maaleh-adumim','kochav-hashachar','beitar-illit','modiin-illit','shomron',
+        'ashdod'
+      )
+  `));
+
   // Task #70: pay-later refund_amount data-fix. Wrapped via safe() so a failure
   // here can't take down the rest of the boot path.
   await safe('Task #70 pay-later refund_amount data-fix', async () => {

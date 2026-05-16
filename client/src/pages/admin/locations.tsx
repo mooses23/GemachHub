@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLocations, getRegions, updateLocation, deleteLocation } from "@/lib/api";
 import { Region, Location, CityCategory, OPERATOR_WELCOME_CHANNELS, type OperatorWelcomeChannel, type MessageSendLog } from "@shared/schema";
+import { localizeIsraelDistrict, IL_DISTRICT_ORDER } from "@/lib/location-names";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -2144,16 +2145,31 @@ export default function AdminLocations() {
                     );
                   })()}
                   {(() => {
-                    // Group community pills by stateCode for clearer hierarchy (e.g. NY · Brooklyn)
-                    const withState = selectedRegionGroup.communityGroups.filter(g => g.cityCategory?.stateCode);
-                    const withoutState = selectedRegionGroup.communityGroups.filter(g => !g.cityCategory?.stateCode);
-                    const stateOrder: string[] = [];
-                    const byState = new Map<string, typeof selectedRegionGroup.communityGroups>();
-                    for (const g of withState) {
-                      const sc = g.cityCategory!.stateCode!;
-                      if (!byState.has(sc)) { byState.set(sc, []); stateOrder.push(sc); }
-                      byState.get(sc)!.push(g);
+                    const isIsraelRegion = selectedRegionGroup.region.slug === "israel";
+                    // For Israel: group by districtCode; for USA/others: group by stateCode
+                    const getGroupKey = (g: (typeof selectedRegionGroup.communityGroups)[0]): string | null =>
+                      isIsraelRegion
+                        ? (g.cityCategory?.districtCode ?? null)
+                        : (g.cityCategory?.stateCode ?? null);
+
+                    const withGroup = selectedRegionGroup.communityGroups.filter(g => getGroupKey(g) !== null);
+                    const withoutGroup = selectedRegionGroup.communityGroups.filter(g => getGroupKey(g) === null);
+                    const groupOrder: string[] = isIsraelRegion
+                      ? IL_DISTRICT_ORDER.filter(d => withGroup.some(g => g.cityCategory?.districtCode === d))
+                      : [];
+                    const byGroup = new Map<string, typeof selectedRegionGroup.communityGroups>();
+                    for (const g of withGroup) {
+                      const key = getGroupKey(g)!;
+                      if (!byGroup.has(key)) {
+                        byGroup.set(key, []);
+                        if (!isIsraelRegion) groupOrder.push(key);
+                      }
+                      byGroup.get(key)!.push(g);
                     }
+                    const getGroupLabel = (key: string) =>
+                      isIsraelRegion
+                        ? localizeIsraelDistrict(language as "en" | "he", key)
+                        : key;
                     const renderPill = ({ cityCategory, locations: ccLocs }: { cityCategory: (typeof selectedRegionGroup.communityGroups)[0]["cityCategory"]; locations: (typeof selectedRegionGroup.communityGroups)[0]["locations"] }) => {
                       const ccId = cityCategory?.id ?? null;
                       if (ccId === null) return null;
@@ -2192,18 +2208,18 @@ export default function AdminLocations() {
                     };
                     return (
                       <>
-                        {stateOrder.map(sc => (
-                          <div key={sc} className="flex flex-wrap gap-2 items-center w-full">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 w-full mt-1 mb-0.5 px-1">{sc}</span>
-                            {byState.get(sc)!.map(g => renderPill(g))}
+                        {groupOrder.map(key => (
+                          <div key={key} className="flex flex-wrap gap-2 items-center w-full">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 w-full mt-1 mb-0.5 px-1">{getGroupLabel(key)}</span>
+                            {byGroup.get(key)!.map(g => renderPill(g))}
                           </div>
                         ))}
-                        {withoutState.length > 0 && (
+                        {withoutGroup.length > 0 && (
                           <div className="flex flex-wrap gap-2 items-center w-full">
-                            {stateOrder.length > 0 && (
+                            {groupOrder.length > 0 && (
                               <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 w-full mt-1 mb-0.5 px-1">Other</span>
                             )}
-                            {withoutState.map(g => renderPill(g))}
+                            {withoutGroup.map(g => renderPill(g))}
                           </div>
                         )}
                       </>

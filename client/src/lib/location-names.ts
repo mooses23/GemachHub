@@ -43,19 +43,23 @@ const CA_PROVINCE_NAMES_HE: Record<string, string> = {
   QC: "קוויבק",
 };
 
-const IL_REGION_NAMES_EN: Record<string, string> = {
-  JER: "Jerusalem",
-  TEL: "Tel Aviv Area",
-  CEN: "Central",
-  SHA: "Shomron",
+const IL_DISTRICT_NAMES_EN: Record<string, string> = {
+  "north": "North",
+  "central": "Central",
+  "jerusalem": "Jerusalem",
+  "judea-samaria": "Judea & Samaria",
+  "south": "South",
 };
 
-const IL_REGION_NAMES_HE: Record<string, string> = {
-  JER: "ירושלים",
-  TEL: "אזור תל אביב",
-  CEN: "המרכז",
-  SHA: "שומרון",
+const IL_DISTRICT_NAMES_HE: Record<string, string> = {
+  "north": "צפון",
+  "central": "מרכז",
+  "jerusalem": "ירושלים",
+  "judea-samaria": "יהודה ושומרון",
+  "south": "דרום",
 };
+
+const IL_DISTRICT_ORDER = ["north", "central", "jerusalem", "judea-samaria", "south"];
 
 const UK_REGION_NAMES_EN: Record<string, string> = {
   LON: "London",
@@ -152,10 +156,12 @@ export function localizeCAProvince(language: Language, code: string): string {
   return map[code] || code;
 }
 
-export function localizeILRegion(language: Language, code: string): string {
-  const map = language === "he" ? IL_REGION_NAMES_HE : IL_REGION_NAMES_EN;
+export function localizeIsraelDistrict(language: Language, code: string): string {
+  const map = language === "he" ? IL_DISTRICT_NAMES_HE : IL_DISTRICT_NAMES_EN;
   return map[code] || code;
 }
+
+export { IL_DISTRICT_ORDER };
 
 export function localizeUKRegion(language: Language, code: string): string {
   const map = language === "he" ? UK_REGION_NAMES_HE : UK_REGION_NAMES_EN;

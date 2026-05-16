@@ -98,6 +98,7 @@ export const cityCategories = pgTable("city_categories", {
   description: text("description"), // Optional description for the city category
   descriptionHe: text("description_he"),
   stateCode: text("state_code"), // US state code for state-level grouping (e.g., "NY", "CA")
+  districtCode: text("district_code"), // Sub-region code for countries with district-level grouping (e.g. Israel "north", "central")
 });
 
 export const insertCityCategorySchema = createInsertSchema(cityCategories).pick({
@@ -110,6 +111,7 @@ export const insertCityCategorySchema = createInsertSchema(cityCategories).pick(
   description: true,
   descriptionHe: true,
   stateCode: true,
+  districtCode: true,
 });
 
 // Headband colors available in the system

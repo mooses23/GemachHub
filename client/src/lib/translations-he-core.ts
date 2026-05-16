@@ -100,6 +100,10 @@ const dict: Record<CoreTranslationKey, string> = {
     cardViewLabel: "תצוגת כרטיס",
     cardViewCompact: "מצומצם",
     cardViewFull: "מלא",
+
+    // Task #281: Israel district filtering
+    allDistricts: "כל המחוזות",
+    districts: "מחוזות",
 };
 
 export default dict;

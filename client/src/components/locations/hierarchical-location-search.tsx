@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/hooks/use-language";
-import { localizeUSState } from "@/lib/location-names";
+import { localizeUSState, localizeIsraelDistrict, IL_DISTRICT_ORDER } from "@/lib/location-names";
 import { pickLocalized } from "@/lib/localized-record";
 import type { Location, Region } from "@/lib/types";
 import { DirectionsButton, formatDistance } from "./directions-button";
@@ -39,6 +39,7 @@ type CityCategory = {
   description?: string;
   descriptionHe?: string | null;
   stateCode?: string | null;
+  districtCode?: string | null;
 };
 
 // Threshold for when a state is considered "high-density" and shows community view
@@ -54,6 +55,7 @@ export function HierarchicalLocationSearch() {
   const [selectedSubRegion, setSelectedSubRegion] = useState<string | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<CityCategory | null>(null);
   const [showCommunityView, setShowCommunityView] = useState(false);
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [initialRegionApplied, setInitialRegionApplied] = useState(false);
 
   // Task #263: "Find nearest to me" — browser geolocation + client-side
@@ -273,12 +275,26 @@ export function HierarchicalLocationSearch() {
     return stateCommunitiesWithCounts.length >= HIGH_DENSITY_THRESHOLD;
   }, [stateCommunitiesWithCounts]);
 
+  // Israel districts derived from city categories with locations
+  const israelDistricts = useMemo(() => {
+    if (!selectedRegion || selectedRegion.slug !== "israel") return [];
+    const citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
+    const districtSet = new Set<string>();
+    citiesInRegion.forEach((city: CityCategory) => {
+      if (city.districtCode && locations.some((l: Location) => l.cityCategoryId === city.id)) {
+        districtSet.add(city.districtCode);
+      }
+    });
+    return IL_DISTRICT_ORDER.filter(d => districtSet.has(d));
+  }, [selectedRegion, cityCategories, locations]);
+
   const subRegions = useMemo(() => {
     if (!selectedRegion) return { codes: [], names: {} as Record<string, string>, labelType: "" };
     
     const citiesInRegion = cityCategories.filter((city: CityCategory) => city.regionId === selectedRegion.id);
     
-    if (selectedRegion.slug !== "united-states" && citiesInRegion.length > 0) {
+    // Israel uses district-level drill-down instead of flat city chips
+    if (selectedRegion.slug !== "united-states" && selectedRegion.slug !== "israel" && citiesInRegion.length > 0) {
       return {
         codes: citiesInRegion.map(c => c.slug),
         names: citiesInRegion.reduce((acc, c) => ({ ...acc, [c.slug]: pickLocalized(c, "name", language) }), {} as Record<string, string>),
@@ -303,7 +319,12 @@ export function HierarchicalLocationSearch() {
       }
     }
     
-    if (selectedRegion.slug !== "united-states" && selectedSubRegion) {
+    // Israel: filter by selected district
+    if (selectedRegion.slug === "israel" && selectedDistrict) {
+      citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.districtCode === selectedDistrict);
+    }
+    
+    if (selectedRegion.slug !== "united-states" && selectedRegion.slug !== "israel" && selectedSubRegion) {
       citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.slug === selectedSubRegion);
     }
     
@@ -339,7 +360,7 @@ export function HierarchicalLocationSearch() {
       result[entry.slug] = { city: entry.city, locations: entry.locations };
     }
     return result;
-  }, [selectedRegion, cityCategories, filteredLocations, selectedState, selectedSubRegion, selectedCommunity, nearestActive, distanceMap]);
+  }, [selectedRegion, cityCategories, filteredLocations, selectedState, selectedSubRegion, selectedCommunity, selectedDistrict, nearestActive, distanceMap]);
 
   if (!selectedRegion) {
     return (
@@ -542,6 +563,7 @@ export function HierarchicalLocationSearch() {
               setSelectedSubRegion(null);
               setSelectedCommunity(null);
               setShowCommunityView(false);
+              setSelectedDistrict(null);
             }}
             className="btn-glass-outline px-4 py-2 rounded-xl flex items-center gap-2 text-sm"
           >
@@ -716,7 +738,37 @@ export function HierarchicalLocationSearch() {
         </div>
       )}
 
-      {selectedRegion.slug !== "united-states" && subRegions.codes.length > 1 && (
+      {selectedRegion.slug === "israel" && israelDistricts.length > 0 && (
+        <div className="mb-8 px-4 md:px-0">
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => setSelectedDistrict(null)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                selectedDistrict === null
+                  ? "btn-glass-amber"
+                  : "btn-glass-outline"
+              }`}
+            >
+              {t("allDistricts")}
+            </button>
+            {israelDistricts.map((dc) => (
+              <button
+                key={dc}
+                onClick={() => setSelectedDistrict(dc)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                  selectedDistrict === dc
+                    ? "btn-glass-amber"
+                    : "btn-glass-outline"
+                }`}
+              >
+                {localizeIsraelDistrict(language as "en" | "he", dc)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {selectedRegion.slug !== "united-states" && selectedRegion.slug !== "israel" && subRegions.codes.length > 1 && (
         <div className="mb-8 px-4 md:px-0">
           <div className="flex flex-wrap justify-center gap-2">
             <button
