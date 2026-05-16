@@ -6155,10 +6155,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function isBabyBanzVerificationEmail(from: string, subject: string): boolean {
     const f = from.toLowerCase();
     const s = subject.toLowerCase();
-    // Catches babybanz.com, banzworld.com, em.babybanz.com, "Baby Banz" in display name, etc.
-    const banzSender = /babybanz|banzworld/.test(f);
-    const verificationSubject = /verif|otp|one.time|authenticat|login code|confirm.{0,10}code|code.{0,10}confirm/.test(s);
-    return banzSender || (verificationSubject && f.includes('banz'));
+    // A BabyBanz marker MUST appear in the sender to claim the mail —
+    // covers the "BANZ® Carewear USA" display name on the Shopify relay
+    // (store+11262018@t.shopifyemail.com) as well as direct domains.
+    const banzMarker = /babybanz|banzworld|banz|carewear/.test(f);
+    const verificationSubject =
+      /verif|otp|one.time|authenticat|login code|confirm.{0,10}code|code.{0,10}confirm/.test(s) ||
+      /\b\d{4,8}\s+is\s+your\s+(?:.*\s+)?code\b/.test(s); // "566729 is your code"
+    // Narrow exception: Shop.app sign-in mail. Only the exact "Sign in to Shop"
+    // subject is accepted, and only when the sender is shop.app itself —
+    // avoids false positives from arbitrary OTPs sharing the relay infrastructure.
+    const isShopAppSignIn = /@shop\.app\b/.test(f) && /^sign\s*in\s*to\s*shop\b/.test(s);
+    return (banzMarker && verificationSubject) || isShopAppSignIn;
   }
 
   /** Extracts a 4–8 digit OTP.

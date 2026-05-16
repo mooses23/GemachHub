@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { driver } from "driver.js";
 import type { Side } from "driver.js";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck, RefreshCw } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link, useLocation } from "wouter";
@@ -320,6 +320,8 @@ function RestockingInstructions({ location }: { location: Location }) {
   const codeCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const consecutiveCodeErrorsRef = useRef(0);
   const codePanelRef = useRef<HTMLDivElement | null>(null);
+  const activeRequestIdRef = useRef<number | null>(null);
+  const [isRefreshingCode, setIsRefreshingCode] = useState(false);
 
   // ── Persistence: survive page refresh / tab switch ────────────────────
   const CODE_WATCH_KEY = `babybanz-code-watch-${location.id}`;
@@ -366,8 +368,58 @@ function RestockingInstructions({ location }: { location: Location }) {
     }, 1000);
   };
 
+  const pollCodeOnce = async (id: number): Promise<void> => {
+    try {
+      const res = await fetch(`/api/operator/restock-code/poll?requestId=${id}`);
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          setCodePollStatus('session_expired');
+          persistWatch({ status: 'session_expired' });
+          stopCodePolling(); stopCodeCountdown();
+          return;
+        }
+        consecutiveCodeErrorsRef.current++;
+        if (consecutiveCodeErrorsRef.current >= 5) { setCodePollStatus('gmail_down'); persistWatch({ status: 'gmail_down' }); }
+        return;
+      }
+      consecutiveCodeErrorsRef.current = 0;
+      setCodePollStatus(prev => {
+        const next = prev === 'gmail_down' ? 'pending' : prev;
+        if (next !== prev) persistWatch({ status: next });
+        return next;
+      });
+      const data = await res.json();
+      if (data.status === 'claimed') {
+        setFoundCodes(data.codes ?? []);
+        setCodePollStatus('found');
+        persistWatch({ status: 'found', foundCodes: data.codes ?? [] });
+        stopCodePolling(); stopCodeCountdown();
+      } else if (data.status === 'expired') {
+        setCodePollStatus('expired');
+        persistWatch({ status: 'expired' });
+        stopCodePolling(); stopCodeCountdown();
+      } else if (data.status === 'unavailable') {
+        setCodePollStatus('unavailable');
+        persistWatch({ status: 'unavailable' });
+        stopCodePolling(); stopCodeCountdown();
+      }
+    } catch {
+      consecutiveCodeErrorsRef.current++;
+      if (consecutiveCodeErrorsRef.current >= 5) { setCodePollStatus('gmail_down'); persistWatch({ status: 'gmail_down' }); }
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    const id = activeRequestIdRef.current;
+    if (!id || isRefreshingCode) return;
+    setIsRefreshingCode(true);
+    try { await pollCodeOnce(id); }
+    finally { setIsRefreshingCode(false); }
+  };
+
   const startCodePolling = (id: number) => {
     stopCodePolling();
+    activeRequestIdRef.current = id;
     consecutiveCodeErrorsRef.current = 0;
     const doPoll = async () => {
       try {
@@ -662,9 +714,22 @@ function RestockingInstructions({ location }: { location: Location }) {
                         {t('verificationCodeExpiry').replace('{time}', formatCodeCountdown(codeTimeLeft))}
                       </p>
                     )}
-                    <Button variant="ghost" size="sm" onClick={handleDismissCodePanel} className="text-slate-500 hover:text-slate-300 text-xs mt-1">
-                      {t('cancel')}
-                    </Button>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleManualRefresh}
+                        disabled={isRefreshingCode}
+                        className="border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-xs h-7"
+                      >
+                        {isRefreshingCode
+                          ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />{t('verificationCodeWatchingInline')}</>
+                          : <><RefreshCw className="h-3 w-3 mr-1" />{t('refresh')}</>}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={handleDismissCodePanel} className="text-slate-500 hover:text-slate-300 text-xs h-7">
+                        {t('cancel')}
+                      </Button>
+                    </div>
                   </div>
                 )}
 
