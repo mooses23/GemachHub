@@ -6,6 +6,7 @@ import { insertLocationSchema } from "@/lib/types";
 import type { InsertLocation, Location } from "@/lib/types";
 import type { CityCategory, Region } from "@shared/schema";
 import { createLocation, updateLocation } from "@/lib/api";
+import { looksLikeStreetAddress } from "@/lib/address-heuristic";
 import {
   Dialog,
   DialogContent,
@@ -528,39 +529,66 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
             <FormField
               control={form.control}
               name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={labelClass}>English</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      className={inputClass}
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const incomplete = !looksLikeStreetAddress(field.value);
+                return (
+                  <FormItem>
+                    <FormLabel className={labelClass}>English</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        className={inputClass}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        data-testid="input-location-address-en"
+                      />
+                    </FormControl>
+                    {incomplete && (
+                      <FormDescription
+                        className="flex items-start gap-1.5 text-amber-300"
+                        data-testid="warning-address-en-incomplete"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                        <span>{t("addressIncompleteWarning")}</span>
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
             <FormField
               control={form.control}
               name="addressHe"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={labelClass}>עברית</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      dir="rtl"
-                      className={inputClass}
-                      value={field.value || ""}
-                      onChange={(e) => field.onChange(e.target.value)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const incomplete = !looksLikeStreetAddress(field.value);
+                return (
+                  <FormItem>
+                    <FormLabel className={labelClass}>עברית</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        dir="rtl"
+                        className={inputClass}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        data-testid="input-location-address-he"
+                      />
+                    </FormControl>
+                    {incomplete && (
+                      <FormDescription
+                        className="flex items-start gap-1.5 text-amber-300"
+                        dir="rtl"
+                        data-testid="warning-address-he-incomplete"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                        <span>{t("addressIncompleteWarning")}</span>
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
           </BilingualPair>
 

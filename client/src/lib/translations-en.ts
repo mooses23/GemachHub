@@ -1151,6 +1151,7 @@ const enTranslations = {
     gemachName: "Gemach Name",
     contactPersonLabel: "Contact Person",
     addressLabel: "Address",
+    addressIncompleteWarning: "This doesn't look like a full street address (missing house number or street). Borrowers may have trouble finding this gemach. You can still save.",
     zipCodeOptional: "Zip Code (Optional)",
     phoneLabel: "Phone",
     emailLabel2: "Email",

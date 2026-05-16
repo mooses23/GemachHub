@@ -1141,6 +1141,7 @@ const heTranslations: Record<TranslationKey, string> = {
     gemachName: "שם הגמ\"ח",
     contactPersonLabel: "איש קשר",
     addressLabel: "כתובת",
+    addressIncompleteWarning: "זה לא נראה ככתובת רחוב מלאה (חסר מספר בית או שם רחוב). ייתכן שיהיה קשה לשואלים למצוא את הגמ\"ח. אפשר עדיין לשמור.",
     zipCodeOptional: "מיקוד (אופציונלי)",
     phoneLabel: "טלפון",
     emailLabel2: "אימייל",
