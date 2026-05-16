@@ -1861,9 +1861,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If the caller pointed us at a specific record, mirror the correction
       // into that record's canonical column for the target language. EN
       // values overwrite the base column (e.g. `name`); HE values overwrite
-      // the `_He` column. Both directions are supported.
+      // the `_He` column. Both directions are supported. Failures here are
+      // surfaced as 500 so the admin UI knows the canonical write failed.
       if (body.recordType && body.recordId && body.fieldKey) {
-        const baseCol = body.fieldKey; // "name" | "description"
+        const baseCol = body.fieldKey;
         const col = body.to === "he" ? `${baseCol}He` : baseCol;
         try {
           if (body.recordType === "location") {
@@ -1874,7 +1875,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateCityCategory(body.recordId, { [col]: body.translatedText } as any);
           }
         } catch (writeErr) {
-          console.warn("[translate/correction] canonical write failed:", writeErr);
+          console.error("[translate/correction] canonical write failed:", writeErr);
+          return res.status(500).json({ message: "Canonical record update failed", cacheSaved: true });
         }
       }
       res.json({ ok: true });

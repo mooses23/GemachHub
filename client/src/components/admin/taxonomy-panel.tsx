@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ArrowLeft, Edit, Globe, Layers, Plus, Star, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RegionForm } from "@/components/admin/region-form";
+import { BilingualValue } from "@/components/admin/bilingual-value";
 import { CommunityForm } from "@/components/admin/community-form";
 import { deleteCityCategory } from "@/lib/api";
 import type { CityCategory, Location, Region } from "@shared/schema";
@@ -268,7 +269,21 @@ export function TaxonomyPanel({
                         <div key={r.id} className="flex items-center justify-between px-3 py-2 bg-background hover:bg-muted/30 transition-colors">
                           <div>
                             <span className="text-sm font-medium">{r.name}</span>
-                            {r.nameHe && <span className="ml-2 text-xs text-muted-foreground" dir="rtl">{r.nameHe}</span>}
+                            {r.nameHe ? (
+                              <span className="ml-2 text-xs text-muted-foreground" dir="rtl">{r.nameHe}</span>
+                            ) : (
+                              <span className="ml-2 text-xs">
+                                <BilingualValue
+                                  value={r.name}
+                                  valueLang="en"
+                                  targetLang="he"
+                                  allowEdit
+                                  recordType="region"
+                                  recordId={r.id}
+                                  fieldKey="name"
+                                />
+                              </span>
+                            )}
                           </div>
                           <Button
                             variant="ghost"
@@ -350,7 +365,21 @@ export function TaxonomyPanel({
                                           <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
                                               <span className="text-sm font-medium truncate">{c.name}</span>
-                                              {c.nameHe && <span className="text-xs text-muted-foreground" dir="rtl">{c.nameHe}</span>}
+                                              {c.nameHe ? (
+                                                <span className="text-xs text-muted-foreground" dir="rtl">{c.nameHe}</span>
+                                              ) : (
+                                                <span className="text-xs">
+                                                  <BilingualValue
+                                                    value={c.name}
+                                                    valueLang="en"
+                                                    targetLang="he"
+                                                    allowEdit
+                                                    recordType="cityCategory"
+                                                    recordId={c.id}
+                                                    fieldKey="name"
+                                                  />
+                                                </span>
+                                              )}
                                               {c.isPopular && (
                                                 <Badge variant="outline" className="text-[10px] border-amber-300 bg-amber-50 text-amber-800">
                                                   <Star className="h-2.5 w-2.5 mr-0.5" />
