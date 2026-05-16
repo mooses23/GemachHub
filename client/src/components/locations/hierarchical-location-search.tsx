@@ -209,9 +209,11 @@ export function HierarchicalLocationSearch() {
     if (!userCoords) return new Map<number, number>();
     const m = new Map<number, number>();
     for (const loc of locations) {
-      const anyLoc = loc as Location & { latitude?: number | null; longitude?: number | null };
-      if (typeof anyLoc.latitude === "number" && typeof anyLoc.longitude === "number") {
-        m.set(loc.id, haversineKm(userCoords.lat, userCoords.lon, anyLoc.latitude, anyLoc.longitude));
+      if (loc.latitude == null || loc.longitude == null) continue;
+      const lat = Number(loc.latitude);
+      const lon = Number(loc.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        m.set(loc.id, haversineKm(userCoords.lat, userCoords.lon, lat, lon));
       }
     }
     return m;
@@ -305,20 +307,39 @@ export function HierarchicalLocationSearch() {
       citiesInRegion = citiesInRegion.filter((city: CityCategory) => city.slug === selectedSubRegion);
     }
     
-    const result: Record<string, { city: CityCategory; locations: Location[] }> = {};
+    const entries: Array<{ slug: string; city: CityCategory; locations: Location[]; nearestDist: number }> = [];
 
     citiesInRegion.forEach((city: CityCategory) => {
-      const cityLocations = filteredLocations.filter((location: Location) => 
+      let cityLocations = filteredLocations.filter((location: Location) => 
         location.cityCategoryId === city.id
       );
       
-      if (cityLocations.length > 0) {
-        result[city.slug] = { city, locations: cityLocations };
+      if (cityLocations.length === 0) return;
+
+      if (nearestActive) {
+        const withCoords = cityLocations.filter(l => distanceMap.has(l.id));
+        const withoutCoords = cityLocations.filter(l => !distanceMap.has(l.id));
+        withCoords.sort((a, b) => (distanceMap.get(a.id) ?? Infinity) - (distanceMap.get(b.id) ?? Infinity));
+        cityLocations = [...withCoords, ...withoutCoords];
       }
+
+      const nearestDist = nearestActive
+        ? Math.min(...cityLocations.map(l => distanceMap.get(l.id) ?? Infinity))
+        : Infinity;
+
+      entries.push({ slug: city.slug, city, locations: cityLocations, nearestDist });
     });
 
+    if (nearestActive) {
+      entries.sort((a, b) => a.nearestDist - b.nearestDist);
+    }
+
+    const result: Record<string, { city: CityCategory; locations: Location[] }> = {};
+    for (const entry of entries) {
+      result[entry.slug] = { city: entry.city, locations: entry.locations };
+    }
     return result;
-  }, [selectedRegion, cityCategories, filteredLocations, selectedState, selectedSubRegion, selectedCommunity]);
+  }, [selectedRegion, cityCategories, filteredLocations, selectedState, selectedSubRegion, selectedCommunity, nearestActive, distanceMap]);
 
   if (!selectedRegion) {
     return (
@@ -755,6 +776,7 @@ export function HierarchicalLocationSearch() {
                   location={location} 
                   region={selectedRegion}
                   density={cardDensity}
+                  distanceKm={distanceMap.get(location.id) ?? null}
                 />
               ))}
             </div>
