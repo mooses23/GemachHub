@@ -1661,21 +1661,15 @@ export default function AdminLocations() {
   const activeLocations = locations.filter(l => l.isActive).length;
   const inactiveLocations = totalLocations - activeLocations;
 
-  // Default selected region to the first one once regions load
-  useEffect(() => {
-    if (selectedRegionId === null && regions.length > 0) {
-      setSelectedRegionId(regions[0].id);
-    }
-  }, [regions, selectedRegionId]);
 
   // Per-region stats for the compact region strip (uses ALL locations, not filtered)
   const regionStats = useMemo(() => {
     const sortedRegions = [...regions].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
     return sortedRegions.map(region => {
       const regionLocs = locations.filter(l => l.regionId === region.id);
-      const notOnboarded = regionLocs.filter(l => !(l.operatorPin && l.operatorPin !== '1234')).length;
+      const onboarded = regionLocs.filter(l => !!(l.operatorPin && l.operatorPin !== '1234')).length;
       const missingContact = regionLocs.filter(l => !l.phone && !l.email).length;
-      return { region, count: regionLocs.length, notOnboarded, missingContact };
+      return { region, count: regionLocs.length, onboarded, missingContact };
     });
   }, [regions, locations]);
 
@@ -2053,7 +2047,7 @@ export default function AdminLocations() {
           {/* Compact Region Strip — moved BELOW toolbar/ServiceStatusBar/Send History.
               Each card has a bulk-select checkbox to add/remove ALL its locations. */}
           <div className="flex gap-3 overflow-x-auto pb-3 -mx-2 px-2">
-            {regionStats.map(({ region, count, notOnboarded, missingContact }) => {
+            {regionStats.map(({ region, count, onboarded, missingContact }) => {
               const regionName = language === "he" && region.nameHe ? region.nameHe : region.name;
               const isActive = selectedRegionId === region.id;
               const regionLocIds = filteredLocations.filter(l => l.regionId === region.id).map(l => l.id);
@@ -2097,9 +2091,9 @@ export default function AdminLocations() {
                       <Badge variant="secondary" className="text-xs">
                         {count} {count === 1 ? t('locationSingular') : t('locations')}
                       </Badge>
-                      {notOnboarded > 0 && (
-                        <Badge variant="outline" className="text-xs bg-red-500/15 text-red-300 border-red-500/30">
-                          {notOnboarded} not onboarded
+                      {onboarded > 0 && (
+                        <Badge variant="outline" className="text-xs bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
+                          {onboarded} onboarded
                         </Badge>
                       )}
                       {missingContact > 0 && (

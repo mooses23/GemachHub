@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { driver } from "driver.js";
 import type { Side } from "driver.js";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck, RefreshCw, Minimize2, Maximize2, UserCog, MapPin } from "lucide-react";
+import { Loader2, Home, LogOut, Package, ArrowRight, ArrowLeft, Phone, User, DollarSign, Check, AlertTriangle, Plus, Search, RotateCcw, RotateCw, CreditCard, CheckCircle, XCircle, Trash2, Clock, KeyRound, ShieldCheck, BellRing, Mail, MessageSquare, Copy, ShoppingCart, ExternalLink, Globe, Truck, PackageCheck, RefreshCw, UserCog, MapPin } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link, useLocation } from "wouter";
@@ -3555,25 +3555,6 @@ export default function OperatorDashboard() {
   const [confirmPin, setConfirmPin] = useState("");
   const tourStartedRef = useRef(false);
 
-  // Compact-view toggle for the Overview stat cards (persisted per location).
-  const compactStatsStorageKey = operatorLocation
-    ? `operatorStatsCompact:${operatorLocation.id}`
-    : null;
-  const [compactStats, setCompactStats] = useState<boolean>(() => {
-    if (typeof window === "undefined" || !compactStatsStorageKey) return false;
-    return localStorage.getItem(compactStatsStorageKey) === "1";
-  });
-  useEffect(() => {
-    if (!compactStatsStorageKey || typeof window === "undefined") return;
-    const stored = localStorage.getItem(compactStatsStorageKey) === "1";
-    if (stored !== compactStats) setCompactStats(stored);
-    // Only re-sync when the location id changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compactStatsStorageKey]);
-  useEffect(() => {
-    if (!compactStatsStorageKey || typeof window === "undefined") return;
-    localStorage.setItem(compactStatsStorageKey, compactStats ? "1" : "0");
-  }, [compactStatsStorageKey, compactStats]);
 
   // Profile form state (display name / phone / email / preferred contact method).
   const [profileName, setProfileName] = useState("");
@@ -3877,36 +3858,20 @@ export default function OperatorDashboard() {
 
           <TabsContent value="overview" className="space-y-6">
             <div id="tour-stat-cards">
-              <div className="flex justify-end mb-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs text-slate-300 hover:text-white hover:bg-white/10"
-                  onClick={() => setCompactStats((v) => !v)}
-                  aria-pressed={compactStats}
-                  data-testid="button-toggle-stats-compact"
-                >
-                  {compactStats ? (
-                    <><Maximize2 className="h-3.5 w-3.5 mr-1" /> {t('expandView')}</>
-                  ) : (
-                    <><Minimize2 className="h-3.5 w-3.5 mr-1" /> {t('compactView')}</>
-                  )}
-                </Button>
-              </div>
-              <div className={`grid gap-3 md:gap-4 grid-cols-2 mb-6`}>
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">{t('stockOverview')}</h2>
+              <div className="grid gap-3 md:gap-4 grid-cols-2 mb-6">
                 <Card className="glass-card">
-                  <CardContent className={compactStats ? "py-2 px-3" : "pt-6"}>
-                    <div className={compactStats ? "text-base font-semibold text-white" : "text-2xl font-bold text-white"}>{activeLoans}</div>
-                    <p className={compactStats ? "text-xs text-slate-400" : "text-sm text-slate-400"}>{t('activeBorrow')}</p>
+                  <CardContent className="py-2 px-3">
+                    <div className="text-base font-semibold text-white">{activeLoans}</div>
+                    <p className="text-xs text-slate-400">{t('activeBorrow')}</p>
                   </CardContent>
                 </Card>
                 <Card className="glass-card">
-                  <CardContent className={compactStats ? "py-2 px-3" : "pt-6"}>
-                    <div className={compactStats ? "text-base font-semibold text-white" : "text-2xl font-bold text-white"}>
+                  <CardContent className="py-2 px-3">
+                    <div className="text-base font-semibold text-white">
                       ${transactions.filter(tx => !tx.isReturned).reduce((sum, tx) => sum + tx.depositAmount, 0).toFixed(0)}
                     </div>
-                    <p className={compactStats ? "text-xs text-slate-400" : "text-sm text-slate-400"}>{t('depositsHeld')}</p>
+                    <p className="text-xs text-slate-400">{t('depositsHeld')}</p>
                   </CardContent>
                 </Card>
               </div>
