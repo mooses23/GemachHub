@@ -314,7 +314,14 @@ export function HierarchicalLocationSearch() {
       ).length;
       return { ...community, locationCount };
     }).filter(c => c.locationCount > 0) // Only show communities with locations
-      .sort((a, b) => b.locationCount - a.locationCount); // Sort by location count desc
+      .sort((a, b) => {
+        // Task #290: respect admin-defined Sort position first, then location count, then name.
+        const orderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        const countDiff = b.locationCount - a.locationCount;
+        if (countDiff !== 0) return countDiff;
+        return a.name.localeCompare(b.name);
+      });
   }, [selectedState, selectedRegion, cityCategories, locations]);
 
   // Determine if current state is high-density (should show community bubbles)
@@ -334,7 +341,14 @@ export function HierarchicalLocationSearch() {
         return { ...community, locationCount };
       })
       .filter(c => c.locationCount > 0)
-      .sort((a, b) => b.locationCount - a.locationCount);
+      .sort((a, b) => {
+        // Task #290: respect admin-defined Sort position first, then location count, then name.
+        const orderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+        if (orderDiff !== 0) return orderDiff;
+        const countDiff = b.locationCount - a.locationCount;
+        if (countDiff !== 0) return countDiff;
+        return a.name.localeCompare(b.name);
+      });
   }, [selectedDistrict, selectedRegion, cityCategories, locations]);
 
   const isHighDensityDistrict = useMemo(

@@ -28,10 +28,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { LoaderCircle, Phone, Mail, DollarSign, MapPin, User, Globe, AlertTriangle, Crosshair, Save } from "lucide-react";
+import { LoaderCircle, Phone, Mail, DollarSign, MapPin, User, Globe, AlertTriangle, Crosshair, Save, MessageCircle, Percent } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { OPERATOR_CONTACT_PREFERENCES } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -318,6 +320,10 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
       isActive: location.isActive ?? true,
       cashOnly: location.cashOnly || false,
       depositAmount: location.depositAmount || 20,
+      paymentMethods: location.paymentMethods ?? ["cash"],
+      contactPreference: (location as any).contactPreference ?? null,
+      processingFeePercent: location.processingFeePercent ?? 300,
+      processingFeeFixed: location.processingFeeFixed ?? 30,
     } : {
       name: "",
       nameHe: "",
@@ -333,6 +339,10 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
       isActive: true,
       cashOnly: false,
       depositAmount: 20,
+      paymentMethods: ["cash"],
+      contactPreference: null,
+      processingFeePercent: 300,
+      processingFeeFixed: 30,
     },
   });
 
@@ -765,6 +775,57 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
 
           <FormField
             control={form.control}
+            name="contactPreference"
+            render={({ field }) => (
+              <FormItem className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-4">
+                <div>
+                  <FormLabel className="text-sm font-medium">Preferred contact channel</FormLabel>
+                  <p className="text-xs text-muted-foreground">
+                    How borrowers should reach this gemach by default.
+                  </p>
+                </div>
+                <FormControl>
+                  <RadioGroup
+                    value={field.value ?? ""}
+                    onValueChange={(v) => field.onChange(v || null)}
+                    className="grid grid-cols-3 gap-2 pt-1"
+                  >
+                    {OPERATOR_CONTACT_PREFERENCES.map((pref) => {
+                      const Icon = pref === "phone" ? Phone : pref === "whatsapp" ? MessageCircle : Mail;
+                      const label = pref === "phone" ? "Phone" : pref === "whatsapp" ? "WhatsApp" : "Email";
+                      return (
+                        <FormItem
+                          key={pref}
+                          className="flex items-center gap-2 space-y-0 rounded-md border border-border/60 bg-background/40 px-3 py-2"
+                        >
+                          <FormControl>
+                            <RadioGroupItem value={pref} id={`contact-pref-${pref}`} />
+                          </FormControl>
+                          <FormLabel htmlFor={`contact-pref-${pref}`} className="flex items-center gap-1.5 text-sm font-normal cursor-pointer">
+                            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                            {label}
+                          </FormLabel>
+                        </FormItem>
+                      );
+                    })}
+                  </RadioGroup>
+                </FormControl>
+                {field.value && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                    onClick={() => field.onChange(null)}
+                  >
+                    Clear preference
+                  </button>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="paymentMethods"
             render={({ field }) => (
               <FormItem>
@@ -803,6 +864,73 @@ export function LocationForm({ location, regions, onSuccess, focusPhone }: Locat
               </FormItem>
             )}
           />
+
+          <div className="rounded-lg border border-border/60 bg-muted/10 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium">Card processing fees</p>
+              <p className="text-xs text-muted-foreground">
+                Applied on top of the deposit when the borrower pays by card. Defaults cover Stripe's standard rate.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="processingFeePercent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={labelClass}>Percentage fee</FormLabel>
+                    <FormControl>
+                      <IconInputWrapper icon={Percent}>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          className={iconInputClass}
+                          value={field.value != null ? (field.value / 100).toFixed(2) : ""}
+                          onChange={(e) => {
+                            const pct = parseFloat(e.target.value);
+                            field.onChange(Number.isFinite(pct) ? Math.round(pct * 100) : 0);
+                          }}
+                        />
+                      </IconInputWrapper>
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      e.g. 3.00 for 3%. Stored as basis points.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="processingFeeFixed"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className={labelClass}>Fixed fee per transaction</FormLabel>
+                    <FormControl>
+                      <IconInputWrapper icon={DollarSign}>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          className={iconInputClass}
+                          value={field.value != null ? (field.value / 100).toFixed(2) : ""}
+                          onChange={(e) => {
+                            const dollars = parseFloat(e.target.value);
+                            field.onChange(Number.isFinite(dollars) ? Math.round(dollars * 100) : 0);
+                          }}
+                        />
+                      </IconInputWrapper>
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      e.g. 0.30 for 30¢. Stored as cents.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
 
           <FormField
             control={form.control}

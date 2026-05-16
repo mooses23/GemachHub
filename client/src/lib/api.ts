@@ -52,11 +52,11 @@ export const getRegions = async () => {
   return response.json();
 };
 
-export const createRegion = async (data: { name: string; nameHe?: string; slug: string; displayOrder?: number }) => {
+export const createRegion = async (data: { name: string; nameHe?: string; slug: string; displayOrder?: number; description?: string | null; descriptionHe?: string | null }) => {
   return apiRequest("POST", "/api/regions", data);
 };
 
-export const updateRegion = async (id: number, data: { name?: string; nameHe?: string; slug?: string; displayOrder?: number }) => {
+export const updateRegion = async (id: number, data: { name?: string; nameHe?: string; slug?: string; displayOrder?: number; description?: string | null; descriptionHe?: string | null }) => {
   return apiRequest("PATCH", `/api/regions/${id}`, data);
 };
 

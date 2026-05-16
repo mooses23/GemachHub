@@ -305,6 +305,7 @@ export function TaxonomyPanel({
                   <CommunityForm
                     community={editingCommunity ?? undefined}
                     regions={regions}
+                    communities={communities}
                     onSuccess={() => { setEditingCommunity(null); setCreatingCommunity(false); }}
                   />
                 </div>

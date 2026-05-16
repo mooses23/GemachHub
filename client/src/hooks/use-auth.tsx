@@ -19,6 +19,9 @@ export type RegisterData = {
   email: string;
   firstName: string;
   lastName: string;
+  firstNameHe?: string | null;
+  lastNameHe?: string | null;
+  phone?: string | null;
   inviteCode: string;
   role?: string;
   locationId?: number;

@@ -54,6 +54,7 @@ type CommunityFormData = z.infer<typeof communitySchema>;
 interface CommunityFormProps {
   community?: CityCategory;
   regions: Region[];
+  communities?: CityCategory[];
   onSuccess?: (created?: CityCategory) => void;
   defaultRegionId?: number;
   defaultName?: string;
@@ -81,6 +82,7 @@ const labelClass = "text-xs font-medium text-muted-foreground";
 export function CommunityForm({
   community,
   regions,
+  communities,
   onSuccess,
   defaultRegionId,
   defaultName,
@@ -121,6 +123,9 @@ export function CommunityForm({
 
   const watchedName = form.watch("name");
   const watchedRegionId = form.watch("regionId");
+  const watchedDisplayOrder = form.watch("displayOrder");
+  const watchedStateCode = form.watch("stateCode");
+  const watchedDistrictCode = form.watch("districtCode");
   const slugManuallyEdited = React.useRef(!!community);
   React.useEffect(() => {
     if (!community && !slugManuallyEdited.current) {
@@ -340,21 +345,58 @@ export function CommunityForm({
           <FormField
             control={form.control}
             name="displayOrder"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className={labelClass}>Display Order</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={0}
-                    className={inputClass}
-                    value={field.value}
-                    onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const isIsraelRegion = selectedRegion?.slug === "israel";
+              const isUSRegion = selectedRegion?.slug === "united-states";
+              const siblings = (communities ?? [])
+                .filter((c) => {
+                  if (c.regionId !== watchedRegionId) return false;
+                  if (community && c.id === community.id) return false;
+                  if (isIsraelRegion) return (c.districtCode || "") === (watchedDistrictCode || "");
+                  if (isUSRegion) return (c.stateCode || "") === (watchedStateCode || "");
+                  return true;
+                })
+                .map((c) => ({ id: c.id, name: c.name, displayOrder: c.displayOrder ?? 0 }));
+              const draftName = (watchedName || "(new community)").trim() || "(new community)";
+              const draft = { id: -1, name: draftName, displayOrder: Number(watchedDisplayOrder) || 0 };
+              const merged = [...siblings, draft].sort(
+                (a, b) => (a.displayOrder - b.displayOrder) || a.name.localeCompare(b.name)
+              );
+              const position = merged.findIndex((x) => x.id === -1) + 1;
+              const total = merged.length;
+              const groupLabel = isIsraelRegion
+                ? watchedDistrictCode
+                  ? `the ${localizeIsraelDistrict("en", watchedDistrictCode)} district`
+                  : "this region"
+                : isUSRegion
+                  ? watchedStateCode
+                    ? `${watchedStateCode}`
+                    : "this region"
+                  : "this region";
+              return (
+                <FormItem>
+                  <FormLabel className={labelClass}>Sort position</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      className={inputClass}
+                      value={field.value}
+                      onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                    />
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                    Lower numbers appear first. This is a sort key, not a count.
+                  </FormDescription>
+                  {total > 0 && (
+                    <p className="text-xs text-muted-foreground" data-testid="sort-position-preview">
+                      Will appear at position <span className="font-medium text-foreground">{position}</span> of {total} in {groupLabel}.
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
         </div>
 

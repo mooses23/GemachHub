@@ -240,6 +240,8 @@ export class DatabaseStorage implements IStorage {
       depositAmount: insertLocation.depositAmount ?? null,
       paymentMethods: insertLocation.paymentMethods ?? null,
       processingFeePercent: insertLocation.processingFeePercent ?? null,
+      processingFeeFixed: insertLocation.processingFeeFixed ?? null,
+      contactPreference: insertLocation.contactPreference ?? null,
       cityCategoryId: insertLocation.cityCategoryId ?? null,
       operatorPin: insertLocation.operatorPin ?? null
     }).returning();
@@ -1872,6 +1874,13 @@ export async function ensureSchemaUpgrades(): Promise<void> {
         'ashdod'
       )
   `));
+
+  // Task #290: operator profile + region description columns
+  await safe("add users.first_name_he", () => db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name_he TEXT`));
+  await safe("add users.last_name_he", () => db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name_he TEXT`));
+  await safe("add users.phone", () => db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT`));
+  await safe("add regions.description", () => db.execute(sql`ALTER TABLE regions ADD COLUMN IF NOT EXISTS description TEXT`));
+  await safe("add regions.description_he", () => db.execute(sql`ALTER TABLE regions ADD COLUMN IF NOT EXISTS description_he TEXT`));
 
   // Task #70: pay-later refund_amount data-fix. Wrapped via safe() so a failure
   // here can't take down the rest of the boot path.

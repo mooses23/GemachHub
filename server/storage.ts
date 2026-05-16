@@ -2371,7 +2371,10 @@ export class MemStorage implements IStorage {
       id,
       role: insertUser.role || "customer",
       isAdmin: insertUser.isAdmin ?? null,
-      locationId: insertUser.locationId ?? null
+      locationId: insertUser.locationId ?? null,
+      firstNameHe: insertUser.firstNameHe ?? null,
+      lastNameHe: insertUser.lastNameHe ?? null,
+      phone: insertUser.phone ?? null,
     };
     this.users.set(id, user);
     return user;
@@ -2385,7 +2388,10 @@ export class MemStorage implements IStorage {
       id,
       role: userData.role || "operator",
       isAdmin: userData.isAdmin ?? null,
-      locationId: userData.locationId ?? null
+      locationId: userData.locationId ?? null,
+      firstNameHe: userData.firstNameHe ?? null,
+      lastNameHe: userData.lastNameHe ?? null,
+      phone: userData.phone ?? null,
     };
     this.users.set(id, user);
     return user;
@@ -2463,6 +2469,8 @@ export class MemStorage implements IStorage {
       id,
       displayOrder: insertRegion.displayOrder ?? 0,
       nameHe: insertRegion.nameHe ?? null,
+      description: insertRegion.description ?? null,
+      descriptionHe: insertRegion.descriptionHe ?? null,
     };
     this.regions.set(id, region);
     return region;

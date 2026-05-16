@@ -21,6 +21,9 @@ const registerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
+  firstNameHe: z.string().optional(),
+  lastNameHe: z.string().optional(),
+  phone: z.string().optional(),
   inviteCode: z.string().min(1, "Invite code is required"),
 });
 
@@ -38,6 +41,9 @@ export function RegisterForm() {
       email: "",
       firstName: "",
       lastName: "",
+      firstNameHe: "",
+      lastNameHe: "",
+      phone: "",
       inviteCode: "",
     },
   });
@@ -45,7 +51,9 @@ export function RegisterForm() {
   function onSubmit(values: FormData) {
     registerMutation.mutate({
       ...values,
-      role: "user",
+      firstNameHe: values.firstNameHe?.trim() || null,
+      lastNameHe: values.lastNameHe?.trim() || null,
+      phone: values.phone?.trim() || null,
     });
   }
 
@@ -90,6 +98,55 @@ export function RegisterForm() {
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="firstNameHe"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>שם פרטי (עברית) <span className="text-xs font-normal text-muted-foreground">— optional</span></FormLabel>
+                  <FormControl>
+                    <Input dir="rtl" placeholder="לדוגמה: שרה" {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="lastNameHe"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>שם משפחה (עברית) <span className="text-xs font-normal text-muted-foreground">— optional</span></FormLabel>
+                  <FormControl>
+                    <Input dir="rtl" placeholder="לדוגמה: כהן" {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Phone <span className="text-xs font-normal text-muted-foreground">— optional</span>
+                </FormLabel>
+                <FormControl>
+                  <Input type="tel" placeholder="+1 555 123 4567" {...field} value={field.value ?? ""} />
+                </FormControl>
+                <p className="text-xs text-muted-foreground">
+                  Used to contact you about your gemach. Not shared publicly.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name="email"
@@ -117,6 +174,9 @@ export function RegisterForm() {
                 <FormControl>
                   <Input placeholder={t("chooseUsernamePlaceholder")} {...field} />
                 </FormControl>
+                <p className="text-xs text-muted-foreground">
+                  Only used for full-account login. Day-to-day operator access uses the location code + PIN.
+                </p>
                 <FormMessage />
               </FormItem>
             )}

@@ -33,6 +33,9 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
+  firstNameHe: text("first_name_he"),
+  lastNameHe: text("last_name_he"),
+  phone: text("phone"),
   role: text("role").notNull().default("operator"), // "operator", "admin" - no generic user role
   isAdmin: boolean("is_admin").default(false),
   locationId: integer("location_id"), // Associated gemach location (for operators)
@@ -44,6 +47,9 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   firstName: true,
   lastName: true,
+  firstNameHe: true,
+  lastNameHe: true,
+  phone: true,
   role: true,
   isAdmin: true,
   locationId: true,
@@ -77,6 +83,8 @@ export const regions = pgTable("regions", {
   nameHe: text("name_he"),
   slug: text("slug").notNull().unique(),
   displayOrder: integer("display_order").notNull().default(0),
+  description: text("description"),
+  descriptionHe: text("description_he"),
 });
 
 export const insertRegionSchema = createInsertSchema(regions).pick({
@@ -84,6 +92,8 @@ export const insertRegionSchema = createInsertSchema(regions).pick({
   nameHe: true,
   slug: true,
   displayOrder: true,
+  description: true,
+  descriptionHe: true,
 });
 
 // City Category schema (for grouping locations within regions)
@@ -219,6 +229,7 @@ export const insertLocationSchema = createInsertSchema(locations).pick({
   processingFeePercent: true,
   processingFeeFixed: true,
   operatorPin: true,
+  contactPreference: true,
 });
 
 // GemachApplication schema

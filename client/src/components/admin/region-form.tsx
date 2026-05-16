@@ -15,8 +15,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { LoaderCircle, Globe, Settings, AlertTriangle } from "lucide-react";
+import { LoaderCircle, Globe, Settings, AlertTriangle, FileText } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 
 interface Region {
@@ -25,6 +26,8 @@ interface Region {
   nameHe: string | null;
   slug: string;
   displayOrder: number;
+  description?: string | null;
+  descriptionHe?: string | null;
 }
 
 interface RegionFormProps {
@@ -37,6 +40,8 @@ const regionFormSchema = z.object({
   nameHe: z.string().optional(),
   slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/, "Slug may only contain lowercase letters, numbers, and hyphens"),
   displayOrder: z.number().int().min(0),
+  description: z.string().optional(),
+  descriptionHe: z.string().optional(),
 });
 
 type RegionFormData = z.infer<typeof regionFormSchema>;
@@ -78,11 +83,15 @@ export function RegionForm({ region, onSuccess }: RegionFormProps) {
       nameHe: region.nameHe ?? "",
       slug: region.slug,
       displayOrder: region.displayOrder,
+      description: region.description ?? "",
+      descriptionHe: region.descriptionHe ?? "",
     } : {
       name: "",
       nameHe: "",
       slug: "",
       displayOrder: 0,
+      description: "",
+      descriptionHe: "",
     },
   });
 
@@ -134,6 +143,8 @@ export function RegionForm({ region, onSuccess }: RegionFormProps) {
     nameHe: "Region Name (עברית)",
     slug: "URL Slug",
     displayOrder: "Display Order",
+    description: "Description (English)",
+    descriptionHe: "Description (עברית)",
   };
 
   return (
@@ -240,6 +251,51 @@ export function RegionForm({ region, onSuccess }: RegionFormProps) {
               )}
             />
           </div>
+        </div>
+
+        <div className="space-y-3">
+          <SectionHeading icon={FileText} label="Description (optional)" />
+          <BilingualPair>
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={labelClass}>English</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={2}
+                      className="text-sm"
+                      placeholder="Short description shown alongside this region."
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="descriptionHe"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={labelClass}>עברית</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={2}
+                      dir="rtl"
+                      className="text-sm"
+                      placeholder="תיאור קצר שמוצג לצד אזור זה."
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </BilingualPair>
         </div>
 
         <div className="border-t border-border/60 pt-4">
