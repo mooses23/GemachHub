@@ -140,6 +140,7 @@ export function HierarchicalLocationSearch() {
     regions: Region[];
     cityCategories: CityCategory[];
     locations: Location[];
+    cityCenters: Record<number, { lat: number; lon: number }>;
   }>({
     queryKey: ["/api/location-tree"],
     staleTime: 0,
@@ -148,6 +149,7 @@ export function HierarchicalLocationSearch() {
   const locations = tree?.locations ?? [];
   const regions = tree?.regions ?? [];
   const cityCategories = tree?.cityCategories ?? [];
+  const cityCenters = tree?.cityCenters ?? {};
   const isInitialLoading = treeLoading;
 
   useEffect(() => {
@@ -207,8 +209,10 @@ export function HierarchicalLocationSearch() {
     return filtered;
   }, [locations, searchQuery, regionsMap, selectedRegion]);
 
-  // Task #263: compute distance + sorted list when "Find nearest" is active.
-  // Locations without coordinates sink to the bottom in their original order.
+  // Task #263 / #282: compute distance + sorted list when "Find nearest" is active.
+  // Task #282: four-tier sort using city-center coordinates as fallback.
+  const CITY_RADIUS_KM = 30; // threshold for "same city" tier
+
   const distanceMap = useMemo(() => {
     if (!userCoords) return new Map<number, number>();
     const m = new Map<number, number>();
@@ -223,17 +227,58 @@ export function HierarchicalLocationSearch() {
     return m;
   }, [userCoords, locations]);
 
+  // Which city IDs are within CITY_RADIUS_KM of the user, and what's the
+  // nearest region (for Tier 3)?
+  const proximityContext = useMemo(() => {
+    if (!userCoords) return null;
+    const nearbyCityIds = new Set<number>();
+    let nearestRegionId: number | null = null;
+    let nearestCityDistKm = Infinity;
+    for (const city of cityCategories) {
+      const center = cityCenters[city.id];
+      if (!center) continue;
+      const dist = haversineKm(userCoords.lat, userCoords.lon, center.lat, center.lon);
+      if (dist <= CITY_RADIUS_KM) nearbyCityIds.add(city.id);
+      if (dist < nearestCityDistKm) {
+        nearestCityDistKm = dist;
+        nearestRegionId = city.regionId;
+      }
+    }
+    return { nearbyCityIds, nearestRegionId };
+  }, [userCoords, cityCategories, cityCenters]);
+
+  // Assign each location a tier (1–4) for display labels:
+  // 1 = has GPS coords (sort by haversine), 2 = same city, 3 = same region, 4 = other
+  const tierMap = useMemo(() => {
+    if (!userCoords || !proximityContext) return new Map<number, number>();
+    const m = new Map<number, number>();
+    for (const loc of locations) {
+      if (distanceMap.has(loc.id)) {
+        m.set(loc.id, 1);
+      } else if (loc.cityCategoryId != null && proximityContext.nearbyCityIds.has(loc.cityCategoryId)) {
+        m.set(loc.id, 2);
+      } else if (proximityContext.nearestRegionId != null && loc.regionId === proximityContext.nearestRegionId) {
+        m.set(loc.id, 3);
+      } else {
+        m.set(loc.id, 4);
+      }
+    }
+    return m;
+  }, [userCoords, proximityContext, distanceMap, locations]);
+
   const sortedByDistance = useMemo(() => {
     if (!userCoords) return [] as Location[];
-    const withCoords: Location[] = [];
-    const withoutCoords: Location[] = [];
+    const t1: Location[] = [], t2: Location[] = [], t3: Location[] = [], t4: Location[] = [];
     for (const loc of filteredLocations) {
-      if (distanceMap.has(loc.id)) withCoords.push(loc);
-      else withoutCoords.push(loc);
+      const tier = tierMap.get(loc.id) ?? 4;
+      if (tier === 1) t1.push(loc);
+      else if (tier === 2) t2.push(loc);
+      else if (tier === 3) t3.push(loc);
+      else t4.push(loc);
     }
-    withCoords.sort((a, b) => (distanceMap.get(a.id) ?? Infinity) - (distanceMap.get(b.id) ?? Infinity));
-    return [...withCoords, ...withoutCoords];
-  }, [userCoords, filteredLocations, distanceMap]);
+    t1.sort((a, b) => (distanceMap.get(a.id) ?? Infinity) - (distanceMap.get(b.id) ?? Infinity));
+    return [...t1, ...t2, ...t3, ...t4];
+  }, [userCoords, filteredLocations, distanceMap, tierMap]);
 
   const usStates = useMemo(() => {
     if (!selectedRegion || selectedRegion.slug !== "united-states") return [];
@@ -478,23 +523,44 @@ export function HierarchicalLocationSearch() {
         ) : nearestActive ? (
           <div className="space-y-8">
             <div className="text-center">
-              <p className="text-slate-400">
-                {t("showing")} <span className="font-semibold text-white">{sortedByDistance.length}</span> {t("locations")}
-              </p>
+              {(() => {
+                const t1c = sortedByDistance.filter(l => tierMap.get(l.id) === 1).length;
+                const t2c = sortedByDistance.filter(l => tierMap.get(l.id) === 2).length;
+                const t3c = sortedByDistance.filter(l => tierMap.get(l.id) === 3).length;
+                const t4c = sortedByDistance.filter(l => (tierMap.get(l.id) ?? 4) === 4).length;
+                const parts: string[] = [];
+                if (t1c > 0) parts.push(`${t1c} ${t("proximityNearby")}`);
+                if (t2c > 0) parts.push(`${t2c} ${t("proximityInYourCity")}`);
+                if (t3c > 0) parts.push(`${t3c} ${t("proximityInYourRegion")}`);
+                if (t4c > 0) parts.push(`${t4c} ${t("proximityOther")}`);
+                return (
+                  <p className="text-slate-400">
+                    <span className="font-semibold text-white">{sortedByDistance.length}</span> {t("locations")}
+                    {parts.length > 0 && (
+                      <span className="text-slate-500 text-sm ml-1">· {parts.join(" · ")}</span>
+                    )}
+                  </p>
+                );
+              })()}
             </div>
             <div className="flex justify-start px-4 md:px-0 opacity-60 hover:opacity-90 transition-opacity">
               <CardDensityToggle density={cardDensity} onChange={setCardDensity} variant="dark" className="scale-[0.85] origin-left" />
             </div>
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 px-4 md:px-0 ${cardDensity === "compact" ? "gap-2 md:gap-3" : "gap-4 md:gap-6"}`}>
-              {sortedByDistance.map((location: Location) => (
-                <LocationCard
-                  key={location.id}
-                  location={location}
-                  region={regionsMap[location.regionId]}
-                  distanceKm={distanceMap.get(location.id) ?? null}
-                  density={cardDensity}
-                />
-              ))}
+              {sortedByDistance.map((location: Location) => {
+                const tier = tierMap.get(location.id) ?? 4;
+                const proximityLabel = tier === 2 ? t("proximitySameCity") : tier === 3 ? t("proximitySameRegion") : null;
+                return (
+                  <LocationCard
+                    key={location.id}
+                    location={location}
+                    region={regionsMap[location.regionId]}
+                    distanceKm={distanceMap.get(location.id) ?? null}
+                    proximityLabel={proximityLabel}
+                    density={cardDensity}
+                  />
+                );
+              })}
             </div>
           </div>
         ) : searchQuery ? (
@@ -969,10 +1035,11 @@ interface LocationCardProps {
   location: Location;
   region: Region;
   distanceKm?: number | null;
+  proximityLabel?: string | null;
   density?: "compact" | "full";
 }
 
-function LocationCard({ location, region, distanceKm, density = "full" }: LocationCardProps) {
+function LocationCard({ location, region, distanceKm, proximityLabel, density = "full" }: LocationCardProps) {
   const { t, language } = useLanguage();
   const [, navigate] = useLocation();
   const [locallyExpanded, setLocallyExpanded] = useState(false);
@@ -1021,11 +1088,15 @@ function LocationCard({ location, region, distanceKm, density = "full" }: Locati
                 {cityRegionLabel}
               </p>
             )}
-            {typeof distanceKm === "number" && Number.isFinite(distanceKm) && (
+            {typeof distanceKm === "number" && Number.isFinite(distanceKm) ? (
               <p className="text-xs text-blue-300 font-medium mt-1" data-testid={`text-distance-${location.id}`}>
                 {formatDistance(distanceKm, language, t)}
               </p>
-            )}
+            ) : proximityLabel ? (
+              <p className="text-xs text-slate-400 mt-1" data-testid={`text-proximity-label-${location.id}`}>
+                {proximityLabel}
+              </p>
+            ) : null}
           </div>
           <DirectionsButton address={locAddress} variant="dark" hasCoords={location.latitude != null && location.longitude != null} />
         </div>

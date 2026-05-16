@@ -98,6 +98,7 @@ import {
   Send,
   MessageSquare,
   MessageCircle,
+  RefreshCw,
   AlertTriangle,
   AlertCircle,
   ExternalLink,
@@ -1431,6 +1432,21 @@ export default function AdminLocations() {
     [locations]
   );
 
+  const regeocodeLocationMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/admin/locations/${id}/regeocode`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Re-geocoded", description: "Coordinates updated successfully." });
+      queryClient.invalidateQueries({ queryKey: ["/api/locations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/location-tree"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Re-geocode failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const toggleStatusMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
       updateLocation(id, { isActive }),
@@ -2480,6 +2496,63 @@ export default function AdminLocations() {
                           >
                             {isPinCustomized ? "Onboarded" : "Not onboarded"}
                           </Badge>
+                          {/* Task #282: geocoding status indicator */}
+                          {(() => {
+                            const hasCoords = location.latitude != null && location.longitude != null;
+                            const hasAddress = !!(location.address || "").trim();
+                            const isRegeocodePending = regeocodeLocationMutation.isPending && regeocodeLocationMutation.variables === location.id;
+                            if (hasCoords) {
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="border-transparent bg-emerald-500/10 text-emerald-400 gap-1">
+                                      <MapPin className="h-3 w-3" /> GPS
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="text-xs">Has GPS coordinates — shows in "Find nearest to me"</TooltipContent>
+                                </Tooltip>
+                              );
+                            } else if (hasAddress) {
+                              return (
+                                <div className="inline-flex items-center gap-1">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center gap-0.5 text-amber-400 text-xs">
+                                        <AlertTriangle className="h-3 w-3" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-xs">No GPS coordinates yet</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() => regeocodeLocationMutation.mutate(location.id)}
+                                        disabled={isRegeocodePending}
+                                        className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs px-2 py-0.5 hover:bg-amber-500/20 transition-colors disabled:opacity-60"
+                                        data-testid={`btn-regeocode-${location.id}`}
+                                      >
+                                        {isRegeocodePending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                        Re-geocode
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-xs">Click to geocode coordinates from address</TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground gap-1">
+                                      <span className="text-muted-foreground/50 font-bold text-xs leading-none">—</span>
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="text-xs">No address — add an address to enable geocoding</TooltipContent>
+                                </Tooltip>
+                              );
+                            }
+                          })()}
                           {(() => {
                             const sms = location.welcomeSmsStatus?.toLowerCase();
                             const wa = location.welcomeWhatsappStatus?.toLowerCase();

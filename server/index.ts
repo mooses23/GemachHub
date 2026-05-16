@@ -248,8 +248,10 @@ app.use((req, res, next) => {
     // locations via Nominatim. Runs in background, rate-limited to 1 req/sec.
     void (async () => {
       try {
-        const { backfillMissingGeocodes } = await import("./geocoder.js");
-        await backfillMissingGeocodes();
+        const { backfillMissingGeocodes, backfillCityCenters } = await import("./geocoder.js");
+        // Task #282: run city-center geocoding concurrently with location backfill
+        // so fallback tier data is available sooner after deploy.
+        await Promise.all([backfillMissingGeocodes(), backfillCityCenters()]);
       } catch (err) {
         console.warn(`[index] geocoder backfill failed: ${err instanceof Error ? err.message : String(err)}`);
       }

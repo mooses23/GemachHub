@@ -8,6 +8,8 @@
 // public "Directions" button stays hidden — area coords led people to the
 // wrong place.
 //
+// Task #282: tiered proximity sort — city-center geocoding for fallback tiers.
+//
 // Notes:
 //  - Nominatim usage policy: <= 1 req/sec, must set a descriptive User-Agent.
 //  - Never throw to caller — geocoding failures must not break create/update.
@@ -167,24 +169,28 @@ export function geocodeAndStore(locationId: number, address: string): void {
   })();
 }
 
-const STRICT_FLAG_KEY = "geocoder.strictRevalidationDoneAt";
+// Task #282: bump flag key so the corrected heuristic re-runs once on deploy.
+const STRICT_FLAG_KEY = "geocoder.strictRevalidationV2DoneAt";
 
-// Task #268: one-time pass on startup. Clears coordinates on every existing
-// location whose address is obviously area-level (doesn't start with a street
-// number), and re-runs the regular backfill so the strict precision filter in
-// geocodeAddress() re-evaluates them. Gated by a global_settings flag so it
-// only happens once per environment.
+// Task #268 / #282: one-time pass on startup. Clears coordinates on every
+// existing location whose address is obviously area-level. The original
+// heuristic only checked whether the address STARTS with a digit, which
+// incorrectly stripped valid coords from addresses like
+// "Bais Chaya Mushka, 3450 Sherbrooke St". The fixed heuristic checks
+// whether a digit sequence appears anywhere in the first 80 characters of
+// the address — real street addresses always have a house number somewhere
+// near the front.
 async function clearLegacyImpreciseCoords(): Promise<number> {
   const all = await storage.getAllLocations();
-  // Heuristic: a real street address starts with a house-number token
-  // (e.g. "1234 Main St"). Anything that begins with letters
-  // ("Pico Area, …", "Detroit, MI", "Western Run Drive, …") is treated as
-  // area-level and gets its stale coords cleared.
-  const streetNumberRe = /^\s*\d+\s/;
+  // Fixed heuristic: look for any digit run in the first 80 chars.
+  // "3450 Sherbrooke St" → has "3450" near the front → keep coords.
+  // "Bais Chaya Mushka, 3450 Sherbrooke St" → has "3450" within 80 chars → keep coords.
+  // "Pico Area, …" or "Detroit, MI" → no digits in first 80 chars → area-level, clear.
+  const hasHouseNumber = (addr: string): boolean => /\d/.test(addr.slice(0, 80));
   let cleared = 0;
   for (const loc of all) {
     if (loc.latitude == null || loc.longitude == null) continue;
-    if (streetNumberRe.test(loc.address || "")) continue;
+    if (hasHouseNumber(loc.address || "")) continue;
     try {
       await storage.updateLocation(loc.id, {
         latitude: null,
@@ -202,7 +208,7 @@ async function clearLegacyImpreciseCoords(): Promise<number> {
 // One-shot backfill on startup. Rate-limited by the global throttle above.
 export async function backfillMissingGeocodes(): Promise<void> {
   try {
-    // Task #268: first-run strict revalidation — clear stale area-level
+    // Task #268 / #282: first-run strict revalidation — clear stale area-level
     // coords once, then let the precision-filtered backfill repopulate.
     try {
       const flag = await storage.getGlobalSetting(STRICT_FLAG_KEY);
@@ -213,7 +219,7 @@ export async function backfillMissingGeocodes(): Promise<void> {
         await storage.setGlobalSetting(STRICT_FLAG_KEY, new Date().toISOString());
         const cleared = await clearLegacyImpreciseCoords();
         if (cleared > 0) {
-          console.log(`[geocoder] strict revalidation: cleared ${cleared} area-level coordinate(s).`);
+          console.log(`[geocoder] strict revalidation v2: cleared ${cleared} area-level coordinate(s).`);
         }
       }
     } catch (err) {
@@ -242,5 +248,119 @@ export async function backfillMissingGeocodes(): Promise<void> {
     console.log(`[geocoder] backfill complete: ${ok}/${missing.length} succeeded.`);
   } catch (err) {
     console.warn(`[geocoder] backfill aborted: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Task #282: City-center geocoding for tiered proximity fallback.
+// These are rough "city, region" query results — not street-level. We accept
+// area-level results here (unlike geocodeAddress which requires precision).
+// Results are cached in memory; no DB persistence needed.
+// ---------------------------------------------------------------------------
+
+interface CityCenter {
+  lat: number;
+  lon: number;
+}
+
+// cityId → center coords, or { failedAt } for failed lookups (TTL-based retry).
+const CITY_CENTER_RETRY_MS = 4 * 60 * 60 * 1000; // retry failed lookups after 4 h
+type CityCenterEntry = CityCenter | { failedAt: number };
+const cityCenterCache = new Map<number, CityCenterEntry>();
+
+function getCityCenter(cityId: number): CityCenter | null {
+  const entry = cityCenterCache.get(cityId);
+  if (!entry) return null;
+  if ("failedAt" in entry) return null;
+  return entry;
+}
+
+function cityCenterCached(cityId: number): boolean {
+  const entry = cityCenterCache.get(cityId);
+  if (!entry) return false;
+  if ("failedAt" in entry) {
+    // Allow retry after TTL
+    return Date.now() - entry.failedAt < CITY_CENTER_RETRY_MS;
+  }
+  return true;
+}
+
+async function fetchCityCenter(cityName: string, regionName: string): Promise<CityCenter | null> {
+  const query = `${cityName}, ${regionName}`;
+  try {
+    await acquireSlot();
+    const url = `${NOMINATIM_URL}?format=json&limit=1&q=${encodeURIComponent(query)}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const row = data[0];
+    const lat = Number(row.lat);
+    const lon = Number(row.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  } catch {
+    return null;
+  }
+}
+
+// Returns true if any city categories have uncached or expired-failure entries.
+// Used by the location-tree endpoint to decide whether to trigger a background retry.
+export function hasMissingCityCenters(): boolean {
+  // This is a cheap synchronous check — callers use it to gate a background refresh.
+  // We can only check against the current cache; the full city list is in the DB.
+  // If the cache is empty or any entry has an expired failure, return true.
+  if (cityCenterCache.size === 0) return true;
+  for (const [, entry] of cityCenterCache) {
+    if ("failedAt" in entry && Date.now() - entry.failedAt >= CITY_CENTER_RETRY_MS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Return whatever city centers are currently cached. Called from the
+// location-tree endpoint — returns partial results while backfill runs.
+export function getCachedCityCenters(): Record<number, CityCenter> {
+  const out: Record<number, CityCenter> = {};
+  for (const [id] of cityCenterCache) {
+    const center = getCityCenter(id);
+    if (center != null) out[id] = center;
+  }
+  return out;
+}
+
+// Fire-and-forget: geocode city centers for all known city categories. Called
+// once at startup, after the location backfill. Rate-limited by the shared
+// Nominatim throttle.
+export async function backfillCityCenters(): Promise<void> {
+  try {
+    const [cityCategories, regions] = await Promise.all([
+      storage.getAllCityCategories(),
+      storage.getAllRegions(),
+    ]);
+    const regionMap = new Map(regions.map(r => [r.id, r.name]));
+    const todo = cityCategories.filter(c => !cityCenterCached(c.id));
+    if (todo.length === 0) return;
+    console.log(`[geocoder] geocoding ${todo.length} city center(s) for tiered proximity…`);
+    let ok = 0;
+    for (const city of todo) {
+      const regionName = regionMap.get(city.regionId) ?? "";
+      const center = await fetchCityCenter(city.name, regionName);
+      cityCenterCache.set(city.id, center ?? { failedAt: Date.now() });
+      if (center) ok += 1;
+    }
+    console.log(`[geocoder] city centers: ${ok}/${todo.length} resolved.`);
+  } catch (err) {
+    console.warn(`[geocoder] city center backfill aborted: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

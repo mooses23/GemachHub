@@ -39,7 +39,7 @@ import {
   migrateDomainInKnowledgeBase,
 } from "./openai-client.js";
 import { filterLocationTree } from "./location-tree-filter.js";
-import { geocodeAddress, clearGeocodeCacheForAddress } from "./geocoder.js";
+import { geocodeAddress, clearGeocodeCacheForAddress, getCachedCityCenters, hasMissingCityCenters, backfillCityCenters } from "./geocoder.js";
 import { z } from "zod";
 import { computeReplyWasEdited } from "./reply-edit-detection.js";
 
@@ -458,7 +458,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         regions: populatedRegions,
         cityCategories: populatedCityCategories,
         locations: locations.map((l) => sanitizeLocationForViewer(l, admin)),
+        cityCenters: getCachedCityCenters(),
       });
+      // Task #282: if any city centers are missing or have expired failure TTLs,
+      // kick off a background retry so they'll be available for the next request.
+      if (hasMissingCityCenters()) {
+        void backfillCityCenters().catch(() => undefined);
+      }
     } catch (error) {
       console.error("Error fetching location tree:", error);
       res.status(500).json({ message: "Failed to fetch location tree" });
