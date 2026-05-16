@@ -6275,13 +6275,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const msg of allMessages) {
         if (!msg.id) continue;
+        // Enforce the time window for ALL messages (including primary inbox scan).
+        // This prevents stale OTP emails still among the latest 30 from being claimed.
+        const emailMs = msg.date ? new Date(msg.date).getTime() : 0;
+        if (emailMs < windowStart) continue;
+
         const isBanzEmail = isBabyBanzVerificationEmail(msg.from ?? '', msg.subject ?? '');
         if (!isBanzEmail) {
-          // Diagnostic: log emails that fall in our window but didn't match the filter
-          const emailMs = msg.date ? new Date(msg.date).getTime() : 0;
-          if (emailMs >= windowStart) {
-            console.log(`restock-code: skipped non-BabyBanz email | from="${msg.from}" subject="${msg.subject}" snippet="${(msg.snippet ?? '').slice(0, 80)}"`);
-          }
+          // Diagnostic: log in-window emails that didn't match the filter
+          console.log(`restock-code: skipped non-BabyBanz email | from="${msg.from}" subject="${msg.subject}" snippet="${(msg.snippet ?? '').slice(0, 80)}"`);
           continue;
         }
         const searchText = [msg.subject ?? '', msg.snippet ?? '', msg.body ?? ''].join(' ');
