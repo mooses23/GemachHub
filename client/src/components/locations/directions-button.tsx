@@ -1,6 +1,7 @@
-// Task #263: small "Directions" deep-link button shown on every location card.
-// Opens a popover with Google Maps / Waze / Apple Maps (mac/iOS only) links.
-// Hidden entirely when the location has no postal address.
+// Task #263 + #268: small "Directions" deep-link button shown on every location
+// card. Opens a popover with Google Maps / Waze / Apple Maps (mac/iOS only)
+// links. Hidden when the location has no postal address — or, per Task #268,
+// when we don't have a precise (street-level) coordinate for it yet.
 import { Navigation } from "lucide-react";
 import {
   Popover,
@@ -12,23 +13,97 @@ import { SiGooglemaps, SiWaze, SiApple } from "react-icons/si";
 
 interface DirectionsButtonProps {
   address?: string | null;
+  // Task #268: cards pass this in so the button stays hidden when the gemach
+  // only has an area-level address (no precise lat/lng from the geocoder).
+  hasCoords?: boolean;
   variant?: "dark" | "light";
 }
 
-function isAppleDevice(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /iPhone|iPad|iPod|Macintosh|Mac OS/i.test(navigator.userAgent);
+type Platform = "ios" | "android" | "mac" | "other";
+
+function detectPlatform(): Platform {
+  if (typeof navigator === "undefined") return "other";
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  if (/Macintosh|Mac OS/i.test(ua)) return "mac";
+  return "other";
 }
 
-export function DirectionsButton({ address, variant = "dark" }: DirectionsButtonProps) {
+// Task #268: native deep links — open the actual map app on mobile instead of
+// bouncing through the browser. We try the native scheme first; if the app
+// takes over (page hides) we stop there. Otherwise we open the https
+// fallback in a new tab after a short delay so the user still gets directions.
+function openWithFallback(nativeUrl: string, httpsFallback: string): void {
+  const start = Date.now();
+  let cancelled = false;
+  // If the app launches, the document becomes hidden as the OS switches
+  // away. Use that signal to cancel the https fallback.
+  const onVisibility = () => {
+    if (document.hidden) cancelled = true;
+  };
+  document.addEventListener("visibilitychange", onVisibility);
+  try {
+    // Hidden iframe avoids replacing the current page if the scheme is
+    // unsupported (Android Chrome handles this gracefully on Android too).
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = nativeUrl;
+    document.body.appendChild(iframe);
+    setTimeout(() => {
+      try { document.body.removeChild(iframe); } catch { /* noop */ }
+    }, 1200);
+  } catch {
+    try { window.location.href = nativeUrl; } catch { /* noop */ }
+  }
+  window.setTimeout(() => {
+    document.removeEventListener("visibilitychange", onVisibility);
+    if (cancelled) return;
+    // Native app didn't pick it up — open the web version instead.
+    if (Date.now() - start < 1800) {
+      try { window.open(httpsFallback, "_blank", "noopener,noreferrer"); } catch { /* noop */ }
+    }
+  }, 1500);
+}
+
+export function DirectionsButton({ address, hasCoords, variant = "dark" }: DirectionsButtonProps) {
   const { t } = useLanguage();
   const trimmed = address?.trim();
   if (!trimmed) return null;
+  // Task #268: suppress when the geocoder didn't get a precise fix. Falsy
+  // (undefined/false/null) → hide. Older call sites that don't pass this prop
+  // would also hide; we update them at the same time so they still render.
+  if (hasCoords === false) return null;
 
   const encoded = encodeURIComponent(trimmed);
-  const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${encoded}`;
-  const wazeUrl = `https://www.waze.com/ul?q=${encoded}&navigate=yes`;
-  const appleUrl = `https://maps.apple.com/?q=${encoded}`;
+  const googleHttps = `https://www.google.com/maps/dir/?api=1&destination=${encoded}`;
+  const wazeHttps = `https://www.waze.com/ul?q=${encoded}&navigate=yes`;
+  const appleHttps = `https://maps.apple.com/?q=${encoded}`;
+
+  const platform = detectPlatform();
+  const googleNative =
+    platform === "ios" ? `comgooglemaps://?daddr=${encoded}&directionsmode=driving` :
+    platform === "android" ? `geo:0,0?q=${encoded}` :
+    null;
+  const wazeNative =
+    platform === "ios" || platform === "android"
+      ? `waze://?q=${encoded}&navigate=yes`
+      : null;
+  const appleNative = platform === "ios" ? `maps://?daddr=${encoded}` : null;
+
+  const onMapClick = (nativeUrl: string | null, httpsUrl: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!nativeUrl) {
+      // Desktop / unknown platform — let the anchor's https href + target
+      // _blank handle it normally. (No preventDefault.)
+      return;
+    }
+    // Mobile — prevent the browser tab so the user doesn't end up with both
+    // the native app and a duplicate web page. openWithFallback opens the
+    // web version only if the native app didn't take over.
+    e.preventDefault();
+    openWithFallback(nativeUrl, httpsUrl);
+  };
 
   const triggerClass =
     variant === "dark"
@@ -36,6 +111,7 @@ export function DirectionsButton({ address, variant = "dark" }: DirectionsButton
       : "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors";
 
   const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const showApple = platform === "ios" || platform === "mac";
 
   return (
     <div onClick={stop} data-contact-actions>
@@ -60,9 +136,10 @@ export function DirectionsButton({ address, variant = "dark" }: DirectionsButton
             {t("openInMaps")}
           </div>
           <a
-            href={googleUrl}
+            href={googleHttps}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={onMapClick(googleNative, googleHttps)}
             className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-100 text-sm"
             data-testid="link-directions-google"
           >
@@ -70,20 +147,22 @@ export function DirectionsButton({ address, variant = "dark" }: DirectionsButton
             <span>{t("googleMaps")}</span>
           </a>
           <a
-            href={wazeUrl}
+            href={wazeHttps}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={onMapClick(wazeNative, wazeHttps)}
             className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-100 text-sm"
             data-testid="link-directions-waze"
           >
             <SiWaze className="h-4 w-4 text-[#33CCFF]" />
             <span>{t("waze")}</span>
           </a>
-          {isAppleDevice() && (
+          {showApple && (
             <a
-              href={appleUrl}
+              href={appleHttps}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={onMapClick(appleNative, appleHttps)}
               className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-100 text-sm"
               data-testid="link-directions-apple"
             >

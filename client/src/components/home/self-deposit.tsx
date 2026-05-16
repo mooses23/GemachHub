@@ -265,6 +265,7 @@ export function SelfDeposit() {
                     <DirectionsButton
                       address={language === "he" && selectedLocationData.addressHe ? selectedLocationData.addressHe : selectedLocationData.address}
                       variant="light"
+                      hasCoords={selectedLocationData.latitude != null && selectedLocationData.longitude != null}
                     />
                   </div>
                 </div>

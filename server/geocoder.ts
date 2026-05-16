@@ -1,6 +1,12 @@
-// Task #263: silent server-side geocoding via Nominatim/OpenStreetMap.
+// Task #263 + #268: silent server-side geocoding via Nominatim/OpenStreetMap.
 // Operators only enter a postal address; we resolve lat/lng best-effort so the
 // public "Find nearest to me" feature can sort by haversine distance.
+//
+// Task #268: only persist coordinates when Nominatim returns a street-level
+// match (house_number present, or a building-class result). Area-level matches
+// like "Miami Beach, FL" or "Detroit, MI" are dropped on the floor so the
+// public "Directions" button stays hidden — area coords led people to the
+// wrong place.
 //
 // Notes:
 //  - Nominatim usage policy: <= 1 req/sec, must set a descriptive User-Agent.
@@ -18,6 +24,18 @@ interface GeocodeResult {
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const USER_AGENT = "BabyBanzEarmuffsGemach/1.0 (admin@earmuffsgemach.com)";
 const MIN_INTERVAL_MS = 1100; // be polite — slightly over 1 req/sec
+
+// Nominatim address-result categories we consider "precise enough" for
+// turn-by-turn directions even when house_number is absent (e.g. a named
+// building/amenity). Anything else (city, town, suburb, county, state,
+// neighbourhood, etc.) is treated as area-level and discarded.
+const PRECISE_ADDRESS_TYPES = new Set([
+  "house", "building", "amenity", "shop", "office",
+  "school", "hospital", "place_of_worship", "synagogue",
+]);
+const PRECISE_CLASSES = new Set([
+  "building", "amenity", "shop", "office",
+]);
 
 const cache = new Map<string, GeocodeResult | null>();
 let lastRequestAt = 0;
@@ -47,6 +65,27 @@ async function acquireSlot(): Promise<void> {
   return myTurn;
 }
 
+interface NominatimRow {
+  lat?: string;
+  lon?: string;
+  class?: string;
+  type?: string;
+  addresstype?: string;
+  address?: {
+    house_number?: string;
+    [k: string]: unknown;
+  };
+}
+
+function isPrecise(row: NominatimRow): boolean {
+  if (row.address?.house_number) return true;
+  const at = row.addresstype?.toLowerCase();
+  if (at && PRECISE_ADDRESS_TYPES.has(at)) return true;
+  const cls = row.class?.toLowerCase();
+  if (cls && PRECISE_CLASSES.has(cls)) return true;
+  return false;
+}
+
 export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
   if (!address || typeof address !== "string") return null;
   const key = normalize(address);
@@ -54,7 +93,10 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
 
   try {
     await acquireSlot();
-    const url = `${NOMINATIM_URL}?format=json&limit=1&q=${encodeURIComponent(address)}`;
+    // Task #268: ask for several candidates and pick the first street-level
+    // one. Nominatim's top hit for "123 Main St, Brooklyn" is often the
+    // city-level result, with the actual street lower in the list.
+    const url = `${NOMINATIM_URL}?format=json&limit=5&addressdetails=1&q=${encodeURIComponent(address)}`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(url, {
@@ -69,14 +111,17 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
       cache.set(key, null);
       return null;
     }
-    const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
-    const first = Array.isArray(data) ? data[0] : undefined;
-    if (!first?.lat || !first?.lon) {
+    const data = (await res.json()) as NominatimRow[];
+    const candidates = Array.isArray(data) ? data : [];
+    const precise = candidates.find((row) => row?.lat && row?.lon && isPrecise(row));
+    if (!precise) {
+      // No street-level match in the top results — keep coords unset so the
+      // public "Directions" button stays hidden for this gemach.
       cache.set(key, null);
       return null;
     }
-    const lat = Number(first.lat);
-    const lon = Number(first.lon);
+    const lat = Number(precise.lat);
+    const lon = Number(precise.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       cache.set(key, null);
       return null;
@@ -108,9 +153,59 @@ export function geocodeAndStore(locationId: number, address: string): void {
   })();
 }
 
+const STRICT_FLAG_KEY = "geocoder.strictRevalidationDoneAt";
+
+// Task #268: one-time pass on startup. Clears coordinates on every existing
+// location whose address is obviously area-level (doesn't start with a street
+// number), and re-runs the regular backfill so the strict precision filter in
+// geocodeAddress() re-evaluates them. Gated by a global_settings flag so it
+// only happens once per environment.
+async function clearLegacyImpreciseCoords(): Promise<number> {
+  const all = await storage.getAllLocations();
+  // Heuristic: a real street address starts with a house-number token
+  // (e.g. "1234 Main St"). Anything that begins with letters
+  // ("Pico Area, …", "Detroit, MI", "Western Run Drive, …") is treated as
+  // area-level and gets its stale coords cleared.
+  const streetNumberRe = /^\s*\d+\s/;
+  let cleared = 0;
+  for (const loc of all) {
+    if (loc.latitude == null || loc.longitude == null) continue;
+    if (streetNumberRe.test(loc.address || "")) continue;
+    try {
+      await storage.updateLocation(loc.id, {
+        latitude: null,
+        longitude: null,
+        geocodedAt: null,
+      });
+      cleared += 1;
+    } catch (err) {
+      console.warn(`[geocoder] failed to clear stale coords for ${loc.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return cleared;
+}
+
 // One-shot backfill on startup. Rate-limited by the global throttle above.
 export async function backfillMissingGeocodes(): Promise<void> {
   try {
+    // Task #268: first-run strict revalidation — clear stale area-level
+    // coords once, then let the precision-filtered backfill repopulate.
+    try {
+      const flag = await storage.getGlobalSetting(STRICT_FLAG_KEY);
+      if (!flag?.value) {
+        // Claim the flag *before* running the expensive pass so a concurrent
+        // startup on another instance skips it. If the pass fails partway,
+        // an admin can clear the flag in global_settings to re-run.
+        await storage.setGlobalSetting(STRICT_FLAG_KEY, new Date().toISOString());
+        const cleared = await clearLegacyImpreciseCoords();
+        if (cleared > 0) {
+          console.log(`[geocoder] strict revalidation: cleared ${cleared} area-level coordinate(s).`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[geocoder] strict revalidation skipped: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     const all = await storage.getAllLocations();
     const missing = all.filter((l) => l.latitude == null && l.address && l.address.trim().length > 0);
     if (missing.length === 0) return;

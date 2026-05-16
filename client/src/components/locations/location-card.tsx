@@ -96,14 +96,20 @@ export function LocationCard({ location, locationNumber, distanceKm }: LocationC
               <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                 {location.isActive ? t("active") : t("inactive")}
               </span>
-              <DirectionsButton address={locAddress} variant="light" />
+              <DirectionsButton
+                address={locAddress}
+                variant="light"
+                hasCoords={location.latitude != null && location.longitude != null}
+              />
             </div>
           </div>
           <div className="mb-4 text-neutral-600">
-            <p className="flex items-center mb-2">
-              <User className="w-5 h-5 mr-2 text-neutral-500 flex-shrink-0" />
-              <span>{locContact}</span>
-            </p>
+            {locContact && (
+              <p className="flex items-center mb-2">
+                <User className="w-5 h-5 mr-2 text-neutral-500 flex-shrink-0" />
+                <span>{locContact}</span>
+              </p>
+            )}
             <p className="flex items-start mb-2">
               <MapPin className="w-5 h-5 mr-2 mt-0.5 text-neutral-500 flex-shrink-0" />
               <span className="break-words" data-testid={`text-location-address-${location.id}`}>{locAddress}</span>

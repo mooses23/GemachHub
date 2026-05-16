@@ -328,41 +328,53 @@ export function HierarchicalLocationSearch() {
               placeholder={t("searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 md:py-5 text-base md:text-lg rounded-full input-glass placeholder:text-slate-500"
+              className="w-full pl-12 pr-14 py-4 md:py-5 text-base md:text-lg rounded-full input-glass placeholder:text-slate-500"
             />
-          </div>
-          {/* Task #263: Find nearest to me */}
-          <div className="max-w-2xl mx-auto mt-3 flex flex-col items-center gap-2">
-            {!nearestActive ? (
-              <button
-                type="button"
-                onClick={requestNearest}
-                disabled={locating}
-                className="btn-glass-primary inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium disabled:opacity-60"
-                data-testid="button-find-nearest"
-              >
-                {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation2 className="h-4 w-4" />}
-                {locating ? t("locating") : t("findNearestToMe")}
-              </button>
-            ) : (
-              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/15 border border-blue-400/30 text-sm text-blue-100">
+            {/* Task #268: small pin icon inside the search bar replaces the
+                large "Find nearest to me" pill. Click toggles geolocation sort. */}
+            <button
+              type="button"
+              onClick={nearestActive ? clearNearest : requestNearest}
+              disabled={locating}
+              aria-label={nearestActive ? t("clearNearest") : t("findNearestToMe")}
+              aria-pressed={nearestActive}
+              title={nearestActive ? t("sortedByDistance") : t("findNearestToMe")}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-10 w-10 rounded-full transition-colors disabled:opacity-60 ${
+                nearestActive
+                  ? "bg-blue-500/30 text-blue-100 border border-blue-400/40 hover:bg-blue-500/40"
+                  : "bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 hover:text-white"
+              }`}
+              data-testid="button-find-nearest"
+            >
+              {locating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
                 <Navigation2 className="h-4 w-4" />
-                <span>{t("sortedByDistance")}</span>
-                <button
-                  type="button"
-                  onClick={clearNearest}
-                  className="inline-flex items-center gap-1 text-xs text-blue-200 hover:text-white"
-                  data-testid="button-clear-nearest"
-                >
-                  <X className="h-3 w-3" />
-                  {t("clearNearest")}
-                </button>
-              </div>
-            )}
-            {locError && (
-              <p className="text-xs text-red-300" data-testid="text-location-error">{locError}</p>
-            )}
+              )}
+            </button>
           </div>
+          {(nearestActive || locError) && (
+            <div className="max-w-2xl mx-auto mt-2 flex flex-col items-center gap-1">
+              {nearestActive && (
+                <div className="inline-flex items-center gap-2 text-xs text-blue-200">
+                  <Navigation2 className="h-3 w-3" />
+                  <span>{t("sortedByDistance")}</span>
+                  <button
+                    type="button"
+                    onClick={clearNearest}
+                    className="inline-flex items-center gap-0.5 text-blue-300 hover:text-white"
+                    data-testid="button-clear-nearest"
+                  >
+                    <X className="h-3 w-3" />
+                    {t("clearNearest")}
+                  </button>
+                </div>
+              )}
+              {locError && (
+                <p className="text-xs text-red-300" data-testid="text-location-error">{locError}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {isInitialLoading ? (
@@ -798,7 +810,11 @@ function LocationCard({ location, region, distanceKm }: LocationCardProps) {
               </p>
             )}
           </div>
-          <DirectionsButton address={locAddress} variant="dark" />
+          <DirectionsButton
+            address={locAddress}
+            variant="dark"
+            hasCoords={location.latitude != null && location.longitude != null}
+          />
         </div>
         
         <div className="space-y-3">
@@ -867,24 +883,22 @@ function LocationCard({ location, region, distanceKm }: LocationCardProps) {
           </div>
         </div>
         
+        {/* Task #268: footer "Contact: …" line removed — the contact name
+            already appears above next to the User icon. Keep active/deposit
+            footer. */}
         <div className="mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center justify-between">
             <div className="text-sm">
-              <span className="text-slate-400">{t("contactLabel")}</span>
-              <span className="font-medium text-slate-300 ml-1">{locContact}</span>
+              <span className="text-slate-400">{t("depositLabel")}</span>
+              <span className="font-medium text-white ml-1">${location.depositAmount}</span>
             </div>
             <span className={`px-2 py-1 text-xs rounded-full ${
-              location.isActive 
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" 
+              location.isActive
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                 : "bg-slate-500/20 text-slate-400 border border-slate-500/30"
             }`}>
               {location.isActive ? t("active") : t("inactive")}
             </span>
-          </div>
-          
-          <div className="mt-2 text-sm">
-            <span className="text-slate-400">{t("depositLabel")}</span>
-            <span className="font-medium text-white ml-1">${location.depositAmount}</span>
           </div>
         </div>
       </div>
