@@ -2405,7 +2405,7 @@ export default function AdminLocations() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); }}
+                        onClick={() => { setSearchTerm(""); setStatusFilter("all"); setOnboardingFilter("all"); setCoordsFilter("all"); }}
                       >
                         {t('clearAll')}
                       </Button>
