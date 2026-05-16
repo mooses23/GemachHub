@@ -6298,24 +6298,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sort newest-first for display; claim using the oldest matching email to maintain
       // the queue invariant (earliest request gets paired with earliest email).
       foundCodes.sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-      const oldestMatch = foundCodes[foundCodes.length - 1]; // last after newest-first sort
 
-      try {
-        const claimed = await storage.claimRestockCodeRequest(globalEarliest.id, oldestMatch.msgId);
-        if (claimed) {
-          const codesForCache = foundCodes.map(({ code, receivedAt }) => ({ code, receivedAt }));
-          // Store in cache under the earliest request's ID (not necessarily this caller's)
-          restockCodeCache.set(globalEarliest.id, { codes: codesForCache, expiresAt: globalEarliest.expiresAt });
-          // If WE are the globally earliest, return the codes immediately
-          if (globalEarliest.id === requestId) {
-            return res.json({ status: 'claimed', codes: codesForCache });
+      // Try to claim, iterating candidates (oldest-first) until one succeeds or all are taken.
+      // This prevents livelock when another concurrent poller claimed the first candidate.
+      const candidates = [...foundCodes].reverse(); // oldest-first for queue fairness
+      for (const candidate of candidates) {
+        try {
+          const claimed = await storage.claimRestockCodeRequest(globalEarliest.id, candidate.msgId);
+          if (claimed) {
+            const codesForCache = foundCodes.map(({ code, receivedAt }) => ({ code, receivedAt }));
+            restockCodeCache.set(globalEarliest.id, { codes: codesForCache, expiresAt: globalEarliest.expiresAt });
+            if (globalEarliest.id === requestId) {
+              return res.json({ status: 'claimed', codes: codesForCache });
+            }
+            // Queue advanced; our slot comes in a future poll cycle
+            break;
           }
-          // Otherwise the queue advanced one slot; our codes come in a future poll cycle
+        } catch (claimErr: unknown) {
+          const claimMsg = claimErr instanceof Error ? claimErr.message : String(claimErr);
+          if (!/unique|duplicate/i.test(claimMsg)) throw claimErr;
+          // Concurrent claim on this candidate — try next candidate
+          console.log(`restock-code: claim conflict on msgId=${candidate.msgId}, trying next candidate`);
         }
-      } catch (claimErr: unknown) {
-        const claimMsg = claimErr instanceof Error ? claimErr.message : String(claimErr);
-        if (!/unique|duplicate/i.test(claimMsg)) throw claimErr;
-        // Concurrent claim by another poller — fall through to pending
       }
       return res.json({ status: 'pending' });
     } catch (err: unknown) {

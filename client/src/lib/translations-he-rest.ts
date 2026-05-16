@@ -1265,6 +1265,7 @@ const dict: Record<RestTranslationKey, string> = {
     verificationCodeWatchingInline: "ממתינים לקוד האימות שלכם…",
     verificationCodeSessionExpired: "הפגישה פגה — לחצו להפעלה מחדש.",
     verificationCodeMultipleFound: "נמצאו כמה קודים — השתמשו בקוד העדכני ביותר",
+    verificationCodeGmailDown: "תיבת הדואר זמנית אינה זמינה — עדיין מנסים…",
 
 };
 

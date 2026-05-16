@@ -312,7 +312,7 @@ function RestockingInstructions({ location }: { location: Location }) {
   };
 
   // ── Verification code watcher (inline, replaces old dialog) ──────────────
-  const [codePollStatus, setCodePollStatus] = useState<'idle' | 'pending' | 'found' | 'expired' | 'error' | 'unavailable' | 'session_expired'>('idle');
+  const [codePollStatus, setCodePollStatus] = useState<'idle' | 'pending' | 'gmail_down' | 'found' | 'expired' | 'error' | 'unavailable' | 'session_expired'>('idle');
   const [foundCodes, setFoundCodes] = useState<Array<{ code: string; receivedAt: string }>>([]);
   const [codeCopiedKey, setCodeCopiedKey] = useState<string | null>(null);
   const [codeTimeLeft, setCodeTimeLeft] = useState(600);
@@ -349,9 +349,11 @@ function RestockingInstructions({ location }: { location: Location }) {
             return;
           }
           consecutiveCodeErrorsRef.current++;
+          if (consecutiveCodeErrorsRef.current >= 5) setCodePollStatus('gmail_down');
           return; // keep polling; Gmail temporarily unavailable
         }
         consecutiveCodeErrorsRef.current = 0;
+        setCodePollStatus(prev => prev === 'gmail_down' ? 'pending' : prev);
         const data = await res.json();
         if (data.status === 'claimed') {
           setFoundCodes(data.codes ?? []);
@@ -598,35 +600,57 @@ function RestockingInstructions({ location }: { location: Location }) {
 
                 {codePollStatus === 'found' && foundCodes.length > 0 && (
                   <div className="space-y-2">
-                    {foundCodes.length > 1 && (
-                      <p className="text-xs text-amber-300 font-medium">{t('verificationCodeMultipleFound')}</p>
-                    )}
-                    {foundCodes.map((entry, idx) => (
-                      <div
-                        key={entry.code + entry.receivedAt}
-                        className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${idx === 0 ? 'bg-green-500/10 border-green-500/40' : 'bg-white/5 border-white/10'}`}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span
-                            className={`text-xs font-medium tabular-nums ${idx === 0 ? 'text-slate-300' : 'text-slate-500'}`}
-                            title={entry.receivedAt}
-                          >
-                            {formatCodeTime(entry.receivedAt)}
-                          </span>
-                          <span className={`font-mono font-bold tracking-[0.25em] text-xl select-all ${idx === 0 ? 'text-green-300' : 'text-slate-400'}`}>
-                            {entry.code}
-                          </span>
-                        </div>
+                    {/* Single-code: prominent large display */}
+                    {foundCodes.length === 1 && (
+                      <div className="p-4 bg-green-500/10 border border-green-500/40 rounded-xl text-center space-y-2">
+                        <p className="text-xs text-slate-400">{t('verificationCodeLabel')}</p>
+                        <p className="font-mono font-bold tracking-[0.3em] text-3xl text-green-300 select-all">
+                          {foundCodes[0].code}
+                        </p>
                         <button
-                          onClick={() => copyCode(entry.code)}
-                          className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors flex-shrink-0 ${idx === 0 ? 'border-green-500/40 text-green-300 hover:bg-green-500/20' : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                          onClick={() => copyCode(foundCodes[0].code)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 rounded-lg text-green-300 text-xs font-medium transition-colors"
                         >
-                          {codeCopiedKey === entry.code
-                            ? <><Check className="h-3 w-3" />{t('valueCopied')}</>
-                            : <><Copy className="h-3 w-3" />{t('verificationCodeCopyCode')}</>}
+                          {codeCopiedKey === foundCodes[0].code
+                            ? <><Check className="h-3.5 w-3.5" />{t('valueCopied')}</>
+                            : <><Copy className="h-3.5 w-3.5" />{t('verificationCodeCopyCode')}</>}
                         </button>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Multi-code: compact list, newest first */}
+                    {foundCodes.length > 1 && (
+                      <>
+                        <p className="text-xs text-amber-300 font-medium">{t('verificationCodeMultipleFound')}</p>
+                        {foundCodes.map((entry, idx) => (
+                          <div
+                            key={entry.code + entry.receivedAt}
+                            className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${idx === 0 ? 'bg-green-500/10 border-green-500/40' : 'bg-white/5 border-white/10'}`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span
+                                className={`text-xs font-medium tabular-nums ${idx === 0 ? 'text-slate-300' : 'text-slate-500'}`}
+                                title={entry.receivedAt}
+                              >
+                                {formatCodeTime(entry.receivedAt)}
+                              </span>
+                              <span className={`font-mono font-bold tracking-[0.25em] text-xl select-all ${idx === 0 ? 'text-green-300' : 'text-slate-400'}`}>
+                                {entry.code}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => copyCode(entry.code)}
+                              className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors flex-shrink-0 ${idx === 0 ? 'border-green-500/40 text-green-300 hover:bg-green-500/20' : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                            >
+                              {codeCopiedKey === entry.code
+                                ? <><Check className="h-3 w-3" />{t('valueCopied')}</>
+                                : <><Copy className="h-3 w-3" />{t('verificationCodeCopyCode')}</>}
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
                     <Button variant="ghost" size="sm" onClick={handleCodeRetry} disabled={requestCodeMutation.isPending} className="text-slate-500 hover:text-slate-300 text-xs w-full mt-1">
                       {requestCodeMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
                       {t('verificationCodeRequestNew')}
@@ -643,6 +667,21 @@ function RestockingInstructions({ location }: { location: Location }) {
                     </div>
                     <Button variant="outline" size="sm" onClick={handleCodeRetry} disabled={requestCodeMutation.isPending} className="border-white/20 hover:bg-white/10 text-slate-300 w-full">
                       {requestCodeMutation.isPending ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />{t('sending')}</> : t('verificationCodeRequestNew')}
+                    </Button>
+                  </div>
+                )}
+
+                {codePollStatus === 'gmail_down' && (
+                  <div className="space-y-2">
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-center space-y-1">
+                      <p className="text-sm text-amber-300">{t('verificationCodeGmailDown')}</p>
+                      <div className="flex items-center justify-center gap-1.5 mt-1">
+                        <Loader2 className="h-3 w-3 animate-spin text-amber-400" />
+                        <span className="text-xs text-amber-400">{t('verificationCodeWatchingInline')}</span>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => { stopCodePolling(); stopCodeCountdown(); setCodePollStatus('idle'); }} className="text-slate-500 hover:text-slate-300 text-xs w-full">
+                      {t('cancel')}
                     </Button>
                   </div>
                 )}

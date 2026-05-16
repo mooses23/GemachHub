@@ -1264,6 +1264,7 @@ const enRest = {
     verificationCodeWatchingInline: "Watching for your verification code…",
     verificationCodeSessionExpired: "Session expired — tap to restart.",
     verificationCodeMultipleFound: "Multiple codes found — use the most recent one",
+    verificationCodeGmailDown: "Inbox temporarily unavailable — still retrying…",
 
 } as const;
 
