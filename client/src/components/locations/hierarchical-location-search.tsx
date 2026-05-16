@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package, Mail, Star, User, Navigation2, Loader2, X } from "lucide-react";
+import { Search, Phone, MapPin, ChevronRight, ArrowLeft, Home, Package, Mail, Star, User, Navigation2, Loader2, X, ChevronDown, ChevronUp } from "lucide-react";
 import { ContactActions } from "@/components/ui/contact-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -415,7 +415,7 @@ export function HierarchicalLocationSearch() {
                 {t("showing")} <span className="font-semibold text-white">{sortedByDistance.length}</span> {t("locations")}
               </p>
             </div>
-            <div className="flex justify-center md:justify-end px-4 md:px-0">
+            <div className="flex justify-center px-4 md:px-0 opacity-70 hover:opacity-100 transition-opacity">
               <CardDensityToggle density={cardDensity} onChange={setCardDensity} variant="dark" />
             </div>
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 px-4 md:px-0 ${cardDensity === "compact" ? "gap-2 md:gap-3" : "gap-4 md:gap-6"}`}>
@@ -437,7 +437,7 @@ export function HierarchicalLocationSearch() {
                 {t("showing")} <span className="font-semibold text-white">{filteredLocations.length}</span> {t("locations")}
               </p>
             </div>
-            <div className="flex justify-center md:justify-end px-4 md:px-0">
+            <div className="flex justify-center px-4 md:px-0 opacity-70 hover:opacity-100 transition-opacity">
               <CardDensityToggle density={cardDensity} onChange={setCardDensity} variant="dark" />
             </div>
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 px-4 md:px-0 ${cardDensity === "compact" ? "gap-2 md:gap-3" : "gap-4 md:gap-6"}`}>
@@ -733,7 +733,7 @@ export function HierarchicalLocationSearch() {
       )}
 
       {Object.keys(groupedByCity).length > 0 && (
-        <div className="flex justify-center md:justify-end px-4 md:px-0 mb-4">
+        <div className="flex justify-center px-4 md:px-0 mb-4 opacity-70 hover:opacity-100 transition-opacity">
           <CardDensityToggle density={cardDensity} onChange={setCardDensity} variant="dark" />
         </div>
       )}
@@ -833,7 +833,8 @@ interface LocationCardProps {
 function LocationCard({ location, region, distanceKm, density = "full" }: LocationCardProps) {
   const { t, language } = useLanguage();
   const [, navigate] = useLocation();
-  const isCompact = density === "compact";
+  const [locallyExpanded, setLocallyExpanded] = useState(false);
+  const isCompact = density === "compact" && !locallyExpanded;
   const locName = pickLocalized(location, "name", language);
   const locAddress = pickLocalized(location, "address", language);
   const locContact = pickLocalized(location, "contactPerson", language);
@@ -854,7 +855,7 @@ function LocationCard({ location, region, distanceKm, density = "full" }: Locati
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest("a") || target.closest("[data-contact-actions]")) return;
+    if (target.closest("a") || target.closest("[data-contact-actions]") || target.closest("[data-expand-toggle]")) return;
     navigate(`/self-deposit?locationId=${location.id}`);
   };
 
@@ -974,6 +975,29 @@ function LocationCard({ location, region, distanceKm, density = "full" }: Locati
                 {location.isActive ? t("active") : t("inactive")}
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Expand / collapse button — only shown in compact density mode */}
+        {density === "compact" && (
+          <div className="mt-2 pt-2 border-t border-white/10" data-expand-toggle>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLocallyExpanded(v => !v); }}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-blue-400 transition-colors w-full justify-center"
+            >
+              {locallyExpanded ? (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  <span>Show less</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span>Show more</span>
+                </>
+              )}
+            </button>
           </div>
         )}
       </div>

@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Location } from "@/lib/types";
-import { User, MapPin, Phone, Mail, Package, Star } from "lucide-react";
+import { User, MapPin, Phone, Mail, Package, Star, ChevronDown, ChevronUp } from "lucide-react";
 import { ContactActionsLight } from "@/components/ui/contact-actions";
 import { useLocation } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
@@ -54,13 +55,13 @@ interface LocationCardProps {
 }
 
 export function LocationCard({ location, locationNumber, distanceKm, density = "full", regionName }: LocationCardProps) {
-  const isCompact = density === "compact";
+  const [locallyExpanded, setLocallyExpanded] = useState(false);
+  const isCompact = density === "compact" && !locallyExpanded;
   const [, navigate] = useLocation();
   const { t, language } = useLanguage();
   const locName = pickLocalized(location, "name", language);
   const locContact = pickLocalized(location, "contactPerson", language);
   const locAddress = pickLocalized(location, "address", language);
-  // Task #271: short city/region label so geography stays visible in compact mode.
   const cityRegionLabel = [location.city, regionName].filter(Boolean).join(", ");
   const { data: inventoryData } = useQuery<{ inventory: { color: string; quantity: number }[]; total: number }>({
     queryKey: ["/api/locations", location.id, "inventory"],
@@ -75,7 +76,7 @@ export function LocationCard({ location, locationNumber, distanceKm, density = "
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest("a") || target.closest("[data-contact-actions]")) return;
+    if (target.closest("a") || target.closest("[data-contact-actions]") || target.closest("[data-expand-toggle]")) return;
     navigate(`/self-deposit?locationId=${location.id}#location-contact`);
   };
   
@@ -176,6 +177,29 @@ export function LocationCard({ location, locationNumber, distanceKm, density = "
               </>
             )}
           </div>
+
+          {/* Expand / collapse button — only shown in compact density mode */}
+          {density === "compact" && (
+            <div className="mt-2 pt-2 border-t border-gray-100" data-expand-toggle>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setLocallyExpanded(v => !v); }}
+                className="flex items-center gap-1 text-xs text-neutral-400 hover:text-blue-600 transition-colors w-full justify-center"
+              >
+                {locallyExpanded ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>Show less</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>Show more</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
