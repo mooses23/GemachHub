@@ -375,7 +375,7 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
                         <span className="text-xs text-muted-foreground truncate hidden sm:inline" dir="ltr">{conv.phone}</span>
                       )}
                       <span className="ms-auto text-xs text-muted-foreground shrink-0">
-                        {formatRelativeTimestamp(conv.lastMessageAt as unknown as string, t, language)}
+                        {formatRelativeTimestamp(conv.lastMessageAt, t, language)}
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground truncate mt-0.5">
@@ -432,7 +432,7 @@ function formatRelativeTimestamp(
 function MessageBubble({ message, language }: { message: SmsMessage; language: string }) {
   const { t } = useLanguage();
   const outbound = message.direction === "outbound";
-  const sentAt = new Date(message.sentAt as unknown as string);
+  const sentAt = message.sentAt instanceof Date ? message.sentAt : new Date(message.sentAt as string);
   const timeLabel = isNaN(sentAt.getTime())
     ? ""
     : sentAt.toLocaleString(language === "he" ? "he-IL" : undefined, {
