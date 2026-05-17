@@ -12,19 +12,22 @@ const heroWebp384 = "/img/hero-384.webp";
 const heroWebp640 = "/img/hero-640.webp";
 const heroWebp1024 = "/img/hero-1024.webp";
 const heroWebp1920 = "/img/hero-1920.webp";
-import { MapPin, Phone, RotateCcw } from "lucide-react";
+import { MapPin, Phone, RotateCcw, X } from "lucide-react";
 
 export default function Home() {
   const { t } = useLanguage();
   const [showStory, setShowStory] = useState(false);
 
   const handleBannerClick = () => {
-    if (!showStory) {
-      if (navigator.vibrate) {
-        navigator.vibrate([10, 40, 10]);
-      }
-      setShowStory(true);
+    if (!showStory && navigator.vibrate) {
+      navigator.vibrate([10, 40, 10]);
     }
+    setShowStory((v) => !v);
+  };
+
+  const handleCloseStory = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowStory(false);
   };
 
   return (
@@ -35,11 +38,14 @@ export default function Home() {
         <div className="glow-orb-teal top-1/3 -right-32 animate-float-delayed opacity-50"></div>
         <div className="glow-orb-accent bottom-1/4 left-1/4 animate-pulse-glow opacity-40"></div>
 
-        {/* Hero photo backdrop — extends from the very top of the page,
-            behind the dedication banner and any expanded story panel,
-            and bleeds softly into the slate gradient at the bottom. */}
+        {/* Hero wrapper — contains the photo backdrop + dedication banner +
+            (optional) story panel. Uses min-height so when the story is
+            collapsed the photo fills the space, and when expanded the
+            wrapper grows so there is no awkward gap before the content
+            below. */}
+        <div className="relative min-h-[680px] md:min-h-[1170px]">
         <div
-          className="absolute inset-x-0 top-0 h-[680px] md:h-[1170px] overflow-hidden pointer-events-none"
+          className="absolute inset-0 overflow-hidden pointer-events-none"
           aria-hidden="true"
         >
           {/* Picture wrapper — full width on mobile so it fills the screen,
@@ -84,21 +90,22 @@ export default function Home() {
               }}
             ></div>
           </div>
-          {/* Bottom bleed — fades the photo into the slate background so
-              there is no hard seam where the picture ends. */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(to bottom, rgba(15,23,42,0) 0%, rgba(15,23,42,0) 55%, rgba(15,23,42,0.55) 80%, rgba(15,23,42,0.95) 96%, rgba(15,23,42,1) 100%)',
-            }}
-          ></div>
           {/* Subtle vignette so the corners blend rather than hard-cut. */}
           <div
             className="absolute inset-0"
             style={{
               background:
                 'radial-gradient(ellipse at center top, transparent 55%, rgba(15,23,42,0.35) 100%)',
+            }}
+          ></div>
+          {/* Bottom bleed — long, gradual fade anchored to the wrapper bottom
+              so the photo dissolves into the slate background flush with the
+              headline section below. Painted last so it sits above the photo. */}
+          <div
+            className="absolute inset-x-0 bottom-0 h-[55%]"
+            style={{
+              background:
+                'linear-gradient(to bottom, rgba(15,23,42,0) 0%, rgba(15,23,42,0.15) 35%, rgba(15,23,42,0.55) 65%, rgba(15,23,42,0.9) 88%, rgba(15,23,42,1) 100%)',
             }}
           ></div>
         </div>
@@ -163,6 +170,16 @@ export default function Home() {
                     ></div>
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={handleCloseStory}
+                    aria-label={t('close') || 'Close'}
+                    className="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full flex items-center justify-center text-amber-200/70 hover:text-amber-100 hover:bg-amber-500/10 transition-colors"
+                    data-testid="button-close-tribute"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+
                   <div className="relative px-6 py-6 md:px-10 md:py-8 space-y-3">
                     <p className="font-serif text-sm md:text-base text-amber-100/90 leading-relaxed tracking-wide" data-testid="text-tribute-para-1">
                       {t('tributePara1Lead')}{t('tributeFounderName')} <span className="text-amber-300/80 text-xs align-super font-sans">{t('tributeFounderHonor')}</span>{t('tributePara1Tail')}
@@ -190,10 +207,11 @@ export default function Home() {
             </div>
           </div>
         )}
+        </div>
 
         {/* Hero Section — headline + search card sit below the photo backdrop */}
         <div className="relative z-10">
-          <div className="container mx-auto px-4 pt-[660px] md:pt-[1130px] pb-10 md:pb-20">
+          <div className="container mx-auto px-4 pt-8 md:pt-12 pb-10 md:pb-20">
             <div className="text-center max-w-4xl mx-auto mb-10 md:mb-14">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-5 md:mb-7 leading-tight text-glow">
                 {t("findBabyEarmuffsNearYou")}
