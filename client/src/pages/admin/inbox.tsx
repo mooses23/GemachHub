@@ -192,7 +192,9 @@ export default function AdminInbox() {
   // surfaces without a manual refresh.
   const inboxCountsQuery = useQuery<{ inbox: number; sent: number; spam: number; trash: number; smsUnread?: number; whatsappUnread?: number }>({
     queryKey: ["/api/admin/inbox/counts"],
-    refetchInterval: 15_000,
+    // 30 s aligns with the SMS list/thread polling cadence so all inbox
+    // signals refresh on the same heartbeat.
+    refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   });
   const smsUnread = inboxCountsQuery.data?.smsUnread ?? 0;
