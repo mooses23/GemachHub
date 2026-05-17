@@ -3656,6 +3656,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task #311: One-shot backfill that re-runs the phone resolver against
+  // conversations created before auto-resolution shipped. We page through
+  // every conversation (sms + whatsapp, inbox + archived) and, for any row
+  // missing a displayName OR locationId, call resolvePhoneOwner and patch
+  // ONLY the still-null fields. Manual assignments are never overwritten:
+  // before each patch we re-read the conversation so a manual assignment
+  // that happened between paging and patching wins over our resolved value.
+  app.post("/api/admin/sms/conversations/backfill-names", async (req, res) => {
+    if (!requireAdminInline(req, res)) return;
+    try {
+      const { resolvePhoneOwner } = await import('./sms-resolver.js');
+      const pageSize = 200;
+      let offset = 0;
+      let scanned = 0;
+      let updated = 0;
+      let resolved = 0;
+      // Pull every row regardless of folder/channel by paging until empty.
+      while (true) {
+        const { rows } = await storage.listSmsConversations({ limit: pageSize, offset });
+        if (!rows.length) break;
+        for (const convo of rows) {
+          scanned++;
+          if (convo.displayName && convo.locationId) continue;
+          try {
+            const owner = await resolvePhoneOwner(convo.phone, storage);
+            if (!owner.displayName && !owner.locationId) continue;
+            resolved++;
+            // Re-read the conversation immediately before patching so a
+            // manual assignment made between paging and now isn't clobbered.
+            // We base the patch on the *fresh* row's nullness, not the
+            // stale snapshot from the paged list.
+            const fresh = await storage.getSmsConversation(convo.id);
+            if (!fresh) continue;
+            const patch: { displayName?: string; locationId?: number } = {};
+            if (!fresh.displayName && owner.displayName) patch.displayName = owner.displayName;
+            if (!fresh.locationId && owner.locationId) patch.locationId = owner.locationId;
+            if (Object.keys(patch).length > 0) {
+              await storage.updateSmsConversation(convo.id, patch);
+              updated++;
+            }
+          } catch (e: any) {
+            console.warn('[admin/sms/backfill-names] resolve failed for convo', convo.id, e?.message);
+          }
+        }
+        if (rows.length < pageSize) break;
+        offset += pageSize;
+      }
+      console.log(`[admin/sms/backfill-names] scanned=${scanned} resolved=${resolved} updated=${updated}`);
+      res.json({ scanned, resolved, updated });
+    } catch (err: any) {
+      console.error('[admin/sms/conversations/backfill-names] error:', err);
+      res.status(500).json({ message: err?.message || 'Failed to backfill names' });
+    }
+  });
+
   // Send a reply on a conversation. Routes the body through Twilio on the same
   // channel (sms or whatsapp) as the conversation, then mirrors it into the thread.
   app.post("/api/admin/sms/conversations/:id/reply", async (req, res) => {

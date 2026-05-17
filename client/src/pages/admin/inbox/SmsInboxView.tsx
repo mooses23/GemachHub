@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Search,
   HelpCircle,
+  Wand2,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import type { Location, SmsConversation, SmsMessage } from "@shared/schema";
@@ -155,6 +156,29 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
     },
   });
 
+  // Task #311: one-shot backfill — re-runs the phone resolver against every
+  // older conversation that still has no displayName or locationId. The
+  // server only fills still-null fields so manual assignments are preserved.
+  const backfillNamesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/sms/conversations/backfill-names", {});
+      return (await res.json()) as { scanned: number; resolved: number; updated: number };
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/sms/conversations"] });
+      toast({
+        title: t("smsBackfillDoneTitle"),
+        description: t("smsBackfillDoneDesc")
+          .replace("{scanned}", String(data.scanned))
+          .replace("{updated}", String(data.updated)),
+      });
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: t("smsBackfillFailedToast"), description: msg, variant: "destructive" });
+    },
+  });
+
   const replyMutation = useMutation({
     mutationFn: async ({ id, body }: { id: number; body: string }) =>
       apiRequest("POST", `/api/admin/sms/conversations/${id}/reply`, { body }),
@@ -248,6 +272,20 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
       >
         <HelpCircle className="h-4 w-4 me-1.5" />
         {t("smsFilterUnknown")}
+      </Button>
+      {/* Task #311: admin-triggered one-shot backfill that re-runs the phone
+          resolver against older conversations created before auto-resolution
+          shipped. Idempotent — safe to click more than once. */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => backfillNamesMutation.mutate()}
+        disabled={backfillNamesMutation.isPending}
+        aria-label={t("smsBackfillNamesAria")}
+        data-testid="sms-backfill-names"
+      >
+        <Wand2 className="h-4 w-4 me-1.5" />
+        {backfillNamesMutation.isPending ? t("smsBackfillRunning") : t("smsBackfillNames")}
       </Button>
       {/* Task #309: search across phone, displayName, and joined location.name. */}
       <div className="relative ms-auto w-full sm:w-64">

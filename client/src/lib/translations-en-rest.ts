@@ -1335,6 +1335,14 @@ const enRest = {
     smsResolvedBadgeBorrower: "Borrower",
     smsResolvedBadgeOperator: "Operator",
 
+    // Task #311: one-shot backfill of resolved names on older conversations
+    smsBackfillNames: "Backfill names",
+    smsBackfillNamesAria: "Re-run name resolution on older conversations",
+    smsBackfillRunning: "Backfilling…",
+    smsBackfillDoneTitle: "Backfill complete",
+    smsBackfillDoneDesc: "Scanned {scanned} · updated {updated}",
+    smsBackfillFailedToast: "Backfill failed",
+
 } as const;
 
 export default enRest;
