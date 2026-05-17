@@ -22,14 +22,9 @@ import { SiWhatsapp } from "react-icons/si";
 import { formatDate } from "./utils";
 import type { SmsConversation, SmsMessage } from "@shared/schema";
 
-type Channel = "sms" | "whatsapp";
+type Channel = "all" | "sms" | "whatsapp";
 
 interface Props {
-  // The parent toggles between "sms" and "whatsapp" via the source filter.
-  // The channel chips at the top of this view set this same parent state so
-  // the badge counts in the source filter stay in sync.
-  channel: Channel;
-  setChannel: (c: Channel) => void;
   smsUnread: number;
   whatsappUnread: number;
 }
@@ -49,10 +44,11 @@ interface MessagesResponse {
 // and per-conversation reply flow don't fit the email/form UnifiedItem model.
 // Polls every 30 s (matching the email inbox cadence) so inbound replies
 // surface without manual refresh.
-export function SmsInboxView({ channel, setChannel, smsUnread, whatsappUnread }: Props) {
+export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [channel, setChannel] = useState<Channel>("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [reply, setReply] = useState("");
@@ -68,11 +64,14 @@ export function SmsInboxView({ channel, setChannel, smsUnread, whatsappUnread }:
   const listQuery = useQuery<ListResponse>({
     queryKey: ["/api/admin/sms/conversations", channel, showArchived ? "archived" : "inbox"],
     queryFn: async () => {
+      // Omit the channel param entirely when the user picked "All" — the
+      // server treats an unrecognized/missing channel as "no filter" and
+      // returns SMS + WhatsApp combined.
       const params = new URLSearchParams({
-        channel,
         folder: showArchived ? "archived" : "inbox",
         limit: "100",
       });
+      if (channel !== "all") params.set("channel", channel);
       const res = await fetch(`/api/admin/sms/conversations?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || "Failed to load conversations");
       return res.json();
@@ -145,34 +144,37 @@ export function SmsInboxView({ channel, setChannel, smsUnread, whatsappUnread }:
 
   const rows = listQuery.data?.rows ?? [];
 
-  // ===== Channel chips + archived toggle (always visible) =====
+  // ===== Channel chips (All / SMS / WhatsApp) + archived toggle =====
+  const channelChips: { value: Channel; label: string; unread: number; Icon: React.ComponentType<{ className?: string }> }[] = [
+    { value: "all", label: t("smsChannelAll"), unread: smsUnread + whatsappUnread, Icon: MessageSquare },
+    { value: "sms", label: t("smsChannelSms"), unread: smsUnread, Icon: MessageSquare },
+    { value: "whatsapp", label: t("smsChannelWhatsapp"), unread: whatsappUnread, Icon: SiWhatsapp },
+  ];
   const header = (
     <div className="flex flex-wrap items-center gap-2 mb-3">
       <div className="flex items-center gap-1 rounded-full border bg-background p-0.5" role="tablist" aria-label={t("smsChannelChips")}>
-        {(["sms", "whatsapp"] as const).map((c) => {
-          const active = channel === c;
-          const unread = c === "sms" ? smsUnread : whatsappUnread;
-          const Icon = c === "whatsapp" ? SiWhatsapp : MessageSquare;
+        {channelChips.map(({ value, label, unread, Icon }) => {
+          const active = channel === value;
           return (
             <button
-              key={c}
+              key={value}
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setChannel(c)}
+              onClick={() => setChannel(value)}
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
                 active ? "bg-primary text-primary-foreground" : "text-foreground hover-elevate"
               }`}
-              data-testid={`sms-channel-chip-${c}`}
+              data-testid={`sms-channel-chip-${value}`}
             >
               <Icon className="h-3.5 w-3.5" />
-              <span>{c === "sms" ? t("smsChannelSms") : t("smsChannelWhatsapp")}</span>
+              <span>{label}</span>
               {unread > 0 && (
                 <span
-                  className={`ml-1 rounded-full px-1.5 text-[10px] font-medium ${
+                  className={`ms-1 rounded-full px-1.5 text-[10px] font-medium ${
                     active ? "bg-primary-foreground/20" : "bg-muted"
                   }`}
-                  data-testid={`sms-channel-chip-${c}-count`}
+                  data-testid={`sms-channel-chip-${value}-count`}
                 >
                   {unread}
                 </span>

@@ -1289,9 +1289,9 @@ const enRest = {
     verificationCodeGmailDown: "Inbox temporarily unavailable — still retrying…",
 
     // SMS / WhatsApp inbox (Task #308)
-    inboxSourceSms: "SMS",
-    inboxSourceWhatsapp: "WhatsApp",
+    inboxSourceSmsWhatsapp: "SMS / WhatsApp",
     smsChannelChips: "Channel",
+    smsChannelAll: "All",
     smsChannelSms: "SMS",
     smsChannelWhatsapp: "WhatsApp",
     smsFolderInbox: "Inbox",

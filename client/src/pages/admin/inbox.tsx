@@ -197,9 +197,10 @@ export default function AdminInbox() {
   });
   const smsUnread = inboxCountsQuery.data?.smsUnread ?? 0;
   const whatsappUnread = inboxCountsQuery.data?.whatsappUnread ?? 0;
-  // True when the user has filtered the inbox down to the SMS or WhatsApp
-  // channel. In that mode we hand the entire list+detail area over to
-  // SmsInboxView and bypass the email/form rendering pipeline below.
+  // True when the user picked the unified "SMS / WhatsApp" source. In that
+  // mode we hand the entire list+detail area over to SmsInboxView (which
+  // manages its own All/SMS/WhatsApp channel chips internally) and bypass
+  // the email/form rendering pipeline below.
   const isSmsView = filters.sourceFilter === "sms" || filters.sourceFilter === "whatsapp";
 
   // When the user pivots into SMS/WhatsApp, drop any email/form selection so
@@ -2218,10 +2219,8 @@ export default function AdminInbox() {
                       <SelectItem value="email" data-testid="filter-source-email">{t("inboxSourceEmail")}</SelectItem>
                       <SelectItem value="form" data-testid="filter-source-form">{t("inboxSourceForm")}</SelectItem>
                       <SelectItem value="sms" data-testid="filter-source-sms">
-                        {t("inboxSourceSms")}{smsUnread > 0 ? ` (${smsUnread})` : ""}
-                      </SelectItem>
-                      <SelectItem value="whatsapp" data-testid="filter-source-whatsapp">
-                        {t("inboxSourceWhatsapp")}{whatsappUnread > 0 ? ` (${whatsappUnread})` : ""}
+                        {t("inboxSourceSmsWhatsapp")}
+                        {smsUnread + whatsappUnread > 0 ? ` (${smsUnread + whatsappUnread})` : ""}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -2292,8 +2291,6 @@ export default function AdminInbox() {
 
         {isSmsView && (
           <SmsInboxView
-            channel={filters.sourceFilter as "sms" | "whatsapp"}
-            setChannel={setSourceFilter}
             smsUnread={smsUnread}
             whatsappUnread={whatsappUnread}
           />

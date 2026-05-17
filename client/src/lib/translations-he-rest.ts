@@ -1290,9 +1290,9 @@ const dict: Record<RestTranslationKey, string> = {
     verificationCodeGmailDown: "תיבת הדואר זמנית אינה זמינה — עדיין מנסים…",
 
     // SMS / WhatsApp inbox (Task #308)
-    inboxSourceSms: "SMS",
-    inboxSourceWhatsapp: "ווטסאפ",
+    inboxSourceSmsWhatsapp: "SMS / ווטסאפ",
     smsChannelChips: "ערוץ",
+    smsChannelAll: "הכל",
     smsChannelSms: "SMS",
     smsChannelWhatsapp: "ווטסאפ",
     smsFolderInbox: "תיבת דואר נכנס",
