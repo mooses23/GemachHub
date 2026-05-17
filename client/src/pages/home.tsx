@@ -7,9 +7,11 @@ import { useLanguage } from "@/hooks/use-language";
 const heroJpg384 = "/img/hero-384.jpg";
 const heroJpg640 = "/img/hero-640.jpg";
 const heroJpg1024 = "/img/hero-1024.jpg";
+const heroJpg1920 = "/img/hero-1920.jpg";
 const heroWebp384 = "/img/hero-384.webp";
 const heroWebp640 = "/img/hero-640.webp";
 const heroWebp1024 = "/img/hero-1024.webp";
+const heroWebp1920 = "/img/hero-1920.webp";
 import { MapPin, Phone, RotateCcw } from "lucide-react";
 
 export default function Home() {
@@ -121,39 +123,53 @@ export default function Home() {
           </div>
         )}
 
-        {/* Hero Section */}
+        {/* Hero Section — full-bleed image backdrop */}
         <div className="relative z-10">
-          <div className="container mx-auto px-4 py-10 md:py-20">
+          {/* Full-width hero photo layer, behind the headline + search card */}
+          <div className="absolute inset-x-0 top-0 h-full overflow-hidden pointer-events-none" aria-hidden="true">
+            <picture>
+              <source
+                type="image/webp"
+                srcSet={`${heroWebp384} 384w, ${heroWebp640} 640w, ${heroWebp1024} 1024w, ${heroWebp1920} 1920w`}
+                sizes="100vw"
+              />
+              <img
+                src={heroJpg1024}
+                srcSet={`${heroJpg384} 384w, ${heroJpg640} 640w, ${heroJpg1024} 1024w, ${heroJpg1920} 1920w`}
+                sizes="100vw"
+                width={1920}
+                height={1080}
+                alt=""
+                className="w-full h-full object-cover object-center"
+                decoding="async"
+                fetchpriority="high"
+              />
+            </picture>
+            {/* Soft slate blend — top fades into the dedication ribbon,
+                bottom fades into the next section, middle dims just enough
+                for white text to stay legible over the photo. */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(to bottom, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.55) 18%, rgba(15,23,42,0.45) 50%, rgba(15,23,42,0.75) 82%, rgba(15,23,42,0.98) 100%)',
+              }}
+            ></div>
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(ellipse at center, transparent 0%, rgba(15,23,42,0.35) 70%, rgba(15,23,42,0.7) 100%)',
+              }}
+            ></div>
+          </div>
+
+          <div className="relative container mx-auto px-4 py-16 md:py-28">
             <div className="text-center max-w-4xl mx-auto mb-10 md:mb-14">
-              <div className="mb-8">
-                <div className="relative inline-block">
-                  <div className="absolute inset-0 bg-slate-800 blur-2xl rounded-full scale-150"></div>
-                  <div className="relative w-48 h-48 md:w-64 md:h-64 mx-auto rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl" style={{ backgroundColor: '#0f1a30' }}>
-                    <picture>
-                      <source
-                        type="image/webp"
-                        srcSet={`${heroWebp384} 384w, ${heroWebp640} 640w, ${heroWebp1024} 1024w`}
-                        sizes="(max-width: 768px) 192px, 256px"
-                      />
-                      <img
-                        src={heroJpg640}
-                        srcSet={`${heroJpg384} 384w, ${heroJpg640} 640w, ${heroJpg1024} 1024w`}
-                        sizes="(max-width: 768px) 192px, 256px"
-                        width={1200}
-                        height={1200}
-                        alt="Founder's mother holding her grandchild wearing Baby Banz earmuffs"
-                        className="w-full h-full object-cover"
-                        decoding="async"
-                        fetchpriority="high"
-                      />
-                    </picture>
-                  </div>
-                </div>
-              </div>
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-5 md:mb-7 leading-tight text-glow">
                 {t("findBabyEarmuffsNearYou")}
               </h1>
-              <p className="text-lg md:text-xl text-slate-300 mb-8 md:mb-10 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-lg md:text-xl text-slate-200 mb-8 md:mb-10 max-w-2xl mx-auto leading-relaxed">
                 {t("homeHeroDescription")}
               </p>
             </div>
