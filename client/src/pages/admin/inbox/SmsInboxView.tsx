@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import type { SmsConversation, SmsMessage } from "@shared/schema";
+import type { TranslationKey } from "@/lib/translations";
 
 type Channel = SmsChannel;
 
@@ -404,7 +405,7 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
 // than a week so older threads stay readable.
 function formatRelativeTimestamp(
   raw: string | Date | null | undefined,
-  t: (k: any, params?: Record<string, string | number>) => string,
+  t: (k: TranslationKey, params?: Record<string, string | number>) => string,
   language: string,
 ): string {
   if (!raw) return "";
