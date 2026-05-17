@@ -201,7 +201,7 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
         onClick={() => setShowArchived(v => !v)}
         data-testid="sms-folder-toggle"
       >
-        {showArchived ? <ArchiveRestore className="h-4 w-4 mr-1.5" /> : <Archive className="h-4 w-4 mr-1.5" />}
+        {showArchived ? <ArchiveRestore className="h-4 w-4 me-1.5" /> : <Archive className="h-4 w-4 me-1.5" />}
         {showArchived ? t("smsFolderArchived") : t("smsFolderInbox")}
       </Button>
     </div>
@@ -224,7 +224,7 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
             onClick={() => setSelectedId(null)}
             data-testid="sms-thread-back"
           >
-            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            <ArrowLeft className="h-4 w-4 me-1.5" />
             {t("smsBackToList")}
           </Button>
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -236,8 +236,8 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
               )}
             </div>
             {isOptedOut && (
-              <Badge variant="destructive" className="ml-auto shrink-0" data-testid="sms-opted-out-badge">
-                <ShieldAlert className="h-3 w-3 mr-1" />
+              <Badge variant="destructive" className="ms-auto shrink-0" data-testid="sms-opted-out-badge">
+                <ShieldAlert className="h-3 w-3 me-1" />
                 {t("smsOptedOutBadge")}
               </Badge>
             )}
@@ -249,7 +249,7 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
             disabled={archiveMutation.isPending}
             data-testid="sms-thread-archive-toggle"
           >
-            {selectedConversation.isArchived ? <ArchiveRestore className="h-4 w-4 mr-1.5" /> : <Archive className="h-4 w-4 mr-1.5" />}
+            {selectedConversation.isArchived ? <ArchiveRestore className="h-4 w-4 me-1.5" /> : <Archive className="h-4 w-4 me-1.5" />}
             {selectedConversation.isArchived ? t("smsUnarchiveAction") : t("smsArchiveAction")}
           </Button>
         </div>
@@ -315,7 +315,7 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
               disabled={reply.trim().length === 0 || replyMutation.isPending}
               data-testid="sms-reply-send"
             >
-              <Send className="h-4 w-4 mr-1.5" />
+              <Send className="h-4 w-4 me-1.5" />
               {t("smsReplySend")}
             </Button>
           </div>
@@ -402,7 +402,7 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
                     </div>
                     <div className="text-sm text-muted-foreground truncate mt-0.5">
                       {conv.lastDirection === "outbound" && (
-                        <span className="text-muted-foreground/70 mr-1">{t("smsListLastSentPrefix")}</span>
+                        <span className="text-muted-foreground/70 me-1">{t("smsListLastSentPrefix")}</span>
                       )}
                       {conv.lastMessagePreview || ""}
                     </div>
