@@ -1323,6 +1323,18 @@ const enRest = {
     smsRelativeHours: "{count}h",
     smsRelativeDays: "{count}d",
 
+    // Task #309: contact / location linking
+    smsSearchPlaceholder: "Search by phone, name, or gemach…",
+    smsSearchAriaLabel: "Search conversations",
+    smsFilterUnknown: "Unknown",
+    smsFilterUnknownAria: "Show only unlinked conversations",
+    smsAssignToLocation: "Assign to gemach",
+    smsAssignNone: "Unassigned",
+    smsAssignedToast: "Conversation assigned",
+    smsAssignFailedToast: "Couldn't assign conversation",
+    smsResolvedBadgeBorrower: "Borrower",
+    smsResolvedBadgeOperator: "Operator",
+
 } as const;
 
 export default enRest;

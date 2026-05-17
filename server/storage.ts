@@ -266,6 +266,11 @@ export interface IStorage {
     channel?: SmsChannel;
     folder?: 'inbox' | 'archived';
     unreadOnly?: boolean;
+    /** Task #309: only conversations with no resolved displayName AND no
+     *  assigned locationId — the "Unknown" triage queue. */
+    unlinkedOnly?: boolean;
+    /** Task #309: free-text search across phone, displayName, and the
+     *  joined location.name so admins can find threads by gemach name too. */
     q?: string;
     limit?: number;
     offset?: number;
@@ -3655,6 +3660,7 @@ export class MemStorage implements IStorage {
     channel?: SmsChannel;
     folder?: 'inbox' | 'archived';
     unreadOnly?: boolean;
+    unlinkedOnly?: boolean;
     q?: string;
     limit?: number;
     offset?: number;
@@ -3664,9 +3670,24 @@ export class MemStorage implements IStorage {
     if (opts?.folder === 'archived') rows = rows.filter(r => r.isArchived);
     else if (opts?.folder === 'inbox') rows = rows.filter(r => !r.isArchived);
     if (opts?.unreadOnly) rows = rows.filter(r => r.unreadCount > 0);
-    if (opts?.q) {
-      const q = opts.q.toLowerCase();
-      rows = rows.filter(r => r.phone.toLowerCase().includes(q) || (r.displayName || '').toLowerCase().includes(q));
+    // Task #309: "Unknown" — unresolved AND unassigned.
+    if (opts?.unlinkedOnly) {
+      rows = rows.filter(r => !r.displayName && r.locationId === null);
+    }
+    // Task #309: search across phone, displayName, and joined location.name.
+    if (opts?.q && opts.q.trim()) {
+      const q = opts.q.trim().toLowerCase();
+      // Resolve location-name matches up front so we can short-circuit the
+      // per-row check (mirrors the DatabaseStorage two-step strategy).
+      const matchingLocIds = new Set<number>();
+      Array.from(this.locations.values()).forEach((loc) => {
+        if (loc.name?.toLowerCase().includes(q)) matchingLocIds.add(loc.id);
+      });
+      rows = rows.filter(r =>
+        r.phone.toLowerCase().includes(q) ||
+        (r.displayName || '').toLowerCase().includes(q) ||
+        (r.locationId !== null && matchingLocIds.has(r.locationId))
+      );
     }
     rows.sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
     const total = rows.length;

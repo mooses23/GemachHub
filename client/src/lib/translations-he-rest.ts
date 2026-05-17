@@ -1324,6 +1324,18 @@ const dict: Record<RestTranslationKey, string> = {
     smsRelativeHours: "{count} שע׳",
     smsRelativeDays: "{count} ימים",
 
+    // Task #309: contact / location linking
+    smsSearchPlaceholder: "חיפוש לפי טלפון, שם או גמ״ח…",
+    smsSearchAriaLabel: "חיפוש שיחות",
+    smsFilterUnknown: "לא מזוהה",
+    smsFilterUnknownAria: "הצג רק שיחות שאינן משויכות",
+    smsAssignToLocation: "שיוך לגמ״ח",
+    smsAssignNone: "לא משויך",
+    smsAssignedToast: "השיחה שויכה",
+    smsAssignFailedToast: "לא ניתן היה לשייך את השיחה",
+    smsResolvedBadgeBorrower: "לווה",
+    smsResolvedBadgeOperator: "מפעיל",
+
 };
 
 export default dict;

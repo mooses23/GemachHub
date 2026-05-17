@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useConversations, useConversationMessages, type SmsChannel } from "./sms-hooks";
 import { useToast } from "@/hooks/use-toast";
@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ArrowLeft,
   Send,
@@ -18,10 +26,17 @@ import {
   Check,
   CheckCheck,
   AlertCircle,
+  Search,
+  HelpCircle,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
-import type { SmsConversation, SmsMessage } from "@shared/schema";
+import type { Location, SmsConversation, SmsMessage } from "@shared/schema";
 import type { TranslationKey } from "@/lib/translations";
+
+// Sentinel used by the "Assign to gemach" <Select> for the "Unassigned"
+// option. Radix <SelectItem> forbids an empty-string value, so we map
+// this sentinel to `null` when sending to the API.
+const ASSIGN_NONE = "__none__";
 
 type Channel = SmsChannel;
 
@@ -43,7 +58,18 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [reply, setReply] = useState("");
+  // Task #309: free-text search + "Unknown" triage filter. We debounce the
+  // search input so each keystroke doesn't fire a request; 250 ms matches
+  // the email inbox cadence and stays inside the "feels instant" window.
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [unlinkedOnly, setUnlinkedOnly] = useState(false);
   const threadScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(searchInput), 250);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
 
   // Reset thread selection (and any draft reply) when the user flips
   // channels, folders, or conversations. Without resetting `reply`, a draft
@@ -56,8 +82,35 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
   // 30 s polling cadence, query-key shape, and error handling stay in one
   // place (and so other surfaces, e.g. a future contact-page sidebar, can
   // reuse them without duplicating fetch logic).
-  const listQuery = useConversations(channel, showArchived ? "archived" : "inbox");
+  const listQuery = useConversations(channel, showArchived ? "archived" : "inbox", {
+    q: debouncedSearch,
+    unlinkedOnly,
+  });
   const threadQuery = useConversationMessages(selectedId);
+
+  // Locations list — used to populate the "Assign to gemach" dropdown and to
+  // render the gemach name next to a resolved conversation. Cached
+  // aggressively because the list rarely changes.
+  const locationsQuery = useQuery<Location[]>({ queryKey: ["/api/locations"] });
+  const locationsById = useMemo(() => {
+    const m = new Map<number, Location>();
+    for (const l of locationsQuery.data ?? []) m.set(l.id, l);
+    return m;
+  }, [locationsQuery.data]);
+
+  const assignMutation = useMutation({
+    mutationFn: async ({ id, locationId }: { id: number; locationId: number | null }) =>
+      apiRequest("PATCH", `/api/admin/sms/conversations/${id}/assign`, { locationId }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/sms/conversations"] });
+      qc.invalidateQueries({ queryKey: ["/api/admin/sms/conversations", vars.id] });
+      toast({ title: t("smsAssignedToast") });
+    },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast({ title: t("smsAssignFailedToast"), description: msg, variant: "destructive" });
+    },
+  });
 
   // Open + mark-as-read in one server round-trip (the PATCH endpoint accepts
   // markRead: true) so the unread badge in the source filter clears as soon
@@ -182,6 +235,33 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
         {showArchived ? <ArchiveRestore className="h-4 w-4 me-1.5" /> : <Archive className="h-4 w-4 me-1.5" />}
         {showArchived ? t("smsFolderArchived") : t("smsFolderInbox")}
       </Button>
+      {/* Task #309: "Unknown" triage chip — narrows the list to conversations
+          with no resolved displayName and no assigned location so an admin
+          can quickly assign new numbers. */}
+      <Button
+        variant={unlinkedOnly ? "default" : "outline"}
+        size="sm"
+        onClick={() => setUnlinkedOnly(v => !v)}
+        aria-pressed={unlinkedOnly}
+        aria-label={t("smsFilterUnknownAria")}
+        data-testid="sms-filter-unknown"
+      >
+        <HelpCircle className="h-4 w-4 me-1.5" />
+        {t("smsFilterUnknown")}
+      </Button>
+      {/* Task #309: search across phone, displayName, and joined location.name. */}
+      <div className="relative ms-auto w-full sm:w-64">
+        <Search className="absolute start-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder={t("smsSearchPlaceholder")}
+          aria-label={t("smsSearchAriaLabel")}
+          className="ps-7 h-9"
+          data-testid="sms-search-input"
+        />
+      </div>
     </div>
   );
 
@@ -227,6 +307,40 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
               </Badge>
             )}
           </div>
+          {/* Task #309: manual "Assign to gemach" selector. Lets the admin
+              link an unrecognised number to a location so future messages
+              from that phone land pre-attributed. Choosing "Unassigned"
+              clears the link (e.g. after a mis-assignment). */}
+          <Select
+            value={selectedConversation.locationId !== null && selectedConversation.locationId !== undefined
+              ? String(selectedConversation.locationId)
+              : ASSIGN_NONE}
+            onValueChange={(value) => {
+              const next = value === ASSIGN_NONE ? null : parseInt(value, 10);
+              const current = selectedConversation.locationId ?? null;
+              if (next === current) return;
+              assignMutation.mutate({ id: selectedConversation.id, locationId: next });
+            }}
+            disabled={assignMutation.isPending || locationsQuery.isLoading}
+          >
+            <SelectTrigger
+              className="w-[180px] h-9"
+              aria-label={t("smsAssignToLocation")}
+              data-testid="sms-thread-assign-select"
+            >
+              <SelectValue placeholder={t("smsAssignToLocation")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ASSIGN_NONE} data-testid="sms-thread-assign-none">
+                {t("smsAssignNone")}
+              </SelectItem>
+              {(locationsQuery.data ?? []).map((loc) => (
+                <SelectItem key={loc.id} value={String(loc.id)} data-testid={`sms-thread-assign-${loc.id}`}>
+                  {loc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             size="sm"
@@ -380,6 +494,15 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
                       <span className={`truncate ${isUnread ? "font-semibold" : "font-medium"}`}>{label}</span>
                       {conv.displayName && (
                         <span className="text-xs text-muted-foreground truncate hidden sm:inline" dir="ltr">{conv.phone}</span>
+                      )}
+                      {/* Task #309: gemach name when the conversation is linked
+                          to a location — gives admins immediate context on
+                          which gemach the borrower belongs to without
+                          opening the thread. */}
+                      {conv.locationId !== null && conv.locationId !== undefined && locationsById.get(conv.locationId) && (
+                        <Badge variant="outline" className="shrink-0 text-[10px] py-0 px-1.5 hidden md:inline-flex" data-testid={`sms-conv-row-${conv.id}-location`}>
+                          {locationsById.get(conv.locationId)!.name}
+                        </Badge>
                       )}
                       <span className="ms-auto text-xs text-muted-foreground shrink-0">
                         {formatRelativeTimestamp(conv.lastMessageAt, t, language)}

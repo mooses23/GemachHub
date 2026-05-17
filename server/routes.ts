@@ -3538,10 +3538,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const folderParam = String(req.query.folder || 'inbox').toLowerCase();
       const folder: 'inbox' | 'archived' = folderParam === 'archived' ? 'archived' : 'inbox';
       const unreadOnly = req.query.unread === '1' || req.query.unread === 'true';
+      const unlinkedOnly = req.query.unlinked === '1' || req.query.unlinked === 'true';
       const q = typeof req.query.q === 'string' ? req.query.q : undefined;
       const limit = Math.max(1, Math.min(parseInt(String(req.query.limit || '50'), 10) || 50, 200));
       const offset = Math.max(0, parseInt(String(req.query.offset || '0'), 10) || 0);
-      const result = await storage.listSmsConversations({ channel, folder, unreadOnly, q, limit, offset });
+      const result = await storage.listSmsConversations({ channel, folder, unreadOnly, unlinkedOnly, q, limit, offset });
       res.json(result);
     } catch (err: any) {
       console.error('[admin/sms/conversations] error:', err);
@@ -3613,6 +3614,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[admin/sms/conversations PATCH] error:', err);
       const status = /not found/i.test(err?.message || '') ? 404 : 500;
       res.status(status).json({ message: err?.message || 'Failed to update conversation' });
+    }
+  });
+
+  // Task #309: Manual "Assign to location" endpoint. Accepts a locationId
+  // (or null to clear), updates the conversation row, and back-fills
+  // displayName from the location's `name` when the conversation has no
+  // resolved name yet. We deliberately do NOT overwrite an existing
+  // displayName so a borrower name resolved by auto-resolution wins over a
+  // generic location name when an admin reassigns the gemach later.
+  app.patch("/api/admin/sms/conversations/:id/assign", async (req, res) => {
+    if (!requireAdminInline(req, res)) return;
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid conversation id' });
+      const assignSchema = z.object({
+        locationId: z.number().int().nullable(),
+      });
+      const parsed = assignSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: 'Invalid assignment body', errors: parsed.error.flatten() });
+
+      const conversation = await storage.getSmsConversation(id);
+      if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
+
+      const patch: { locationId: number | null; displayName?: string } = { locationId: parsed.data.locationId };
+      if (parsed.data.locationId !== null && !conversation.displayName) {
+        const loc = await storage.getLocation(parsed.data.locationId);
+        if (!loc) return res.status(400).json({ message: 'Location not found' });
+        if (loc.name?.trim()) patch.displayName = loc.name.trim();
+      }
+      const updated = await storage.updateSmsConversation(id, patch);
+      res.json(updated);
+    } catch (err: any) {
+      console.error('[admin/sms/conversations/:id/assign] error:', err);
+      const status = /not found/i.test(err?.message || '') ? 404 : 500;
+      res.status(status).json({ message: err?.message || 'Failed to assign conversation' });
     }
   });
 
@@ -4472,7 +4508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Persist the inbound message into the conversation thread so admins
         // can see and reply to it from the unified inbox.
         try {
-          await storage.recordSmsMessage({
+          const { conversation } = await storage.recordSmsMessage({
             phone: normalizedFrom,
             channel,
             direction: 'inbound',
@@ -4482,6 +4518,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             deliveryStatus: 'received',
             isOptedOut: isOptOut,
           });
+          // Task #309: auto-resolve sender identity (borrower or operator)
+          // on first contact, and back-fill locationId if the To-number match
+          // above didn't yield one. We only write fields that are still null
+          // so a manual admin assignment is never overwritten.
+          if (conversation && (!conversation.displayName || !conversation.locationId)) {
+            try {
+              const { resolvePhoneOwner } = await import('./sms-resolver.js');
+              const owner = await resolvePhoneOwner(normalizedFrom, storage);
+              const patch: { displayName?: string; locationId?: number } = {};
+              if (!conversation.displayName && owner.displayName) patch.displayName = owner.displayName;
+              if (!conversation.locationId && owner.locationId) patch.locationId = owner.locationId;
+              if (Object.keys(patch).length > 0) {
+                await storage.updateSmsConversation(conversation.id, patch);
+              }
+            } catch (e: any) {
+              console.warn('[twilio-inbound-webhook] auto-resolve failed:', e?.message);
+            }
+          }
         } catch (e: any) {
           console.error('[twilio-inbound-webhook] failed to store conversation message:', e?.message);
         }

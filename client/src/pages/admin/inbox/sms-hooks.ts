@@ -16,12 +16,27 @@ export interface MessagesResponse {
 
 const POLL_MS = 30_000;
 
-export function useConversations(channel: SmsChannel, folder: SmsFolder) {
+export interface UseConversationsOpts {
+  q?: string;
+  unlinkedOnly?: boolean;
+}
+
+export function useConversations(
+  channel: SmsChannel,
+  folder: SmsFolder,
+  opts: UseConversationsOpts = {},
+) {
+  const { q = "", unlinkedOnly = false } = opts;
   return useQuery<ConversationsResponse>({
-    queryKey: ["/api/admin/sms/conversations", channel, folder],
+    // Search term + unlinked flag are part of the cache key so each filter
+    // combination gets its own round-trip and the previous result list
+    // doesn't briefly flash for a different filter set.
+    queryKey: ["/api/admin/sms/conversations", channel, folder, q, unlinkedOnly],
     queryFn: async () => {
       const params = new URLSearchParams({ folder, limit: "100" });
       if (channel !== "all") params.set("channel", channel);
+      if (q.trim()) params.set("q", q.trim());
+      if (unlinkedOnly) params.set("unlinked", "1");
       const res = await fetch(`/api/admin/sms/conversations?${params.toString()}`, { credentials: "include" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));

@@ -1380,6 +1380,7 @@ export class DatabaseStorage implements IStorage {
     channel?: SmsChannel;
     folder?: 'inbox' | 'archived';
     unreadOnly?: boolean;
+    unlinkedOnly?: boolean;
     q?: string;
     limit?: number;
     offset?: number;
@@ -1391,12 +1392,29 @@ export class DatabaseStorage implements IStorage {
     if (opts?.folder === 'archived') conditions.push(eq(smsConversations.isArchived, true));
     else if (opts?.folder === 'inbox') conditions.push(eq(smsConversations.isArchived, false));
     if (opts?.unreadOnly) conditions.push(sql`${smsConversations.unreadCount} > 0`);
+    // Task #309: "Unknown" filter — no resolved name AND no assigned location.
+    if (opts?.unlinkedOnly) {
+      conditions.push(sql`${smsConversations.displayName} IS NULL AND ${smsConversations.locationId} IS NULL`);
+    }
+    // Task #309: search across phone, displayName, and the joined location
+    // name. We resolve location-name matches up front (single SELECT) and
+    // OR-in `locationId IN (...)` so the main query stays a flat scan and
+    // doesn't need a JOIN that would complicate the count query.
     if (opts?.q && opts.q.trim()) {
-      const pattern = `%${opts.q.trim()}%`;
-      conditions.push(or(
+      const term = opts.q.trim();
+      const pattern = `%${term}%`;
+      const locMatches = await db.select({ id: locations.id })
+        .from(locations)
+        .where(ilike(locations.name, pattern));
+      const locIds = locMatches.map((r) => r.id);
+      const orClauses: any[] = [
         ilike(smsConversations.phone, pattern),
         ilike(smsConversations.displayName, pattern),
-      )!);
+      ];
+      if (locIds.length) {
+        orClauses.push(inArray(smsConversations.locationId, locIds));
+      }
+      conditions.push(or(...orClauses)!);
     }
     const whereClause = conditions.length ? and(...conditions) : undefined;
     const q = db.select().from(smsConversations);
