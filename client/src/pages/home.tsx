@@ -12,14 +12,14 @@ const heroWebp384 = "/img/hero-384.webp";
 const heroWebp640 = "/img/hero-640.webp";
 const heroWebp1024 = "/img/hero-1024.webp";
 const heroWebp1920 = "/img/hero-1920.webp";
-import { MapPin, Phone, RotateCcw, X } from "lucide-react";
+import { MapPin, Phone, RotateCcw, ChevronUp } from "lucide-react";
 
 export default function Home() {
   const { t } = useLanguage();
   const [showStory, setShowStory] = useState(false);
 
   const handleBannerClick = () => {
-    if (!showStory && navigator.vibrate) {
+    if (navigator.vibrate) {
       navigator.vibrate([10, 40, 10]);
     }
     setShowStory((v) => !v);
@@ -27,6 +27,9 @@ export default function Home() {
 
   const handleCloseStory = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (navigator.vibrate) {
+      navigator.vibrate([10, 40, 10]);
+    }
     setShowStory(false);
   };
 
@@ -67,7 +70,7 @@ export default function Home() {
                 width={1286}
                 height={1787}
                 alt=""
-                className="w-full h-full object-contain object-top md:object-center"
+                className={`w-full h-full ${showStory ? 'object-cover object-top' : 'object-contain object-top md:object-center'} transition-all duration-500`}
                 decoding="async"
                 fetchpriority="high"
               />
@@ -142,10 +145,19 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Founder's Story — revealed on banner click, sits above the baby photo */}
-        {showStory && (
-          <div className="relative z-10 animate-fade-slide-in">
-            <div className="container mx-auto px-4 pt-6 pb-2">
+        {/* Founder's Story — revealed on banner click, sits above the baby photo.
+            Uses an animated max-height + opacity container so close has the same
+            slow-release feel as open. */}
+        <div
+          className={`relative z-10 overflow-hidden transition-all ease-out ${
+            showStory
+              ? 'max-h-[3000px] opacity-100 duration-700'
+              : 'max-h-0 opacity-0 duration-500 pointer-events-none'
+          }`}
+          aria-hidden={!showStory}
+          {...(!showStory ? { inert: '' as unknown as undefined } : {})}
+        >
+          <div className="container mx-auto px-4 pt-6 pb-2">
               <div className="max-w-2xl mx-auto">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-amber-500/30"></div>
@@ -170,16 +182,6 @@ export default function Home() {
                     ></div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleCloseStory}
-                    aria-label={t('close') || 'Close'}
-                    className="absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full flex items-center justify-center text-amber-200/70 hover:text-amber-100 hover:bg-amber-500/10 transition-colors"
-                    data-testid="button-close-tribute"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-
                   <div className="relative px-6 py-6 md:px-10 md:py-8 space-y-3">
                     <p className="font-serif text-sm md:text-base text-amber-100/90 leading-relaxed tracking-wide" data-testid="text-tribute-para-1">
                       {t('tributePara1Lead')}{t('tributeFounderName')} <span className="text-amber-300/80 text-xs align-super font-sans">{t('tributeFounderHonor')}</span>{t('tributePara1Tail')}
@@ -193,6 +195,27 @@ export default function Home() {
                     <p className="font-serif text-sm md:text-base text-amber-200/80 leading-relaxed tracking-wide italic" data-testid="text-tribute-para-4">
                       {t('tributePara4')}
                     </p>
+
+                    {/* Golden collapse affordance — subtle, native feel */}
+                    <div className="pt-4 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={handleCloseStory}
+                        aria-label={t('close') || 'Collapse'}
+                        className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-amber-300/70 hover:text-amber-200 active:text-amber-100 active:scale-95 transition-all duration-300 ease-out"
+                        style={{
+                          background: 'linear-gradient(180deg, rgba(251,191,36,0.06) 0%, rgba(251,191,36,0.02) 100%)',
+                          border: '1px solid rgba(251,191,36,0.15)',
+                          boxShadow: 'inset 0 1px 0 rgba(251,191,36,0.08)',
+                        }}
+                        data-testid="button-close-tribute"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5 transition-transform duration-300 group-hover:-translate-y-0.5" />
+                        <span className="text-[10px] font-sans tracking-[0.15em] uppercase">
+                          {t('collapse') || 'Collapse'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -205,8 +228,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+        </div>
         </div>
 
         {/* Hero Section — headline + search card sit below the photo backdrop */}
