@@ -39,7 +39,7 @@ export default function Home() {
             behind the dedication banner and any expanded story panel,
             and bleeds softly into the slate gradient at the bottom. */}
         <div
-          className="absolute inset-x-0 top-0 h-[600px] md:h-[920px] overflow-hidden pointer-events-none"
+          className="absolute inset-x-0 top-0 h-[680px] md:h-[1170px] overflow-hidden pointer-events-none"
           aria-hidden="true"
         >
           {/* Picture wrapper — full width on mobile so it fills the screen,
@@ -58,10 +58,10 @@ export default function Home() {
                 src={heroJpg1024}
                 srcSet={`${heroJpg384} 384w, ${heroJpg640} 640w, ${heroJpg1024} 1024w, ${heroJpg1920} 1920w`}
                 sizes="(min-width: 768px) 840px, 100vw"
-                width={1312}
-                height={1450}
+                width={1286}
+                height={1787}
                 alt=""
-                className="w-full h-full object-cover object-center"
+                className="w-full h-full object-contain object-top md:object-center"
                 decoding="async"
                 fetchpriority="high"
               />
@@ -193,7 +193,7 @@ export default function Home() {
 
         {/* Hero Section — headline + search card sit below the photo backdrop */}
         <div className="relative z-10">
-          <div className="container mx-auto px-4 pt-[580px] md:pt-[880px] pb-10 md:pb-20">
+          <div className="container mx-auto px-4 pt-[660px] md:pt-[1130px] pb-10 md:pb-20">
             <div className="text-center max-w-4xl mx-auto mb-10 md:mb-14">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-5 md:mb-7 leading-tight text-glow">
                 {t("findBabyEarmuffsNearYou")}
