@@ -188,7 +188,14 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
   // ===== Thread detail view =====
   if (selectedId !== null && selectedConversation) {
     const isOptedOut = selectedConversation.isOptedOut;
-    const messages = threadQuery.data?.messages ?? [];
+    // Defensive client-side sort (oldest → newest) so the chat thread stays
+    // chronological even if the backend ever returns messages in a different
+    // order. Matches the "newest at bottom" UX assumption.
+    const messages = [...(threadQuery.data?.messages ?? [])].sort((a, b) => {
+      const at = a.sentAt instanceof Date ? a.sentAt.getTime() : new Date(a.sentAt as unknown as string).getTime();
+      const bt = b.sentAt instanceof Date ? b.sentAt.getTime() : new Date(b.sentAt as unknown as string).getTime();
+      return at - bt;
+    });
     const ChannelIcon = selectedConversation.channel === "whatsapp" ? SiWhatsapp : MessageSquare;
     const title = selectedConversation.displayName || selectedConversation.phone;
 
