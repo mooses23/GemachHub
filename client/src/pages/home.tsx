@@ -39,34 +39,58 @@ export default function Home() {
             behind the dedication banner and any expanded story panel,
             and bleeds softly into the slate gradient at the bottom. */}
         <div
-          className="absolute inset-x-0 top-0 h-[560px] md:h-[820px] overflow-hidden pointer-events-none"
+          className="absolute inset-x-0 top-0 h-[600px] md:h-[920px] overflow-hidden pointer-events-none"
           aria-hidden="true"
         >
-          <picture>
-            <source
-              type="image/webp"
-              srcSet={`${heroWebp384} 384w, ${heroWebp640} 640w, ${heroWebp1024} 1024w, ${heroWebp1920} 1920w`}
-              sizes="100vw"
-            />
-            <img
-              src={heroJpg1024}
-              srcSet={`${heroJpg384} 384w, ${heroJpg640} 640w, ${heroJpg1024} 1024w, ${heroJpg1920} 1920w`}
-              sizes="100vw"
-              width={1920}
-              height={1170}
-              alt=""
-              className="w-full h-full object-cover object-center"
-              decoding="async"
-              fetchpriority="high"
-            />
-          </picture>
+          {/* Picture wrapper — full width on mobile so it fills the screen,
+              centered with a portrait-friendly max-width on desktop so the
+              full image shows without aggressive cropping by object-cover.
+              The width matches the source crop's aspect (~0.91) at this
+              container height, leaving slate gradient on the sides. */}
+          <div className="relative h-full w-full md:w-[840px] md:mx-auto">
+            <picture>
+              <source
+                type="image/webp"
+                srcSet={`${heroWebp384} 384w, ${heroWebp640} 640w, ${heroWebp1024} 1024w, ${heroWebp1920} 1920w`}
+                sizes="(min-width: 768px) 840px, 100vw"
+              />
+              <img
+                src={heroJpg1024}
+                srcSet={`${heroJpg384} 384w, ${heroJpg640} 640w, ${heroJpg1024} 1024w, ${heroJpg1920} 1920w`}
+                sizes="(min-width: 768px) 840px, 100vw"
+                width={1312}
+                height={1450}
+                alt=""
+                className="w-full h-full object-cover object-center"
+                decoding="async"
+                fetchpriority="high"
+              />
+            </picture>
+            {/* Side fades on desktop — blend the picture's left/right edges
+                into the surrounding slate so the centered photo doesn't
+                look like a hard-edged card. */}
+            <div
+              className="hidden md:block absolute inset-y-0 -left-32 w-40 pointer-events-none"
+              style={{
+                background:
+                  'linear-gradient(to right, rgba(15,23,42,1) 0%, rgba(15,23,42,0) 100%)',
+              }}
+            ></div>
+            <div
+              className="hidden md:block absolute inset-y-0 -right-32 w-40 pointer-events-none"
+              style={{
+                background:
+                  'linear-gradient(to left, rgba(15,23,42,1) 0%, rgba(15,23,42,0) 100%)',
+              }}
+            ></div>
+          </div>
           {/* Bottom bleed — fades the photo into the slate background so
               there is no hard seam where the picture ends. */}
           <div
             className="absolute inset-0"
             style={{
               background:
-                'linear-gradient(to bottom, rgba(15,23,42,0) 0%, rgba(15,23,42,0) 45%, rgba(15,23,42,0.55) 75%, rgba(15,23,42,0.95) 95%, rgba(15,23,42,1) 100%)',
+                'linear-gradient(to bottom, rgba(15,23,42,0) 0%, rgba(15,23,42,0) 55%, rgba(15,23,42,0.55) 80%, rgba(15,23,42,0.95) 96%, rgba(15,23,42,1) 100%)',
             }}
           ></div>
           {/* Subtle vignette so the corners blend rather than hard-cut. */}
@@ -74,7 +98,7 @@ export default function Home() {
             className="absolute inset-0"
             style={{
               background:
-                'radial-gradient(ellipse at center top, transparent 50%, rgba(15,23,42,0.4) 100%)',
+                'radial-gradient(ellipse at center top, transparent 55%, rgba(15,23,42,0.35) 100%)',
             }}
           ></div>
         </div>
@@ -169,7 +193,7 @@ export default function Home() {
 
         {/* Hero Section — headline + search card sit below the photo backdrop */}
         <div className="relative z-10">
-          <div className="container mx-auto px-4 pt-[540px] md:pt-[780px] pb-10 md:pb-20">
+          <div className="container mx-auto px-4 pt-[580px] md:pt-[880px] pb-10 md:pb-20">
             <div className="text-center max-w-4xl mx-auto mb-10 md:mb-14">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-5 md:mb-7 leading-tight text-glow">
                 {t("findBabyEarmuffsNearYou")}
