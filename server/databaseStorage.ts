@@ -1,4 +1,4 @@
-import { eq, and, sql, ilike, isNull, or, inArray, desc, lt } from 'drizzle-orm';
+import { eq, and, sql, ilike, isNull, or, inArray, desc, lt, type SQL } from 'drizzle-orm';
 import { db } from './db.js';
 import {
   users, type User, type InsertUser,
@@ -1407,7 +1407,7 @@ export class DatabaseStorage implements IStorage {
         .from(locations)
         .where(ilike(locations.name, pattern));
       const locIds = locMatches.map((r) => r.id);
-      const orClauses: any[] = [
+      const orClauses: SQL[] = [
         ilike(smsConversations.phone, pattern),
         ilike(smsConversations.displayName, pattern),
       ];
