@@ -128,22 +128,21 @@ export default function Home() {
               <div className="mb-8">
                 <div className="relative inline-block">
                   <div className="absolute inset-0 bg-slate-800 blur-2xl rounded-full scale-150"></div>
-                  <div className="relative w-36 h-36 md:w-48 md:h-48 mx-auto rounded-2xl overflow-hidden" style={{ backgroundColor: '#1e293b' }}>
+                  <div className="relative w-48 h-48 md:w-64 md:h-64 mx-auto rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl" style={{ backgroundColor: '#0f1a30' }}>
                     <picture>
                       <source
                         type="image/webp"
                         srcSet={`${heroWebp384} 384w, ${heroWebp640} 640w, ${heroWebp1024} 1024w`}
-                        sizes="(max-width: 768px) 144px, 192px"
+                        sizes="(max-width: 768px) 192px, 256px"
                       />
                       <img
                         src={heroJpg640}
                         srcSet={`${heroJpg384} 384w, ${heroJpg640} 640w, ${heroJpg1024} 1024w`}
-                        sizes="(max-width: 768px) 144px, 192px"
-                        width={1094}
-                        height={1094}
-                        alt="Baby with earmuffs"
-                        className="w-full h-full object-contain mix-blend-multiply"
-                        style={{ filter: 'brightness(1.1) contrast(1.05)' }}
+                        sizes="(max-width: 768px) 192px, 256px"
+                        width={1200}
+                        height={1200}
+                        alt="Founder's mother holding her grandchild wearing Baby Banz earmuffs"
+                        className="w-full h-full object-cover"
                         decoding="async"
                         fetchpriority="high"
                       />
