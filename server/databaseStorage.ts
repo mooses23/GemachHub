@@ -64,6 +64,10 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+  }
+
   // Invite Code operations
   async createInviteCode(insertInviteCode: InsertInviteCode): Promise<InviteCode> {
     const result = await db.insert(inviteCodes).values({
@@ -1160,6 +1164,13 @@ export class DatabaseStorage implements IStorage {
         eq(auditLogs.entityId, entityId)
       )
     );
+  }
+
+  async getAuditLogsByAction(action: string, limit = 25): Promise<AuditLog[]> {
+    return db.select().from(auditLogs)
+      .where(eq(auditLogs.action, action))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit);
   }
 
   // Webhook Event operations (for idempotency)

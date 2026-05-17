@@ -243,6 +243,31 @@ export function setupAuth(app: Express) {
     const { password, ...userWithoutPassword } = req.user as SelectUser;
     res.json(userWithoutPassword);
   });
+
+  app.patch("/api/user/password", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+      return res.status(400).json({ message: "Invalid password data" });
+    }
+    const user = req.user as SelectUser;
+    const valid = await comparePasswords(currentPassword, user.password);
+    if (!valid) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+    const hashed = await hashPassword(newPassword);
+    await storage.updateUserPassword(user.id, hashed);
+    await storage.createAuditLog({
+      actorUserId: user.id,
+      actorType: user.isAdmin ? "admin" : "operator",
+      action: "password_changed",
+      entityType: "user",
+      entityId: user.id,
+      metadata: JSON.stringify({ username: user.username }),
+      ipAddress: req.ip,
+    });
+    res.json({ message: "Password updated successfully" });
+  });
 }
 
 // Create a middleware for role-based access control

@@ -17,7 +17,7 @@ import {
   DollarSign, AlarmClock, BarChart3, Mail, MessageSquare,
   Shield, AlertTriangle, BookOpen, Phone, Bell, X,
   CheckCircle2, XCircle, Download, Send, MailCheck, Plus,
-  ArrowRight, Activity, Package, Truck,
+  ArrowRight, Activity, Package, Truck, KeyRound,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useLanguage } from "@/hooks/use-language";
@@ -61,7 +61,7 @@ interface DashboardSummary {
   disputes: DisputeSummary;
 }
 interface ActivityItem {
-  kind: "transaction" | "application" | "contact";
+  kind: "transaction" | "application" | "contact" | "password_change";
   id: number;
   at: string;
   action?: "lent" | "returned";
@@ -496,7 +496,7 @@ export default function Dashboard() {
       return <p className="text-sm text-muted-foreground">{t('noActivityYet')}</p>;
     }
     const iconFor = (k: ActivityItem['kind']) =>
-      k === 'transaction' ? DollarSign : k === 'application' ? FileText : MessageSquare;
+      k === 'transaction' ? DollarSign : k === 'application' ? FileText : k === 'password_change' ? KeyRound : MessageSquare;
     return (
       <ul className="space-y-2.5">
         {items.slice(0, 8).map((it) => {
@@ -506,7 +506,9 @@ export default function Dashboard() {
               ? (it.action === 'returned' ? 'activityTransactionReturned' : 'activityTransactionLent')
               : it.kind === 'application'
                 ? 'activityApplicationNew'
-                : 'activityContactNew';
+                : it.kind === 'password_change'
+                  ? 'activityPasswordChange'
+                  : 'activityContactNew';
           const title = t(titleKey as any).replace('{name}', it.name);
           return (
             <li key={`${it.kind}-${it.id}`}>

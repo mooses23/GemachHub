@@ -6244,16 +6244,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!requireAdminDash(req, res)) return;
     try {
       const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "10"), 10) || 10, 1), 25);
-      const [txs, apps, msgs, locs] = await Promise.all([
+      const [txs, apps, msgs, locs, pwdLogs] = await Promise.all([
         storage.getAllTransactions(),
         storage.getAllApplications(),
         storage.getAllContacts(),
         storage.getAllLocations(),
+        storage.getAuditLogsByAction("password_changed", 25),
       ]);
       const locName = new Map(locs.map((l: any) => [l.id, l.name]));
 
       type Item = {
-        kind: "transaction" | "application" | "contact";
+        kind: "transaction" | "application" | "contact" | "password_change";
         id: number;
         at: string;
         // Structured payload — frontend builds localized strings.
@@ -6298,6 +6299,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subtitle: c.subject || (c.email || ""),
           // Filter hint: open unread, focus this message.
           href: `/admin/inbox?status=unread&focus=${c.id}`,
+        });
+      }
+
+      for (const log of pwdLogs) {
+        let username = "";
+        try {
+          const meta = log.metadata ? JSON.parse(log.metadata) : {};
+          username = meta.username || "";
+        } catch { /* ignore */ }
+        items.push({
+          kind: "password_change",
+          id: log.id,
+          at: new Date(log.createdAt).toISOString(),
+          name: username,
+          subtitle: log.actorType || "user",
+          href: `/admin/users`,
         });
       }
 

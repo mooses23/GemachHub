@@ -73,6 +73,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   createSystemUser(userData: Omit<InsertUser, 'inviteCode'>): Promise<User>;
+  updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
   
   // Invite Code operations
   createInviteCode(inviteCode: InsertInviteCode): Promise<InviteCode>;
@@ -216,6 +217,7 @@ export interface IStorage {
   // Audit Log operations
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   getAuditLogsForEntity(entityType: string, entityId: number): Promise<AuditLog[]>;
+  getAuditLogsByAction(action: string, limit?: number): Promise<AuditLog[]>;
 
   // Webhook Event operations (for idempotency)
   getWebhookEvent(eventId: string): Promise<WebhookEvent | undefined>;
@@ -2386,6 +2388,13 @@ export class MemStorage implements IStorage {
   }
 
   // Internal method for creating system users without invite code validation
+  async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) {
+      this.users.set(userId, { ...user, password: hashedPassword });
+    }
+  }
+
   async createSystemUser(userData: Omit<InsertUser, 'inviteCode'>): Promise<User> {
     const id = this.userCounter++;
     const user: User = { 
@@ -3307,6 +3316,13 @@ export class MemStorage implements IStorage {
     return Array.from(this.auditLogsMap.values()).filter(
       log => log.entityType === entityType && log.entityId === entityId
     );
+  }
+
+  async getAuditLogsByAction(action: string, limit = 25): Promise<AuditLog[]> {
+    return Array.from(this.auditLogsMap.values())
+      .filter(log => log.action === action)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
   }
 
   // Webhook Event operations

@@ -371,6 +371,7 @@ const enTranslations = {
     activityTransactionReturned: "Returned by {name}",
     activityApplicationNew: "New application from {name}",
     activityContactNew: "Message from {name}",
+    activityPasswordChange: "Password changed by {name}",
     noActivityYet: "No activity yet.",
     viewAll: "View all",
     statusOk: "OK",

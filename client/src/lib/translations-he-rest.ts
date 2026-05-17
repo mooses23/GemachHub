@@ -310,6 +310,7 @@ const dict: Record<RestTranslationKey, string> = {
     activityTransactionReturned: "הוחזר על ידי {name}",
     activityApplicationNew: "בקשה חדשה מ-{name}",
     activityContactNew: "הודעה מ-{name}",
+    activityPasswordChange: "סיסמה שונתה על ידי {name}",
     noActivityYet: "אין פעילות עדיין.",
     viewAll: "הצג הכל",
     statusOk: "תקין",
