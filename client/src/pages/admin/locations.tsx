@@ -2606,16 +2606,28 @@ export default function AdminLocations() {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <button
-                              type="button"
-                              onClick={() => handleChangePinForLocation(location)}
-                              className="font-mono text-foreground/80 hover:text-foreground bg-white/5 px-2 py-0.5 rounded transition-colors"
-                              data-testid={`btn-change-pin-${location.id}`}
-                            >
-                              ••••
-                            </button>
+                          <div className="flex items-start gap-2">
+                            <MapPin className={`h-4 w-4 mt-0.5 shrink-0 ${location.address ? "text-muted-foreground" : "text-orange-400/70"}`} />
+                            {location.address ? (
+                              <button
+                                type="button"
+                                onClick={() => handleEditLocation(location)}
+                                className="text-foreground/90 hover:text-foreground hover:underline transition-colors text-left"
+                              >
+                                <span className="block">{location.address}</span>
+                                {location.addressHe && (
+                                  <span className="block text-foreground/70">{location.addressHe}</span>
+                                )}
+                              </button>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] py-0 border-orange-500/40 text-orange-400 bg-orange-500/10 cursor-pointer"
+                                onClick={() => handleEditLocation(location)}
+                              >
+                                MISSING ADDRESS
+                              </Badge>
+                            )}
                           </div>
                         </div>
 
