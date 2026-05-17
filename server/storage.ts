@@ -272,7 +272,7 @@ export interface IStorage {
   }): Promise<{ rows: SmsConversation[]; total: number }>;
   getSmsConversation(id: number): Promise<SmsConversation | undefined>;
   getSmsConversationByPhoneChannel(phone: string, channel: SmsChannel): Promise<SmsConversation | undefined>;
-  getSmsMessages(conversationId: number, opts?: { limit?: number }): Promise<SmsMessage[]>;
+  getSmsMessages(conversationId: number, opts?: { limit?: number; beforeId?: number }): Promise<SmsMessage[]>;
   updateSmsConversation(
     id: number,
     data: Partial<Pick<SmsConversation, 'isArchived' | 'isOptedOut' | 'displayName' | 'locationId'>> & { markRead?: boolean },
@@ -3683,10 +3683,13 @@ export class MemStorage implements IStorage {
     return Array.from(this.smsConversationsMap.values()).find(c => c.phone === phone && c.channel === channel);
   }
 
-  async getSmsMessages(conversationId: number, opts?: { limit?: number }): Promise<SmsMessage[]> {
-    const rows = Array.from(this.smsMessagesMap.values())
-      .filter(m => m.conversationId === conversationId)
-      .sort((a, b) => a.sentAt.getTime() - b.sentAt.getTime());
+  async getSmsMessages(conversationId: number, opts?: { limit?: number; beforeId?: number }): Promise<SmsMessage[]> {
+    let rows = Array.from(this.smsMessagesMap.values())
+      .filter(m => m.conversationId === conversationId);
+    if (opts?.beforeId !== undefined) {
+      rows = rows.filter(m => m.id < opts.beforeId!);
+    }
+    rows.sort((a, b) => a.sentAt.getTime() - b.sentAt.getTime());
     return opts?.limit ? rows.slice(-opts.limit) : rows;
   }
 

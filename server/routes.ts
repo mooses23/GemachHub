@@ -3567,6 +3567,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Alias matching the task #307 spec: returns just the messages array.
+  // Supports cursor pagination via `before` (smallest message id from the
+  // previous page) so long threads aren't capped by the per-page limit —
+  // the UI can keep loading older windows until empty.
   app.get("/api/admin/sms/conversations/:id/messages", async (req, res) => {
     if (!requireAdminInline(req, res)) return;
     try {
@@ -3575,8 +3578,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conversation = await storage.getSmsConversation(id);
       if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
       const limit = Math.max(1, Math.min(parseInt(String(req.query.limit || '500'), 10) || 500, 1000));
-      const messages = await storage.getSmsMessages(id, { limit });
-      res.json({ messages });
+      const beforeRaw = req.query.before;
+      const beforeId = beforeRaw !== undefined ? parseInt(String(beforeRaw), 10) : undefined;
+      const messages = await storage.getSmsMessages(id, {
+        limit,
+        beforeId: Number.isFinite(beforeId as number) ? (beforeId as number) : undefined,
+      });
+      const nextBefore = messages.length === limit ? messages[0].id : null;
+      res.json({ messages, nextBefore });
     } catch (err: any) {
       console.error('[admin/sms/conversations/:id/messages] error:', err);
       res.status(500).json({ message: err?.message || 'Failed to fetch messages' });

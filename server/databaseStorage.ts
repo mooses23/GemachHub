@@ -1,4 +1,4 @@
-import { eq, and, sql, ilike, isNull, or, inArray, desc } from 'drizzle-orm';
+import { eq, and, sql, ilike, isNull, or, inArray, desc, lt } from 'drizzle-orm';
 import { db } from './db.js';
 import {
   users, type User, type InsertUser,
@@ -1420,13 +1420,18 @@ export class DatabaseStorage implements IStorage {
     return rows[0];
   }
 
-  async getSmsMessages(conversationId: number, opts?: { limit?: number }): Promise<SmsMessage[]> {
+  async getSmsMessages(conversationId: number, opts?: { limit?: number; beforeId?: number }): Promise<SmsMessage[]> {
     const limit = Math.max(1, Math.min(opts?.limit ?? 500, 1000));
     // Fetch the latest N (DESC + limit) then reverse so callers receive
-    // messages in chronological ascending order. Without the DESC pass,
-    // a long thread would silently truncate the most recent activity.
+    // messages in chronological ascending order. Callers can paginate
+    // backwards by passing `beforeId` (the smallest id from the previous
+    // page) to fetch the next-older window — this lifts the hard cap and
+    // gives the admin UI true full-history access on long threads.
+    const whereExpr = opts?.beforeId !== undefined
+      ? and(eq(smsMessages.conversationId, conversationId), lt(smsMessages.id, opts.beforeId))
+      : eq(smsMessages.conversationId, conversationId);
     const rows = await db.select().from(smsMessages)
-      .where(eq(smsMessages.conversationId, conversationId))
+      .where(whereExpr)
       .orderBy(desc(smsMessages.sentAt))
       .limit(limit);
     return rows.reverse();
