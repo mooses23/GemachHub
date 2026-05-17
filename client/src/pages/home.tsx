@@ -47,7 +47,7 @@ export default function Home() {
             wrapper grows so there is no awkward gap before the content
             below. */}
         {/* Mobile: tight height so headline sits high. Desktop: cinematic full-bleed. */}
-        <div className="relative min-h-[470px] md:min-h-[680px]">
+        <div className="relative min-h-[470px] md:min-h-[700px]">
         <div
           className="absolute inset-0 overflow-hidden pointer-events-none"
           aria-hidden="true"
