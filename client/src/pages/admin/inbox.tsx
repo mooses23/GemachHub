@@ -192,7 +192,10 @@ export default function AdminInbox() {
   // surfaces without a manual refresh.
   const inboxCountsQuery = useQuery<{ inbox: number; sent: number; spam: number; trash: number; smsUnread?: number; whatsappUnread?: number }>({
     queryKey: ["/api/admin/inbox/counts"],
-    refetchInterval: 15_000,
+    // 30 s matches the SMS list/thread cadence so the source-filter unread
+    // badge and the SMS view itself stay roughly in lockstep without extra
+    // backend load.
+    refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   });
   const smsUnread = inboxCountsQuery.data?.smsUnread ?? 0;
@@ -2270,23 +2273,29 @@ export default function AdminInbox() {
                   {t("inboxClearFilters")}
                 </Button>
               )}
-              <div className="w-px h-6 bg-border mx-1" />
-              <Button
-                variant={selectMode ? "default" : "outline"}
-                size="sm"
-                onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                data-testid="button-toggle-select-mode"
-                disabled={bulkRunning}
-              >
-                {selectMode ? (
-                  <><X className="h-4 w-4 mr-1.5" />{t("inboxBulkExit")}</>
-                ) : (
-                  <><CheckSquare className="h-4 w-4 mr-1.5" />{t("inboxBulkSelect")}</>
-                )}
-              </Button>
+              {/* Bulk-select and swipe-hint are email/form affordances; the
+                  SMS view has its own per-conversation actions instead. */}
+              {!isSmsView && (
+                <>
+                  <div className="w-px h-6 bg-border mx-1" />
+                  <Button
+                    variant={selectMode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                    data-testid="button-toggle-select-mode"
+                    disabled={bulkRunning}
+                  >
+                    {selectMode ? (
+                      <><X className="h-4 w-4 mr-1.5" />{t("inboxBulkExit")}</>
+                    ) : (
+                      <><CheckSquare className="h-4 w-4 mr-1.5" />{t("inboxBulkSelect")}</>
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
-          {!selectMode && (
+          {!selectMode && !isSmsView && (
             <p className="text-xs text-muted-foreground italic" data-testid="text-swipe-hint">
               {t("inboxSwipeHint")}
             </p>
