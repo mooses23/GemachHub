@@ -2226,22 +2226,26 @@ export default function AdminInbox() {
                   </Select>
                 </div>
               )}
-              {/* Read/unread status filter */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">{t("inboxFilterStatusLabel")}</span>
-                <Select value={readFilter} onValueChange={(v) => setReadFilter(v as ReadFilter)}>
-                  <SelectTrigger className="h-8 text-sm w-[110px]" data-testid="filter-read-select">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" data-testid="filter-read-all">{t("msgAll")}</SelectItem>
-                    <SelectItem value="unread" data-testid="filter-read-unread">{t("unread")}</SelectItem>
-                    <SelectItem value="read" data-testid="filter-read-read">{t("read")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {/* Reply-state filter */}
-              {folder !== "sent" && (
+              {/* Read/unread status filter — hidden in SMS mode, where the
+                  SMS view has its own All/SMS/WhatsApp + Inbox/Archived
+                  chips rather than the read/reply axes. */}
+              {!isSmsView && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">{t("inboxFilterStatusLabel")}</span>
+                  <Select value={readFilter} onValueChange={(v) => setReadFilter(v as ReadFilter)}>
+                    <SelectTrigger className="h-8 text-sm w-[110px]" data-testid="filter-read-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" data-testid="filter-read-all">{t("msgAll")}</SelectItem>
+                      <SelectItem value="unread" data-testid="filter-read-unread">{t("unread")}</SelectItem>
+                      <SelectItem value="read" data-testid="filter-read-read">{t("read")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {/* Reply-state filter — also hidden in SMS mode. */}
+              {!isSmsView && folder !== "sent" && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">{t("inboxFilterReplyLabel")}</span>
                   <Select value={replyFilter} onValueChange={(v) => setReplyFilter(v as ReplyFilter)}>
