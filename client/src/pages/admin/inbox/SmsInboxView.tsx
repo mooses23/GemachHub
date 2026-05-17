@@ -19,7 +19,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
-import { formatDate } from "./utils";
 import type { SmsConversation, SmsMessage } from "@shared/schema";
 
 type Channel = "all" | "sms" | "whatsapp";
@@ -109,7 +108,7 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
           // the badge stuck and look like a UI bug.
           console.warn("[sms] markRead failed", e);
           toast({
-            title: t("smsReplyFailedToast"),
+            title: t("smsMarkReadFailed"),
             description: e?.message ?? String(e),
             variant: "destructive",
           });
@@ -397,8 +396,8 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
                       {conv.displayName && (
                         <span className="text-xs text-muted-foreground truncate hidden sm:inline" dir="ltr">{conv.phone}</span>
                       )}
-                      <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                        {formatDate(conv.lastMessageAt as unknown as string)}
+                      <span className="ms-auto text-xs text-muted-foreground shrink-0">
+                        {formatRelativeTimestamp(conv.lastMessageAt as unknown as string, t, language)}
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground truncate mt-0.5">
@@ -421,6 +420,31 @@ export function SmsInboxView({ smsUnread, whatsappUnread }: Props) {
       </div>
     </div>
   );
+}
+
+// Locale-aware relative timestamp for the conversation list ("just now",
+// "5m", "3h", "2d"). Falls back to a localized short date for anything older
+// than a week so older threads stay readable.
+function formatRelativeTimestamp(
+  raw: string | Date | null | undefined,
+  t: (k: any, params?: Record<string, string | number>) => string,
+  language: string,
+): string {
+  if (!raw) return "";
+  const d = raw instanceof Date ? raw : new Date(raw);
+  if (isNaN(d.getTime())) return "";
+  const diffMs = Date.now() - d.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return t("smsRelativeJustNow");
+  if (minutes < 60) return t("smsRelativeMinutes", { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("smsRelativeHours", { count: hours });
+  const days = Math.floor(hours / 24);
+  if (days < 7) return t("smsRelativeDays", { count: days });
+  return d.toLocaleDateString(language === "he" ? "he-IL" : undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 // Single chat bubble. Inbound = left/grey, outbound = right/primary. Outbound

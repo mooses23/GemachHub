@@ -1317,6 +1317,11 @@ const enRest = {
     smsStatusDelivered: "Delivered",
     smsStatusSent: "Sent",
     smsRetry: "Retry",
+    smsMarkReadFailed: "Couldn't mark conversation as read",
+    smsRelativeJustNow: "just now",
+    smsRelativeMinutes: "{count}m",
+    smsRelativeHours: "{count}h",
+    smsRelativeDays: "{count}d",
 
 } as const;
 

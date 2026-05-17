@@ -1318,6 +1318,11 @@ const dict: Record<RestTranslationKey, string> = {
     smsStatusDelivered: "נמסר",
     smsStatusSent: "נשלח",
     smsRetry: "נסה שוב",
+    smsMarkReadFailed: "לא ניתן לסמן את השיחה כנקראה",
+    smsRelativeJustNow: "עכשיו",
+    smsRelativeMinutes: "{count} דק׳",
+    smsRelativeHours: "{count} שע׳",
+    smsRelativeDays: "{count} ימים",
 
 };
 
